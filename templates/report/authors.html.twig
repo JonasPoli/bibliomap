@@ -1,0 +1,281 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Autores — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Autores</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-people me-2" style="color:var(--bm-accent)"></i>
+        Análise de Autores
+    </h1>
+    <p class="bm-page-subtitle">Indicadores de produtividade, citações, H-index, G-index e Lei de Lotka</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_authors|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Autores</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value" title="{{ kpis.top_author }}">{{ kpis.top_author|slice(0, 20) }}{{ kpis.top_author|length > 20 ? '…' : '' }}</div>
+            <div class="bm-stat-label">Autor Mais Produtivo</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.top_author_docs }}</div>
+            <div class="bm-stat-label">Máximo de Documentos por Autor</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Bar chart -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Autores mais Produtivos</h5>
+            <div style="position:relative;height:320px">
+                <canvas id="chart-authors"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lotka Law chart -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="card-title mb-0" style="font-weight:700">Lei de Lotka</h5>
+                <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Distribuição de Produtividade</span>
+            </div>
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Observado vs. esperado: frequência de autores com N publicações</p>
+            <div style="position:relative;height:270px">
+                <canvas id="chart-lotka"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produtividade</h5>
+        <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar autor…" style="width:220px" oninput="filterTable()">
+    </div>
+    <div class="table-responsive" style="max-height:440px;overflow-y:auto">
+        <table class="table table-hover align-middle border-bm mb-0" id="authors-table" style="font-size:13px">
+            <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                <tr>
+                    <th style="color:var(--bm-text-muted);font-weight:600">#</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600">Autor</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center" title="H-index dentro do corpus">H-index</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center" title="G-index dentro do corpus">G-index</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Período</th>
+                </tr>
+            </thead>
+            <tbody class="border-0">
+                {% for auth in list %}
+                <tr class="author-row" data-name="{{ auth.name|lower }}">
+                    <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
+                    <td style="font-weight:600;color:var(--bm-text)">{{ auth.name }}</td>
+                    <td style="text-align:right;font-weight:700" class="text-accent">{{ auth.doc_count }}</td>
+                    <td style="text-align:right">{{ auth.citation_count }}</td>
+                    <td style="text-align:right;color:var(--bm-text-muted)">{{ auth.avg_citations }}</td>
+                    <td style="text-align:center">
+                        <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:11px;font-weight:700;min-width:28px">{{ auth.h_index }}</span>
+                    </td>
+                    <td style="text-align:center">
+                        <span class="badge rounded-pill" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:11px;font-weight:700;min-width:28px">{{ auth.g_index }}</span>
+                    </td>
+                    <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ auth.first_year }}–{{ auth.last_year }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const listData       = {{ list|slice(0, 10)|json_encode|raw }};
+const lotkaObserved  = {{ lotka_observed|json_encode|raw }};
+const lotkaExpected  = {{ lotka_expected|json_encode|raw }};
+let chartInstance = null;
+let lotkaChart    = null;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid:      light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text:      light ? '#57606a' : '#8b949e',
+        accent:    '#4f8ef7',
+        accentSec: '#a855f7',
+        green:     '#3fb950',
+        orange:    '#f0883e',
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+    rebuildLotka();
+});
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chart-authors').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: listData.map(a => a.name),
+            datasets: [
+                {
+                    label: 'Artigos',
+                    data: listData.map(a => a.doc_count),
+                    backgroundColor: cl.accent + 'cc',
+                    borderColor: cl.accent,
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Citações Totais',
+                    data: listData.map(a => a.citation_count),
+                    backgroundColor: cl.accentSec + 'cc',
+                    borderColor: cl.accentSec,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y_cit'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    type: 'linear', display: true, position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Nº Artigos', font: { weight: 'bold' } }
+                },
+                y_cit: {
+                    type: 'linear', display: true, position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function rebuildLotka() {
+    const cl = getColors();
+    if (lotkaChart) lotkaChart.destroy();
+
+    const keys     = Object.keys(lotkaObserved).map(Number);
+    const observed = keys.map(k => lotkaObserved[k]);
+    const expected = keys.map(k => lotkaExpected[k] || 0);
+
+    const ctx = document.getElementById('chart-lotka').getContext('2d');
+    lotkaChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys.map(k => `${k} pub.`),
+            datasets: [
+                {
+                    label: 'Observado',
+                    data: observed,
+                    backgroundColor: cl.accent + 'bb',
+                    borderColor: cl.accent,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Esperado (Lotka)',
+                    data: expected,
+                    type: 'line',
+                    borderColor: cl.orange,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 3],
+                    pointRadius: 3,
+                    tension: 0.3,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Nº Autores', font: { weight: 'bold' } },
+                    beginAtZero: true,
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q = document.getElementById('table-search').value.toLowerCase().trim();
+    document.querySelectorAll('.author-row').forEach(row => {
+        const name = row.dataset.name;
+        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    const fullList = {{ list|json_encode|raw }};
+    let csv = "\uFEFFAuthor;Articles;Citations;Average Citations;H-index;G-index;First Year;Last Year\r\n";
+    fullList.forEach(a => {
+        csv += `"${a.name}";${a.doc_count};${a.citation_count};${a.avg_citations};${a.h_index};${a.g_index};${a.first_year};${a.last_year}\r\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href  = url;
+    link.download = 'analise_autores.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+rebuildLotka();
+</script>
+{% endblock %}

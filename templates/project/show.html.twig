@@ -1,0 +1,174 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <span class="current">{{ project.title|slice(0, 40) }}{% if project.title|length > 40 %}…{% endif %}</span>
+{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('app_projects_edit', {id: project.id}) }}" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
+        <i class="bi bi-pencil me-1"></i>Editar
+    </a>
+    <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="font-size:13px;padding:6px 14px">
+        <i class="bi bi-upload me-1"></i>Importar dados
+    </a>
+{% endblock %}
+
+{% block body %}
+
+{# Status banner se não estiver pronto #}
+{% if project.status == 'draft' or project.status == 'awaiting_import' %}
+<div style="background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(168,85,247,0.1));border:1px solid rgba(79,142,247,0.2);border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:16px">
+    <div style="font-size:28px">🚀</div>
+    <div>
+        <div style="font-size:14px;font-weight:600;color:var(--bm-text)">Projeto criado com sucesso!</div>
+        <div style="font-size:13px;color:var(--bm-text-muted)">O próximo passo é importar seus arquivos bibliográficos. Clique em <strong style="color:var(--bm-accent)">Importar dados</strong> para começar.</div>
+    </div>
+</div>
+{% endif %}
+
+{# Header do projeto #}
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-8">
+        <div class="bm-card">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge text-bg-{{ project.statusColor }}" style="font-size:11px;padding:4px 10px;border-radius:20px">
+                    {{ project.statusLabel }}
+                </span>
+                {% if project.isPublic %}
+                    <span class="badge text-bg-secondary" style="font-size:11px;padding:4px 10px;border-radius:20px">
+                        <i class="bi bi-globe2 me-1"></i>Público
+                    </span>
+                {% endif %}
+            </div>
+
+            <h1 style="font-size:20px;font-weight:700;color:var(--bm-text);margin:0 0 8px">
+                {{ project.title }}
+            </h1>
+
+            {% if project.description %}
+                <p style="font-size:14px;color:var(--bm-text-muted);margin:0 0 16px;line-height:1.6">
+                    {{ project.description }}
+                </p>
+            {% endif %}
+
+            {% if project.researchQuestion %}
+                <div style="background:rgba(79,142,247,0.08);border-left:3px solid var(--bm-accent);padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">
+                    <div style="font-size:11px;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pergunta de pesquisa</div>
+                    <div style="font-size:13.5px;color:var(--bm-text);line-height:1.5">{{ project.researchQuestion }}</div>
+                </div>
+            {% endif %}
+
+            {% if project.searchString %}
+                <div style="margin-bottom:8px">
+                    <div style="font-size:11px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">String de busca</div>
+                    <code style="display:block;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:10px 14px;font-size:12px;color:#79c0ff;white-space:pre-wrap;word-break:break-all">{{ project.searchString }}</code>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="bm-card h-100">
+            <h3 style="font-size:13px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px">Detalhes</h3>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+                {% if project.databaseSources %}
+                    <div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:4px">Bases de dados</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px">
+                            {% for source in project.databaseSources %}
+                                <span style="font-size:11px;background:rgba(79,142,247,0.1);color:var(--bm-accent);border:1px solid rgba(79,142,247,0.2);padding:2px 8px;border-radius:4px;font-weight:500">
+                                    {{ source|upper }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if project.startYear or project.endYear %}
+                    <div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">Período analisado</div>
+                        <div style="font-size:14px;font-weight:500;color:var(--bm-text)">
+                            {{ project.startYear ?? '?' }} – {{ project.endYear ?? '?' }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div>
+                    <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">Criado em</div>
+                    <div style="font-size:13px;color:var(--bm-text)">{{ project.createdAt|date('d/m/Y \\à\\s H:i') }}</div>
+                </div>
+
+                <div>
+                    <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">Última atualização</div>
+                    <div style="font-size:13px;color:var(--bm-text)">{{ project.updatedAt|date('d/m/Y \\à\\s H:i') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Stats / Próximas ações #}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ project.datasets|length }}</div>
+            <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Arquivos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-label"><i class="bi bi-file-text me-1"></i>Documentos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-label"><i class="bi bi-people me-1"></i>Autores</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-label"><i class="bi bi-tags me-1"></i>Palavras-chave</div>
+        </div>
+    </div>
+</div>
+
+{# Próximas etapas #}
+<div class="bm-card">
+    <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 16px">Próximas etapas</h3>
+    <div style="display:flex;flex-direction:column;gap:10px">
+        {% set steps = [
+            {icon: 'upload', label: 'Importar base bibliográfica', desc: 'Faça upload de arquivos CSV, RIS, BibTeX ou TXT exportados das bases de dados', done: project.datasets|length > 0, link: '#'},
+            {icon: 'arrow-repeat', label: 'Normalizar e deduplicar', desc: 'Padronizar autores, palavras-chave e remover registros duplicados', done: false, link: '#'},
+            {icon: 'grid-1x2', label: 'Gerar dashboard de indicadores', desc: 'Produção anual, top autores, fontes e palavras-chave', done: false, link: '#'},
+            {icon: 'diagram-3', label: 'Construir redes bibliométricas', desc: 'Coautoria, coocorrência de palavras-chave, colaboração entre países', done: false, link: '#'},
+        ] %}
+        {% for i, step in steps %}
+            <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:10px;opacity:{{ step.done ? '0.6' : '1' }}">
+                <div style="width:36px;height:36px;background:{{ step.done ? 'rgba(63,185,80,0.15)' : 'rgba(79,142,247,0.1)' }};border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:{{ step.done ? 'var(--bm-success)' : 'var(--bm-accent)' }}">
+                    <i class="bi bi-{{ step.done ? 'check2' : step.icon }}"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:13.5px;font-weight:500;color:var(--bm-text);{{ step.done ? 'text-decoration:line-through;opacity:0.6' : '' }}">{{ step.label }}</div>
+                    <div style="font-size:12px;color:var(--bm-text-muted)">{{ step.desc }}</div>
+                </div>
+                {% if not step.done %}
+                    <a href="{{ step.link }}" style="font-size:12px;color:var(--bm-accent);text-decoration:none;white-space:nowrap;font-weight:500" title="Em breve">
+                        Iniciar <i class="bi bi-arrow-right-short"></i>
+                    </a>
+                {% else %}
+                    <span style="font-size:12px;color:var(--bm-success)"><i class="bi bi-check-circle-fill"></i></span>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

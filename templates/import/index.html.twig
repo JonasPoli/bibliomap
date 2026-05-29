@@ -1,0 +1,151 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Importar Dados — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}…</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <span class="current">Importar dados</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title"><i class="bi bi-upload me-2 text-accent"></i>Importar Base Bibliográfica</h1>
+    <p class="bm-page-subtitle">Passo 1 de 2 — Selecione o arquivo para importação</p>
+</div>
+
+<div class="row">
+    <div class="col-12 col-lg-8">
+
+        {# Upload Card #}
+        <div class="bm-card mb-4">
+            <form method="post" action="{{ path('app_import_upload', {projectId: project.id}) }}"
+                  enctype="multipart/form-data" id="upload-form">
+
+                <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 20px">Selecionar arquivo</h3>
+
+                {# Drop zone #}
+                <div id="drop-zone"
+                     style="border:2px dashed var(--bm-border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative"
+                     onclick="document.getElementById('file-input').click()">
+                    <div id="drop-icon" style="font-size:48px;margin-bottom:12px">📁</div>
+                    <div style="font-size:15px;font-weight:500;color:var(--bm-text);margin-bottom:4px">
+                        Arraste o arquivo aqui ou <span style="color:var(--bm-accent)">clique para selecionar</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--bm-text-muted)">
+                        CSV, TXT (Web of Science), RIS, BibTeX — até 500MB
+                    </div>
+                    <div id="file-info" style="display:none;margin-top:16px;padding:12px;background:rgba(79,142,247,0.1);border-radius:8px;border:1px solid rgba(79,142,247,0.2)">
+                        <div id="file-name" style="font-size:14px;font-weight:500;color:var(--bm-accent)"></div>
+                        <div id="file-size" style="font-size:12px;color:var(--bm-text-muted)"></div>
+                    </div>
+                    <input type="file" id="file-input" name="file" accept=".csv,.txt,.ris,.bib,.xlsx,.json"
+                           style="position:absolute;inset:0;opacity:0;cursor:pointer" required>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary">Cancelar</a>
+                    <button type="submit" id="upload-btn" class="btn-bm-primary" disabled>
+                        <i class="bi bi-arrow-right-circle me-1"></i>Próximo passo
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {# Progress bar (hidden initially) #}
+        <div id="upload-progress" style="display:none" class="bm-card">
+            <div style="font-size:14px;font-weight:500;color:var(--bm-text);margin-bottom:12px">
+                <i class="bi bi-arrow-repeat spin me-2" style="color:var(--bm-accent)"></i>Enviando arquivo...
+            </div>
+            <div style="height:6px;background:var(--bm-border);border-radius:3px;overflow:hidden">
+                <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,#4f8ef7,#a855f7);width:0%;transition:width 0.3s"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="bm-card">
+            <h3 style="font-size:13px;font-weight:600;color:var(--bm-text);margin:0 0 16px">
+                <i class="bi bi-database text-accent me-2"></i>Bases suportadas
+            </h3>
+
+            {% set bases = [
+                {name: 'Scopus', icon: '🔬', ext: 'CSV', desc: 'Exportação padrão do Scopus'},
+                {name: 'Web of Science', icon: '🌐', ext: 'TXT', desc: 'Formato WoS (tags AU, TI, SO...)'},
+                {name: 'Lens.org', icon: '🔭', ext: 'CSV', desc: 'Exportação CSV do Lens'},
+                {name: 'PubMed', icon: '🧬', ext: 'CSV/XML', desc: 'CSV ou XML do PubMed'},
+                {name: 'Genérico RIS', icon: '📄', ext: 'RIS', desc: 'Qualquer exportação .ris'},
+                {name: 'BibTeX', icon: '📚', ext: 'BIB', desc: 'Exportação .bib de qualquer base'},
+            ] %}
+
+            {% for base in bases %}
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bm-border)">
+                    <span style="font-size:20px">{{ base.icon }}</span>
+                    <div style="flex:1">
+                        <div style="font-size:13px;font-weight:500;color:var(--bm-text)">{{ base.name }}</div>
+                        <div style="font-size:11px;color:var(--bm-text-muted)">{{ base.desc }}</div>
+                    </div>
+                    <span style="font-size:10px;font-weight:600;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 8px;border-radius:4px">{{ base.ext }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+</style>
+
+<script>
+const input = document.getElementById('file-input');
+const dropZone = document.getElementById('drop-zone');
+const fileInfo = document.getElementById('file-info');
+const fileName = document.getElementById('file-name');
+const fileSize = document.getElementById('file-size');
+const uploadBtn = document.getElementById('upload-btn');
+
+function formatSize(bytes) {
+    if (bytes > 1024*1024*1024) return (bytes/1024/1024/1024).toFixed(1) + ' GB';
+    if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
+    return (bytes/1024).toFixed(0) + ' KB';
+}
+
+function showFile(file) {
+    fileName.textContent = file.name;
+    fileSize.textContent = formatSize(file.size);
+    fileInfo.style.display = 'block';
+    uploadBtn.disabled = false;
+    dropZone.style.borderColor = 'var(--bm-accent)';
+    document.getElementById('drop-icon').textContent = '✅';
+}
+
+input.addEventListener('change', () => { if (input.files[0]) showFile(input.files[0]); });
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--bm-accent)'; dropZone.style.background = 'rgba(79,142,247,0.05)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--bm-border)'; dropZone.style.background = ''; });
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        showFile(file);
+    }
+});
+
+document.getElementById('upload-form').addEventListener('submit', () => {
+    document.getElementById('upload-progress').style.display = 'block';
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enviando...';
+    let w = 0;
+    const iv = setInterval(() => {
+        w = Math.min(w + Math.random() * 5, 90);
+        document.getElementById('progress-bar').style.width = w + '%';
+    }, 300);
+});
+</script>
+{% endblock %}

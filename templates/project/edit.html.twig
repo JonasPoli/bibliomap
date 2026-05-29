@@ -1,0 +1,110 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}…</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <span class="current">Editar</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">Editar Projeto</h1>
+    <p class="bm-page-subtitle">{{ project.title }}</p>
+</div>
+
+<div class="row">
+    <div class="col-12 col-lg-8">
+        <div class="bm-card">
+            {{ form_start(form) }}
+
+            <h3 style="font-size:14px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--bm-border)">
+                Identificação
+            </h3>
+
+            <div class="mb-3">
+                {{ form_label(form.title) }}
+                {{ form_widget(form.title, {attr: {class: 'form-control'}}) }}
+                {{ form_errors(form.title) }}
+            </div>
+            <div class="mb-3">
+                {{ form_label(form.description) }}
+                {{ form_widget(form.description, {attr: {class: 'form-control'}}) }}
+            </div>
+            <div class="mb-4">
+                {{ form_label(form.researchQuestion) }}
+                {{ form_widget(form.researchQuestion, {attr: {class: 'form-control'}}) }}
+            </div>
+
+            <h3 style="font-size:14px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--bm-border)">
+                Metodologia
+            </h3>
+
+            <div class="mb-4">
+                {{ form_label(form.searchString) }}
+                {{ form_widget(form.searchString, {attr: {class: 'form-control', style: 'font-family: JetBrains Mono, monospace; font-size: 13px;'}}) }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Bases de dados</label>
+                <div style="display:flex;flex-wrap:wrap;gap:10px">
+                    {% for child in form.databaseSources %}
+                        <div style="display:flex;align-items:center;gap:6px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 14px;cursor:pointer"
+                             onclick="this.querySelector('input').click()">
+                            {{ form_widget(child) }}
+                            {{ form_label(child, null, {label_attr: {style: 'margin:0;cursor:pointer;font-size:13px;font-weight:500'}}) }}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-6">
+                    {{ form_label(form.startYear) }}
+                    {{ form_widget(form.startYear, {attr: {class: 'form-control'}}) }}
+                </div>
+                <div class="col-6">
+                    {{ form_label(form.endYear) }}
+                    {{ form_widget(form.endYear, {attr: {class: 'form-control'}}) }}
+                </div>
+            </div>
+
+            <h3 style="font-size:14px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--bm-border)">
+                Visibilidade
+            </h3>
+
+            <div class="mb-4">
+                {% for child in form.visibility %}
+                    <div class="form-check mb-2">
+                        {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
+                        {{ form_label(child, null, {label_attr: {class: 'form-check-label', style: 'font-size:14px'}}) }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex gap-3">
+                <button type="submit" class="btn-bm-primary"><i class="bi bi-check2 me-1"></i>Salvar alterações</button>
+                <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary">Cancelar</a>
+            </div>
+
+            {{ form_end(form) }}
+        </div>
+
+        {# Zona de perigo #}
+        <div class="bm-card mt-3" style="border-color:rgba(248,81,73,0.3)">
+            <h3 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 8px">Zona de perigo</h3>
+            <p style="font-size:13px;color:var(--bm-text-muted);margin:0 0 12px">Arquivar o projeto oculta-o da listagem. Você pode reativá-lo depois.</p>
+            <form method="post" action="{{ path('app_projects_archive', {id: project.id}) }}"
+                  onsubmit="return confirm('Tem certeza que deseja arquivar este projeto?')">
+                <input type="hidden" name="_token" value="{{ csrf_token('archive' ~ project.id) }}">
+                <button type="submit" style="background:transparent;border:1px solid var(--bm-danger);color:var(--bm-danger);padding:6px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">
+                    <i class="bi bi-archive me-1"></i>Arquivar projeto
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

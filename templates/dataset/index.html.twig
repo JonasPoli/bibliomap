@@ -1,0 +1,176 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Importações — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}…</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <span class="current">Importações</span>
+{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary">
+        <i class="bi bi-upload me-1"></i>Nova importação
+    </a>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center justify-content-between">
+    <div>
+        <h1 class="bm-page-title"><i class="bi bi-database me-2 text-accent"></i>Bases importadas</h1>
+        <p class="bm-page-subtitle">{{ datasets|length }} importação{{ datasets|length != 1 ? 'ões' : '' }} no projeto "{{ project.title }}"</p>
+    </div>
+</div>
+
+{% if datasets is empty %}
+    <div style="text-align:center;padding:80px 20px">
+        <div style="font-size:64px;margin-bottom:16px">📭</div>
+        <h2 style="font-size:20px;font-weight:600;color:var(--bm-text);margin:0 0 8px">Nenhuma base importada ainda</h2>
+        <p style="color:var(--bm-text-muted);font-size:14px;margin:0 0 28px;max-width:360px;margin-left:auto;margin-right:auto">
+            Importe um arquivo CSV, RIS ou BibTeX para começar a análise bibliométrica.
+        </p>
+        <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="display:inline-flex;align-items:center;gap:8px">
+            <i class="bi bi-upload"></i>Importar primeira base
+        </a>
+    </div>
+{% else %}
+
+    {# Resumo agregado #}
+    {% set totalImported = 0 %}
+    {% set totalRecords = 0 %}
+    {% for ds in datasets %}
+        {% set totalImported = totalImported + ds.importedCount %}
+        {% set totalRecords = totalRecords + ds.recordsCount %}
+    {% endfor %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="bm-stat-card text-center">
+                <div class="bm-stat-value">{{ datasets|length }}</div>
+                <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Importações</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="bm-stat-card text-center">
+                <div class="bm-stat-value">{{ totalRecords|number_format }}</div>
+                <div class="bm-stat-label"><i class="bi bi-list-ul me-1"></i>Registros totais</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="bm-stat-card text-center">
+                <div class="bm-stat-value text-accent">{{ totalImported|number_format }}</div>
+                <div class="bm-stat-label"><i class="bi bi-check2-circle me-1"></i>Documentos únicos</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="bm-stat-card text-center">
+                {% set sources = [] %}
+                {% for ds in datasets %}
+                    {% if ds.source and ds.source not in sources %}
+                        {% set sources = sources|merge([ds.source]) %}
+                    {% endif %}
+                {% endfor %}
+                <div class="bm-stat-value">{{ sources|length }}</div>
+                <div class="bm-stat-label"><i class="bi bi-database me-1"></i>Bases distintas</div>
+            </div>
+        </div>
+    </div>
+
+    {# Lista de datasets #}
+    <div style="display:flex;flex-direction:column;gap:12px">
+        {% for dataset in datasets %}
+            <div class="bm-card" style="display:flex;align-items:center;gap:20px;padding:16px 20px;cursor:pointer"
+                 onclick="window.location='{{ path('app_datasets_show', {projectId: project.id, id: dataset.id}) }}'">
+
+                {# Source icon #}
+                <div style="width:48px;height:48px;background:rgba(79,142,247,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">
+                    {{ dataset.sourceIcon }}
+                </div>
+
+                {# Info principal #}
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:3px">
+                        <span style="font-size:14px;font-weight:600;color:var(--bm-text)">{{ dataset.name }}</span>
+                        <span class="badge text-bg-{{ dataset.statusColor }}" style="font-size:10px;padding:2px 8px">{{ dataset.statusLabel }}</span>
+                        <span style="font-size:11px;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 8px;border-radius:4px;font-weight:600">{{ dataset.sourceLabel }}</span>
+                    </div>
+                    {% if dataset.description %}
+                        <div style="font-size:12px;color:var(--bm-text-muted);margin-bottom:4px">{{ dataset.description|slice(0,120) }}{% if dataset.description|length > 120 %}…{% endif %}</div>
+                    {% endif %}
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--bm-text-muted)">
+                        <span><i class="bi bi-file-earmark me-1"></i>{{ dataset.originalFilename }}</span>
+                        <span><i class="bi bi-calendar3 me-1"></i>{{ dataset.createdAt|date('d/m/Y H:i') }}</span>
+                        {% if dataset.searchPeriodStart or dataset.searchPeriodEnd %}
+                            <span><i class="bi bi-calendar-range me-1"></i>
+                                {{ dataset.searchPeriodStart ? dataset.searchPeriodStart|date('d/m/Y') : '?' }}
+                                →
+                                {{ dataset.searchPeriodEnd ? dataset.searchPeriodEnd|date('d/m/Y') : '?' }}
+                            </span>
+                        {% endif %}
+                        <span><i class="bi bi-hdd me-1"></i>{{ dataset.fileSizeFormatted }}</span>
+                    </div>
+                </div>
+
+                {# Stats #}
+                <div style="display:flex;gap:24px;flex-shrink:0" onclick="event.stopPropagation()">
+                    <div style="text-align:center">
+                        <div style="font-size:20px;font-weight:700;color:var(--bm-text)">{{ dataset.recordsCount|number_format }}</div>
+                        <div style="font-size:10px;color:var(--bm-text-muted);text-transform:uppercase">Registros</div>
+                    </div>
+                    <div style="text-align:center">
+                        <div style="font-size:20px;font-weight:700;color:var(--bm-success)">{{ dataset.importedCount|number_format }}</div>
+                        <div style="font-size:10px;color:var(--bm-text-muted);text-transform:uppercase">Importados</div>
+                    </div>
+                    {% if dataset.duplicatedCount > 0 %}
+                        <div style="text-align:center">
+                            <div style="font-size:20px;font-weight:700;color:var(--bm-warning)">{{ dataset.duplicatedCount }}</div>
+                            <div style="font-size:10px;color:var(--bm-text-muted);text-transform:uppercase">Duplic.</div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Progress bar #}
+                {% if dataset.recordsCount > 0 %}
+                    <div style="width:80px;flex-shrink:0" onclick="event.stopPropagation()">
+                        <div style="height:4px;background:var(--bm-border);border-radius:2px;overflow:hidden;margin-bottom:4px">
+                            <div style="height:100%;background:var(--bm-success);width:{{ dataset.successRate }}%"></div>
+                        </div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);text-align:center">{{ dataset.successRate }}%</div>
+                    </div>
+                {% endif %}
+
+                {# Actions #}
+                <div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">
+                    <a href="{{ path('app_datasets_edit', {projectId: project.id, id: dataset.id}) }}"
+                       class="btn-bm-secondary" style="font-size:12px;padding:5px 10px" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button onclick="confirmDelete({{ dataset.id }}, '{{ dataset.name|e('js') }}')"
+                            style="background:transparent;border:1px solid rgba(248,81,73,0.4);color:var(--bm-danger);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer" title="Excluir">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+{% endif %}
+
+{# Delete modal forms (hidden) #}
+{% for dataset in datasets %}
+    <form id="delete-form-{{ dataset.id }}" method="post"
+          action="{{ path('app_datasets_delete', {projectId: project.id, id: dataset.id}) }}" style="display:none">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete_dataset_' ~ dataset.id) }}">
+    </form>
+{% endfor %}
+
+<script>
+function confirmDelete(id, name) {
+    if (confirm('Excluir o dataset "' + name + '"?\n\nTodos os ' + name + ' documentos associados serão removidos permanentemente.')) {
+        document.getElementById('delete-form-' + id).submit();
+    }
+}
+</script>
+{% endblock %}

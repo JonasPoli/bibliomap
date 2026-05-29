@@ -1,0 +1,275 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Evolução de Palavras-Chave — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Evolução de Palavras-Chave</span>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+.step-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 24px;
+}
+.step-badge {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bm-gradient); color: white;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.kw-list-wrap {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.kw-list-toolbar {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--bm-border);
+    display: flex; gap: 12px; align-items: center;
+    flex-wrap: wrap;
+}
+.kw-search {
+    flex: 1; min-width: 200px;
+    background: var(--bm-bg); border: 1px solid var(--bm-border);
+    color: var(--bm-text); border-radius: 8px;
+    padding: 7px 14px; font-size: 13px;
+}
+.kw-search:focus { outline: none; border-color: var(--bm-accent); }
+.kw-filter-btns { display: flex; gap: 6px; }
+.filter-btn {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--bm-border); background: transparent;
+    color: var(--bm-text-muted); cursor: pointer; transition: all 0.15s;
+}
+.filter-btn.active { background: var(--bm-accent); border-color: var(--bm-accent); color: white; }
+
+.kw-list-body { max-height: 440px; overflow-y: auto; }
+.kw-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 18px;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    cursor: pointer; transition: background 0.1s;
+    user-select: none;
+}
+.kw-item:last-child { border-bottom: none; }
+.kw-item:hover { background: rgba(255,255,255,0.03); }
+.kw-item.selected { background: rgba(79,142,247,0.08); }
+.kw-check {
+    width: 16px; height: 16px; flex-shrink: 0;
+    accent-color: var(--bm-accent);
+}
+.kw-term { flex: 1; font-size: 13.5px; font-weight: 500; color: var(--bm-text); }
+.kw-type-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+    flex-shrink: 0;
+}
+.kw-type-author  { background: rgba(79,142,247,0.15); color: var(--bm-accent); }
+.kw-type-indexed { background: rgba(168,85,247,0.15); color: #a855f7; }
+.kw-count { font-size: 12px; font-weight: 700; color: var(--bm-text-muted); min-width: 48px; text-align: right; }
+.kw-bar-wrap { width: 100px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; }
+.kw-bar-fill  { height: 100%; border-radius: 3px; background: var(--bm-accent); }
+
+.selection-counter {
+    font-size: 13px; font-weight: 600; color: var(--bm-accent);
+    background: rgba(79,142,247,0.12); padding: 5px 14px;
+    border-radius: 20px; border: 1px solid rgba(79,142,247,0.25);
+}
+
+.year-row {
+    display: flex; gap: 16px; align-items: flex-end;
+    background: var(--bm-card-bg); border: 1px solid var(--bm-border);
+    border-radius: 14px; padding: 20px 24px; margin-top: 20px;
+}
+.year-group { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+.year-label { font-size: 12px; font-weight: 600; color: var(--bm-text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+select.year-select {
+    background: var(--bm-bg); border: 1px solid var(--bm-border);
+    color: var(--bm-text); border-radius: 8px; padding: 8px 12px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    padding-right: 30px;
+}
+select.year-select:focus { outline: none; border-color: var(--bm-accent); }
+
+.bottom-actions {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 24px;
+}
+.btn-next {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bm-gradient); border: none; color: white;
+    font-weight: 700; padding: 12px 28px; border-radius: 10px;
+    font-size: 15px; cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+}
+.btn-next:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-next:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.error-msg { color: var(--bm-danger); font-size: 13px; font-weight: 500; display: none; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+{% for type, messages in app.flashes %}
+    {% for msg in messages %}
+        <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }} alert-dismissible fade show mb-3" role="alert">
+            {{ msg }} <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endfor %}
+
+<div class="step-header">
+    <div class="step-badge">1</div>
+    <div>
+        <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave</h1>
+        <p class="bm-page-subtitle" style="margin:0">Selecione as palavras-chave e o período que deseja analisar</p>
+    </div>
+</div>
+
+<form action="{{ path('app_report_keyword_evolution_chart', {id: project.id}) }}" method="post" id="form-step1">
+
+    <!-- Keywords list -->
+    <div class="kw-list-wrap">
+        <div class="kw-list-toolbar">
+            <input type="text" id="kw-search" class="kw-search" placeholder="🔍  Filtrar palavras-chave…" oninput="filterKeywords()">
+            <div class="kw-filter-btns">
+                <button type="button" class="filter-btn active" onclick="filterType('all',this)">Todas</button>
+                <button type="button" class="filter-btn" onclick="filterType('author',this)">Autores</button>
+                <button type="button" class="filter-btn" onclick="filterType('indexed',this)">Indexadas</button>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button type="button" class="filter-btn" onclick="selectVisible()">Marcar visíveis</button>
+                <button type="button" class="filter-btn" onclick="clearAll()">Limpar</button>
+            </div>
+            <span class="selection-counter" id="sel-counter">0 selecionadas</span>
+        </div>
+
+        <div class="kw-list-body" id="kw-list-body">
+            {% set maxCount = keywords[0].doc_count ?? 1 %}
+            {% for kw in keywords %}
+            <label class="kw-item" data-type="{{ kw.type }}" data-term="{{ kw.term|lower }}">
+                <input type="checkbox" name="keywords[]" value="{{ kw.id }}"
+                       class="kw-check" onchange="updateCounter()">
+                <span class="kw-term">{{ kw.term }}</span>
+                <span class="kw-type-badge kw-type-{{ kw.type }}">{{ kw.type == 'author' ? 'autor' : 'idx' }}</span>
+                <div class="kw-bar-wrap">
+                    <div class="kw-bar-fill" style="width:{{ ((kw.doc_count / maxCount) * 100)|round }}%"></div>
+                </div>
+                <span class="kw-count">{{ kw.doc_count }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Year range -->
+    <div class="year-row">
+        <div class="year-group">
+            <span class="year-label">📅 Ano inicial</span>
+            <select name="year_from" id="year_from" class="year-select" onchange="validateYears()">
+                {% for year in years %}
+                    <option value="{{ year }}">{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="padding-bottom:10px;color:var(--bm-text-muted);font-size:20px">→</div>
+        <div class="year-group">
+            <span class="year-label">📅 Ano final</span>
+            <select name="year_to" id="year_to" class="year-select" onchange="validateYears()">
+                {% for year in years|reverse %}
+                    <option value="{{ year }}">{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex:1">
+            <span class="error-msg" id="year-error">
+                <i class="bi bi-exclamation-triangle me-1"></i>O ano inicial deve ser menor que o ano final.
+            </span>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="bottom-actions">
+        <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+        <button type="submit" class="btn-next" id="btn-next" disabled>
+            Ver gráfico <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+
+</form>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+let activeType = 'all';
+
+function updateCounter() {
+    const checked = document.querySelectorAll('.kw-check:checked').length;
+    document.getElementById('sel-counter').textContent = checked + ' selecionada' + (checked !== 1 ? 's' : '');
+    document.getElementById('btn-next').disabled = (checked === 0 || !isYearValid());
+    document.querySelectorAll('.kw-item').forEach(item => {
+        item.classList.toggle('selected', item.querySelector('.kw-check').checked);
+    });
+}
+
+function filterKeywords() {
+    const q = document.getElementById('kw-search').value.toLowerCase().trim();
+    document.querySelectorAll('.kw-item').forEach(item => {
+        const term   = item.dataset.term;
+        const type   = item.dataset.type;
+        const matchT = activeType === 'all' || type === activeType;
+        const matchQ = !q || term.includes(q);
+        item.style.display = (matchT && matchQ) ? '' : 'none';
+    });
+}
+
+function filterType(type, btn) {
+    activeType = type;
+    document.querySelectorAll('.filter-btn[onclick^="filterType"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterKeywords();
+}
+
+function selectVisible() {
+    document.querySelectorAll('.kw-item:not([style*="display: none"]) .kw-check').forEach(cb => cb.checked = true);
+    updateCounter();
+}
+
+function clearAll() {
+    document.querySelectorAll('.kw-check').forEach(cb => cb.checked = false);
+    updateCounter();
+}
+
+function isYearValid() {
+    const f = parseInt(document.getElementById('year_from').value);
+    const t = parseInt(document.getElementById('year_to').value);
+    return f < t;
+}
+
+function validateYears() {
+    const valid = isYearValid();
+    document.getElementById('year-error').style.display = valid ? 'none' : 'block';
+    const checked = document.querySelectorAll('.kw-check:checked').length;
+    document.getElementById('btn-next').disabled = (checked === 0 || !valid);
+}
+
+// Guard form submission
+document.getElementById('form-step1').addEventListener('submit', e => {
+    if (!isYearValid()) { e.preventDefault(); return; }
+    if (!document.querySelector('.kw-check:checked')) { e.preventDefault(); return; }
+});
+
+validateYears();
+</script>
+{% endblock %}

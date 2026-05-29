@@ -1,0 +1,175 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Importando — {{ dataset.name }}{% endblock %}
+
+{% block body %}
+<style>
+.processing-wrap {
+    max-width: 600px;
+    margin: 80px auto;
+    text-align: center;
+    padding: 0 20px;
+}
+.spin-ring {
+    width: 80px; height: 80px;
+    border: 6px solid rgba(79,142,247,0.2);
+    border-top-color: var(--bm-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 28px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-card {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 16px;
+    padding: 40px 36px;
+    margin-bottom: 24px;
+}
+.progress-bar-wrap {
+    background: var(--bm-border);
+    border-radius: 8px;
+    height: 12px;
+    overflow: hidden;
+    margin: 20px 0 8px;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bm-accent), #3fb950);
+    border-radius: 8px;
+    transition: width 0.8s ease;
+    width: 0%;
+}
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--bm-text-muted);
+    margin: 6px 0;
+}
+.stat-row strong { color: var(--bm-text); }
+.status-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+.blink { animation: blink 1.5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+
+<div class="processing-wrap">
+    <div class="status-card" id="status-card">
+        <div class="spin-ring" id="spinner"></div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--bm-text);margin:0 0 6px">
+            Importando dados...
+        </h1>
+        <p style="color:var(--bm-text-muted);font-size:14px;margin:0 0 20px">
+            <strong>{{ dataset.name }}</strong> · {{ dataset.originalFilename }}
+        </p>
+
+        <span class="status-badge blink" id="status-badge"
+              style="background:rgba(79,142,247,0.15);color:var(--bm-accent)">
+            Processando…
+        </span>
+
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div style="font-size:11px;color:var(--bm-text-muted);text-align:right;margin-bottom:20px" id="progress-pct">
+            0%
+        </div>
+
+        <div class="stat-row">
+            <span><i class="bi bi-list-ul me-1"></i>Total no arquivo</span>
+            <strong id="stat-total">contando…</strong>
+        </div>
+        <div class="stat-row">
+            <span><i class="bi bi-check-circle me-1" style="color:var(--bm-success)"></i>Importados</span>
+            <strong id="stat-imported" style="color:var(--bm-success)">0</strong>
+        </div>
+        <div class="stat-row">
+            <span><i class="bi bi-copy me-1" style="color:var(--bm-warning)"></i>Duplicados ignorados</span>
+            <strong id="stat-skipped" style="color:var(--bm-warning)">0</strong>
+        </div>
+        <div class="stat-row">
+            <span><i class="bi bi-exclamation-triangle me-1" style="color:var(--bm-danger)"></i>Erros</span>
+            <strong id="stat-errors">0</strong>
+        </div>
+
+        <p style="font-size:11px;color:var(--bm-text-muted);margin:20px 0 0;border-top:1px solid var(--bm-border);padding-top:14px">
+            <i class="bi bi-info-circle me-1"></i>
+            O processamento ocorre em segundo plano. Pode fechar esta aba e voltar depois para ver o resultado.
+        </p>
+    </div>
+
+    <div id="result-card" style="display:none" class="bm-card">
+        <i class="bi bi-check-circle" style="font-size:48px;color:var(--bm-success);display:block;margin-bottom:16px"></i>
+        <h2 style="font-size:20px;font-weight:700;color:var(--bm-text);margin:0 0 8px">Importação concluída!</h2>
+        <p id="result-summary" style="color:var(--bm-text-muted);margin:0 0 24px;font-size:14px"></p>
+        <a id="result-link" href="#" class="btn-bm-primary" style="display:inline-flex;align-items:center;gap:8px">
+            <i class="bi bi-eye"></i> Ver documentos importados
+        </a>
+    </div>
+
+    <div id="error-card" style="display:none" class="bm-card" style="border-color:rgba(248,81,73,0.4)">
+        <i class="bi bi-x-circle" style="font-size:48px;color:var(--bm-danger);display:block;margin-bottom:16px"></i>
+        <h2 style="font-size:20px;font-weight:700;color:var(--bm-danger);margin:0 0 8px">Erro na importação</h2>
+        <p id="error-msg" style="color:var(--bm-text-muted);margin:0 0 24px;font-size:13px;font-family:monospace"></p>
+        <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-secondary">
+            Tentar novamente
+        </a>
+    </div>
+</div>
+
+<script>
+const statusUrl = '{{ path('app_import_status', {projectId: project.id, id: dataset.id}) }}';
+let pollInterval;
+
+function fmt(n) { return (n||0).toLocaleString('pt-BR'); }
+
+async function poll() {
+    try {
+        const resp = await fetch(statusUrl, {cache: 'no-store'});
+        if (!resp.ok) return;
+        const d = await resp.json();
+
+        // Update stats
+        document.getElementById('stat-total').textContent    = d.recordsCount > 0 ? fmt(d.recordsCount) : 'contando…';
+        document.getElementById('stat-imported').textContent = fmt(d.importedCount);
+        document.getElementById('stat-skipped').textContent  = fmt(d.skippedCount);
+        document.getElementById('stat-errors').textContent   = fmt(d.errorCount);
+
+        const pct = d.successRate || 0;
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-pct').textContent  = pct + '%';
+
+        if (d.status === 'imported') {
+            clearInterval(pollInterval);
+            document.getElementById('status-card').style.display = 'none';
+            const card = document.getElementById('result-card');
+            card.style.display = 'block';
+            document.getElementById('result-summary').textContent =
+                fmt(d.importedCount) + ' documentos importados · ' +
+                fmt(d.skippedCount) + ' duplicados ignorados · ' +
+                fmt(d.errorCount) + ' erros';
+            document.getElementById('result-link').href = d.showUrl;
+
+        } else if (d.status === 'error') {
+            clearInterval(pollInterval);
+            document.getElementById('status-card').style.display = 'none';
+            document.getElementById('error-card').style.display = 'block';
+            document.getElementById('error-msg').textContent = d.errorMessage || 'Erro desconhecido.';
+        }
+
+    } catch(e) { /* network error, will retry */ }
+}
+
+// Start polling immediately and then every 3 seconds
+poll();
+pollInterval = setInterval(poll, 3000);
+</script>
+{% endblock %}

@@ -1,0 +1,333 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Evolução de Palavras-Chave — Gráfico{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">Evolução de Palavras-Chave</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Gráfico</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+<a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}" class="btn-bm-secondary" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-arrow-left me-1"></i> Voltar
+</a>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Theme variables ─────────────────────────────────────────── */
+:root {
+    --ch-bg: var(--bm-card-bg);
+    --ch-border: var(--bm-border);
+    --ch-text: var(--bm-text);
+    --ch-text-muted: var(--bm-text-muted);
+    --ch-grid: var(--bm-border);
+    --ch-toolbar: var(--bm-sidebar-bg);
+}
+
+/* ── Chart area ──────────────────────────────────────────────── */
+.chart-outer {
+    background: var(--ch-bg);
+    border: 1px solid var(--ch-border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+.chart-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.chart-title {
+    font-size: 15px; font-weight: 700; color: var(--ch-text);
+}
+.chart-subtitle {
+    font-size: 12px; color: var(--ch-text-muted); margin-top: 2px;
+}
+.ctrl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ctrl-btn {
+    padding: 5px 14px; border-radius: 7px; border: 1px solid var(--ch-border);
+    background: transparent; color: var(--ch-text-muted); font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.ctrl-btn:hover { border-color: var(--bm-accent); color: var(--bm-accent); }
+.ctrl-btn.active { background: var(--bm-accent); border-color: var(--bm-accent); color: white; }
+
+.chart-canvas-wrap { position: relative; height: 480px; }
+.chart-loading {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; background: var(--ch-bg);
+    border-radius: 10px; font-size: 14px; color: var(--ch-text-muted);
+    gap: 10px;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Selected keywords pills ──────────────────────────────────── */
+.kw-pills {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px;
+}
+.kw-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    background: rgba(79,142,247,0.12); color: var(--bm-accent);
+    border: 1px solid rgba(79,142,247,0.25);
+}
+.kw-pill .pill-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+}
+
+/* ── Legend override ─────────────────────────────────────────── */
+.legend-wrap {
+    display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
+    padding-top: 16px; border-top: 1px solid var(--ch-border);
+}
+.legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--ch-text);
+}
+.legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:36px;height:36px;background:var(--bm-gradient);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">📈</div>
+        <div>
+            <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave</h1>
+            <p class="bm-page-subtitle" style="margin:0">
+                {{ yearFrom }}–{{ yearTo }} ·
+                {{ selectedKeywords|length }} palavra{{ selectedKeywords|length != 1 ? 's' : '' }}-chave selecionada{{ selectedKeywords|length != 1 ? 's' : '' }}
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="chart-outer" id="chart-outer">
+    <div class="chart-toolbar">
+        <div>
+            <div class="chart-title">Ocorrências por ano</div>
+            <div class="chart-subtitle">
+                Palavras-chave selecionadas · {{ yearFrom }} a {{ yearTo }}
+            </div>
+        </div>
+        <div class="ctrl-row">
+            <button class="ctrl-btn active" id="btn-grouped" onclick="setChartType('bar',this)">
+                <i class="bi bi-bar-chart-grouped me-1"></i>Agrupado
+            </button>
+            <button class="ctrl-btn" id="btn-stacked" onclick="setChartType('stacked',this)">
+                <i class="bi bi-stack me-1"></i>Empilhado
+            </button>
+            <button class="ctrl-btn" id="btn-line" onclick="setChartType('line',this)">
+                <i class="bi bi-graph-up me-1"></i>Linha
+            </button>
+        </div>
+    </div>
+
+    <!-- Chart canvas -->
+    <div class="chart-canvas-wrap">
+        <div class="chart-loading" id="chart-loading">
+            <i class="bi bi-arrow-clockwise spin" style="font-size:20px"></i>
+            Carregando dados…
+        </div>
+        <canvas id="main-chart"></canvas>
+    </div>
+
+    <!-- Legend (year colors) -->
+    <div class="legend-wrap" id="year-legend"></div>
+
+    <!-- Selected keywords pills -->
+    <div class="kw-pills" id="kw-pills"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const DATA_URL = '{{ path('app_report_keyword_evolution_data', {id: project.id}) }}';
+const KW_IDS   = [{{ selectedIds|join(',') }}];
+const YEAR_FROM = {{ yearFrom }};
+const YEAR_TO   = {{ yearTo }};
+const KW_TERMS  = {{ selectedKeywords|map(k => k.term)|json_encode|raw }};
+
+// Year palette — each year gets a distinct color
+const YEAR_PALETTE = [
+    '#4f8ef7','#a855f7','#3fb950','#f0883e',
+    '#d29922','#ec6547','#58a6ff','#ff6b9d',
+    '#39d353','#00d4ff','#ffa500','#e91e63',
+];
+
+let chartInstance = null;
+let rawData       = null;
+let currentMode   = 'bar'; // 'bar' | 'stacked' | 'line'
+
+// ── Theme ────────────────────────────────────────────────────────────────────
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        bg:   light ? '#ffffff' : '#1c2128'
+    };
+}
+
+// Listen to global theme change events
+window.addEventListener('bm-theme-changed', () => {
+    if (rawData) rebuildChart();
+});
+
+// ── Chart type ───────────────────────────────────────────────────────────────
+function setChartType(type, btn) {
+    document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = type;
+    if (rawData) rebuildChart();
+}
+
+// ── Build Chart.js datasets ───────────────────────────────────────────────────
+function buildDatasets(data) {
+    const { years, keywords } = data;
+
+    if (currentMode === 'line') {
+        // One line per keyword, each year on X axis
+        return {
+            labels: years.map(String),
+            datasets: keywords.map((kw, i) => ({
+                label: kw.term,
+                data: years.map(y => kw.years[y] || 0),
+                borderColor: YEAR_PALETTE[i % YEAR_PALETTE.length],
+                backgroundColor: YEAR_PALETTE[i % YEAR_PALETTE.length] + '33',
+                fill: false, tension: 0.4,
+                pointRadius: 5, pointHoverRadius: 8,
+            })),
+        };
+    }
+
+    // Grouped/Stacked: X = years, groups = keywords
+    return {
+        labels: years.map(String),
+        datasets: keywords.map((kw, i) => ({
+            label: kw.term,
+            data: years.map(y => kw.years[y] || 0),
+            backgroundColor: YEAR_PALETTE[i % YEAR_PALETTE.length] + 'cc',
+            borderColor: YEAR_PALETTE[i % YEAR_PALETTE.length],
+            borderWidth: 1,
+            borderRadius: 4,
+        })),
+    };
+}
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+
+    const { labels, datasets } = buildDatasets(rawData);
+    const isStacked = currentMode === 'stacked';
+    const isLine    = currentMode === 'line';
+
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('main-chart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: isLine ? 'line' : 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 400 },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 14, font: { size: 12 },
+                        color: cl.text,
+                        padding: 16,
+                    },
+                },
+                tooltip: {
+                    backgroundColor: isThemeLight() ? '#fff' : '#1c2128',
+                    borderColor: cl.grid, borderWidth: 1,
+                    titleColor: isThemeLight() ? '#1f2328' : '#e6edf3',
+                    bodyColor: cl.text,
+                    callbacks: {
+                        footer: isLine ? undefined : (items) => {
+                            const total = items.reduce((s,i) => s + i.parsed.y, 0);
+                            return `Total: ${total}`;
+                        }
+                    }
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: cl.text, font: { size: 11 }, maxRotation: 30 },
+                    stacked: isStacked,
+                },
+                y: {
+                    grid: { color: cl.grid },
+                    ticks: { color: cl.text },
+                    beginAtZero: true,
+                    stacked: isStacked,
+                    title: { display: true, text: 'Ocorrências', color: cl.text, font: { size: 12 } },
+                },
+            },
+        },
+    });
+
+    // Clear year legend wrapper since Chart.js legend handles keywords perfectly
+    const legendWrap = document.getElementById('year-legend');
+    legendWrap.innerHTML = '';
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadData() {
+    const params = new URLSearchParams();
+    KW_IDS.forEach(id => params.append('kw[]', id));
+    params.set('year_from', YEAR_FROM);
+    params.set('year_to', YEAR_TO);
+
+    const r = await fetch(`${DATA_URL}?${params}`);
+    rawData = await r.json();
+
+    document.getElementById('chart-loading').style.display = 'none';
+
+    // Build keyword pills with year legend colors
+    const pills = document.getElementById('kw-pills');
+    pills.innerHTML = rawData.keywords.map((kw, i) =>
+        `<div class="kw-pill">
+            <div class="pill-dot" style="background:${YEAR_PALETTE[i % YEAR_PALETTE.length]}"></div>
+            ${kw.term}
+         </div>`
+    ).join('');
+
+    rebuildChart();
+}
+
+function exportCSV() {
+    const params = new URLSearchParams();
+    KW_IDS.forEach(id => params.append('kw[]', id));
+    params.set('year_from', YEAR_FROM);
+    params.set('year_to', YEAR_TO);
+    
+    const exportUrl = '{{ path('app_report_keyword_evolution_export', {id: project.id}) }}';
+    window.location.href = `${exportUrl}?${params.toString()}`;
+}
+
+loadData();
+</script>
+{% endblock %}

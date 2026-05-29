@@ -1,0 +1,442 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Relatório Geral — {{ project.title }}{% endblock %}
+
+{% block stylesheets %}
+<style>
+@media print {
+    .bm-sidebar, .bm-topbar, .no-print { display: none !important; }
+    .bm-main { margin-left: 0 !important; margin-top: 0 !important; padding: 0 !important; }
+    .bm-card { border: 1px solid #ddd !important; break-inside: avoid; }
+    body { background: white !important; color: #222 !important; }
+    .gradient-text { color: #0969da !important; -webkit-text-fill-color: #0969da !important; }
+    .print-section { page-break-before: always; }
+}
+.report-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    background: rgba(79,142,247,0.12); color: var(--bm-accent);
+    border: 1px solid rgba(79,142,247,0.25);
+}
+.section-divider {
+    border: none; border-top: 1px solid var(--bm-border);
+    margin: 32px 0 24px;
+}
+.rank-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+    background: rgba(79,142,247,0.12); color: var(--bm-accent);
+}
+.rank-pill.gold   { background: rgba(210,153,34,0.15); color: var(--bm-warning); }
+.rank-pill.silver { background: rgba(139,148,158,0.15); color: var(--bm-text-muted); }
+.rank-pill.bronze { background: rgba(248,81,73,0.1); color: var(--bm-danger); }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Relatório Geral</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-secondary no-print" onclick="window.print()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-printer me-1"></i> Imprimir / PDF
+</button>
+{% endblock %}
+
+{% block body %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     CAPA / HEADER
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="bm-card mb-4" style="background: linear-gradient(135deg, rgba(79,142,247,0.08) 0%, rgba(168,85,247,0.06) 100%); border-color: rgba(79,142,247,0.25);">
+    <div class="d-flex align-items-start gap-4 flex-wrap">
+        <div style="flex:1; min-width:260px">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="report-badge"><i class="bi bi-file-earmark-bar-graph"></i> Relatório Bibliométrico</span>
+                <span class="report-badge" style="background:rgba(63,185,80,0.12);color:var(--bm-success);border-color:rgba(63,185,80,0.25)">
+                    <i class="bi bi-check-circle"></i> Gerado em {{ "now"|date("d/m/Y") }}
+                </span>
+            </div>
+            <h1 class="bm-page-title" style="font-size:28px;margin-bottom:8px">{{ project.title }}</h1>
+            {% if project.description %}
+            <p style="color:var(--bm-text-muted);font-size:14px;margin:0 0 12px;line-height:1.5">{{ project.description }}</p>
+            {% endif %}
+            {% if project.researchQuestion %}
+            <div style="padding:10px 14px;background:rgba(79,142,247,0.08);border-left:3px solid var(--bm-accent);border-radius:0 6px 6px 0;margin-bottom:12px">
+                <div style="font-size:10px;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Pergunta de Pesquisa</div>
+                <div style="font-size:13px;color:var(--bm-text);font-style:italic">{{ project.researchQuestion }}</div>
+            </div>
+            {% endif %}
+            {% if project.searchString %}
+            <div style="padding:8px 12px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:6px;font-size:12px">
+                <span style="color:var(--bm-text-muted);font-weight:600">String de Busca: </span>
+                <code style="color:var(--bm-accent);font-size:11.5px">{{ project.searchString }}</code>
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:240px">
+            <div style="text-align:center;padding:14px;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:10px">
+                <div style="font-size:26px;font-weight:800;color:var(--bm-accent)">{{ kpis.total_docs|number_format(0,',','.') }}</div>
+                <div style="font-size:11px;color:var(--bm-text-muted);font-weight:500;text-transform:uppercase">Documentos</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:10px">
+                <div style="font-size:26px;font-weight:800;color:#a855f7">{{ kpis.total_authors|number_format(0,',','.') }}</div>
+                <div style="font-size:11px;color:var(--bm-text-muted);font-weight:500;text-transform:uppercase">Autores</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:10px">
+                <div style="font-size:26px;font-weight:800;color:#3fb950">{{ kpis.total_sources|number_format(0,',','.') }}</div>
+                <div style="font-size:11px;color:var(--bm-text-muted);font-weight:500;text-transform:uppercase">Fontes</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:10px">
+                <div style="font-size:26px;font-weight:800;color:#f0883e">{{ kpis.total_keywords|number_format(0,',','.') }}</div>
+                <div style="font-size:11px;color:var(--bm-text-muted);font-weight:500;text-transform:uppercase">Palavras-chave</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     INDICADORES PRINCIPAIS
+═══════════════════════════════════════════════════════════════════════════ -->
+<h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+    <i class="bi bi-speedometer2 text-accent"></i> Indicadores Gerais
+</h2>
+<div class="row g-3 mb-4">
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value gradient-text">{{ kpis.total_citations|number_format(0,',','.') }}</div>
+            <div class="bm-stat-label">Citações Totais</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ kpis.avg_citations }}</div>
+            <div class="bm-stat-label">Média de Citações</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:#f0883e">{{ kpis.max_citations }}</div>
+            <div class="bm-stat-label">Máx. Citações (doc)</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:#3fb950">{{ kpis.first_year }}</div>
+            <div class="bm-stat-label">Primeiro Ano</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:#3fb950">{{ kpis.last_year }}</div>
+            <div class="bm-stat-label">Último Ano</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:#a855f7">
+                {{ kpis.last_year and kpis.first_year ? (kpis.last_year - kpis.first_year + 1) : 'N/A' }}
+            </div>
+            <div class="bm-stat-label">Anos de Cobertura</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     PRODUÇÃO ANUAL
+═══════════════════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+    <i class="bi bi-bar-chart-line text-accent"></i> Produção Anual
+</h2>
+<div class="bm-card mb-4">
+    <div style="position:relative;height:220px">
+        <canvas id="chart-annual"></canvas>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TOP RANKINGS (2 colunnas)
+═══════════════════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<div class="row g-4 mb-4">
+
+    <!-- Top Autores -->
+    <div class="col-md-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-people" style="color:#a855f7"></i> Top 10 Autores
+        </h2>
+        <div class="bm-card">
+            {% for auth in topAuthors %}
+            <div class="d-flex align-items-center gap-3 py-2 {% if not loop.last %}border-bottom border-bm{% endif %}">
+                <span class="rank-pill {% if loop.index == 1 %}gold{% elseif loop.index == 2 %}silver{% elseif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--bm-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ auth.name }}">{{ auth.name }}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                    <span style="font-size:14px;font-weight:700;color:var(--bm-accent)">{{ auth.doc_count }}</span>
+                    <span style="font-size:10px;color:var(--bm-text-muted);display:block">artigos</span>
+                </div>
+                <div style="text-align:right;flex-shrink:0;min-width:55px">
+                    <span style="font-size:13px;color:#a855f7;font-weight:600">{{ auth.citation_count }}</span>
+                    <span style="font-size:10px;color:var(--bm-text-muted);display:block">citações</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted-bm" style="font-size:13px;text-align:center;padding:20px">Sem dados de autores</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Top Fontes -->
+    <div class="col-md-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-journal-text" style="color:#3fb950"></i> Top 10 Fontes / Periódicos
+        </h2>
+        <div class="bm-card">
+            {% for src in topSources %}
+            <div class="d-flex align-items-center gap-3 py-2 {% if not loop.last %}border-bottom border-bm{% endif %}">
+                <span class="rank-pill {% if loop.index == 1 %}gold{% elseif loop.index == 2 %}silver{% elseif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:12.5px;font-weight:600;color:var(--bm-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ src.source_title }}">{{ src.source_title }}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                    <span style="font-size:14px;font-weight:700;color:#3fb950">{{ src.doc_count }}</span>
+                    <span style="font-size:10px;color:var(--bm-text-muted);display:block">artigos</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted-bm" style="font-size:13px;text-align:center;padding:20px">Sem dados de fontes</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Top Palavras-chave -->
+    <div class="col-md-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-tags" style="color:#f0883e"></i> Top 20 Palavras-chave
+        </h2>
+        <div class="bm-card">
+            <div class="d-flex flex-wrap gap-2">
+                {% for kw in topKeywords %}
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:500;
+                    background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.12)' : 'rgba(168,85,247,0.12)' }};
+                    color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }};
+                    border:1px solid {{ kw.type == 'author' ? 'rgba(79,142,247,0.25)' : 'rgba(168,85,247,0.25)' }}">
+                    {{ kw.term }}
+                    <span style="font-size:10px;font-weight:700;opacity:0.8">{{ kw.freq }}</span>
+                </span>
+                {% else %}
+                <p class="text-muted-bm" style="font-size:13px">Sem dados de palavras-chave</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Países -->
+    <div class="col-md-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-globe2" style="color:#e91e63"></i> Top 10 Países
+        </h2>
+        <div class="bm-card">
+            {% for c in topCountries %}
+            <div class="d-flex align-items-center gap-3 py-2 {% if not loop.last %}border-bottom border-bm{% endif %}">
+                <span class="rank-pill {% if loop.index == 1 %}gold{% elseif loop.index == 2 %}silver{% elseif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                <div style="flex:1;font-size:13px;font-weight:600;color:var(--bm-text)">{{ c.country }}</div>
+                <span style="font-size:14px;font-weight:700;color:#e91e63">{{ c.doc_count }}</span>
+                <span style="font-size:10px;color:var(--bm-text-muted)">docs</span>
+            </div>
+            {% else %}
+            <p class="text-muted-bm" style="font-size:13px;text-align:center;padding:20px">Sem dados de países</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TOP DOCUMENTOS POR CITAÇÕES
+═══════════════════════════════════════════════════════════════════════════ -->
+<hr class="section-divider print-section">
+<h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+    <i class="bi bi-file-earmark-text text-accent"></i> Documentos Mais Citados
+</h2>
+<div class="bm-card mb-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+            <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                <tr>
+                    <th style="color:var(--bm-text-muted);font-weight:600;width:32px">#</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600">Título</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600">Autores</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;max-width:200px">Fonte</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                </tr>
+            </thead>
+            <tbody class="border-0">
+                {% for doc in topDocs %}
+                <tr>
+                    <td>
+                        <span class="rank-pill {% if loop.index == 1 %}gold{% elseif loop.index == 2 %}silver{% elseif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                    </td>
+                    <td style="font-weight:600;color:var(--bm-text);max-width:280px">
+                        {% if doc.doi %}
+                        <a href="https://doi.org/{{ doc.doi }}" target="_blank" style="color:var(--bm-text);text-decoration:none" title="{{ doc.title }}">
+                            {{ doc.title|slice(0,70) }}{{ doc.title|length > 70 ? '…' : '' }}
+                            <i class="bi bi-box-arrow-up-right" style="font-size:10px;color:var(--bm-text-muted);margin-left:3px"></i>
+                        </a>
+                        {% else %}
+                        <span title="{{ doc.title }}">{{ doc.title|slice(0,70) }}{{ doc.title|length > 70 ? '…' : '' }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--bm-text-muted);font-size:12px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ doc.authors_str }}">
+                        {{ doc.authors_str ? doc.authors_str|slice(0,50) ~ (doc.authors_str|length > 50 ? '…' : '') : '—' }}
+                    </td>
+                    <td style="text-align:center;font-weight:600;color:var(--bm-accent)">{{ doc.year }}</td>
+                    <td style="font-size:12px;color:var(--bm-text-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ doc.source_title }}">
+                        {{ doc.source_title ? doc.source_title|slice(0,40) ~ (doc.source_title|length > 40 ? '…' : '') : '—' }}
+                    </td>
+                    <td style="text-align:right;font-weight:700;font-size:15px;color:#f0883e">
+                        {{ doc.cited_by }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted-bm py-4">Sem documentos para exibir</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LINKS PARA ANÁLISES DETALHADAS
+═══════════════════════════════════════════════════════════════════════════ -->
+<hr class="section-divider no-print">
+<h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px" class="no-print">
+    <i class="bi bi-grid text-accent me-2"></i> Análises Detalhadas
+</h2>
+<div class="row g-3 mb-4 no-print">
+    {% set links = [
+        {route: 'app_report_annual_production', icon: 'bar-chart-line',  label: 'Produção Anual',    color: '#4f8ef7'},
+        {route: 'app_report_authors',           icon: 'people',           label: 'Autores',            color: '#a855f7'},
+        {route: 'app_report_sources',           icon: 'journal-text',     label: 'Fontes',             color: '#3fb950'},
+        {route: 'app_report_documents',         icon: 'file-earmark-text',label: 'Documentos',         color: '#4f8ef7'},
+        {route: 'app_report_keywords',          icon: 'tags',             label: 'Palavras-chave',     color: '#f0883e'},
+        {route: 'app_report_countries',         icon: 'globe2',           label: 'Países',             color: '#e91e63'},
+        {route: 'app_report_institutions',      icon: 'building',         label: 'Instituições',       color: '#4f8ef7'},
+        {route: 'app_report_keyword_evolution', icon: 'graph-up-arrow',   label: 'Evolução de KWs',   color: '#a855f7'},
+        {route: 'app_networks_index',           icon: 'diagram-3',        label: 'Redes Bibliométricas', color: '#3fb950'},
+        {route: 'app_thematic_map_index',       icon: 'map',              label: 'Mapa Temático',      color: '#f0883e'},
+        {route: 'app_thematic_evolution_index', icon: 'bar-chart-steps',  label: 'Evolução Temática',  color: '#e91e63'},
+    ] %}
+    {% for link in links %}
+    <div class="col-md-3 col-sm-4 col-6">
+        <a href="{{ path(link.route, {id: project.id}) }}" style="text-decoration:none">
+            <div class="bm-card d-flex align-items-center gap-3" style="padding:14px 16px;transition:all 0.2s">
+                <div style="width:36px;height:36px;border-radius:8px;background:{{ link.color }}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="bi bi-{{ link.icon }}" style="font-size:16px;color:{{ link.color }}"></i>
+                </div>
+                <span style="font-size:13px;font-weight:600;color:var(--bm-text)">{{ link.label }}</span>
+                <i class="bi bi-arrow-right ms-auto" style="font-size:12px;color:var(--bm-text-muted)"></i>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const annualData = {{ annual|json_encode|raw }};
+let annualChart  = null;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid:   light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text:   light ? '#57606a' : '#8b949e',
+        blue:   '#4f8ef7',
+        purple: '#a855f7',
+    };
+}
+
+window.addEventListener('bm-theme-changed', buildAnnualChart);
+
+function buildAnnualChart() {
+    const cl = getColors();
+    Chart.defaults.color       = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+    if (annualChart) annualChart.destroy();
+
+    const years = annualData.map(r => r.year);
+    const docs  = annualData.map(r => r.doc_count);
+    const cits  = annualData.map(r => r.citation_count);
+
+    const ctx = document.getElementById('chart-annual').getContext('2d');
+    annualChart = new Chart(ctx, {
+        data: {
+            labels: years,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Publicações',
+                    data: docs,
+                    backgroundColor: cl.blue + 'aa',
+                    borderColor: cl.blue,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y_docs',
+                },
+                {
+                    type: 'line',
+                    label: 'Citações',
+                    data: cits,
+                    borderColor: cl.purple,
+                    backgroundColor: cl.purple + '18',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y_cit',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: {
+                x:     { grid: { display: false } },
+                y_docs: {
+                    type: 'linear', position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Publicações', font: { weight: 'bold' } },
+                    ticks: { stepSize: 1 },
+                },
+                y_cit: {
+                    type: 'linear', position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } },
+                }
+            }
+        }
+    });
+}
+
+buildAnnualChart();
+</script>
+{% endblock %}

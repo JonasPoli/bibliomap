@@ -1,0 +1,228 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Prévia da Importação — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}…</a>
+    <span style="margin:0 8px;color:var(--bm-border)">/</span>
+    <span class="current">Prévia da importação</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title"><i class="bi bi-eye me-2 text-accent"></i>Prévia da Importação</h1>
+    <p class="bm-page-subtitle">Passo 2 de 2 — Verifique os dados antes de confirmar</p>
+</div>
+
+{# Detecção #}
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="bm-stat-card">
+            <div style="font-size:11px;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Arquivo</div>
+            <div style="font-size:13px;font-weight:500;color:var(--bm-text);word-break:break-all">{{ originalFilename }}</div>
+            <div style="font-size:11px;color:var(--bm-text-muted);margin-top:2px">
+                {{ (fileSize / 1024 / 1024)|number_format(1) }} MB
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="bm-stat-card">
+            <div style="font-size:11px;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Fonte detectada</div>
+            {% if detected %}
+                <div class="bm-stat-value" style="font-size:22px">{{ detected.source }}</div>
+                <div style="font-size:11px;color:var(--bm-success)">
+                    <i class="bi bi-check-circle-fill me-1"></i>Confiança: {{ (detected.score * 100)|number_format(0) }}%
+                </div>
+            {% else %}
+                <div style="font-size:14px;font-weight:500;color:var(--bm-warning)">Não detectada</div>
+                <div style="font-size:11px;color:var(--bm-text-muted)">Selecione manualmente abaixo</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="bm-stat-card">
+            <div style="font-size:11px;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Total de registros</div>
+            <div class="bm-stat-value">{{ totalRows|number_format }}</div>
+            <div style="font-size:11px;color:var(--bm-text-muted)">linhas lidas na prévia (10)</div>
+        </div>
+    </div>
+</div>
+
+{# Preview table #}
+<div class="bm-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0">
+            Prévia — primeiros {{ previewRecords|length }} registros
+        </h3>
+        <span style="font-size:12px;color:var(--bm-text-muted)">Total no arquivo: ~{{ totalRows|number_format }} registros</span>
+    </div>
+
+    <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+                <tr style="border-bottom:2px solid var(--bm-border)">
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">#</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;min-width:300px">Título</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">Autores</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">Ano</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">Fonte</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">DOI</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">Citações</th>
+                    <th style="padding:8px 12px;text-align:left;color:var(--bm-text-muted);font-weight:600;white-space:nowrap">Tipo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i, rec in previewRecords %}
+                    <tr style="border-bottom:1px solid var(--bm-border);transition:background 0.1s"
+                        onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background=''">
+                        <td style="padding:10px 12px;color:var(--bm-text-muted)">{{ i + 1 }}</td>
+                        <td style="padding:10px 12px;color:var(--bm-text);max-width:300px">
+                            <div style="font-weight:500;line-height:1.4">
+                                {{ rec.title|default('—')|slice(0, 80) }}{% if rec.title|length > 80 %}…{% endif %}
+                            </div>
+                        </td>
+                        <td style="padding:10px 12px;color:var(--bm-text-muted);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">
+                            {{ rec.authorNames|join('; ')|slice(0, 60) }}{% if rec.authorNames|join('; ')|length > 60 %}…{% endif %}
+                        </td>
+                        <td style="padding:10px 12px;color:var(--bm-text);font-weight:500">
+                            {{ rec.year ?? '—' }}
+                        </td>
+                        <td style="padding:10px 12px;color:var(--bm-text-muted);white-space:nowrap">
+                            {{ rec.sourceTitle|default('—')|slice(0,30) }}{% if rec.sourceTitle|length > 30 %}…{% endif %}
+                        </td>
+                        <td style="padding:10px 12px">
+                            {% if rec.doi %}
+                                <a href="https://doi.org/{{ rec.doi }}" target="_blank"
+                                   style="color:var(--bm-accent);font-size:11px;font-family:monospace">
+                                    {{ rec.doi|slice(0,25) }}…
+                                </a>
+                            {% else %}
+                                <span style="color:var(--bm-text-muted)">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px;text-align:center">
+                            {% if rec.citedBy is not null %}
+                                <span style="font-weight:600;color:{{ rec.citedBy > 10 ? 'var(--bm-accent)' : 'var(--bm-text-muted)' }}">{{ rec.citedBy }}</span>
+                            {% else %}
+                                <span style="color:var(--bm-text-muted)">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px">
+                            {% if rec.documentType %}
+                                <span style="font-size:10px;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 8px;border-radius:4px;white-space:nowrap">{{ rec.documentType }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--bm-text-muted)">Nenhum registro encontrado na prévia.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Confirm form #}
+<div class="bm-card">
+    <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 16px">
+        <i class="bi bi-gear me-2 text-accent"></i>Configurações da importação
+    </h3>
+
+    <form method="post" action="{{ path('app_import_confirm', {projectId: project.id}) }}" id="confirm-form">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Nome desta importação</label>
+                <input type="text" name="dataset_name" class="form-control"
+                       value="{{ originalFilename }}"
+                       placeholder="Ex: Scopus — busca principal 2024">
+                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Identifique esta importação dentro do projeto</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fonte dos dados</label>
+                <select name="source" id="source-select" class="form-select">
+                    <option value="scopus" {% if detected and detected.source == 'Scopus' %}selected{% endif %}>🔬 Scopus</option>
+                    <option value="wos">🌐 Web of Science</option>
+                    <option value="lens">🔭 Lens.org</option>
+                    <option value="pubmed">🧬 PubMed</option>
+                    <option value="openalex">🔓 OpenAlex</option>
+                    <option value="crossref">🔗 Crossref</option>
+                    <option value="other">📄 Outra / Genérico</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Descrição (opcional)</label>
+                <textarea name="description" class="form-control" rows="2"
+                          placeholder="Descreva a string de busca, filtros aplicados, data de acesso à base..."></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Período de busca — início</label>
+                <input type="date" name="search_period_start" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Período de busca — fim</label>
+                <input type="date" name="search_period_end" class="form-control">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Opções</label>
+                <div style="display:flex;flex-wrap:wrap;gap:16px;padding-top:4px">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="dedup" name="dedup" value="1" checked>
+                        <label class="form-check-label" for="dedup" style="font-size:13px">Detectar e ignorar duplicados</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="import-keywords" name="import_keywords" value="1" checked>
+                        <label class="form-check-label" for="import-keywords" style="font-size:13px">Importar palavras-chave</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Warning for large files #}
+        {% if totalRows > 5000 %}
+            <div style="background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--bm-warning)">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Arquivo grande ({{ totalRows|number_format }} registros).</strong>
+                A importação pode levar vários minutos. Não feche o navegador durante o processo.
+            </div>
+        {% endif %}
+
+        <div class="d-flex gap-3 align-items-center">
+            <button type="submit" id="confirm-btn" class="btn-bm-primary" style="font-size:15px;padding:10px 28px">
+                <i class="bi bi-check2-circle me-2"></i>Confirmar e importar {{ totalRows|number_format }} registros
+            </button>
+            <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-secondary">
+                Voltar
+            </a>
+        </div>
+    </form>
+</div>
+
+{# Loading overlay #}
+<div id="import-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,17,23,0.85);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+    <div style="font-size:48px">⚙️</div>
+    <div style="font-size:20px;font-weight:600;color:var(--bm-text)">Importando documentos...</div>
+    <div style="font-size:14px;color:var(--bm-text-muted);max-width:400px;text-align:center">
+        Processando {{ totalRows|number_format }} registros. Isso pode levar alguns minutos para arquivos grandes.
+        <br><strong>Não feche esta página.</strong>
+    </div>
+    <div style="width:300px;height:8px;background:var(--bm-border);border-radius:4px;overflow:hidden">
+        <div class="progress-indeterminate" style="height:100%;background:linear-gradient(90deg,#4f8ef7,#a855f7);border-radius:4px"></div>
+    </div>
+</div>
+
+<style>
+@keyframes indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+.progress-indeterminate { width: 40%; animation: indeterminate 1.5s ease-in-out infinite; }
+</style>
+
+<script>
+document.getElementById('confirm-form').addEventListener('submit', function() {
+    document.getElementById('confirm-btn').disabled = true;
+    document.getElementById('confirm-btn').innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Importando...';
+    const overlay = document.getElementById('import-overlay');
+    overlay.style.display = 'flex';
+});
+</script>
+{% endblock %}

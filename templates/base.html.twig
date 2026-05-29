@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BiblioMap{% endblock %} — Plataforma Bibliométrica</title>
+    <meta name="description" content="{% block meta_description %}BiblioMap: plataforma web para análise bibliométrica, cientométrica e mapeamento da produção científica.{% endblock %}">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Theme Restoring Script (Synchronous, prevents white/dark flash) -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('bm-theme') || 'dark';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
+
+    <style>
+        :root {
+            --bm-sidebar-width: 260px;
+            --bm-topbar-height: 60px;
+            --bm-gradient: linear-gradient(135deg, #4f8ef7 0%, #a855f7 100%);
+        }
+        :root[data-bs-theme="dark"] {
+            --bm-bg: #0d1117;
+            --bm-sidebar-bg: #161b22;
+            --bm-card-bg: #1c2128;
+            --bm-border: #30363d;
+            --bm-text: #e6edf3;
+            --bm-text-muted: #8b949e;
+            --bm-accent: #4f8ef7;
+            --bm-accent-hover: #6aa3ff;
+            --bm-success: #3fb950;
+            --bm-warning: #d29922;
+            --bm-danger: #f85149;
+        }
+        :root[data-bs-theme="light"] {
+            --bm-bg: #f6f8fa;
+            --bm-sidebar-bg: #ffffff;
+            --bm-card-bg: #ffffff;
+            --bm-border: #d0d7de;
+            --bm-text: #24292f;
+            --bm-text-muted: #57606a;
+            --bm-accent: #0969da;
+            --bm-accent-hover: #0c57d0;
+            --bm-success: #1a7f37;
+            --bm-warning: #9a6700;
+            --bm-danger: #cf222e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bm-bg);
+            color: var(--bm-text);
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .bm-sidebar {
+            position: fixed; top: 0; left: 0;
+            width: var(--bm-sidebar-width); height: 100vh;
+            background: var(--bm-sidebar-bg);
+            border-right: 1px solid var(--bm-border);
+            display: flex; flex-direction: column;
+            z-index: 1000; overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        .bm-logo {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--bm-border);
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none;
+        }
+        .bm-logo-icon {
+            width: 36px; height: 36px;
+            background: var(--bm-gradient);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .bm-logo-text { font-size: 18px; font-weight: 700; color: var(--bm-text); letter-spacing: -0.3px; }
+        .bm-logo-sub { font-size: 10px; color: var(--bm-text-muted); letter-spacing: 0.5px; text-transform: uppercase; display: block; line-height: 1; margin-top: 1px; }
+        .bm-nav { flex: 1; padding: 12px 0; }
+        .bm-nav-section { padding: 8px 16px 4px; font-size: 10px; font-weight: 600; color: var(--bm-text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .bm-nav-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 16px; color: var(--bm-text-muted);
+            text-decoration: none; font-size: 13.5px; font-weight: 500;
+            border-radius: 6px; margin: 1px 8px; transition: all 0.15s ease;
+        }
+        .bm-nav-link:hover { color: var(--bm-text); background: rgba(255,255,255,0.05); }
+        .bm-nav-link.active { color: var(--bm-accent); background: rgba(79,142,247,0.12); }
+        .bm-nav-link i { font-size: 15px; width: 18px; text-align: center; }
+        .bm-sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--bm-border); }
+        .bm-user-mini { display: flex; align-items: center; gap: 10px; }
+        .bm-avatar {
+            width: 32px; height: 32px; background: var(--bm-gradient);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 12px; font-weight: 700;
+            color: white; flex-shrink: 0;
+        }
+        .bm-user-name { font-size: 13px; font-weight: 500; color: var(--bm-text); }
+        .bm-user-role { font-size: 11px; color: var(--bm-text-muted); }
+        .bm-topbar {
+            position: fixed; top: 0; left: var(--bm-sidebar-width); right: 0;
+            height: var(--bm-topbar-height);
+            background: var(--bm-sidebar-bg); border-bottom: 1px solid var(--bm-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; z-index: 900;
+        }
+        .bm-breadcrumb { font-size: 13px; color: var(--bm-text-muted); }
+        .bm-breadcrumb .current { color: var(--bm-text); font-weight: 500; }
+        .bm-main {
+            margin-left: var(--bm-sidebar-width);
+            margin-top: var(--bm-topbar-height);
+            min-height: calc(100vh - var(--bm-topbar-height));
+            padding: 28px;
+        }
+        .bm-card { background: var(--bm-card-bg); border: 1px solid var(--bm-border); border-radius: 12px; padding: 20px; transition: border-color 0.2s ease; }
+        .bm-card:hover { border-color: #484f58; }
+        .bm-stat-card { background: var(--bm-card-bg); border: 1px solid var(--bm-border); border-radius: 12px; padding: 20px; transition: all 0.2s ease; }
+        .bm-stat-card:hover { border-color: var(--bm-accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(79,142,247,0.1); }
+        .bm-stat-value { font-size: 28px; font-weight: 700; color: var(--bm-text); line-height: 1; }
+        .bm-stat-label { font-size: 12px; color: var(--bm-text-muted); margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-bm-primary { background: var(--bm-gradient); border: none; color: white; font-weight: 600; padding: 8px 20px; border-radius: 8px; transition: opacity 0.2s, transform 0.1s; font-size: 14px; }
+        .btn-bm-primary:hover { opacity: 0.9; transform: translateY(-1px); color: white; }
+        .btn-bm-secondary { background: transparent; border: 1px solid var(--bm-border); color: var(--bm-text); font-weight: 500; padding: 8px 20px; border-radius: 8px; transition: all 0.2s; font-size: 14px; }
+        .btn-bm-secondary:hover { border-color: var(--bm-accent); color: var(--bm-accent); background: rgba(79,142,247,0.05); }
+        .bm-alert { border-radius: 10px; border: 1px solid; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .bm-page-header { margin-bottom: 24px; }
+        .bm-page-title { font-size: 22px; font-weight: 700; color: var(--bm-text); margin: 0 0 4px; }
+        .bm-page-subtitle { font-size: 13.5px; color: var(--bm-text-muted); margin: 0; }
+        .form-control, .form-select { background: var(--bm-bg) !important; border-color: var(--bm-border) !important; color: var(--bm-text) !important; border-radius: 8px !important; font-size: 14px; }
+        .form-control:focus, .form-select:focus { border-color: var(--bm-accent) !important; box-shadow: 0 0 0 3px rgba(79,142,247,0.15) !important; }
+        .form-label { font-size: 13px; font-weight: 500; color: var(--bm-text-muted); margin-bottom: 6px; }
+        .form-check-input:checked { background-color: var(--bm-accent); border-color: var(--bm-accent); }
+        @media (max-width: 768px) { .bm-sidebar { transform: translateX(-100%); } .bm-sidebar.open { transform: translateX(0); } .bm-topbar { left: 0; } .bm-main { margin-left: 0; } }
+        .text-accent { color: var(--bm-accent) !important; }
+        .text-muted-bm { color: var(--bm-text-muted) !important; }
+        .border-bm { border-color: var(--bm-border) !important; }
+        .bg-bm-card { background: var(--bm-card-bg) !important; }
+        code { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+        .gradient-text { background: var(--bm-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 3px; }
+    </style>
+    {% block stylesheets %}{% endblock %}
+</head>
+<body>
+
+{% if app.user %}
+    <aside class="bm-sidebar" id="sidebar">
+        <a href="{{ path('app_projects_index') }}" class="bm-logo">
+            <div class="bm-logo-icon">📊</div>
+            <div>
+                <div class="bm-logo-text">BiblioMap</div>
+                <span class="bm-logo-sub">Bibliometria</span>
+            </div>
+        </a>
+        <nav class="bm-nav">
+            <div class="bm-nav-section">Workspace</div>
+            <a href="{{ path('app_projects_index') }}"
+               class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_projects' %}active{% endif %}">
+                <i class="bi bi-folder2-open"></i> Meus projetos
+            </a>
+            <a href="{{ path('app_projects_new') }}" class="bm-nav-link">
+                <i class="bi bi-plus-circle"></i> Novo projeto
+            </a>
+            {% if project is defined %}
+                <div class="bm-nav-section" style="margin-top:8px">Projeto atual</div>
+                <a href="{{ path('app_projects_show', {id: project.id}) }}" class="bm-nav-link">
+                    <i class="bi bi-house"></i> Visão geral
+                </a>
+                <a href="{{ path('app_import_index', {projectId: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_import' %}active{% endif %}">
+                    <i class="bi bi-upload"></i> Importações
+                </a>
+                <a href="{{ path('app_dashboard_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_dashboard' %}active{% endif %}">
+                    <i class="bi bi-grid-1x2"></i> Dashboard
+                </a>
+                <a href="{{ path('app_normalize_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_normalize' %}active{% endif %}">
+                    <i class="bi bi-magic"></i> Normalização
+                </a>
+                <div class="bm-nav-section" style="margin-top:8px">Análises</div>
+                <a href="{{ path('app_report_annual_production', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_annual_production' %}active{% endif %}">
+                    <i class="bi bi-bar-chart-line"></i> Produção Anual
+                </a>
+                <a href="{{ path('app_report_authors', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_authors' %}active{% endif %}">
+                    <i class="bi bi-people"></i> Autores
+                </a>
+                <a href="{{ path('app_report_sources', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_sources' %}active{% endif %}">
+                    <i class="bi bi-journal-text"></i> Fontes
+                </a>
+                <a href="{{ path('app_report_documents', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_documents' %}active{% endif %}">
+                    <i class="bi bi-file-earmark-text"></i> Documentos
+                </a>
+                <a href="{{ path('app_report_keywords', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_keywords' %}active{% endif %}">
+                    <i class="bi bi-tags"></i> Palavras-chave
+                </a>
+                <a href="{{ path('app_report_countries', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_countries' %}active{% endif %}">
+                    <i class="bi bi-globe2"></i> Países
+                </a>
+                <a href="{{ path('app_report_institutions', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_institutions' %}active{% endif %}">
+                    <i class="bi bi-building"></i> Instituições
+                </a>
+                <div class="bm-nav-section" style="margin-top:8px">Redes e Mapas</div>
+                <a href="{{ path('app_networks_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_networks' %}active{% endif %}">
+                    <i class="bi bi-diagram-3"></i> Redes
+                </a>
+                <a href="{{ path('app_thematic_map_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_thematic_map' %}active{% endif %}">
+                    <i class="bi bi-map"></i> Mapa temático
+                </a>
+                <a href="{{ path('app_thematic_evolution_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_thematic_evolution' %}active{% endif %}">
+                    <i class="bi bi-bar-chart-steps"></i> Evolução temática
+                </a>
+                <div class="bm-nav-section" style="margin-top:8px">Relatórios</div>
+                <a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_report_keyword_evolution' %}active{% endif %}">
+                    <i class="bi bi-graph-up-arrow"></i> Evolução de Palavras-Chave
+                </a>
+                <a href="{{ path('app_report_general', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_general' %}active{% endif %}">
+                    <i class="bi bi-file-earmark-bar-graph"></i> Relatório Geral
+                </a>
+                <a href="#" class="bm-nav-link" style="opacity:0.4" title="Em breve"><i class="bi bi-download"></i> Exportações</a>
+            {% endif %}
+        </nav>
+        <div class="bm-sidebar-footer">
+            <div class="bm-user-mini">
+                <div class="bm-avatar">{{ app.user.name|first|upper }}</div>
+                <div>
+                    <div class="bm-user-name">{{ app.user.name|split(' ')|first }}</div>
+                    <div class="bm-user-role">Pesquisador</div>
+                </div>
+                <a href="{{ path('app_logout') }}" class="ms-auto" style="color:var(--bm-text-muted)" title="Sair">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <header class="bm-topbar">
+        <div class="bm-breadcrumb">
+            {% block breadcrumb %}<span class="current">Dashboard</span>{% endblock %}
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            {% block topbar_actions %}{% endblock %}
+            
+            <!-- Global Theme Toggle Button -->
+            <button class="btn btn-sm d-flex align-items-center gap-2 border" onclick="toggleGlobalTheme()" title="Alternar Tema Claro/Escuro" style="padding:6px 12px;font-size:13px;border-radius:8px;background:transparent;border-color:var(--bm-border) !important;color:var(--bm-text-muted)">
+                <i class="bi bi-sun bm-theme-icon" style="font-size:14px;color:var(--bm-accent)"></i>
+                <span class="bm-theme-label" style="font-weight:600">Escuro</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="bm-main">
+        {% for type, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert bm-alert alert-{{ type == 'success' ? 'success' : (type == 'danger' ? 'danger' : 'info') }} alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-{{ type == 'success' ? 'check-circle' : (type == 'danger' ? 'exclamation-triangle' : 'info-circle') }}"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+        {% block body %}{% endblock %}
+    </main>
+
+{% else %}
+    {% block auth_body %}{% endblock %}
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function toggleGlobalTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-bs-theme', nextTheme);
+        localStorage.setItem('bm-theme', nextTheme);
+        
+        // Update all toggle button icons in the DOM
+        updateThemeToggleIcons(nextTheme);
+        
+        // Dispatch custom event to notify active charts/networks on the page to update!
+        window.dispatchEvent(new CustomEvent('bm-theme-changed', { detail: { theme: nextTheme } }));
+    }
+
+    function updateThemeToggleIcons(theme) {
+        const icons = document.querySelectorAll('.bm-theme-icon');
+        const labels = document.querySelectorAll('.bm-theme-label');
+        
+        icons.forEach(icon => {
+            if (theme === 'light') {
+                icon.className = 'bi bi-moon-stars-fill bm-theme-icon';
+                icon.style.color = '#a855f7'; // Purple accents for dark theme switch
+            } else {
+                icon.className = 'bi bi-sun-fill bm-theme-icon';
+                icon.style.color = '#f0883e'; // Golden/Orange for light theme switch
+            }
+        });
+        
+        labels.forEach(label => {
+            label.textContent = theme === 'light' ? 'Escuro' : 'Claro';
+        });
+    }
+
+    // Run on DOMContentLoaded to set the correct icon initial state
+    document.addEventListener('DOMContentLoaded', () => {
+        const activeTheme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        updateThemeToggleIcons(activeTheme);
+    });
+</script>
+{% block javascripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block auth_body %}
+<div style="min-height:100vh;background:var(--bm-bg);display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="width:100%;max-width:480px">
+
+        <div class="text-center mb-5">
+            <div style="width:56px;height:56px;background:linear-gradient(135deg,#4f8ef7,#a855f7);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px">📊</div>
+            <h1 style="font-size:24px;font-weight:700;color:var(--bm-text);margin:0">BiblioMap</h1>
+            <p style="color:var(--bm-text-muted);font-size:13px;margin:4px 0 0">Crie sua conta gratuita</p>
+        </div>
+
+        <div style="background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:16px;padding:32px">
+            <h2 style="font-size:18px;font-weight:600;color:var(--bm-text);margin:0 0 24px">Criar nova conta</h2>
+
+            {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+
+                {% for field in form %}
+                    {% if field.vars.errors|length > 0 %}
+                        <div class="alert alert-danger d-flex gap-2 align-items-center mb-3" style="border-radius:8px;font-size:13px">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            {% for error in field.vars.errors %}{{ error.message }}{% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                <div class="mb-3">
+                    {{ form_label(form.name) }}
+                    {{ form_widget(form.name, {attr: {class: 'form-control', autocomplete: 'name'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.email) }}
+                    {{ form_widget(form.email, {attr: {class: 'form-control', autocomplete: 'email'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.institution) }}
+                    {{ form_widget(form.institution, {attr: {class: 'form-control'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.plainPassword.first) }}
+                    {{ form_widget(form.plainPassword.first, {attr: {class: 'form-control', autocomplete: 'new-password'}}) }}
+                </div>
+
+                <div class="mb-4">
+                    {{ form_label(form.plainPassword.second) }}
+                    {{ form_widget(form.plainPassword.second, {attr: {class: 'form-control', autocomplete: 'new-password'}}) }}
+                </div>
+
+                <button type="submit"
+                        style="width:100%;padding:10px;background:linear-gradient(135deg,#4f8ef7,#a855f7);border:none;border-radius:8px;color:white;font-weight:600;font-size:15px;cursor:pointer">
+                    Criar minha conta
+                </button>
+
+            {{ form_end(form) }}
+        </div>
+
+        <p class="text-center mt-4" style="font-size:13px;color:var(--bm-text-muted)">
+            Já tem conta?
+            <a href="{{ path('app_login') }}" style="color:var(--bm-accent);font-weight:500">Fazer login</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

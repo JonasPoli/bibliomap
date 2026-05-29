@@ -1,0 +1,542 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mapa Temático — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Mapa Temático</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+<a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-arrow-left me-1"></i> Voltar
+</a>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Layout Grid ─────────────────────────────────────────────── */
+.map-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* ── Sidebar controls ────────────────────────────────────────── */
+.map-sidebar {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: start;
+}
+.sidebar-section-title {
+    font-size: 11px; font-weight: 700; color: var(--bm-text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+.control-group {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 12px;
+}
+.control-label {
+    font-size: 12px; font-weight: 600; color: var(--bm-text-muted);
+    display: flex; justify-content: space-between;
+}
+.control-input {
+    background: var(--bm-bg); border: 1px solid var(--bm-border);
+    color: var(--bm-text); border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; font-weight: 500;
+}
+.control-input:focus { outline: none; border-color: var(--bm-accent); }
+input[type="range"] {
+    accent-color: var(--bm-accent);
+}
+
+/* ── Main Map Display Area ───────────────────────────────────── */
+.map-card-wrap {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.chart-container {
+    position: relative;
+    height: 480px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    border: 1px solid var(--bm-border);
+    padding: 10px;
+}
+.map-loading {
+    position: absolute; inset: 0;
+    background: rgba(22,27,34,0.9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--bm-text-muted); font-size: 14px; gap: 12px;
+    z-index: 20;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table Styling ───────────────────────────────────────────── */
+.tbl-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--bm-border);
+    padding-top: 16px;
+}
+.theme-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px;
+}
+.theme-table th {
+    padding: 8px 12px; text-align: left; color: var(--bm-text-muted);
+    font-weight: 600; border-bottom: 2px solid var(--bm-border);
+    text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.5px;
+}
+.theme-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--bm-border); color: var(--bm-text);
+}
+.theme-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+.badge-quadrant {
+    display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;
+}
+.badge-q1 { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); } /* Motor */
+.badge-q2 { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); } /* Nicho */
+.badge-q3 { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.3); }  /* Emergente */
+.badge-q4 { background: rgba(240, 136, 62, 0.15); color: #f0883e; border: 1px solid rgba(240, 136, 62, 0.3); }  /* Básico */
+
+.kw-pill-mini {
+    display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--bm-border);
+    color: var(--bm-text-muted); margin: 2px;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:36px;height:36px;background:var(--bm-gradient);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">🗺️</div>
+        <div>
+            <h1 class="bm-page-title" style="margin:0">Mapa Temático</h1>
+            <p class="bm-page-subtitle" style="margin:0">Estrutura conceitual categorizada por centralidade e densidade estratégica</p>
+        </div>
+    </div>
+</div>
+
+<!-- Main Layout Grid -->
+<div class="map-layout">
+
+    <!-- Left Controls Sidebar -->
+    <div class="map-sidebar">
+        <div>
+            <div class="sidebar-section-title">Parâmetros de Análise</div>
+            
+            <!-- Keyword Type Selection -->
+            <div class="control-group">
+                <label class="control-label">Tipo de Palavras-Chave</label>
+                <select id="param-kw-type" class="control-input" onchange="loadThematicMap()">
+                    <option value="author">Palavras dos Autores</option>
+                    <option value="indexed">Palavras Indexadas</option>
+                </select>
+            </div>
+
+            <!-- Min Occurrence Slider -->
+            <div class="control-group">
+                <label class="control-label">
+                    <span>Ocorrência Mínima</span>
+                    <span id="lbl-min-occur" style="color:var(--bm-accent);font-weight:700">2</span>
+                </label>
+                <input type="range" id="param-min-occur" min="1" max="10" value="2" oninput="updateOccurLabel(this.value)" onchange="loadThematicMap()">
+                <small class="text-muted" style="font-size:10px">Ignorar termos que aparecem menos vezes.</small>
+            </div>
+
+            <!-- Max Keywords Count Slider -->
+            <div class="control-group">
+                <label class="control-label">
+                    <span>Limite de Palavras</span>
+                    <span id="lbl-max-keywords" style="color:var(--bm-accent);font-weight:700">100</span>
+                </label>
+                <input type="range" id="param-max-keywords" min="20" max="300" step="10" value="100" oninput="updateKeywordsLabel(this.value)" onchange="loadThematicMap()">
+                <small class="text-muted" style="font-size:10px">Número máximo de termos para montar os agrupamentos.</small>
+            </div>
+        </div>
+
+        <div style="font-size:11px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px">
+            <span style="font-weight:700;display:block;margin-bottom:6px">📌 LEGENDA DOS QUADRANTES</span>
+            <ul style="padding-left:12px;margin:0;display:flex;flex-direction:column;gap:6px">
+                <li><b style="color:#3fb950">Motores</b>: Importantes e bem desenvolvidos.</li>
+                <li><b style="color:#a855f7">Isolados</b>: Desenvolvidos internamente, mas marginais na área.</li>
+                <li><b style="color:#f85149">Emergentes/Declínio</b>: Fracos e marginais no corpus.</li>
+                <li><b style="color:#f0883e">Básicos</b>: Relevantes para a área geral, mas pouco desenvolvidos.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Right Plot Area -->
+    <div class="map-card-wrap">
+        
+        <!-- Loading Indicator -->
+        <div class="map-loading" id="map-loading">
+            <i class="bi bi-arrow-clockwise spin" style="font-size:24px;color:var(--bm-accent)"></i>
+            <span>Processando coocorrências e clusterizando dados…</span>
+        </div>
+
+        <!-- Diagram Chart Area -->
+        <div class="chart-container">
+            <canvas id="thematic-chart"></canvas>
+        </div>
+
+        <!-- Clusters Legend Table -->
+        <div class="tbl-wrap">
+            <div class="sidebar-section-title" style="margin-bottom:12px">Detalhamento dos Clusters Calculados</div>
+            <table class="theme-table" id="table-clusters">
+                <thead>
+                    <tr>
+                        <th style="width:40px">ID</th>
+                        <th>Tema (Principal Termo)</th>
+                        <th>Quadrante Estratégico</th>
+                        <th style="text-align:right">Tamanho</th>
+                        <th style="text-align:right">Docs</th>
+                        <th style="text-align:right">Centralidade</th>
+                        <th style="text-align:right">Densidade</th>
+                        <th>Principais Termos</th>
+                    </tr>
+                </thead>
+                <tbody id="list-clusters">
+                    <!-- Loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// ── Global Config ────────────────────────────────────────────────────────────
+const DATA_URL = '{{ path('app_thematic_map_data', {id: project.id}) }}';
+let mapChart   = null;
+let thematicData = null; // cached JSON coordinates
+
+// Quadrant Colors palette
+const PALETTE = ['#3fb950','#a855f7','#f85149','#f0883e'];
+
+function updateOccurLabel(v) { document.getElementById('lbl-min-occur').textContent = v; }
+function updateKeywordsLabel(v) { document.getElementById('lbl-max-keywords').textContent = v; }
+function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        text: light ? '#57606a' : '#8b949e',
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.6)',
+        crosshair: light ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)',
+        crosshairText: light ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.35)',
+        tooltipBg: light ? '#ffffff' : '#1c2128',
+        tooltipText: light ? '#24292f' : '#e6edf3',
+    };
+}
+
+// ── Custom Crosshair and Quadrant Drawing Plugin ─────────────────────────────
+const quadrantPlugin = {
+    id: 'quadrantPlugin',
+    beforeDraw(chart, args, options) {
+        const { ctx, chartArea: { left, top, right, bottom }, scales: { x, y } } = chart;
+        
+        const xCut = options.xValue;
+        const yCut = options.yValue;
+        
+        const xPixel = x.getPixelForValue(xCut);
+        const yPixel = y.getPixelForValue(yCut);
+        
+        const colors = getColors();
+
+        ctx.save();
+        
+        // Draw crosshair lines
+        ctx.strokeStyle = colors.crosshair;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        
+        // Vertical axis (Centrality boundary)
+        ctx.beginPath();
+        ctx.moveTo(xPixel, top);
+        ctx.lineTo(xPixel, bottom);
+        ctx.stroke();
+        
+        // Horizontal axis (Density boundary)
+        ctx.beginPath();
+        ctx.moveTo(left, yPixel);
+        ctx.lineTo(right, yPixel);
+        ctx.stroke();
+        
+        // Draw quadrant Labels in the corners
+        ctx.setLineDash([]);
+        ctx.fillStyle = colors.crosshairText;
+        ctx.font = 'bold 11px "Inter", sans-serif';
+        
+        // Q1 (Top Right): Motor Themes
+        ctx.fillText('TEMAS MOTORES', right - 130, top + 22);
+        
+        // Q2 (Top Left): Niche Themes
+        ctx.fillText('TEMAS DE NICHO (ISOLADOS)', left + 20, top + 22);
+        
+        // Q3 (Bottom Left): Emerging/Declining
+        ctx.fillText('EMERGENTES OU EM DECLÍNIO', left + 20, bottom - 18);
+        
+        // Q4 (Bottom Right): Basic Themes
+        ctx.fillText('TEMAS BÁSICOS / GERAIS', right - 160, bottom - 18);
+        
+        ctx.restore();
+    }
+};
+
+Chart.register(quadrantPlugin);
+
+// ── Theme Re-drawing Listener ────────────────────────────────────────────────
+window.addEventListener('bm-theme-changed', () => {
+    if (thematicData) {
+        renderMap();
+        renderTable();
+    }
+});
+
+// ── Fetch Thematic Data ───────────────────────────────────────────────────────
+async function loadThematicMap() {
+    const loading = document.getElementById('map-loading');
+    loading.style.display = 'flex';
+
+    const kwType   = document.getElementById('param-kw-type').value;
+    const minOccur = document.getElementById('param-min-occur').value;
+    const limit    = document.getElementById('param-max-keywords').value;
+
+    const url = `${DATA_URL}?kwType=${kwType}&minOccur=${minOccur}&limit=${limit}`;
+
+    try {
+        const response = await fetch(url);
+        thematicData = await response.json();
+        
+        renderMap();
+        renderTable();
+    } catch (e) {
+        console.error("Failed loading thematic map data:", e);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+// ── Render Scatter Diagram ───────────────────────────────────────────────────
+function renderMap() {
+    const canvas = document.getElementById('thematic-chart');
+    if (mapChart) mapChart.destroy();
+
+    const colors = getColors();
+    
+    // Compute median boundaries for central quadrants
+    const xCut = thematicData.meta.medianCentrality;
+    const yCut = thematicData.meta.medianDensity;
+
+    // Convert clusters to Chart.js bubble datasets
+    const bubbleData = thematicData.clusters.map(c => {
+        // Determine quadrant:
+        // Motor: C >= xCut, D >= yCut -> Q1
+        // Nicho: C < xCut, D >= yCut -> Q2
+        // Emergente: C < xCut, D < yCut -> Q3
+        // Basico: C >= xCut, D < yCut -> Q4
+        let color = '#3fb950'; // Q1 (Green)
+        if (c.centrality < xCut && c.density >= yCut) color = '#a855f7';      // Q2 (Purple)
+        else if (c.centrality < xCut && c.density < yCut) color = '#f85149';  // Q3 (Red)
+        else if (c.centrality >= xCut && c.density < yCut) color = '#f0883e'; // Q4 (Orange)
+
+        // Gracefully scale circle radius relative to frequency
+        // Min radius: 8px, Max radius: 32px
+        const maxOccur = Math.max(...thematicData.clusters.map(x => x.doc_count), 1);
+        const radius = 8 + Math.sqrt(c.doc_count / maxOccur) * 20;
+
+        return {
+            x: c.centrality,
+            y: c.density,
+            r: radius,
+            clusterId: c.id,
+            label: c.label,
+            docCount: c.doc_count,
+            size: c.size,
+            keywords: c.keywords.slice(0, 8).map(x => x.label),
+            backgroundColor: color + 'bf', // 75% opacity
+            borderColor: color,
+            borderWidth: 1.5,
+            hoverBackgroundColor: color
+        };
+    });
+
+    mapChart = new Chart(canvas, {
+        type: 'bubble',
+        data: {
+            datasets: [{
+                data: bubbleData
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                quadrantPlugin: {
+                    xValue: xCut,
+                    yValue: yCut,
+                    borderColor: colors.crosshair,
+                    textColor: colors.crosshairText
+                },
+                tooltip: {
+                    backgroundColor: colors.tooltipBg,
+                    borderColor: colors.grid,
+                    borderWidth: 1,
+                    titleColor: colors.tooltipText,
+                    bodyColor: colors.text,
+                    callbacks: {
+                        label: function (context) {
+                            const p = context.raw;
+                            return [
+                                `Tema: ${p.label}`,
+                                `Docs: ${p.docCount} | Termos no cluster: ${p.size}`,
+                                `Centralidade: ${p.x}`,
+                                `Densidade: ${p.y}`,
+                                `Principais palavras: ${p.keywords.join(', ')}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'CENTRALIDADE (RELEVÂNCIA DO TEMA)', color: colors.text, font: { weight: 'bold', size: 10 } },
+                    grid: { color: colors.grid },
+                    ticks: { color: colors.text }
+                },
+                y: {
+                    title: { display: true, text: 'DENSIDADE (DESENVOLVIMENTO DO TEMA)', color: colors.text, font: { weight: 'bold', size: 10 } },
+                    grid: { color: colors.grid },
+                    ticks: { color: colors.text }
+                }
+            }
+        }
+    });
+}
+
+// ── Render Legend Table ──────────────────────────────────────────────────────
+function renderTable() {
+    const tbody = document.getElementById('list-clusters');
+    tbody.innerHTML = '';
+
+    const xCut = thematicData.meta.medianCentrality;
+    const yCut = thematicData.meta.medianDensity;
+
+    if (thematicData.clusters.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhum cluster formado para os parâmetros atuais.</td></tr>';
+        return;
+    }
+
+    // Sort clusters by size (keywords count) desc
+    const sorted = [...thematicData.clusters].sort((a,b) => b.size - a.size);
+
+    tbody.innerHTML = sorted.map((c, idx) => {
+        // Determine Quadrant badge
+        let badge = `<span class="badge-quadrant badge-q1">Motor</span>`;
+        if (c.centrality < xCut && c.density >= yCut) badge = `<span class="badge-quadrant badge-q2">Nicho / Isolado</span>`;
+        else if (c.centrality < xCut && c.density < yCut) badge = `<span class="badge-quadrant badge-q3">Emergente / Declínio</span>`;
+        else if (c.centrality >= xCut && c.density < yCut) badge = `<span class="badge-quadrant badge-q4">Básico / Geral</span>`;
+
+        // Render top 12 keywords inside this cluster as pills
+        const pills = c.keywords.slice(0, 12).map(k => `<span class="kw-pill-mini">${k.label} (${k.doc_count})</span>`).join('');
+
+        return `<tr>
+            <td style="font-weight:700;color:var(--bm-accent)">#${c.id + 1}</td>
+            <td style="font-weight:600">${c.label}</td>
+            <td>${badge}</td>
+            <td style="text-align:right;font-weight:500">${c.size}</td>
+            <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(c.doc_count)}</td>
+            <td style="text-align:right;font-weight:500">${c.centrality}</td>
+            <td style="text-align:right;font-weight:500">${c.density}</td>
+            <td>${pills}${c.keywords.length > 12 ? ' <small style="color:var(--bm-text-muted)">+ ' + (c.keywords.length - 12) + '</small>' : ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Export CSV Table (Microsoft Excel accents and semicolon friendly) ────────
+function exportCSV() {
+    if (!thematicData || thematicData.clusters.length === 0) {
+        alert("Sem dados disponíveis para exportação.");
+        return;
+    }
+
+    const xCut = thematicData.meta.medianCentrality;
+    const yCut = thematicData.meta.medianDensity;
+
+    // Excel-friendly UTF-8 BOM
+    let csvContent = "\uFEFF";
+    
+    // Headers
+    csvContent += "ID;Tema Principal;Quadrante;Tamanho (Palavras);Artigos Ocorrência;Centralidade;Densidade;Palavras-Chave no Cluster\r\n";
+    
+    // Rows
+    thematicData.clusters.forEach(c => {
+        let quad = "Motor";
+        if (c.centrality < xCut && c.density >= yCut) quad = "Nicho / Isolado";
+        else if (c.centrality < xCut && c.density < yCut) quad = "Emergente / Declinio";
+        else if (c.centrality >= xCut && c.density < yCut) quad = "Basico / Geral";
+
+        const keywordsStr = c.keywords.map(k => `${k.label} (${k.doc_count})`).join(', ');
+
+        const row = [
+            c.id + 1,
+            c.label,
+            quad,
+            c.size,
+            c.doc_count,
+            c.centrality,
+            c.density,
+            `"${keywordsStr.replace(/"/g, '""')}"`
+        ];
+
+        csvContent += row.join(";") + "\r\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mapa_tematico_projeto_${thematicData.clusters[0]?.label || 'analysis'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Initialize
+loadThematicMap();
+</script>
+{% endblock %}

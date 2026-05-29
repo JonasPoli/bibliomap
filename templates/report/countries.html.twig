@@ -1,0 +1,318 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Países — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Países</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-globe2 me-2" style="color:var(--bm-accent)"></i>
+        Análise de Países
+    </h1>
+    <p class="bm-page-subtitle">Indicadores de produtividade, citações e cooperação por nação</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_countries|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Países Mapeados</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value" title="{{ kpis.top_country }}">{{ kpis.top_country }}</div>
+            <div class="bm-stat-label">País Mais Produtivo</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.top_country_docs }}</div>
+            <div class="bm-stat-label">Artigos do País Principal</div>
+        </div>
+    </div>
+</div>
+
+<!-- World Map -->
+<div class="bm-card mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <h5 class="mb-0" style="font-weight:700">Mapa Mundial de Produção</h5>
+        <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Intensidade por Documentos</span>
+    </div>
+    <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Cor proporcional ao número de documentos por país</p>
+    <div id="world-map" style="width:100%;height:380px;border-radius:8px;overflow:hidden"></div>
+    <div id="map-tooltip" style="display:none;position:fixed;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 12px;font-size:13px;pointer-events:none;z-index:9999;color:var(--bm-text);min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Bar chart -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Países mais Produtivos</h5>
+            <div style="position:relative;height:300px">
+                <canvas id="chart-countries"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Nacional</h5>
+                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar país…" style="width:200px" oninput="filterTable()">
+            </div>
+            <div class="table-responsive flex-grow-1" style="max-height:300px;overflow-y:auto">
+                <table class="table table-hover align-middle border-bm mb-0" id="countries-table" style="font-size:13px">
+                    <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                        <tr>
+                            <th style="color:var(--bm-text-muted);font-weight:600">#</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600">País</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-0">
+                        {% set totalDocs = 0 %}
+                        {% for c in list %}{% set totalDocs = totalDocs + c.doc_count %}{% endfor %}
+                        {% for c in list %}
+                        <tr class="country-row" data-country="{{ c.country|lower }}">
+                            <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
+                            <td style="font-weight:600;color:var(--bm-text)">{{ c.country }}</td>
+                            <td style="text-align:right;font-weight:700" class="text-accent">{{ c.doc_count }}</td>
+                            <td style="text-align:right">{{ c.citation_count }}</td>
+                            <td style="text-align:right;color:var(--bm-text-muted)">{{ c.avg_citations }}</td>
+                            <td style="text-align:right;font-size:11px;color:var(--bm-text-muted)">
+                                {% if totalDocs > 0 %}{{ ((c.doc_count / totalDocs) * 100)|round(1) }}%{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* Leaflet map style */
+#world-map .leaflet-tile { filter: none; }
+[data-bs-theme="dark"] #world-map { filter: brightness(0.85) saturate(1.2); }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const listData = {{ list|slice(0, 10)|json_encode|raw }};
+const allList  = {{ list|json_encode|raw }};
+let chartInstance = null;
+
+// Build a lookup: country name → doc_count
+const countryDocs = {};
+allList.forEach(c => { countryDocs[c.country.toLowerCase()] = c.doc_count; });
+const maxDocs = allList.length > 0 ? allList[0].doc_count : 1;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        accent: '#e91e63',
+        accentSec: '#4f8ef7',
+    };
+}
+
+// ── Leaflet choropleth ────────────────────────────────────────────────────────
+let leafletMap = null;
+let geoLayer   = null;
+
+function getDocCount(feature) {
+    const name = (feature.properties.name || '').toLowerCase();
+    // Try direct match then some aliases
+    if (countryDocs[name] !== undefined) return countryDocs[name];
+    // Try admin alias
+    const admin = (feature.properties.admin || '').toLowerCase();
+    if (countryDocs[admin] !== undefined) return countryDocs[admin];
+    return 0;
+}
+
+function choroColor(count) {
+    if (count === 0) return isThemeLight() ? '#e8ecf0' : '#21262d';
+    const ratio = count / maxDocs;
+    const alpha = Math.max(0.15, Math.min(1, ratio * 1.4 + 0.1));
+    return `rgba(79, 142, 247, ${alpha})`;
+}
+
+function buildMap() {
+    if (leafletMap) {
+        leafletMap.remove();
+        leafletMap = null;
+    }
+
+    leafletMap = L.map('world-map', {
+        center: [20, 0],
+        zoom: 2,
+        zoomSnap: 0.5,
+        zoomControl: true,
+        attributionControl: false,
+    });
+
+    const tileUrl = isThemeLight()
+        ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, { maxZoom: 6 }).addTo(leafletMap);
+
+    const tooltip = document.getElementById('map-tooltip');
+
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+        .then(r => r.json())
+        .then(geo => {
+            geoLayer = L.geoJSON(geo, {
+                style: feature => {
+                    const count = getDocCount(feature);
+                    return {
+                        fillColor: choroColor(count),
+                        weight: 0.5,
+                        color: isThemeLight() ? '#c8d1db' : '#30363d',
+                        fillOpacity: count > 0 ? 0.85 : 0.3,
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const name  = feature.properties.name || '?';
+                    const count = getDocCount(feature);
+                    const info  = allList.find(c => c.country.toLowerCase() === name.toLowerCase());
+
+                    layer.on('mousemove', e => {
+                        tooltip.style.display  = 'block';
+                        tooltip.style.left     = (e.originalEvent.clientX + 14) + 'px';
+                        tooltip.style.top      = (e.originalEvent.clientY - 10) + 'px';
+                        if (count > 0 && info) {
+                            tooltip.innerHTML = `<strong>${name}</strong><br>
+                                <span style="color:var(--bm-accent)">📄 ${info.doc_count} documentos</span><br>
+                                <span style="color:var(--bm-text-muted)">🔖 ${info.citation_count} citações &nbsp;·&nbsp; ø ${info.avg_citations}</span>`;
+                        } else {
+                            tooltip.innerHTML = `<strong>${name}</strong><br><span style="color:var(--bm-text-muted)">Sem dados no corpus</span>`;
+                        }
+                    });
+                    layer.on('mouseout', () => { tooltip.style.display = 'none'; });
+                }
+            }).addTo(leafletMap);
+        })
+        .catch(() => {
+            document.getElementById('world-map').innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--bm-text-muted);font-size:13px"><i class="bi bi-exclamation-circle me-2"></i> Mapa não disponível (sem conexão ou falha ao carregar GeoJSON)</div>';
+        });
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+    buildMap();
+});
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color       = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chart-countries').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: listData.map(c => c.country),
+            datasets: [
+                {
+                    label: 'Documentos',
+                    data: listData.map(c => c.doc_count),
+                    backgroundColor: cl.accent + 'cc',
+                    borderColor: cl.accent,
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Citações Totais',
+                    data: listData.map(c => c.citation_count),
+                    backgroundColor: cl.accentSec + 'cc',
+                    borderColor: cl.accentSec,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y_cit'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    type: 'linear', position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Nº Artigos', font: { weight: 'bold' } }
+                },
+                y_cit: {
+                    type: 'linear', position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q = document.getElementById('table-search').value.toLowerCase().trim();
+    document.querySelectorAll('.country-row').forEach(row => {
+        const country = row.dataset.country;
+        row.style.display = (!q || country.includes(q)) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    let csv = "\uFEFFCountry;Articles;Citations;Average Citations\r\n";
+    allList.forEach(c => {
+        csv += `"${c.country}";${c.doc_count};${c.citation_count};${c.avg_citations}\r\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href  = url;
+    link.download = 'analise_paises.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+buildMap();
+</script>
+{% endblock %}

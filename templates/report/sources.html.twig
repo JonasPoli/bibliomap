@@ -1,0 +1,411 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Fontes/Periódicos — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Fontes</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-journal-text me-2" style="color:var(--bm-accent)"></i>
+        Análise de Fontes / Periódicos
+    </h1>
+    <p class="bm-page-subtitle">Impacto, produtividade e Lei de Bradford para identificação do núcleo de periódicos</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_sources|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Fontes</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value" title="{{ kpis.top_source }}">{{ kpis.top_source|slice(0, 20) }}{{ kpis.top_source|length > 20 ? '…' : '' }}</div>
+            <div class="bm-stat-label">Fonte Mais Produtiva</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.top_source_docs }}</div>
+            <div class="bm-stat-label">Artigos na Fonte Principal</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Bar chart -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Periódicos mais Produtivos</h5>
+            <div style="position:relative;height:320px">
+                <canvas id="chart-sources"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bradford zones chart -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="card-title mb-0" style="font-weight:700">Lei de Bradford</h5>
+                <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Núcleo de Periódicos</span>
+                <button class="ms-auto btn btn-sm" onclick="toggleBradfordInfo()" id="btn-bradford-info"
+                    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--bm-border);background:transparent;color:var(--bm-text-muted)">
+                    <i class="bi bi-info-circle me-1"></i> O que é isso?
+                </button>
+            </div>
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">
+                Zona 1 (Núcleo): <strong style="color:var(--bm-success)">{{ bradford.zone1|length }} fontes</strong> &nbsp;·&nbsp;
+                Zona 2: <strong style="color:var(--bm-warning)">{{ bradford.zone2|length }} fontes</strong> &nbsp;·&nbsp;
+                Zona 3: <strong style="color:var(--bm-danger)">{{ bradford.zone3|length }} fontes</strong>
+            </p>
+            <div style="position:relative;height:270px">
+                <canvas id="chart-bradford"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bradford's Law Explanation Box -->
+<div id="bradford-info-box" style="display:none;margin-bottom:20px">
+    <div class="bm-card" style="border-color:rgba(79,142,247,0.35);background:rgba(79,142,247,0.04)">
+        <div class="d-flex align-items-start gap-3">
+            <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#4f8ef7,#a855f7);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <i class="bi bi-journal-bookmark-fill" style="font-size:18px;color:white"></i>
+            </div>
+            <div style="flex:1">
+                <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:6px">O que é a Lei de Bradford?</h6>
+                <p style="font-size:13px;color:var(--bm-text);line-height:1.65;margin-bottom:12px">
+                    Proposta pelo bibliometrista britânico <strong>Samuel Clement Bradford</strong> em 1934, a
+                    <strong>Lei de Bradford</strong> descreve como artigos científicos sobre um determinado tema
+                    se distribuem entre os periódicos científicos.
+                    Ela afirma que <em>uma pequena quantidade de revistas concentra grande parte dos artigos relevantes</em>
+                    de qualquer área, enquanto a maior parte das revistas contém apenas poucos artigos sobre o tema.
+                </p>
+
+                <!-- Visual metaphor: zones -->
+                <div style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:10px;padding:16px;margin-bottom:14px">
+                    <div style="font-size:11px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Distribuição em 3 Zonas (≈1/3 dos artigos cada)</div>
+                    <div class="d-flex gap-2 align-items-stretch flex-wrap">
+                        <div style="flex:1;min-width:140px;padding:12px 14px;border-radius:8px;border:1px solid rgba(63,185,80,0.35);background:rgba(63,185,80,0.07)">
+                            <div style="font-size:19px;font-weight:800;color:var(--bm-success)">Z1</div>
+                            <div style="font-size:12px;font-weight:700;color:var(--bm-success);margin-bottom:4px">★ Núcleo</div>
+                            <div style="font-size:11.5px;color:var(--bm-text-muted);line-height:1.4">
+                                <strong style="color:var(--bm-success)">≈{{ bradford.zone1|length }} periódicos</strong> respondem
+                                por ~&frac13; de toda a produção. São as revistas <em>essenciais</em> do campo.
+                            </div>
+                        </div>
+                        <div style="flex:1;min-width:140px;padding:12px 14px;border-radius:8px;border:1px solid rgba(210,153,34,0.35);background:rgba(210,153,34,0.07)">
+                            <div style="font-size:19px;font-weight:800;color:var(--bm-warning)">Z2</div>
+                            <div style="font-size:12px;font-weight:700;color:var(--bm-warning);margin-bottom:4px">Zona Intermediária</div>
+                            <div style="font-size:11.5px;color:var(--bm-text-muted);line-height:1.4">
+                                <strong style="color:var(--bm-warning)">≈{{ bradford.zone2|length }} periódicos</strong> têm relevância
+                                secundária. Complementam o núcleo mas são menos focados no tema.
+                            </div>
+                        </div>
+                        <div style="flex:1;min-width:140px;padding:12px 14px;border-radius:8px;border:1px solid rgba(248,81,73,0.35);background:rgba(248,81,73,0.07)">
+                            <div style="font-size:19px;font-weight:800;color:var(--bm-danger)">Z3</div>
+                            <div style="font-size:12px;font-weight:700;color:var(--bm-danger);margin-bottom:4px">Zona Periférica</div>
+                            <div style="font-size:11.5px;color:var(--bm-text-muted);line-height:1.4">
+                                <strong style="color:var(--bm-danger)">≈{{ bradford.zone3|length }} periódicos</strong> publicam
+                                ocasionalmente sobre o tema. Cada um contribui com muito poucos artigos.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div style="padding:10px 14px;border-radius:8px;border:1px solid var(--bm-border);background:var(--bm-bg)">
+                        <div style="font-size:11px;font-weight:700;color:var(--bm-accent);margin-bottom:4px"><i class="bi bi-lightbulb me-1"></i>Como usar na prática?</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted);line-height:1.5">
+                            Os periódicos da <strong style="color:var(--bm-success)">Zona 1 (Núcleo)</strong> devem ser
+                            os primeiros a ser consultados em uma revisão bibliográfica. São os mais relevantes
+                            para monitoramento contínuo da área.
+                        </div>
+                    </div>
+                    <div style="padding:10px 14px;border-radius:8px;border:1px solid var(--bm-border);background:var(--bm-bg)">
+                        <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:4px"><i class="bi bi-calculator me-1"></i>Como é calculado?</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted);line-height:1.5">
+                            Os periódicos são ordenados por produção (maior para menor). O total de documentos
+                            é dividido em 3 partes iguais (³æ cada). Cada zona agrega fontes até atingir o
+                            próximo terço do total.
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);font-size:12px;color:var(--bm-text-muted)">
+                    <i class="bi bi-info-circle me-1" style="color:var(--bm-success)"></i>
+                    <strong style="color:var(--bm-success)">Interpretação nesta pesquisa:</strong>
+                    Neste corpus, apenas <strong>{{ bradford.zone1|length }}</strong> periódico(s) concentram
+                    ~&frac13; de toda a produção científica — confirmando o padrão de Bradford de que
+                    a literatura científica se concentra em um núcleo restrito de veículos especializados.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bradford Zone Cards -->
+{% if bradford.zone1|length > 0 %}
+<div class="bm-card mb-4">
+    <h5 class="mb-3" style="font-weight:700">
+        <i class="bi bi-star-fill me-2" style="color:var(--bm-success)"></i>
+        Zona 1 — Núcleo de Bradford
+        <span class="text-muted-bm" style="font-size:12px;font-weight:400;margin-left:8px">Periódicos mais produtivos (~⅓ dos documentos)</span>
+    </h5>
+    <div class="row g-2">
+        {% for src in bradford.zone1 %}
+        <div class="col-xl-4 col-md-6">
+            <div style="padding:8px 12px;border-radius:8px;border:1px solid rgba(63,185,80,0.3);background:rgba(63,185,80,0.05);display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <span style="font-size:12.5px;font-weight:500;color:var(--bm-text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ src.source_title }}">{{ src.source_title }}</span>
+                <span class="badge" style="background:rgba(63,185,80,0.2);color:var(--bm-success);font-size:11px;flex-shrink:0">{{ src.doc_count }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Main Table -->
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="card-title mb-0" style="font-weight:700">Tabela de Impacto das Fontes</h5>
+        <div class="d-flex gap-2 align-items-center">
+            <select id="zone-filter" class="form-select form-select-sm" style="width:140px;font-size:12px" onchange="filterTable()">
+                <option value="">Todas as Zonas</option>
+                <option value="1">Zona 1 (Núcleo)</option>
+                <option value="2">Zona 2</option>
+                <option value="3">Zona 3</option>
+            </select>
+            <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar fonte…" style="width:180px" oninput="filterTable()">
+        </div>
+    </div>
+    <div class="table-responsive" style="max-height:440px;overflow-y:auto">
+        <table class="table table-hover align-middle border-bm mb-0" id="sources-table" style="font-size:13px">
+            <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                <tr>
+                    <th style="color:var(--bm-text-muted);font-weight:600">#</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600">Periódico / Fonte</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Zona Bradford</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Período</th>
+                </tr>
+            </thead>
+            <tbody class="border-0">
+                {% set zone1titles = bradford.zone1|map(s => s.source_title) %}
+                {% set zone2titles = bradford.zone2|map(s => s.source_title) %}
+                {% for src in list %}
+                {% if src.source_title in zone1titles %}
+                    {% set zone = 1 %}
+                    {% set zoneColor = 'var(--bm-success)' %}
+                    {% set zoneBg = 'rgba(63,185,80,0.15)' %}
+                {% elseif src.source_title in zone2titles %}
+                    {% set zone = 2 %}
+                    {% set zoneColor = 'var(--bm-warning)' %}
+                    {% set zoneBg = 'rgba(210,153,34,0.15)' %}
+                {% else %}
+                    {% set zone = 3 %}
+                    {% set zoneColor = 'var(--bm-danger)' %}
+                    {% set zoneBg = 'rgba(248,81,73,0.15)' %}
+                {% endif %}
+                <tr class="source-row" data-title="{{ src.source_title|lower }}" data-zone="{{ zone }}">
+                    <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
+                    <td style="font-weight:600;color:var(--bm-text)" title="{{ src.source_title }}">{{ src.source_title|slice(0, 50) }}{{ src.source_title|length > 50 ? '…' : '' }}</td>
+                    <td style="text-align:center">
+                        <span class="badge rounded-pill" style="background:{{ zoneBg }};color:{{ zoneColor }};font-size:10px;font-weight:700">Z{{ zone }}</span>
+                    </td>
+                    <td style="text-align:right;font-weight:700" class="text-accent">{{ src.doc_count }}</td>
+                    <td style="text-align:right">{{ src.citation_count }}</td>
+                    <td style="text-align:right;color:var(--bm-text-muted)">{{ src.avg_citations }}</td>
+                    <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ src.first_year }}–{{ src.last_year }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const listData   = {{ list|slice(0, 10)|json_encode|raw }};
+const bradfordZ1 = {{ bradford.zone1|json_encode|raw }};
+const bradfordZ2 = {{ bradford.zone2|json_encode|raw }};
+const bradfordZ3 = {{ bradford.zone3|json_encode|raw }};
+let chartInstance  = null;
+let bradfordChart  = null;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        green: '#3fb950',
+        blue: '#4f8ef7',
+        warning: '#d29922',
+        danger: '#f85149',
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+    rebuildBradford();
+});
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chart-sources').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: listData.map(s => s.source_title.length > 25 ? s.source_title.slice(0,25)+'…' : s.source_title),
+            datasets: [
+                {
+                    label: 'Documentos',
+                    data: listData.map(s => s.doc_count),
+                    backgroundColor: cl.green + 'bb',
+                    borderColor: cl.green,
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Citações',
+                    data: listData.map(s => s.citation_count),
+                    backgroundColor: cl.blue + 'bb',
+                    borderColor: cl.blue,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y_cit'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    type: 'linear', position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Nº Artigos', font: { weight: 'bold' } }
+                },
+                y_cit: {
+                    type: 'linear', position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function rebuildBradford() {
+    const cl = getColors();
+    if (bradfordChart) bradfordChart.destroy();
+
+    // Cumulative docs per zone for donut
+    const z1docs = bradfordZ1.reduce((s, x) => s + x.doc_count, 0);
+    const z2docs = bradfordZ2.reduce((s, x) => s + x.doc_count, 0);
+    const z3docs = bradfordZ3.reduce((s, x) => s + x.doc_count, 0);
+    const z1cnt  = bradfordZ1.length;
+    const z2cnt  = bradfordZ2.length;
+    const z3cnt  = bradfordZ3.length;
+
+    const ctx = document.getElementById('chart-bradford').getContext('2d');
+    bradfordChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                `Zona 1 — Núcleo (${z1cnt} fontes, ${z1docs} docs)`,
+                `Zona 2 (${z2cnt} fontes, ${z2docs} docs)`,
+                `Zona 3 (${z3cnt} fontes, ${z3docs} docs)`,
+            ],
+            datasets: [{
+                data: [z1docs, z2docs, z3docs],
+                backgroundColor: [cl.green + 'dd', cl.warning + 'dd', cl.danger + 'dd'],
+                borderColor: [cl.green, cl.warning, cl.danger],
+                borderWidth: 2,
+                hoverOffset: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const total = z1docs + z2docs + z3docs;
+                            const pct   = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                            return ` ${ctx.raw} documentos (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q    = document.getElementById('table-search').value.toLowerCase().trim();
+    const zone = document.getElementById('zone-filter').value;
+    document.querySelectorAll('.source-row').forEach(row => {
+        const title   = row.dataset.title;
+        const rowZone = row.dataset.zone;
+        const matchQ  = !q || title.includes(q);
+        const matchZ  = !zone || rowZone === zone;
+        row.style.display = (matchQ && matchZ) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    const fullList = {{ list|json_encode|raw }};
+    let csv = "\uFEFFSource Title;Articles;Citations;Average Citations;First Year;Last Year\r\n";
+    fullList.forEach(s => {
+        csv += `"${s.source_title}";${s.doc_count};${s.citation_count};${s.avg_citations};${s.first_year};${s.last_year}\r\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href  = url;
+    link.download = 'analise_fontes.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+rebuildBradford();
+</script>
+{% endblock %}

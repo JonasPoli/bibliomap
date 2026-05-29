@@ -1,0 +1,331 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Produção Anual — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Produção Anual</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-bar-chart-line me-2" style="color:var(--bm-accent)"></i>
+        Produção Científica Anual
+    </h1>
+    <p class="bm-page-subtitle">Evolução temporal da produção, citações, crescimento percentual e projeções acumuladas</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value gradient-text">{{ kpis.total_docs|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Documentos</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ kpis.total_years }}</div>
+            <div class="bm-stat-label">Anos de Cobertura</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ kpis.first_year }}</div>
+            <div class="bm-stat-label">Primeiro Ano</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ kpis.last_year }}</div>
+            <div class="bm-stat-label">Último Ano</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value text-accent">{{ kpis.best_year }}</div>
+            <div class="bm-stat-label">Ano Mais Produtivo</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 col-6">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-success)">
+                {{ kpis.cagr is not null ? kpis.cagr ~ '%' : 'N/A' }}
+            </div>
+            <div class="bm-stat-label">TCAC (Crescimento Médio)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Main production chart -->
+    <div class="col-xl-8">
+        <div class="bm-card h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="mb-0" style="font-weight:700">Publicações e Citações por Ano</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleMA3()" id="btn-ma3" style="font-size:12px">Média Móvel 3 anos</button>
+                </div>
+            </div>
+            <div style="position:relative;height:320px">
+                <canvas id="chart-main"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cumulative chart -->
+    <div class="col-xl-4">
+        <div class="bm-card h-100">
+            <h5 class="mb-3" style="font-weight:700">Produção Acumulada</h5>
+            <div style="position:relative;height:320px">
+                <canvas id="chart-cumulative"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Annual Data Table -->
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0" style="font-weight:700">Tabela Anual Detalhada</h5>
+        <span class="text-muted-bm" style="font-size:12px">{{ annualData|length }} anos analisados</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle border-bm" id="annual-table" style="font-size:13px">
+            <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                <tr>
+                    <th style="color:var(--bm-text-muted);font-weight:600">Ano</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Documentos</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Crescimento %</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Acumulado</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% do Total</th>
+                </tr>
+            </thead>
+            <tbody class="border-0">
+                {% set total = kpis.total_docs %}
+                {% for row in annualData %}
+                <tr>
+                    <td style="font-weight:700;color:var(--bm-accent)">{{ row.year }}</td>
+                    <td style="text-align:right;font-weight:700;color:var(--bm-text)">{{ row.doc_count }}</td>
+                    <td style="text-align:right">
+                        {% if row.growth_pct is not null %}
+                            <span style="color:{{ row.growth_pct >= 0 ? 'var(--bm-success)' : 'var(--bm-danger)' }};font-weight:600">
+                                {{ row.growth_pct >= 0 ? '+' : '' }}{{ row.growth_pct }}%
+                            </span>
+                        {% else %}
+                            <span class="text-muted-bm">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right">{{ row.citation_count|number_format(0, ',', '.') }}</td>
+                    <td style="text-align:right;color:var(--bm-text-muted)">{{ row.avg_citations }}</td>
+                    <td style="text-align:right;color:var(--bm-text-muted)">{{ row.cumulative }}</td>
+                    <td style="text-align:right">
+                        {% if total > 0 %}
+                            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                                <div style="width:60px;height:4px;background:var(--bm-border);border-radius:2px;overflow:hidden">
+                                    <div style="width:{{ ((row.doc_count / total) * 100)|round(1) }}%;height:100%;background:var(--bm-accent);border-radius:2px"></div>
+                                </div>
+                                <span style="font-size:11px;color:var(--bm-text-muted)">{{ ((row.doc_count / total) * 100)|round(1) }}%</span>
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const annualData = {{ annualData|json_encode|raw }};
+const ma3Data    = {{ ma3|json_encode|raw }};
+
+let mainChart = null;
+let cumChart  = null;
+let showMA3   = false;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid:      light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text:      light ? '#57606a' : '#8b949e',
+        accent:    '#4f8ef7',
+        purple:    '#a855f7',
+        green:     '#3fb950',
+        orange:    '#f0883e',
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    buildMainChart();
+    buildCumChart();
+});
+
+function buildMainChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+
+    if (mainChart) mainChart.destroy();
+
+    const years = annualData.map(r => r.year);
+    const docs  = annualData.map(r => r.doc_count);
+    const cits  = annualData.map(r => r.citation_count);
+
+    const datasets = [
+        {
+            label: 'Publicações',
+            data: docs,
+            type: 'bar',
+            backgroundColor: cl.accent + 'aa',
+            borderColor: cl.accent,
+            borderWidth: 1,
+            borderRadius: 4,
+            yAxisID: 'y_docs',
+        },
+        {
+            label: 'Citações',
+            data: cits,
+            type: 'line',
+            borderColor: cl.purple,
+            backgroundColor: cl.purple + '22',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.4,
+            fill: false,
+            yAxisID: 'y_cit',
+        },
+    ];
+
+    if (showMA3) {
+        datasets.push({
+            label: 'Média Móvel 3a',
+            data: ma3Data,
+            type: 'line',
+            borderColor: cl.orange,
+            borderWidth: 2,
+            borderDash: [5, 3],
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'y_docs',
+        });
+    }
+
+    const ctx = document.getElementById('chart-main').getContext('2d');
+    mainChart = new Chart(ctx, {
+        data: { labels: years, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y_docs: {
+                    type: 'linear',
+                    position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Publicações', font: { weight: 'bold' } },
+                    ticks: { stepSize: 1 }
+                },
+                y_cit: {
+                    type: 'linear',
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } },
+                }
+            }
+        }
+    });
+}
+
+function buildCumChart() {
+    const cl = getColors();
+    if (cumChart) cumChart.destroy();
+
+    const years = annualData.map(r => r.year);
+    const cum   = annualData.map(r => r.cumulative);
+
+    const ctx = document.getElementById('chart-cumulative').getContext('2d');
+    cumChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Documentos Acumulados',
+                data: cum,
+                borderColor: cl.green,
+                backgroundColor: cl.green + '22',
+                borderWidth: 2.5,
+                pointRadius: 3,
+                tension: 0.4,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Total Acumulado', font: { weight: 'bold' } },
+                    beginAtZero: true,
+                }
+            }
+        }
+    });
+}
+
+function toggleMA3() {
+    showMA3 = !showMA3;
+    document.getElementById('btn-ma3').style.color = showMA3 ? '#f0883e' : '';
+    buildMainChart();
+}
+
+function exportCSV() {
+    let csv = "\uFEFFAno;Documentos;Crescimento %;Citações;Média Cit.;Acumulado\r\n";
+    annualData.forEach(r => {
+        const growth = r.growth_pct !== null ? r.growth_pct : '';
+        csv += `${r.year};${r.doc_count};${growth};${r.citation_count};${r.avg_citations};${r.cumulative}\r\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href  = url;
+    link.download = 'producao_anual.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+buildMainChart();
+buildCumChart();
+</script>
+{% endblock %}

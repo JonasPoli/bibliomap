@@ -1,0 +1,198 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Documentos — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Documentos</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-file-earmark-text me-2" style="color:var(--bm-accent)"></i>
+        Análise de Documentos
+    </h1>
+    <p class="bm-page-subtitle">Principais documentos científicos ordenados por impacto e contagem de citações</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_docs|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Documentos</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_citations|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Citações Recebidas</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.avg_citations }}</div>
+            <div class="bm-stat-label">Média de Citações por Artigo</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Chart Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Artigos mais Citados da Base</h5>
+            <div style="position:relative;height:340px">
+                <canvas id="chart-docs"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="card-title mb-0" style="font-weight:700">Listagem de Documentos</h5>
+                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar artigo…" style="width:200px" oninput="filterTable()">
+            </div>
+            
+            <div class="table-responsive flex-grow-1" style="max-height:340px;overflow-y:auto">
+                <table class="table table-hover align-middle border-bm mb-0" id="docs-table" style="font-size:13px">
+                    <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                        <tr>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Título / Autores</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Fonte</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-0">
+                        {% for doc in list %}
+                        <tr class="doc-row" data-title="{{ doc.title|lower }}" data-authors="{{ doc.authors_str|lower }}">
+                            <td>
+                                <div style="font-weight:600;color:var(--bm-text);line-height:1.3" title="{{ doc.title }}">
+                                    {{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}
+                                </div>
+                                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:2px" title="{{ doc.authors_str }}">
+                                    {{ doc.authors_str|slice(0, 60) }}{{ doc.authors_str|length > 60 ? '…' : '' }}
+                                </div>
+                            </td>
+                            <td style="text-align:right;font-weight:700" class="text-accent">{{ doc.cited_by }}</td>
+                            <td style="text-align:center">{{ doc.year }}</td>
+                            <td style="font-size:11px;color:var(--bm-text-muted)" title="{{ doc.source_title }}">
+                                {{ doc.source_title|slice(0, 25) }}{{ doc.source_title|length > 25 ? '…' : '' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const listData = {{ list|slice(0, 10)|json_encode|raw }};
+let chartInstance = null;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        accent: '#f0883e' // orange/golden for documents
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+});
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chart-docs').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: listData.map(d => d.title.length > 25 ? d.title.slice(0, 25) + '…' : d.title),
+            datasets: [
+                {
+                    label: 'Citações Globais',
+                    data: listData.map(d => d.cited_by),
+                    backgroundColor: cl.accent + 'cc',
+                    borderColor: cl.accent,
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y', // horizontal bars
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { grid: { display: false } },
+                x: {
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Citações Recebidas', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q = document.getElementById('table-search').value.toLowerCase().trim();
+    document.querySelectorAll('.doc-row').forEach(row => {
+        const title = row.dataset.title;
+        const authors = row.dataset.authors;
+        row.style.display = (!q || title.includes(q) || authors.includes(q)) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    const fullList = {{ list|json_encode|raw }};
+    let csv = "\uFEFFTitle;Authors;Year;Source;Citations;DOI\r\n";
+    fullList.forEach(d => {
+        csv += `"${d.title.replace(/"/g, '""')}";"${d.authors_str.replace(/"/g, '""')}";${d.year};"${d.source_title.replace(/"/g, '""')}";${d.cited_by};"${d.doi || ''}"\r\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "analise_documentos.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+</script>
+{% endblock %}

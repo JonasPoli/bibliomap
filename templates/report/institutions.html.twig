@@ -1,0 +1,208 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Instituições — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Instituições</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-building me-2" style="color:var(--bm-accent)"></i>
+        Análise de Instituições
+    </h1>
+    <p class="bm-page-subtitle">Indicadores de impacto e produtividade das instituições e universidades vinculadas</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.total_institutions|number_format(0, ',', '.') }}</div>
+            <div class="bm-stat-label">Total de Instituições Mapeadas</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value" title="{{ kpis.top_institution }}">{{ kpis.top_institution|slice(0, 20) }}{{ kpis.top_institution|length > 20 ? '…' : '' }}</div>
+            <div class="bm-stat-label">Instituição Mais Produtiva</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value">{{ kpis.top_institution_docs }}</div>
+            <div class="bm-stat-label">Artigos da Instituição Principal</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Chart Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Instituições mais Produtivas</h5>
+            <div style="position:relative;height:340px">
+                <canvas id="chart-institutions"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Institucional</h5>
+                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar instituição…" style="width:200px" oninput="filterTable()">
+            </div>
+            
+            <div class="table-responsive flex-grow-1" style="max-height:340px;overflow-y:auto">
+                <table class="table table-hover align-middle border-bm mb-0" id="institutions-table" style="font-size:13px">
+                    <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                        <tr>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Instituição / Afiliada</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações Totais</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-0">
+                        {% for ic in list %}
+                        <tr class="institution-row" data-inst="{{ ic.institution|lower }}">
+                            <td style="font-weight:600;color:var(--bm-text)" title="{{ ic.institution }}">{{ ic.institution|slice(0, 50) }}{{ ic.institution|length > 50 ? '…' : '' }}</td>
+                            <td style="text-align:right;font-weight:700" class="text-accent">{{ ic.doc_count }}</td>
+                            <td style="text-align:right">{{ ic.citation_count }}</td>
+                            <td style="text-align:right;color:var(--bm-text-muted)">{{ ic.avg_citations }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const listData = {{ list|slice(0, 10)|json_encode|raw }};
+let chartInstance = null;
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        accent: '#00d4ff', // cyan for institutions
+        accentSec: '#a855f7'
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+});
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chart-institutions').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: listData.map(i => i.institution.length > 25 ? i.institution.slice(0, 25) + '…' : i.institution),
+            datasets: [
+                {
+                    label: 'Documentos',
+                    data: listData.map(i => i.doc_count),
+                    backgroundColor: cl.accent + 'cc',
+                    borderColor: cl.accent,
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Citações Totais',
+                    data: listData.map(i => i.citation_count),
+                    backgroundColor: cl.accentSec + 'cc',
+                    borderColor: cl.accentSec,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y_cit'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12 } }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: cl.grid },
+                    title: { display: true, text: 'Nº Artigos', font: { weight: 'bold' } }
+                },
+                y_cit: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Citações', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q = document.getElementById('table-search').value.toLowerCase().trim();
+    document.querySelectorAll('.institution-row').forEach(row => {
+        const inst = row.dataset.inst;
+        row.style.display = (!q || inst.includes(q)) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    const fullList = {{ list|json_encode|raw }};
+    let csv = "\uFEFFInstitution;Articles;Citations;Average Citations\r\n";
+    fullList.forEach(i => {
+        csv += `"${i.institution}";${i.doc_count};${i.citation_count};${i.avg_citations}\r\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "analise_instituicoes.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+</script>
+{% endblock %}

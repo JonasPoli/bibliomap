@@ -1,0 +1,825 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Dashboard</span>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── KPI Row ─────────────────────────────────────────────────── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.kpi-card {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--kpi-color, var(--bm-accent));
+}
+.kpi-card:hover { border-color: #484f58; transform: translateY(-2px); }
+.kpi-value { font-size: 26px; font-weight: 700; color: var(--bm-text); line-height: 1; }
+.kpi-label { font-size: 11px; color: var(--bm-text-muted); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.kpi-icon { font-size: 20px; margin-bottom: 8px; }
+
+/* ── Dashboard grid ─────────────────────────────────────────── */
+.dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.dash-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.dash-card {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 20px 22px;
+}
+.dash-card.span-2 { grid-column: span 2; }
+.dash-card-title {
+    font-size: 13px; font-weight: 600; color: var(--bm-text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.dash-card-title i { font-size: 15px; }
+
+/* Skeleton loader */
+.skel {
+    background: linear-gradient(90deg, var(--bm-border) 0%, #3d444d 50%, var(--bm-border) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 6px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.skel-chart { height: 220px; }
+.skel-bar { height: 14px; margin-bottom: 8px; border-radius: 4px; }
+.chart-wrap { position: relative; height: 220px; width: 100%; }
+
+/* ── Table in cards ──────────────────────────────────────────── */
+.rank-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rank-table th { color: var(--bm-text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; padding: 0 0 10px; border-bottom: 1px solid var(--bm-border); }
+.rank-table td { padding: 9px 0; border-bottom: 1px solid rgba(48,54,61,0.5); vertical-align: middle; }
+.rank-table tr:last-child td { border-bottom: none; }
+.rank-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 4px; height: 6px; width: 100%; }
+.rank-bar-fill { height: 100%; border-radius: 4px; background: var(--bm-accent); transition: width 0.6s ease; }
+
+/* ── Keyword cloud ────────────────────────────────────────────── */
+.kw-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    max-height: 160px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.kw-cloud::-webkit-scrollbar { width: 4px; }
+.kw-cloud::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 2px; }
+.kw-tag {
+    display: inline-block; padding: 4px 10px; border-radius: 20px;
+    background: rgba(79,142,247,0.12); color: var(--bm-accent);
+    font-weight: 600; transition: all 0.15s ease; cursor: default;
+    border: 1px solid rgba(79,142,247,0.2);
+}
+.kw-tag:hover { background: rgba(79,142,247,0.25); }
+
+/* ── Segment control ─────────────────────────────────────────── */
+.seg-ctrl { display: flex; gap: 4px; }
+.seg-btn {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid var(--bm-border);
+    background: transparent; color: var(--bm-text-muted); font-size: 12px; cursor: pointer;
+    transition: all 0.15s;
+}
+.seg-btn.active { background: var(--bm-accent); border-color: var(--bm-accent); color: white; }
+</style>
+{% endblock %}
+
+{% block body %}
+<!-- Page header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-grid-1x2 me-2" style="color:var(--bm-accent)"></i>
+        Dashboard de Indicadores
+    </h1>
+    <p class="bm-page-subtitle">{{ project.title }} · Análise de {{ summary.total_docs|number_format(0,',','.') }} documentos</p>
+</div>
+
+<!-- ── KPI Row ─────────────────────────────────────────────── -->
+<div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#4f8ef7">
+        <div class="kpi-icon">📄</div>
+        <div class="kpi-value">{{ summary.total_docs|number_format(0,',','.') }}</div>
+        <div class="kpi-label">Documentos</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#3fb950">
+        <div class="kpi-icon">👥</div>
+        <div class="kpi-value">{{ summary.total_authors|number_format(0,',','.') }}</div>
+        <div class="kpi-label">Autores</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#a855f7">
+        <div class="kpi-icon">📰</div>
+        <div class="kpi-value">{{ summary.total_sources|number_format(0,',','.') }}</div>
+        <div class="kpi-label">Fontes</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f0883e">
+        <div class="kpi-icon">🔖</div>
+        <div class="kpi-value">{{ summary.total_keywords|number_format(0,',','.') }}</div>
+        <div class="kpi-label">Palavras-chave</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#58a6ff">
+        <div class="kpi-icon">📈</div>
+        <div class="kpi-value">{{ summary.total_citations|number_format(0,',','.') }}</div>
+        <div class="kpi-label">Citações totais</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#d29922">
+        <div class="kpi-icon">⭐</div>
+        <div class="kpi-value">{{ summary.h_index }}</div>
+        <div class="kpi-label">Índice H</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ec6547">
+        <div class="kpi-icon">📊</div>
+        <div class="kpi-value">{{ summary.avg_citations|number_format(1,',','.') }}</div>
+        <div class="kpi-label">Média citações</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#39d353">
+        <div class="kpi-icon">🗓️</div>
+        <div class="kpi-value">{{ summary.min_year }}–{{ summary.max_year }}</div>
+        <div class="kpi-label">Período</div>
+    </div>
+</div>
+
+<!-- ── Row 1: Production + Citations ──────────────────────── -->
+<div class="dash-grid">
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-bar-chart me-2"></i>Produção científica anual</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportProduction()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+        </div>
+        <div class="chart-wrap">
+            <div id="skel-production" class="skel w-100 h-100"></div>
+            <canvas id="chart-production" style="display:none"></canvas>
+        </div>
+    </div>
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-graph-up me-2"></i>Citações por ano</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportCitations()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+        </div>
+        <div class="chart-wrap">
+            <div id="skel-citations" class="skel w-100 h-100"></div>
+            <canvas id="chart-citations" style="display:none"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ── Row 2: Top Authors + Top Sources ───────────────────── -->
+<div class="dash-grid">
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-people me-2"></i>Top autores</span>
+            <div style="display:flex;gap:10px;align-items:center">
+                <div class="seg-ctrl">
+                    <button class="seg-btn active" data-sort="docs" onclick="sortAuthors('docs',this)">Documentos</button>
+                    <button class="seg-btn" data-sort="cit" onclick="sortAuthors('cit',this)">Citações</button>
+                </div>
+                <button class="btn btn-sm py-0 px-2 border-0" onclick="exportAuthors()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+            </div>
+        </div>
+        <div id="skel-authors">
+            <div class="skel skel-bar" style="width:100%"></div>
+            <div class="skel skel-bar" style="width:85%"></div>
+            <div class="skel skel-bar" style="width:70%"></div>
+            <div class="skel skel-bar" style="width:90%"></div>
+            <div class="skel skel-bar" style="width:65%"></div>
+            <div class="skel skel-bar" style="width:80%"></div>
+            <div class="skel skel-bar" style="width:55%"></div>
+            <div class="skel skel-bar" style="width:75%"></div>
+        </div>
+        <div id="list-authors" style="display:none"></div>
+    </div>
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-journal-text me-2"></i>Top periódicos</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportSources()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+        </div>
+        <div id="skel-sources">
+            <div class="skel skel-bar" style="width:100%"></div>
+            <div class="skel skel-bar" style="width:78%"></div>
+            <div class="skel skel-bar" style="width:62%"></div>
+            <div class="skel skel-bar" style="width:88%"></div>
+            <div class="skel skel-bar" style="width:54%"></div>
+            <div class="skel skel-bar" style="width:71%"></div>
+            <div class="skel skel-bar" style="width:45%"></div>
+            <div class="skel skel-bar" style="width:67%"></div>
+        </div>
+        <div id="list-sources" style="display:none"></div>
+    </div>
+</div>
+
+<!-- ── Row 3: Keywords cloud + Keyword bar ────────────────── -->
+<div class="dash-grid">
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-tags me-2"></i>Top palavras-chave</span>
+            <div style="display:flex;gap:10px;align-items:center">
+                <div class="seg-ctrl">
+                    <button class="seg-btn active" data-ktype="author" onclick="loadKeywords('author',this)">Autores</button>
+                    <button class="seg-btn" data-ktype="indexed" onclick="loadKeywords('indexed',this)">Indexadas</button>
+                </div>
+                <button class="btn btn-sm py-0 px-2 border-0" onclick="exportKeywords()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+            </div>
+        </div>
+        <div id="skel-kw-cloud" class="skel" style="height:160px;border-radius:10px"></div>
+        <div id="kw-cloud" class="kw-cloud" style="display:none"></div>
+    </div>
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-bar-chart-horizontal me-2"></i>Frequência de keywords</span>
+        </div>
+        <div class="chart-wrap">
+            <div id="skel-kw-bar" class="skel w-100 h-100"></div>
+            <canvas id="chart-kw-bar" style="display:none"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ── Row 4: Doc types + Open Access + Collaboration ──────── -->
+<div class="dash-grid-3">
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-file-earmark me-2"></i>Tipos de documento</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportDocTypes()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+            <div id="skel-doctypes" class="skel w-100 h-100" style="border-radius:10px"></div>
+            <canvas id="chart-doctypes" style="display:none"></canvas>
+        </div>
+    </div>
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-unlock me-2"></i>Acesso aberto</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportOA()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+        </div>
+        <div class="chart-wrap" style="height:200px">
+            <div id="skel-oa" class="skel w-100 h-100" style="border-radius:10px"></div>
+            <canvas id="chart-oa" style="display:none"></canvas>
+        </div>
+    </div>
+    <div class="dash-card">
+        <div class="dash-card-title">
+            <span><i class="bi bi-diagram-2 me-2"></i>Índice de colaboração</span>
+            <div class="d-flex align-items-center gap-1">
+                <button class="btn btn-sm py-0 px-2 border-0" onclick="toggleCollabInfo()" title="O que é índice de colaboração?" style="color:var(--bm-accent);font-size:12px;background:transparent">
+                    <i class="bi bi-info-circle" id="collab-info-icon"></i>
+                </button>
+                <button class="btn btn-sm py-0 px-2 border-0" onclick="exportCollab()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+            </div>
+        </div>
+
+        <!-- Collapsible explanation -->
+        <div id="collab-info-box" style="display:none;margin-bottom:12px">
+            <div style="background:rgba(79,142,247,0.05);border:1px solid rgba(79,142,247,0.2);border-radius:10px;padding:14px 16px;font-size:12.5px;color:var(--bm-text-muted);line-height:1.55">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <div style="width:28px;height:28px;border-radius:7px;background:rgba(79,142,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="bi bi-diagram-2" style="color:var(--bm-accent);font-size:13px"></i>
+                    </div>
+                    <strong style="color:var(--bm-text);font-size:13px">O que é o Índice de Colaboração?</strong>
+                </div>
+                <p style="margin:0 0 10px">
+                    O <strong style="color:var(--bm-text)">Índice de Colaboração (IC)</strong> mede a
+                    <em>média de autores por artigo</em> em cada ano. É um indicador clássico de
+                    colaboração científica: quanto mais autores por publicação, maior o nível de
+                    trabalho em equipe do campo.
+                </p>
+
+                <!-- Formula -->
+                <div style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:7px;padding:8px 12px;margin-bottom:10px;text-align:center">
+                    <span style="font-size:12px;color:var(--bm-text-muted)">IC (ano) = </span>
+                    <span style="font-size:13px;font-weight:700;color:var(--bm-accent)">Nº total de autores</span>
+                    <span style="font-size:12px;color:var(--bm-text-muted)"> &divide; </span>
+                    <span style="font-size:13px;font-weight:700;color:#a855f7">Nº de artigos</span>
+                </div>
+
+                <!-- Interpretation scale -->
+                <div style="font-size:10.5px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Interpretação</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+                    <div style="padding:6px 8px;border-radius:6px;background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);text-align:center">
+                        <div style="font-weight:700;color:var(--bm-success);font-size:13px">&lt; 2</div>
+                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Autoria individual ou dupla</div>
+                    </div>
+                    <div style="padding:6px 8px;border-radius:6px;background:rgba(210,153,34,0.08);border:1px solid rgba(210,153,34,0.2);text-align:center">
+                        <div style="font-weight:700;color:var(--bm-warning);font-size:13px">2 &ndash; 5</div>
+                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Colaboração moderada</div>
+                    </div>
+                    <div style="padding:6px 8px;border-radius:6px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);text-align:center">
+                        <div style="font-weight:700;color:var(--bm-accent);font-size:13px">&gt; 5</div>
+                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Alta colaboração / Big Science</div>
+                    </div>
+                </div>
+
+                <div style="padding:7px 10px;border-radius:6px;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.18);font-size:11.5px;color:var(--bm-text-muted)">
+                    <i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-success)"></i>
+                    <strong style="color:var(--bm-success)">Dica:</strong>
+                    Um IC crescente ao longo dos anos indica que o campo está se tornando cada vez mais colaborativo.
+                    Áreas como Física de Altas Energias e Biomédica frequentemente apresentam IC &gt; 10.
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-wrap" style="height:200px">
+            <div id="skel-collab" class="skel w-100 h-100" style="border-radius:10px"></div>
+            <canvas id="chart-collab" style="display:none"></canvas>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// ── Global Config & Palettes ──────────────────────────────────────────────────
+const BASE = '{{ path('app_dashboard_index', {id: project.id}) }}';
+const ACCENT = '#4f8ef7';
+const PALETTE = ['#4f8ef7','#a855f7','#3fb950','#f0883e','#d29922','#ec6547','#58a6ff','#39d353','#ff6b9d','#00d4ff'];
+
+function toggleCollabInfo() {
+    const box  = document.getElementById('collab-info-box');
+    const icon = document.getElementById('collab-info-icon');
+    const open = box.style.display === 'none';
+    box.style.display = open ? 'block' : 'none';
+    icon.className    = open ? 'bi bi-info-circle-fill' : 'bi bi-info-circle';
+}
+
+// ── Global Widget Data Store ──────────────────────────────────────────────────
+let productionData    = [];
+let citationsData     = [];
+let authorsData       = [];
+let sourcesData       = [];
+let keywordsData      = [];
+let docTypesData      = [];
+let openAccessData    = [];
+let collaborationData = [];
+
+// ── Global Chart.js Instances ─────────────────────────────────────────────────
+let chartProd   = null;
+let chartCit    = null;
+let chartKwBar  = null;
+let chartDocs   = null;
+let chartOA     = null;
+let chartCollab = null;
+
+// ── Theme Management ─────────────────────────────────────────────────────────
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        text: light ? '#57606a' : '#8b949e',
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.6)',
+        border: light ? '#ffffff' : '#1c2128'
+    };
+}
+
+// Re-render all active widgets on theme changes
+window.addEventListener('bm-theme-changed', () => {
+    // Rebuild all Chart.js defaults
+    const cl = getColors();
+    Chart.defaults.color = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+
+    if (productionData.length > 0) renderProduction();
+    if (citationsData.length > 0) renderCitations();
+    if (authorsData.length > 0) {
+        const sortActive = document.querySelector('.seg-btn[data-sort].active')?.getAttribute('data-sort') || 'docs';
+        renderAuthors(sortActive);
+    }
+    if (sourcesData.length > 0) renderSources();
+    if (keywordsData.length > 0) {
+        const ktypeActive = document.querySelector('.seg-btn[data-ktype].active')?.getAttribute('data-ktype') || 'author';
+        renderKeywords(ktypeActive);
+    }
+    if (docTypesData.length > 0) renderDocTypes();
+    if (openAccessData.length > 0) renderOpenAccess();
+    if (collaborationData.length > 0) renderCollaboration();
+});
+
+// Set initial chart defaults
+const initialCl = getColors();
+Chart.defaults.color            = initialCl.text;
+Chart.defaults.borderColor      = initialCl.grid;
+Chart.defaults.font.family      = "'Inter', sans-serif";
+Chart.defaults.font.size        = 12;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+function hideSkel(skelId, canvasId) {
+    document.getElementById(skelId).style.display = 'none';
+    const el = document.getElementById(canvasId);
+    if (el) el.style.display = '';
+    return el;
+}
+function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+
+// ── 1. Annual production ─────────────────────────────────────────────────────
+async function loadProduction() {
+    const r = await fetch(BASE + '/data/annual-production');
+    productionData = await r.json();
+    renderProduction();
+}
+function renderProduction() {
+    const canvas = hideSkel('skel-production','chart-production');
+    if (chartProd) chartProd.destroy();
+    
+    const cl = getColors();
+    chartProd = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: productionData.map(x => x.year),
+            datasets: [{
+                label: 'Documentos',
+                data: productionData.map(x => x.count),
+                backgroundColor: ACCENT + 'cc',
+                borderColor: ACCENT,
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: cl.grid }, ticks: { color: cl.text } },
+                x: { grid: { display: false },  ticks: { color: cl.text } }
+            }
+        }
+    });
+}
+
+// ── 2. Citations per year ────────────────────────────────────────────────────
+async function loadCitations() {
+    const r = await fetch(BASE + '/data/citations-per-year');
+    citationsData = await r.json();
+    renderCitations();
+}
+function renderCitations() {
+    const canvas = hideSkel('skel-citations','chart-citations');
+    if (chartCit) chartCit.destroy();
+    
+    const cl = getColors();
+    chartCit = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: citationsData.map(x => x.year),
+            datasets: [
+                {
+                    label: 'Total citações',
+                    data: citationsData.map(x => x.total_citations),
+                    borderColor: '#a855f7',
+                    backgroundColor: 'rgba(168,85,247,0.12)',
+                    fill: true, tension: 0.4, pointRadius: 4,
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Média por artigo',
+                    data: citationsData.map(x => parseFloat(x.avg_citations||0).toFixed(1)),
+                    borderColor: '#f0883e',
+                    backgroundColor: 'transparent',
+                    tension: 0.4, pointRadius: 4,
+                    yAxisID: 'y1',
+                    borderDash: [5,4],
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'top', labels: { color: cl.text } } },
+            scales: {
+                y:  { grid: { color: cl.grid }, ticks: { color: cl.text }, position: 'left' },
+                y1: { grid: { display: false }, ticks: { color: '#f0883e' }, position: 'right' },
+                x:  { grid: { display: false }, ticks: { color: cl.text } }
+            }
+        }
+    });
+}
+
+// ── 3. Top authors (ranked list) ─────────────────────────────────────────────
+async function loadAuthors() {
+    const r = await fetch(BASE + '/data/top-authors?limit=15');
+    authorsData = await r.json();
+    renderAuthors('docs');
+}
+function sortAuthors(sortBy, btn) {
+    document.querySelectorAll('.seg-btn[data-sort]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAuthors(sortBy);
+}
+function renderAuthors(sortBy) {
+    document.getElementById('skel-authors').style.display = 'none';
+    const container = document.getElementById('list-authors');
+    container.style.display = '';
+    
+    // Null-safe sorting and fallbacks
+    const sorted = [...authorsData].sort((a,b) => {
+        const valA = sortBy === 'docs' ? (a.doc_count || 0) : (a.total_citations || 0);
+        const valB = sortBy === 'docs' ? (b.doc_count || 0) : (b.total_citations || 0);
+        return valB - valA;
+    });
+    
+    const maxVal = sorted[0] ? (sortBy==='docs' ? (sorted[0].doc_count || 1) : (sorted[0].total_citations || 1)) : 1;
+    container.innerHTML = `<table class="rank-table">
+        <thead><tr>
+            <th>#</th><th>Autor</th>
+            <th style="text-align:right">${sortBy==='docs'?'Docs':'Cit.'}</th>
+            <th style="width:80px"></th>
+        </tr></thead>
+        <tbody>
+        ${sorted.slice(0,10).map((a,i) => {
+            const val = sortBy==='docs' ? (a.doc_count || 0) : (a.total_citations || 0);
+            const pct = Math.round((val/maxVal)*100);
+            const authorName = a.name || 'Desconhecido';
+            return `<tr>
+                <td style="color:var(--bm-text-muted);width:24px">${i+1}</td>
+                <td style="font-weight:500">${authorName}</td>
+                <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(val)}</td>
+                <td>
+                    <div class="rank-bar-wrap">
+                        <div class="rank-bar-fill" style="width:${pct}%;background:${PALETTE[i%PALETTE.length]}"></div>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('')}
+        </tbody></table>`;
+}
+
+// ── 4. Top sources ───────────────────────────────────────────────────────────
+async function loadSources() {
+    const r = await fetch(BASE + '/data/top-sources?limit=10');
+    sourcesData = await r.json();
+    renderSources();
+}
+function renderSources() {
+    document.getElementById('skel-sources').style.display = 'none';
+    const container = document.getElementById('list-sources');
+    container.style.display = '';
+    
+    const maxVal = sourcesData[0]?.doc_count || 1;
+    container.innerHTML = `<table class="rank-table">
+        <thead><tr><th>#</th><th>Periódico</th><th style="text-align:right">Docs</th><th style="width:80px"></th></tr></thead>
+        <tbody>
+        ${sourcesData.map((s,i) => {
+            const pct = Math.round(((s.doc_count || 0)/maxVal)*100);
+            const sourceTitle = s.source_title || 'Desconhecido';
+            const displayTitle = sourceTitle.length > 45 ? sourceTitle.slice(0,45)+'…' : sourceTitle;
+            return `<tr>
+                <td style="color:var(--bm-text-muted);width:24px">${i+1}</td>
+                <td style="font-weight:500;font-size:12px">${displayTitle}</td>
+                <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(s.doc_count)}</td>
+                <td><div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${pct}%;background:${PALETTE[i%PALETTE.length]}"></div></div></td>
+            </tr>`;
+        }).join('')}
+        </tbody></table>`;
+}
+
+// ── 5. Keywords cloud + bar ───────────────────────────────────────────────────
+async function loadKeywords(type = 'author', btn = null) {
+    if (btn) {
+        document.querySelectorAll('.seg-btn[data-ktype]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const r = await fetch(BASE + `/data/top-keywords?type=${type}&limit=40`);
+    keywordsData = await r.json();
+    renderKeywords(type);
+}
+function renderKeywords(type) {
+    // Cloud
+    document.getElementById('skel-kw-cloud').style.display = 'none';
+    const cloud = document.getElementById('kw-cloud');
+    cloud.style.display = 'flex';
+    
+    const maxF = keywordsData[0]?.doc_count || 1;
+    cloud.innerHTML = keywordsData.slice(0,30).map(k => {
+        const size = 10 + Math.round(((k.doc_count || 0) / maxF) * 14);
+        const op = 0.4 + ((k.doc_count || 0) / maxF) * 0.6;
+        const termName = k.term || 'Desconhecido';
+        return `<span class="kw-tag" style="font-size:${size}px;opacity:${op}" title="${numFmt(k.doc_count)} docs">${termName}</span>`;
+    }).join('');
+
+    // Bar chart
+    document.getElementById('skel-kw-bar').style.display = 'none';
+    const canvas = document.getElementById('chart-kw-bar');
+    canvas.style.display = '';
+    if (chartKwBar) chartKwBar.destroy();
+    
+    const cl = getColors();
+    chartKwBar = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: keywordsData.slice(0,15).map(k => {
+                const termName = k.term || 'Desconhecido';
+                return termName.length > 25 ? termName.slice(0,25)+'…' : termName;
+            }),
+            datasets: [{
+                label: 'Documentos',
+                data: keywordsData.slice(0,15).map(k => k.doc_count || 0),
+                backgroundColor: PALETTE.slice(0,15).map(c => c + 'cc'),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: cl.grid }, ticks: { color: cl.text } },
+                y: { grid: { display: false }, ticks: { color: cl.text, font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+// ── 6. Document types (doughnut) ─────────────────────────────────────────────
+async function loadDocTypes() {
+    const r = await fetch(BASE + '/data/document-types');
+    docTypesData = await r.json();
+    renderDocTypes();
+}
+function renderDocTypes() {
+    const canvas = hideSkel('skel-doctypes','chart-doctypes');
+    if (chartDocs) chartDocs.destroy();
+    
+    const cl = getColors();
+    chartDocs = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: docTypesData.map(x => x.type || 'Outros'),
+            datasets: [{ 
+                data: docTypesData.map(x => x.count || 0), 
+                backgroundColor: PALETTE, 
+                borderWidth: 1, 
+                borderColor: cl.border 
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, color: cl.text } } },
+            cutout: '60%',
+        }
+    });
+}
+
+// ── 7. Open Access (pie) ─────────────────────────────────────────────────────
+async function loadOpenAccess() {
+    const r = await fetch(BASE + '/data/open-access');
+    openAccessData = await r.json();
+    renderOpenAccess();
+}
+function renderOpenAccess() {
+    const canvas = hideSkel('skel-oa','chart-oa');
+    if (chartOA) chartOA.destroy();
+    
+    const cl = getColors();
+    chartOA = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: openAccessData.map(x => x.status || 'Desconhecido'),
+            datasets: [{ 
+                data: openAccessData.map(x => x.count || 0), 
+                backgroundColor: ['#3fb950','#4f8ef7','#d29922','#f85149','#8b949e'], 
+                borderWidth: 1, 
+                borderColor: cl.border 
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, color: cl.text } } },
+        }
+    });
+}
+
+// ── 8. Collaboration index (line) ────────────────────────────────────────────
+async function loadCollaboration() {
+    const r = await fetch(BASE + '/data/collaboration-index');
+    collaborationData = await r.json();
+    renderCollaboration();
+}
+function renderCollaboration() {
+    const canvas = hideSkel('skel-collab','chart-collab');
+    if (chartCollab) chartCollab.destroy();
+    
+    const cl = getColors();
+    chartCollab = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: collaborationData.map(x => x.year),
+            datasets: [{
+                label: 'Autores/artigo',
+                data: collaborationData.map(x => parseFloat(x.avg_authors_per_doc || 0).toFixed(2)),
+                borderColor: '#39d353',
+                backgroundColor: 'rgba(57,211,83,0.1)',
+                fill: true, tension: 0.4, pointRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: cl.grid }, ticks: { color: cl.text }, min: 0 },
+                x: { grid: { display: false }, ticks: { color: cl.text } }
+            }
+        }
+    });
+}
+
+// ── CSV Export Implementations (Client-Side, UTF-8 BOM, accents-friendly) ────
+function downloadCSV(data, filename, headers, mapper) {
+    if (!data || data.length === 0) {
+        alert("Sem dados disponíveis para exportação.");
+        return;
+    }
+    let csvContent = "\uFEFF"; // Excel BOM
+    csvContent += headers.join(";") + "\r\n";
+    data.forEach(item => {
+        const row = mapper(item).map(val => {
+            const strVal = String(val === null || val === undefined ? '' : val);
+            if (strVal.includes(';') || strVal.includes('"') || strVal.includes('\n') || strVal.includes('\r')) {
+                return '"' + strVal.replace(/"/g, '""') + '"';
+            }
+            return strVal;
+        });
+        csvContent += row.join(";") + "\r\n";
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function exportProduction() {
+    downloadCSV(productionData, 'producao_cientifica_anual', ['Ano', 'Documentos'], d => [d.year, d.count]);
+}
+function exportCitations() {
+    downloadCSV(citationsData, 'citacoes_por_ano', ['Ano', 'Total Citacoes', 'Media por Artigo'], d => [d.year, d.total_citations, parseFloat(d.avg_citations||0).toFixed(2)]);
+}
+function exportAuthors() {
+    downloadCSV(authorsData, 'top_autores', ['Autor', 'Documentos', 'Citacoes'], d => [d.name || 'Desconhecido', d.doc_count, d.total_citations || 0]);
+}
+function exportSources() {
+    downloadCSV(sourcesData, 'top_periodicos', ['Periodico', 'Documentos'], d => [d.source_title || 'Desconhecido', d.doc_count]);
+}
+function exportKeywords() {
+    downloadCSV(keywordsData, 'frequencia_palavras_chave', ['Palavra-Chave', 'Documentos'], d => [d.term || 'Desconhecido', d.doc_count]);
+}
+function exportDocTypes() {
+    downloadCSV(docTypesData, 'tipos_de_documento', ['Tipo de Documento', 'Documentos'], d => [d.type || 'Desconhecido', d.count]);
+}
+function exportOA() {
+    downloadCSV(openAccessData, 'acesso_aberto', ['Status de Acesso', 'Documentos'], d => [d.status || 'Desconhecido', d.count]);
+}
+function exportCollab() {
+    downloadCSV(collaborationData, 'indice_colaboracao', ['Ano', 'Media Autores por Artigo'], d => [d.year, parseFloat(d.avg_authors_per_doc||0).toFixed(2)]);
+}
+
+// ── Load all widgets in parallel ──────────────────────────────────────────────
+Promise.all([
+    loadProduction(),
+    loadCitations(),
+    loadAuthors(),
+    loadSources(),
+    loadKeywords('author'),
+    loadDocTypes(),
+    loadOpenAccess(),
+    loadCollaboration(),
+]);
+</script>
+{% endblock %}

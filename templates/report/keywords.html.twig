@@ -1,0 +1,410 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Análise de Palavras-Chave — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Palavras-chave</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-tags me-2" style="color:var(--bm-accent)"></i>
+        Análise de Palavras-Chave
+    </h1>
+    <p class="bm-page-subtitle">Principais termos, ocorrências, nuvem de palavras e segmentação por origem (Autor vs Indexada)</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-3">
+
+    <!-- Total de Termos Únicos -->
+    <div class="col-md-4">
+        <div class="bm-stat-card" style="height:100%">
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                <div>
+                    <div class="bm-stat-value">{{ kpis.total_keywords|number_format(0, ',', '.') }}</div>
+                    <div class="bm-stat-label">Total de Termos Únicos</div>
+                </div>
+                <div style="width:38px;height:38px;border-radius:9px;background:rgba(79,142,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+                    <i class="bi bi-tags-fill" style="font-size:16px;color:var(--bm-accent)"></i>
+                </div>
+            </div>
+            <div style="padding-top:10px;border-top:1px solid var(--bm-border);font-size:11.5px;color:var(--bm-text-muted);line-height:1.5">
+                Soma de <em>todos</em> os termos distintos — tanto os definidos pelos autores quanto os atribuídos pelo indexador da base de dados.
+            </div>
+        </div>
+    </div>
+
+    <!-- Palavras-Chave de Autores -->
+    <div class="col-md-4">
+        <div class="bm-stat-card" style="height:100%">
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                <div>
+                    <div class="bm-stat-value" style="color:var(--bm-accent)">{{ kpis.author_keywords|number_format(0, ',', '.') }}</div>
+                    <div class="bm-stat-label">Palavras-Chave de Autores</div>
+                </div>
+                <div style="width:38px;height:38px;border-radius:9px;background:rgba(79,142,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+                    <i class="bi bi-person-badge-fill" style="font-size:16px;color:var(--bm-accent)"></i>
+                </div>
+            </div>
+            <div style="padding-top:10px;border-top:1px solid var(--bm-border);font-size:11.5px;color:var(--bm-text-muted);line-height:1.5">
+                Termos escolhidos <strong style="color:var(--bm-text)">pelo próprio autor</strong> ao submeter o artigo.
+                Refletem a percepção do pesquisador sobre seu trabalho (<code style="font-size:10px">Author Keywords</code> no Scopus).
+            </div>
+        </div>
+    </div>
+
+    <!-- Palavras-Chave Indexadas -->
+    <div class="col-md-4">
+        <div class="bm-stat-card" style="height:100%">
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                <div>
+                    <div class="bm-stat-value" style="color:#a855f7">{{ kpis.indexed_keywords|number_format(0, ',', '.') }}</div>
+                    <div class="bm-stat-label">Palavras-Chave Indexadas</div>
+                </div>
+                <div style="width:38px;height:38px;border-radius:9px;background:rgba(168,85,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+                    <i class="bi bi-database-fill-gear" style="font-size:16px;color:#a855f7"></i>
+                </div>
+            </div>
+            <div style="padding-top:10px;border-top:1px solid var(--bm-border);font-size:11.5px;color:var(--bm-text-muted);line-height:1.5">
+                Termos atribuídos <strong style="color:var(--bm-text)">pela base de dados</strong> (Scopus, WoS etc.) a partir de vocabulários controlados como o <em>INSPEC Thesaurus</em>.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collapsible Explanation Box -->
+<div style="margin-bottom:20px">
+    <button onclick="toggleKwInfo()" id="btn-kw-info"
+        style="background:none;border:none;padding:0;font-size:12px;color:var(--bm-accent);cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600">
+        <i class="bi bi-info-circle"></i> Entender a diferença entre os tipos de palavras-chave
+        <i class="bi bi-chevron-down" id="kw-info-chevron" style="font-size:10px;transition:transform 0.2s"></i>
+    </button>
+    <div id="kw-info-box" style="display:none;margin-top:10px">
+        <div class="bm-card" style="border-color:rgba(79,142,247,0.25);background:rgba(79,142,247,0.03)">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="d-flex gap-3">
+                        <div style="width:40px;height:40px;border-radius:9px;background:rgba(79,142,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <i class="bi bi-person-badge-fill" style="font-size:18px;color:var(--bm-accent)"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:13.5px;color:var(--bm-text);margin-bottom:5px">
+                                Palavras-chave de Autores
+                                <span class="badge ms-1" style="font-size:9.5px;background:rgba(79,142,247,0.15);color:var(--bm-accent);vertical-align:middle">Author Keywords</span>
+                            </div>
+                            <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6;margin:0 0 8px">
+                                São os termos que <strong style="color:var(--bm-text)">o próprio pesquisador escolheu</strong> para descrever seu trabalho ao submetê-lo para publicação. No Scopus correspondem ao campo <em>"Author Keywords"</em>.
+                            </p>
+                            <div style="padding:8px 10px;background:var(--bm-bg);border-radius:6px;border:1px solid var(--bm-border)">
+                                <div style="font-size:10px;font-weight:700;color:var(--bm-accent);margin-bottom:3px">💡 Quando usar</div>
+                                <div style="font-size:12px;color:var(--bm-text-muted)">
+                                    Ideal para análises de co-ocorrência, mapas temáticos e identificar tendências de pesquisa <em>na perspectiva dos próprios autores</em>. Revelam <strong>fronteiras emergentes</strong> do campo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex gap-3">
+                        <div style="width:40px;height:40px;border-radius:9px;background:rgba(168,85,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <i class="bi bi-database-fill-gear" style="font-size:18px;color:#a855f7"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:13.5px;color:var(--bm-text);margin-bottom:5px">
+                                Palavras-chave Indexadas
+                                <span class="badge ms-1" style="font-size:9.5px;background:rgba(168,85,247,0.15);color:#a855f7;vertical-align:middle">Index Keywords</span>
+                            </div>
+                            <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6;margin:0 0 8px">
+                                São termos atribuídos <strong style="color:var(--bm-text)">pela própria base de dados</strong> (Scopus, Web of Science, PubMed) a partir de vocabulários controlados como <em>INSPEC Thesaurus</em> ou <em>MeSH</em>. O autor não os define.
+                            </p>
+                            <div style="padding:8px 10px;background:var(--bm-bg);border-radius:6px;border:1px solid var(--bm-border)">
+                                <div style="font-size:10px;font-weight:700;color:#a855f7;margin-bottom:3px">💡 Quando usar</div>
+                                <div style="font-size:12px;color:var(--bm-text-muted)">
+                                    Ideal para comparações entre bases e para mapear <em>vocabulário padronizado</em> do campo. Revelam a <strong>estrutura conceitual consolidada</strong>.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:14px;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.2);font-size:12px;color:var(--bm-text-muted)">
+                <i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-success)"></i>
+                <strong style="color:var(--bm-success)">Dica bibliométrica:</strong>
+                Comparar palavras-chave de autores com as indexadas pode revelar onde o campo está evoluindo —
+                termos frequentes nos autores mas ausentes no indexador indicam conceitos <em>novos ainda não padronizados</em>.
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- View toggle -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <span style="font-size:13px;color:var(--bm-text-muted);font-weight:500">Visualização:</span>
+    <button class="btn btn-sm" id="btn-barchart" onclick="showView('barchart')"
+        style="font-size:12px;border-radius:6px;border:1px solid var(--bm-accent);color:var(--bm-accent);background:rgba(79,142,247,0.1)">
+        <i class="bi bi-bar-chart me-1"></i> Gráfico de Barras
+    </button>
+    <button class="btn btn-sm" id="btn-wordcloud" onclick="showView('wordcloud')"
+        style="font-size:12px;border-radius:6px;border:1px solid var(--bm-border);color:var(--bm-text-muted);background:transparent">
+        <i class="bi bi-cloud me-1"></i> Nuvem de Palavras
+    </button>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Bar chart -->
+    <div class="col-xl-6" id="view-barchart">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos mais Frequentes</h5>
+            <div style="position:relative;height:320px">
+                <canvas id="chart-kws"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Word Cloud -->
+    <div class="col-xl-6" id="view-wordcloud" style="display:none">
+        <div class="bm-card h-100">
+            <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras</h5>
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Azul = Palavras de Autores · Roxo = Palavras Indexadas</p>
+            <div id="wordcloud-container" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
+                <canvas id="canvas-wordcloud" style="width:100%;height:100%"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Column -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Termos</h5>
+                <div class="d-flex gap-2">
+                    <select id="type-filter" class="form-select form-select-sm" style="width:120px;font-size:12px" onchange="filterTable()">
+                        <option value="">Todos</option>
+                        <option value="author">Autores</option>
+                        <option value="indexed">Indexadas</option>
+                    </select>
+                    <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar…" style="width:160px" oninput="filterTable()">
+                </div>
+            </div>
+            <div class="table-responsive flex-grow-1" style="max-height:320px;overflow-y:auto">
+                <table class="table table-hover align-middle border-bm mb-0" id="kws-table" style="font-size:13px">
+                    <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                        <tr>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Palavra-Chave / Termo</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Origem</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Ocorrências</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Período</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-0">
+                        {% for kw in list %}
+                        <tr class="kw-row" data-term="{{ kw.term|lower }}" data-type="{{ kw.type }}">
+                            <td style="font-weight:600;color:var(--bm-text)">{{ kw.term }}</td>
+                            <td>
+                                <span class="badge" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.15)' : 'rgba(168,85,247,0.15)' }};color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }}">
+                                    {{ kw.type == 'author' ? 'Autor' : 'Indexada' }}
+                                </span>
+                            </td>
+                            <td style="text-align:right;font-weight:700" class="text-accent">{{ kw.freq }}</td>
+                            <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ kw.first_year }}–{{ kw.last_year }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+<script>
+const listData = {{ list|slice(0, 80)|json_encode|raw }};
+let chartInstance  = null;
+let wcInitialized  = false;
+let currentView    = 'barchart';
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        bg:   light ? '#f6f8fa' : '#1c2128',
+        authorColor: '#4f8ef7',
+        indexedColor: '#a855f7',
+    };
+}
+
+window.addEventListener('bm-theme-changed', () => {
+    rebuildChart();
+    if (currentView === 'wordcloud') {
+        wcInitialized = false;
+        buildWordCloud();
+    }
+});
+
+function showView(view) {
+    currentView = view;
+    document.getElementById('view-barchart').style.display  = view === 'barchart'  ? '' : 'none';
+    document.getElementById('view-wordcloud').style.display = view === 'wordcloud' ? '' : 'none';
+
+    const btnBar   = document.getElementById('btn-barchart');
+    const btnCloud = document.getElementById('btn-wordcloud');
+
+    if (view === 'barchart') {
+        btnBar.style.borderColor   = 'var(--bm-accent)';
+        btnBar.style.color         = 'var(--bm-accent)';
+        btnBar.style.background    = 'rgba(79,142,247,0.1)';
+        btnCloud.style.borderColor = 'var(--bm-border)';
+        btnCloud.style.color       = 'var(--bm-text-muted)';
+        btnCloud.style.background  = 'transparent';
+    } else {
+        btnCloud.style.borderColor = 'var(--bm-accent)';
+        btnCloud.style.color       = 'var(--bm-accent)';
+        btnCloud.style.background  = 'rgba(79,142,247,0.1)';
+        btnBar.style.borderColor   = 'var(--bm-border)';
+        btnBar.style.color         = 'var(--bm-text-muted)';
+        btnBar.style.background    = 'transparent';
+        if (!wcInitialized) buildWordCloud();
+    }
+}
+
+function buildWordCloud() {
+    const cl     = getColors();
+    const canvas = document.getElementById('canvas-wordcloud');
+    const container = document.getElementById('wordcloud-container');
+    canvas.width  = container.clientWidth  || 500;
+    canvas.height = container.clientHeight || 320;
+
+    const words = listData.map(k => [
+        k.term,
+        Math.max(10, Math.min(60, k.freq * 4 + 10))
+    ]);
+
+    WordCloud(canvas, {
+        list: words,
+        gridSize: Math.round(16 * canvas.width / 1024),
+        weightFactor: 1,
+        fontFamily: 'Inter, system-ui, sans-serif',
+        color: (word, weight, fontSize, distance, theta) => {
+            const item = listData.find(k => k.term === word);
+            if (!item) return cl.authorColor;
+            return item.type === 'author' ? cl.authorColor : cl.indexedColor;
+        },
+        rotateRatio: 0.2,
+        rotationSteps: 2,
+        backgroundColor: 'transparent',
+        minSize: 9,
+        drawOutOfBound: false,
+        shrinkToFit: true,
+    });
+
+    wcInitialized = true;
+}
+
+function rebuildChart() {
+    const cl = getColors();
+    Chart.defaults.color       = cl.text;
+    Chart.defaults.borderColor = cl.grid;
+    if (chartInstance) chartInstance.destroy();
+
+    const top15 = listData.slice(0, 15);
+    const ctx   = document.getElementById('chart-kws').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: top15.map(k => k.term),
+            datasets: [{
+                label: 'Ocorrências',
+                data: top15.map(k => k.freq),
+                backgroundColor: top15.map(k => k.type === 'author' ? cl.authorColor + 'cc' : cl.indexedColor + 'cc'),
+                borderColor: top15.map(k => k.type === 'author' ? cl.authorColor : cl.indexedColor),
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        generateLabels: () => [
+                            { text: 'Palavra de Autor',   fillStyle: cl.authorColor + 'cc',  strokeStyle: cl.authorColor },
+                            { text: 'Palavra Indexada',   fillStyle: cl.indexedColor + 'cc', strokeStyle: cl.indexedColor }
+                        ]
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } },
+                y: {
+                    grid: { color: cl.grid },
+                    beginAtZero: true,
+                    title: { display: true, text: 'Frequência', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function filterTable() {
+    const q    = document.getElementById('table-search').value.toLowerCase().trim();
+    const type = document.getElementById('type-filter').value;
+    document.querySelectorAll('.kw-row').forEach(row => {
+        const term    = row.dataset.term;
+        const rowType = row.dataset.type;
+        const matchQ  = !q || term.includes(q);
+        const matchT  = !type || rowType === type;
+        row.style.display = (matchQ && matchT) ? '' : 'none';
+    });
+}
+
+function exportCSV() {
+    const fullList = {{ list|json_encode|raw }};
+    let csv = "\uFEFFKeyword;Type;Frequency;First Year;Last Year\r\n";
+    fullList.forEach(k => {
+        csv += `"${k.term}";${k.type};${k.freq};${k.first_year};${k.last_year}\r\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href  = url;
+    link.download = 'analise_palavras_chave.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+rebuildChart();
+
+function toggleKwInfo() {
+    const box     = document.getElementById('kw-info-box');
+    const chevron = document.getElementById('kw-info-chevron');
+    const open    = box.style.display === 'none';
+    box.style.display     = open ? 'block' : 'none';
+    chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+</script>
+{% endblock %}
