@@ -476,13 +476,14 @@ function drawGraph() {
                 centralGravity: 0.15,
                 springLength: 95,
                 springConstant: 0.04,
-                damping: 0.09,
+                damping: 0.45,
                 avoidOverlap: 0.8
             },
             stabilization: {
                 enabled: true,
-                iterations: 150,
-                updateInterval: 25
+                iterations: 300,
+                updateInterval: 25,
+                fit: true
             }
         },
         interaction: {
@@ -494,6 +495,15 @@ function drawGraph() {
     };
 
     network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, options);
+
+    // Disable physics automatically once the layout has stabilized
+    // This prevents the graph from jiggling indefinitely
+    network.once('stabilizationIterationsDone', function () {
+        network.setOptions({ physics: { enabled: false } });
+        // Sync the checkbox state to reflect that physics is now off
+        const physicsCheckbox = document.getElementById('param-physics');
+        if (physicsCheckbox) physicsCheckbox.checked = false;
+    });
 
     // Build cluster/community legend
     buildLegend();

@@ -11,17 +11,22 @@ class ThematicMapService
     ) {}
 
     /**
-     * Build Thematic Map coordinates and clusters.
+     * Build Thematic Map coordinates and clusters using Callon's methodology.
+     *
+     * Fixes applied:
+     *  - Bug #1: Edge threshold now uses $minOccur directly (no dynamic scaling).
+     *  - Bug #2: Clustering uses Label Propagation (handles sparse graphs correctly).
+     *  - Bug #3: Density uses Callon's formula: (Σinternal_weights / n²) × 100.
      */
     public function buildThematicMap(int $projectId, string $kwType = 'author', int $minOccur = 2, int $maxKeywords = 100): array
     {
         $conn = $this->em->getConnection();
 
-        // 1. Fetch top keywords (nodes) of the given type
+        // ── 1. Fetch top keywords (nodes) ────────────────────────────────────
         $rawNodes = $conn->fetchAllAssociative('
-            SELECT 
-                k.id, 
-                k.term AS label, 
+            SELECT
+                k.id,
+                k.term AS label,
                 COUNT(dk.document_id) AS doc_count
             FROM keyword k
             JOIN document_keyword dk ON k.id = dk.keyword_id
@@ -35,282 +40,276 @@ class ThematicMapService
         if (empty($rawNodes)) {
             return [
                 'clusters' => [],
-                'meta' => [
-                    'avgCentrality' => 0,
-                    'avgDensity' => 0,
+                'meta'     => [
+                    'avgCentrality'    => 0,
+                    'avgDensity'       => 0,
                     'medianCentrality' => 0,
-                    'medianDensity' => 0,
+                    'medianDensity'    => 0,
                 ]
             ];
         }
 
-        // Map nodes by ID for fast lookup
+        // Index node details by id
         $selectedNodeIds = [];
-        $nodeDetails = [];
-        $maxDocCount = 1;
+        $nodeDetails     = [];
         foreach ($rawNodes as $node) {
             $id = (int)$node['id'];
             $selectedNodeIds[$id] = true;
-            $docCount = (int)$node['doc_count'];
-            $maxDocCount = max($maxDocCount, $docCount);
             $nodeDetails[$id] = [
-                'id' => $id,
-                'label' => $node['label'] ?? 'Sem rótulo',
-                'doc_count' => $docCount
+                'id'        => $id,
+                'label'     => $node['label'] ?? 'Sem rótulo',
+                'doc_count' => (int)$node['doc_count'],
             ];
         }
 
-        // Dynamically scale min co-occurrence weight based on maximum keyword frequency to keep the density healthy
-        $edgeMinWeight = max(2, (int)round($maxDocCount / 100));
-
         $nodeIdPlaceholders = implode(',', array_keys($selectedNodeIds));
 
-        // 2. Fetch co-occurrence weights (edges) ONLY between selected top keywords
+        // ── 2. Fetch co-occurrence edges between selected keywords ─────────────
+        // Bug #1 fix: use $minOccur directly — no dynamic scaling.
         $rawEdges = $conn->fetchAllAssociative("
-            SELECT 
-                dk1.keyword_id AS source, 
-                dk2.keyword_id AS target, 
+            SELECT
+                dk1.keyword_id AS source,
+                dk2.keyword_id AS target,
                 COUNT(dk1.document_id) AS weight
             FROM document_keyword dk1
-            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk1.keyword_id < dk2.keyword_id
+            JOIN document_keyword dk2
+                ON dk1.document_id = dk2.document_id
+               AND dk1.keyword_id < dk2.keyword_id
             JOIN document d ON dk1.document_id = d.id
-            WHERE d.project_id = ? 
+            WHERE d.project_id = ?
               AND dk1.keyword_id IN ($nodeIdPlaceholders)
               AND dk2.keyword_id IN ($nodeIdPlaceholders)
             GROUP BY dk1.keyword_id, dk2.keyword_id
             HAVING COUNT(dk1.document_id) >= ?
             ORDER BY weight DESC
-        ", [$projectId, $edgeMinWeight]);
+        ", [$projectId, $minOccur]);
 
-        // 3. Detect clusters/communities using Hierarchical Cosine Similarity Agglomerative Clustering
-        $communities = $this->agglomerativeClustering($rawNodes, $rawEdges);
-
-        // Group keywords by cluster ID
-        $clusterGroups = [];
-        foreach ($rawNodes as $node) {
-            $id = (int)$node['id'];
-            $clusterId = $communities[$id] ?? 0;
-            $clusterGroups[$clusterId][] = $nodeDetails[$id];
-        }
-
-        // Map of edges for quick weight lookups: source_target => weight
+        // ── 3. Build adjacency index ──────────────────────────────────────────
+        $adjacency  = [];
         $edgeWeights = [];
-        $adjacency = [];
         foreach ($rawEdges as $edge) {
             $src = (int)$edge['source'];
             $tgt = (int)$edge['target'];
-            $w = (int)$edge['weight'];
-            
+            $w   = (int)$edge['weight'];
+
             $edgeWeights["{$src}_{$tgt}"] = $w;
             $edgeWeights["{$tgt}_{$src}"] = $w;
-            
+
             $adjacency[$src][$tgt] = $w;
             $adjacency[$tgt][$src] = $w;
         }
 
-        // 4. Calculate Centrality and Density for each cluster
-        $clustersData = [];
+        // ── 4. Detect communities via Label Propagation (Bug #2 fix) ─────────
+        // LPA works well on sparse graphs and produces balanced clusters.
+        $communities = $this->labelPropagation($rawNodes, $rawEdges);
+
+        // Group keywords by cluster id
+        $clusterGroups = [];
+        foreach ($rawNodes as $node) {
+            $id        = (int)$node['id'];
+            $clusterId = $communities[$id] ?? 0;
+            $clusterGroups[$clusterId][] = $nodeDetails[$id];
+        }
+
+        // ── 5. Calculate Callon Centrality & Density per cluster ──────────────
+        $totalExternalWeights = 0; // used later for normalisation
+
+        $clustersRaw = [];
         foreach ($clusterGroups as $clusterId => $keywordsList) {
-            $clusterSize = count($keywordsList);
-            if ($clusterSize === 0) continue;
+            $n = count($keywordsList);
+            if ($n === 0) continue;
 
-            // Sort keywords inside this cluster by frequency (doc_count) desc
+            // Sort by frequency desc, pick main label
             usort($keywordsList, fn($a, $b) => $b['doc_count'] <=> $a['doc_count']);
-
-            $mainLabel = $keywordsList[0]['label'];
+            $mainLabel     = $keywordsList[0]['label'];
             $totalDocCount = array_sum(array_column($keywordsList, 'doc_count'));
 
-            // Create set of node IDs in this cluster
-            $clusterNodeIds = array_column($keywordsList, 'id');
-            $clusterNodeIdSet = array_flip($clusterNodeIds);
+            $clusterNodeIds    = array_column($keywordsList, 'id');
+            $clusterNodeIdSet  = array_flip($clusterNodeIds);
 
-            // Compute Callon's Centrality and Density
-            $centrality = 0;
-            $density = 0;
-            
+            $sumInternal = 0; // Σ co-occurrence weights inside the cluster
+            $sumExternal = 0; // Σ co-occurrence weights outside the cluster
+
             foreach ($keywordsList as $kw) {
-                $nodeId = $kw['id'];
-                
-                // Get all neighbors of this node
+                $nodeId    = $kw['id'];
                 $neighbors = $adjacency[$nodeId] ?? [];
-                
+
                 foreach ($neighbors as $neighborId => $weight) {
                     if (isset($clusterNodeIdSet[$neighborId])) {
-                        // Internal edge (Density)
-                        // To avoid double counting, only count if nodeId < neighborId
+                        // Internal edge — count once (only when nodeId < neighborId)
                         if ($nodeId < $neighborId) {
-                            $density += $weight;
+                            $sumInternal += $weight;
                         }
                     } else {
-                        // External edge (Centrality)
-                        $centrality += $weight;
+                        // External edge — counts for centrality
+                        $sumExternal += $weight;
                     }
                 }
             }
 
-            // Normalization: Density is divided by cluster size
-            $densityNormalized = $clusterSize > 1 ? round($density / $clusterSize, 3) : 0;
-            $centrality = round($centrality, 3);
+            // Bug #3 fix: Callon (1991) density formula — normalise by n²
+            // density = (Σ internal_weights / n²) × 100
+            $density = $n > 0 ? round(($sumInternal / ($n * $n)) * 100, 3) : 0;
 
-            $clustersData[] = [
-                'id' => $clusterId,
-                'label' => $mainLabel,
-                'size' => $clusterSize,
-                'doc_count' => $totalDocCount,
-                'centrality' => $centrality,
-                'density' => $densityNormalized,
-                'keywords' => $keywordsList
+            $totalExternalWeights += $sumExternal;
+
+            $clustersRaw[] = [
+                'id'          => $clusterId,
+                'label'       => $mainLabel,
+                'size'        => $n,
+                'doc_count'   => $totalDocCount,
+                'density'     => $density,
+                '_extWeight'  => $sumExternal,   // raw, normalised below
+                'keywords'    => $keywordsList,
             ];
         }
 
-        // 5. Calculate averages and medians of Centrality and Density to center the quadrants
+        // ── 6. Normalise centrality ────────────────────────────────────────────
+        // Scale centrality relative to the cluster with the most external links,
+        // producing values in a comparable range across clusters.
+        $extWeights  = array_column($clustersRaw, '_extWeight');
+        $maxExternal = !empty($extWeights) ? max($extWeights) : 0;
+        $maxExternal = max($maxExternal, 1); // avoid division by zero
+
+        $clustersData = [];
+        foreach ($clustersRaw as $c) {
+            $centrality = $maxExternal > 0
+                ? round(($c['_extWeight'] / $maxExternal) * 100, 3)
+                : 0;
+
+            $clustersData[] = [
+                'id'         => $c['id'],
+                'label'      => $c['label'],
+                'size'       => $c['size'],
+                'doc_count'  => $c['doc_count'],
+                'centrality' => $centrality,
+                'density'    => $c['density'],
+                'keywords'   => $c['keywords'],
+            ];
+        }
+
+        // Sort clusters by doc_count desc for a stable display order
+        usort($clustersData, fn($a, $b) => $b['doc_count'] <=> $a['doc_count']);
+
+        // ── 7. Meta averages and medians (axes mid-points for quadrants) ───────
         $centralities = array_column($clustersData, 'centrality');
-        $densities = array_column($clustersData, 'density');
-        
-        $avgCentrality = count($centralities) > 0 ? array_sum($centralities) / count($centralities) : 0;
-        $avgDensity = count($densities) > 0 ? array_sum($densities) / count($densities) : 0;
-        
+        $densities    = array_column($clustersData, 'density');
+
+        $avgCentrality    = count($centralities) > 0 ? array_sum($centralities) / count($centralities) : 0;
+        $avgDensity       = count($densities)    > 0 ? array_sum($densities)    / count($densities)    : 0;
         $medianCentrality = $this->calculateMedian($centralities);
-        $medianDensity = $this->calculateMedian($densities);
+        $medianDensity    = $this->calculateMedian($densities);
 
         return [
             'clusters' => $clustersData,
-            'meta' => [
-                'avgCentrality' => round($avgCentrality, 3),
-                'avgDensity' => round($avgDensity, 3),
+            'meta'     => [
+                'avgCentrality'    => round($avgCentrality, 3),
+                'avgDensity'       => round($avgDensity, 3),
                 'medianCentrality' => round($medianCentrality, 3),
-                'medianDensity' => round($medianDensity, 3),
+                'medianDensity'    => round($medianDensity, 3),
             ]
         ];
     }
 
-    /**
-     * Hierarchical Cosine Similarity Agglomerative Clustering (AGNES).
-     * Deterministic, beautiful, Ward/Average-linkage keyword clusterization.
-     */
-    private function agglomerativeClustering(array $nodes, array $edges, int $targetClusters = 8): array
+    // ── Label Propagation Algorithm ───────────────────────────────────────────
+    //
+    // Uses Callon's Equivalence Index (EI = co² / occ_i × occ_j) as edge weight.
+    // Raw co-occurrence weights cause dense-graph collapse: high-frequency keywords
+    // pull all neighbours into a single cluster in the first iteration.
+    // EI normalization measures *relative* connection strength, producing balanced
+    // thematic clusters that reflect genuine intellectual proximity.
+    //
+    private function labelPropagation(array $nodes, array $edges, int $iterations = 10): array
     {
-        $n = count($nodes);
-        if ($n === 0) return [];
+        $labels   = [];
+        $adj      = [];
+        $docCount = [];
 
-        // Map keyword IDs to indices 0..n-1
-        $idToIdx = [];
-        $idxToId = [];
-        foreach ($nodes as $idx => $node) {
-            $id = (int)$node['id'];
-            $idToIdx[$id] = $idx;
-            $idxToId[$idx] = $id;
+        // Initialise: each node is its own community
+        foreach ($nodes as $node) {
+            $id          = (int)$node['id'];
+            $labels[$id] = $id;
+            $adj[$id]    = [];
+            $docCount[$id] = max((int)($node['doc_count'] ?? 1), 1);
         }
 
-        // Build co-occurrence weights matrix
-        $w = array_fill(0, $n, array_fill(0, $n, 0));
+        // Build adjacency using Equivalence Index:  EI(i,j) = co² / (occ_i × occ_j)
         foreach ($edges as $edge) {
             $src = (int)$edge['source'];
             $tgt = (int)$edge['target'];
-            $weight = (int)$edge['weight'];
-            
-            if (isset($idToIdx[$src]) && isset($idToIdx[$tgt])) {
-                $i = $idToIdx[$src];
-                $j = $idToIdx[$tgt];
-                $w[$i][$j] = $weight;
-                $w[$j][$i] = $weight;
-            }
+            $co  = (int)$edge['weight'];
+
+            $oi = $docCount[$src] ?? 1;
+            $oj = $docCount[$tgt] ?? 1;
+            $ei = ($co * $co) / ($oi * $oj); // Equivalence Index [0..1]
+
+            $adj[$src][] = ['node' => $tgt, 'weight' => $ei];
+            $adj[$tgt][] = ['node' => $src, 'weight' => $ei];
         }
 
-        // Calculate Cosine Similarity Matrix (Salton's Cosine)
-        $sim = array_fill(0, $n, array_fill(0, $n, 0.0));
-        for ($i = 0; $i < $n; $i++) {
-            $ci = (int)$nodes[$i]['doc_count'];
-            $sim[$i][$i] = 1.0;
-            for ($j = $i + 1; $j < $n; $j++) {
-                $cj = (int)$nodes[$j]['doc_count'];
-                $cooc = $w[$i][$j];
-                if ($cooc > 0 && $ci > 0 && $cj > 0) {
-                    $s = $cooc / sqrt($ci * $cj);
-                    $sim[$i][$j] = $s;
-                    $sim[$j][$i] = $s;
+        // Propagate labels
+        for ($it = 0; $it < $iterations; $it++) {
+            $shuffledIds = array_keys($labels);
+            shuffle($shuffledIds);
+
+            $changed = false;
+
+            foreach ($shuffledIds as $nodeId) {
+                $neighbors = $adj[$nodeId] ?? [];
+                if (empty($neighbors)) {
+                    continue; // isolated node keeps its own label
                 }
-            }
-        }
 
-        // Initialize clusters: each node in its own cluster
-        $clusters = [];
-        for ($i = 0; $i < $n; $i++) {
-            $clusters[$i] = [$i];
-        }
+                // Sum EI weights per neighbouring label
+                $labelWeights = [];
+                foreach ($neighbors as $neighbor) {
+                    $l = $labels[$neighbor['node']];
+                    $labelWeights[$l] = ($labelWeights[$l] ?? 0.0) + $neighbor['weight'];
+                }
 
-        // Merge clusters until target is reached
-        while (count($clusters) > $targetClusters) {
-            $maxSim = -1.0;
-            $mergeA = -1;
-            $mergeB = -1;
+                arsort($labelWeights);
+                $bestLabel = key($labelWeights);
 
-            $keys = array_keys($clusters);
-            $cCount = count($keys);
-
-            for ($i = 0; $i < $cCount; $i++) {
-                $keyA = $keys[$i];
-                $clusterA = $clusters[$keyA];
-                for ($j = $i + 1; $j < $cCount; $j++) {
-                    $keyB = $keys[$j];
-                    $clusterB = $clusters[$keyB];
-
-                    // Average linkage similarity
-                    $sum = 0.0;
-                    foreach ($clusterA as $nodeA) {
-                        foreach ($clusterB as $nodeB) {
-                            $sum += $sim[$nodeA][$nodeB];
-                        }
-                    }
-                    $avgSim = $sum / (count($clusterA) * count($clusterB));
-
-                    if ($avgSim > $maxSim) {
-                        $maxSim = $avgSim;
-                        $mergeA = $keyA;
-                        $mergeB = $keyB;
-                    }
+                if ($bestLabel !== $labels[$nodeId]) {
+                    $labels[$nodeId] = $bestLabel;
+                    $changed         = true;
                 }
             }
 
-            // Stop merging if maximum similarity between remaining clusters is 0
-            if ($maxSim <= 0.0) {
-                break;
+            if (!$changed) {
+                break; // converged early
             }
-
-            // Merge cluster B into cluster A
-            $clusters[$mergeA] = array_merge($clusters[$mergeA], $clusters[$mergeB]);
-            unset($clusters[$mergeB]);
         }
 
-        // Map node IDs to sequential cluster index 0..k-1
-        $nodeLabels = [];
-        $clusterIdx = 0;
-        foreach ($clusters as $key => $nodeIndices) {
-            foreach ($nodeIndices as $nodeIdx) {
-                $nodeId = $idxToId[$nodeIdx];
-                $nodeLabels[$nodeId] = $clusterIdx;
-            }
-            $clusterIdx++;
+        // Remap labels to sequential 0-based integers
+        $uniqueLabels = array_values(array_unique($labels));
+        $labelMap     = array_flip($uniqueLabels);
+
+        $result = [];
+        foreach ($labels as $nodeId => $l) {
+            $result[$nodeId] = $labelMap[$l];
         }
 
-        return $nodeLabels;
+        return $result;
     }
 
-    /**
-     * Compute median of a numeric array.
-     */
+
+    // ── Median helper ─────────────────────────────────────────────────────────
+
     private function calculateMedian(array $numbers): float
     {
-        if (empty($numbers)) return 0;
-        
+        if (empty($numbers)) {
+            return 0;
+        }
+
         sort($numbers);
-        $count = count($numbers);
+        $count  = count($numbers);
         $middle = (int)($count / 2);
-        
+
         if ($count % 2 === 0) {
             return ($numbers[$middle - 1] + $numbers[$middle]) / 2;
         }
-        
+
         return $numbers[$middle];
     }
 }

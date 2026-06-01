@@ -177,6 +177,16 @@
         <!-- Batch Actions Bar -->
         <div id="batch-control-bar" class="d-flex align-items-center justify-content-between mb-3 px-3 py-2 bg-bm-card border-bm rounded-3" style="border:1px solid var(--bm-border);border-radius:10px">
             <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span style="font-size:12px;color:var(--bm-text-muted);font-weight:600">
+                    <span style="background:rgba(79,142,247,0.15);color:var(--bm-accent);padding:2px 10px;border-radius:10px;font-weight:700">
+                        {{ suggestions|length }} sugestões
+                    </span>
+                    {% if suggestions|length >= 200 %}
+                    <span style="margin-left:6px;color:var(--bm-warning);font-size:11px">
+                        ⚠️ Pode haver mais após mesclar
+                    </span>
+                    {% endif %}
+                </span>
                 <button type="button" class="btn btn-sm btn-bm-secondary d-flex align-items-center gap-1" onclick="selectCaseOnlyDiffs()">
                     <i class="bi bi-spellcheck"></i> Selecionar Diferenças de Caixa
                 </button>
@@ -200,6 +210,7 @@
                 </button>
             </div>
         </div>
+
 
         {% for sug in suggestions %}
             <div class="dup-card" id="card-{{ sug.keep.id }}-{{ sug.discard.id }}">
@@ -504,82 +515,85 @@ async function runBatchMerge() {
         return;
     }
 
-    showToast(`Iniciando mesclagem em lote de ${checkedBoxes.length} itens...`, true);
+    // Collect all pairs and determine merge type from the first form
+    const firstForm  = document.querySelector('.dup-card form');
+    const mergeType  = firstForm ? firstForm.querySelector('input[name="type"]').value : 'keyword';
+    const pairs      = checkedBoxes.map(cb => ({
+        keepId:    parseInt(cb.getAttribute('data-keep-id'),    10),
+        discardId: parseInt(cb.getAttribute('data-discard-id'), 10),
+    }));
 
-    const buttons = document.querySelectorAll('button');
-    const checkboxes = document.querySelectorAll('.merge-select-check');
-    
-    // Disable all buttons and checkboxes
-    buttons.forEach(btn => btn.disabled = true);
-    checkboxes.forEach(cb => cb.disabled = true);
+    // Disable all interactive elements and show progress
+    document.querySelectorAll('button, input').forEach(el => el.disabled = true);
+    showToast(`⏳ Processando ${pairs.length} mesclagens…`, true);
 
-    for (const cb of checkedBoxes) {
-        const keepId = cb.getAttribute('data-keep-id');
-        const discardId = cb.getAttribute('data-discard-id');
-        const card = document.getElementById(`card-${keepId}-${discardId}`);
-        if (!card) continue;
+    try {
+        const batchUrl = '{{ path('app_normalize_merge_batch', {id: project.id}) }}';
 
-        const form = card.querySelector('form');
-        if (!form) continue;
+        const response = await fetch(batchUrl, {
+            method:  'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept':       'application/json',
+            },
+            body: JSON.stringify({ type: mergeType, pairs }),
+        });
 
-        card.style.border = '1px solid var(--bm-accent)';
-        card.style.background = 'rgba(79,142,247,0.05)';
-        
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const data = await response.json();
 
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
+        if (data.success) {
+            // Remove all merged cards from the DOM with a fade animation
+            checkedBoxes.forEach(cb => {
+                const keepId    = cb.getAttribute('data-keep-id');
+                const discardId = cb.getAttribute('data-discard-id');
+                const card      = document.getElementById(`card-${keepId}-${discardId}`);
+                if (card) {
+                    card.style.transition = 'opacity 0.2s, transform 0.2s';
+                    card.style.opacity    = '0';
+                    card.style.transform  = 'scale(0.95)';
+                    setTimeout(() => { card.remove(); }, 220);
                 }
             });
 
-            const data = await response.json();
-            if (data.success) {
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.95)';
-                await new Promise(resolve => setTimeout(resolve, 300));
-                card.remove();
-                checkEmptyState();
-            } else {
-                card.style.border = '1px solid var(--bm-danger)';
-                card.style.background = 'rgba(248,81,73,0.05)';
-                showToast(`Erro ao mesclar: ${data.message}`, false);
-            }
-        } catch (err) {
-            card.style.border = '1px solid var(--bm-danger)';
-            card.style.background = 'rgba(248,81,73,0.05)';
-            showToast('Erro de rede na mesclagem em lote.', false);
+            // Check after animations complete
+            setTimeout(() => checkEmptyState(), 300);
+            showToast(data.message, true);
+        } else {
+            showToast(data.message || 'Erro ao processar mesclagem em lote.', false);
         }
+    } catch (err) {
+        showToast('Erro de rede na mesclagem em lote.', false);
+    } finally {
+        document.querySelectorAll('button, input').forEach(el => el.disabled = false);
+        document.querySelectorAll('.merge-select-check').forEach(cb => cb.checked = false);
+        updateBatchActionVisibility();
     }
-
-    // Re-enable all buttons and checkboxes
-    buttons.forEach(btn => btn.disabled = false);
-    checkboxes.forEach(cb => cb.disabled = false);
-    
-    document.querySelectorAll('.merge-select-check').forEach(cb => {
-        cb.checked = false;
-    });
-    updateBatchActionVisibility();
-    showToast('Processamento em lote concluído!', true);
 }
+
 
 function checkEmptyState() {
     const list = document.querySelector('.dup-list');
-    if (list.querySelectorAll('.dup-card').length === 0) {
+    const remaining = list.querySelectorAll('.dup-card').length;
+
+    if (remaining === 0) {
+        // Show a "checking for more" state and reload automatically.
+        // After each merge round, new candidates may appear — reloading
+        // either shows them or correctly displays the true empty state.
         list.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">🎉</div>
-                <h5 style="color:var(--bm-text)">Nenhum registro duplicado encontrado!</h5>
-                <p class="mb-0" style="font-size:13px">Seus dados nesta categoria estão 100% limpos e consistentes.</p>
+                <div class="empty-icon">🔄</div>
+                <h5 style="color:var(--bm-text)">Verificando se há mais sugestões…</h5>
+                <p class="mb-0" style="font-size:13px;color:var(--bm-text-muted)">
+                    Após cada rodada de mesclagens, novos candidatos podem surgir.
+                    Recarregando automaticamente…
+                </p>
             </div>
         `;
         const batchBar = document.getElementById('batch-control-bar');
-        if (batchBar) batchBar.remove();
+        if (batchBar) batchBar.style.display = 'none';
+
+        // Reload after 1.8 s — shows the next batch or the real empty state
+        setTimeout(() => location.reload(), 1800);
     }
 }
 </script>

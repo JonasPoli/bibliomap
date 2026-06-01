@@ -254,30 +254,47 @@ class NetworkService
 
     /**
      * Label Propagation Algorithm (LPA) for Community Detection.
-     * Simple, fast, and fits beautifully in PHP.
+     *
+     * Uses Callon's Equivalence Index (EI = co² / occ_i × occ_j) as edge weight
+     * instead of raw co-occurrence counts. This prevents high-frequency hub nodes
+     * (e.g. "United States", "Artificial Intelligence") from collapsing the entire
+     * graph into one giant community during the first propagation step.
+     *
+     * EI ranges from 0 to 1, measuring the *relative* strength of a link
+     * independent of how frequent each node is individually.
      */
     private function detectCommunities(array $nodes, array $edges): array
     {
-        $labels = [];
-        $adj    = [];
+        $labels   = [];
+        $adj      = [];
+        $docCount = [];
 
-        // Initialize label for each node with its own ID
+        // Initialise: each node is its own community
         foreach ($nodes as $n) {
-            $id = (int)$n['id'];
+            $id          = (int)$n['id'];
             $labels[$id] = $id;
             $adj[$id]    = [];
+            $docCount[$id] = max((int)($n['doc_count'] ?? 1), 1);
         }
 
-        // Build adjacency list
+        // Build adjacency using Equivalence Index:  EI(i,j) = co² / (occ_i × occ_j)
         foreach ($edges as $e) {
-            $adj[$e['from']][] = ['node' => $e['to'],   'weight' => $e['weight']];
-            $adj[$e['to']][]   = ['node' => $e['from'], 'weight' => $e['weight']];
+            $src = (int)$e['from'];
+            $tgt = (int)$e['to'];
+            $co  = (int)$e['weight'];
+
+            $oi = $docCount[$src] ?? 1;
+            $oj = $docCount[$tgt] ?? 1;
+            $ei = ($co * $co) / ($oi * $oj); // Equivalence Index [0..1]
+
+            $adj[$src][] = ['node' => $tgt, 'weight' => $ei];
+            $adj[$tgt][] = ['node' => $src, 'weight' => $ei];
         }
 
-        // LPA Iterations (5 is generally highly effective for stability)
-        $iterations = 5;
+        // LPA iterations — 10 gives stable results even on dense graphs
+        $iterations = 10;
         for ($it = 0; $it < $iterations; $it++) {
-            // Shuffle nodes to prevent order bias
+            // Shuffle to prevent order bias
             $shuffledIds = array_keys($labels);
             shuffle($shuffledIds);
 
@@ -285,32 +302,32 @@ class NetworkService
 
             foreach ($shuffledIds as $nodeId) {
                 $neighbors = $adj[$nodeId] ?? [];
-                if (empty($neighbors)) continue;
-
-                // Sum weighted label frequencies among neighbors
-                $labelWeights = [];
-                foreach ($neighbors as $neighbor) {
-                    $neighborId = $neighbor['node'];
-                    $weight     = $neighbor['weight'];
-                    $l          = $labels[$neighborId];
-
-                    $labelWeights[$l] = ($labelWeights[$l] ?? 0) + $weight;
+                if (empty($neighbors)) {
+                    continue; // isolated node keeps its own label
                 }
 
-                // Find the label with the max weight
+                // Sum EI weights per neighbouring label
+                $labelWeights = [];
+                foreach ($neighbors as $neighbor) {
+                    $l = $labels[$neighbor['node']];
+                    $labelWeights[$l] = ($labelWeights[$l] ?? 0.0) + $neighbor['weight'];
+                }
+
                 arsort($labelWeights);
                 $bestLabel = key($labelWeights);
 
                 if ($bestLabel !== $labels[$nodeId]) {
                     $labels[$nodeId] = $bestLabel;
-                    $changed = true;
+                    $changed         = true;
                 }
             }
 
-            if (!$changed) break; // early stopping if converged
+            if (!$changed) {
+                break; // converged early
+            }
         }
 
-        // Normalize labels to a sequential 0, 1, 2, ... index
+        // Remap to sequential 0-based indices
         $uniqueLabels = array_unique(array_values($labels));
         $labelMap     = array_flip(array_values($uniqueLabels));
 
@@ -322,3 +339,4 @@ class NetworkService
         return $normalizedLabels;
     }
 }
+

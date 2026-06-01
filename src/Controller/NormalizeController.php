@@ -104,6 +104,41 @@ class NormalizeController extends AbstractController
         ]);
     }
 
+    #[Route('/merge-batch', name: 'app_normalize_merge_batch', methods: ['POST'])]
+    public function mergeBatch(int $id, Request $request): Response
+    {
+        $this->getProject($id); // access check
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data)) {
+            return $this->json(['success' => false, 'message' => 'Payload inválido.'], 400);
+        }
+
+        $type  = $data['type']  ?? '';
+        $pairs = $data['pairs'] ?? [];
+
+        if (!is_array($pairs) || empty($pairs)) {
+            return $this->json(['success' => false, 'message' => 'Nenhum par fornecido.'], 400);
+        }
+
+        try {
+            $merged = match ($type) {
+                'keyword' => $this->normalizationService->mergeKeywordsBatch($pairs),
+                'author'  => $this->normalizationService->mergeAuthorsBatch($pairs),
+                default   => throw new \InvalidArgumentException("Tipo '{$type}' não suportado em lote."),
+            };
+
+            return $this->json([
+                'success' => true,
+                'merged'  => $merged,
+                'message' => "{$merged} item(s) mesclados com sucesso!",
+            ]);
+        } catch (\Throwable $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private function getProject(int $id): BibliometricProject

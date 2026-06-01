@@ -86,7 +86,7 @@ class NormalizationService
         // Sort by similarity desc
         usort($suggestions, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
 
-        return array_slice($suggestions, 0, 150); // limit to top suggestions for performance and UI
+        return array_slice($suggestions, 0, 5000);
     }
 
     /**
@@ -136,6 +136,97 @@ class NormalizationService
             $conn->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Batch merge authors — all pairs in one transaction, with chain resolution.
+     */
+    public function mergeAuthorsBatch(array $pairs): int
+    {
+        $conn   = $this->em->getConnection();
+        $merged = 0;
+        $conn->beginTransaction();
+
+        try {
+            // Resolve transitive chains (same logic as mergeKeywordsBatch)
+            $discardToKeep = [];
+            foreach ($pairs as $pair) {
+                $k = (int)($pair['keepId']    ?? 0);
+                $d = (int)($pair['discardId'] ?? 0);
+                if ($k > 0 && $d > 0 && $k !== $d) {
+                    $discardToKeep[$d] = $k;
+                }
+            }
+
+            $changed = true;
+            while ($changed) {
+                $changed = false;
+                foreach ($discardToKeep as $d => &$k) {
+                    if (isset($discardToKeep[$k]) && $discardToKeep[$k] !== $d) {
+                        $k       = $discardToKeep[$k];
+                        $changed = true;
+                    }
+                }
+                unset($k);
+            }
+
+            $seen = [];
+
+            foreach ($pairs as $pair) {
+                $rawKeepId = (int)($pair['keepId']    ?? 0);
+                $discardId = (int)($pair['discardId'] ?? 0);
+
+                if ($rawKeepId <= 0 || $discardId <= 0 || $rawKeepId === $discardId) {
+                    continue;
+                }
+                if (isset($seen[$discardId])) {
+                    continue;
+                }
+
+                $keepId = $discardToKeep[$rawKeepId] ?? $rawKeepId;
+
+                if ($keepId === $discardId) {
+                    continue;
+                }
+
+                $seen[$discardId] = true;
+
+                $exists = $conn->fetchOne('SELECT COUNT(*) FROM author WHERE id = ?', [$discardId]);
+                if (!$exists) {
+                    continue;
+                }
+
+                // 1. Remove conflicting document_author rows
+                $conn->executeStatement(
+                    'DELETE FROM document_author
+                     WHERE author_id = ?
+                       AND document_id IN (
+                           SELECT document_id FROM (
+                               SELECT document_id FROM document_author WHERE author_id = ?
+                           ) AS _tmp
+                       )',
+                    [$discardId, $keepId]
+                );
+
+                // 2. Remap remaining rows
+                $conn->executeStatement(
+                    'UPDATE document_author SET author_id = ? WHERE author_id = ?',
+                    [$keepId, $discardId]
+                );
+
+                // 3. Delete the discarded author record
+                $conn->executeStatement('DELETE FROM author WHERE id = ?', [$discardId]);
+
+                $merged++;
+            }
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+
+        return $merged;
     }
 
     // ── 2. Keyword Normalization Heuristics ─────────────────────────────────────
@@ -208,7 +299,7 @@ class NormalizationService
 
         usort($suggestions, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
 
-        return array_slice($suggestions, 0, 200);
+        return array_slice($suggestions, 0, 5000);
     }
 
     /**
@@ -350,6 +441,106 @@ class NormalizationService
             $conn->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Batch merge keywords — all pairs in one transaction, 2 SQL statements per pair.
+     *
+     * Handles chained pairs: if pairs include (keep=A, discard=B) AND (keep=B, discard=C),
+     * the chain is resolved to (keep=A, discard=B) + (keep=A, discard=C) before processing,
+     * preventing the foreign-key violation that would occur when C tries to reference
+     * the already-deleted keyword B.
+     */
+    public function mergeKeywordsBatch(array $pairs): int
+    {
+        $conn   = $this->em->getConnection();
+        $merged = 0;
+        $conn->beginTransaction();
+
+        try {
+            // ── Step 1: build a discard → keep map and resolve transitive chains ──
+            $discardToKeep = [];
+            foreach ($pairs as $pair) {
+                $k = (int)($pair['keepId']    ?? 0);
+                $d = (int)($pair['discardId'] ?? 0);
+                if ($k > 0 && $d > 0 && $k !== $d) {
+                    $discardToKeep[$d] = $k;
+                }
+            }
+
+            // Resolve transitive chains: A→B, B→C becomes A→C, B→C
+            $changed = true;
+            while ($changed) {
+                $changed = false;
+                foreach ($discardToKeep as $d => &$k) {
+                    if (isset($discardToKeep[$k]) && $discardToKeep[$k] !== $d) {
+                        $k       = $discardToKeep[$k];
+                        $changed = true;
+                    }
+                }
+                unset($k);
+            }
+
+            // ── Step 2: process each pair using the fully-resolved keepId ──────
+            $seen = []; // prevent processing the same discardId twice
+
+            foreach ($pairs as $pair) {
+                $rawKeepId = (int)($pair['keepId']    ?? 0);
+                $discardId = (int)($pair['discardId'] ?? 0);
+
+                if ($rawKeepId <= 0 || $discardId <= 0 || $rawKeepId === $discardId) {
+                    continue;
+                }
+                if (isset($seen[$discardId])) {
+                    continue; // already handled by chain resolution
+                }
+
+                // Use the resolved keepId (follows the full chain to the final canonical term)
+                $keepId = $discardToKeep[$rawKeepId] ?? $rawKeepId;
+
+                if ($keepId === $discardId) {
+                    continue; // would create a self-loop
+                }
+
+                $seen[$discardId] = true;
+
+                // Skip if discard keyword was already removed by an earlier iteration
+                $exists = $conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE id = ?', [$discardId]);
+                if (!$exists) {
+                    continue;
+                }
+
+                // 1. Remove conflicting rows (docs that already have keepId)
+                $conn->executeStatement(
+                    'DELETE FROM document_keyword
+                     WHERE keyword_id = ?
+                       AND document_id IN (
+                           SELECT document_id FROM (
+                               SELECT document_id FROM document_keyword WHERE keyword_id = ?
+                           ) AS _tmp
+                       )',
+                    [$discardId, $keepId]
+                );
+
+                // 2. Remap the remaining document_keyword rows to keepId
+                $conn->executeStatement(
+                    'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?',
+                    [$keepId, $discardId]
+                );
+
+                // 3. Delete the now-orphaned keyword record
+                $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$discardId]);
+
+                $merged++;
+            }
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+
+        return $merged;
     }
 
     // ── 3. Document Deduplication Heuristics ───────────────────────────────────
