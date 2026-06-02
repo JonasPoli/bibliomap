@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Config\DataSources;
 use App\Repository\DatasetRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -131,28 +132,12 @@ class Dataset
 
     public function getSourceLabel(): string
     {
-        return match($this->source) {
-            'scopus' => 'Scopus',
-            'wos' => 'Web of Science',
-            'lens' => 'Lens.org',
-            'pubmed' => 'PubMed',
-            'openalex' => 'OpenAlex',
-            'crossref' => 'Crossref',
-            default => $this->source ?? 'Genérico',
-        };
+        return DataSources::label($this->source ?? 'generic');
     }
 
     public function getSourceIcon(): string
     {
-        return match($this->source) {
-            'scopus' => '🔬',
-            'wos' => '🌐',
-            'lens' => '🔭',
-            'pubmed' => '🧬',
-            'openalex' => '🔓',
-            'crossref' => '🔗',
-            default => '📄',
-        };
+        return DataSources::emoji($this->source ?? 'generic');
     }
 
     public function getStatusLabel(): string
