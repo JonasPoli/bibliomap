@@ -167,8 +167,45 @@ class ImportController extends AbstractController
         //   - Symfony Profiler collecting 100k+ SQL queries → OOM
         //   - Monolog NormalizerFormatter buffering log data → OOM
         //   - PHP web request timeout (max_execution_time)
-        $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
-        $phpBinary = $phpFinder->find(false) ?: 'php';
+        $phpBinary = null;
+        if (defined('PHP_VERSION')) {
+            $parts = explode('.', PHP_VERSION);
+            if (count($parts) >= 2) {
+                $versionSuffix = $parts[0] . $parts[1]; // e.g., "84"
+                $possiblePaths = [
+                    '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php',
+                    '/usr/bin/php' . $versionSuffix,
+                    '/usr/local/bin/php' . $versionSuffix,
+                ];
+                foreach ($possiblePaths as $path) {
+                    if (is_executable($path)) {
+                        $phpBinary = $path;
+                        break;
+                    }
+                }
+                if (!$phpBinary) {
+                    $possiblePathsWithDot = [
+                        '/usr/bin/php' . $parts[0] . '.' . $parts[1],
+                        '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
+                    ];
+                    foreach ($possiblePathsWithDot as $path) {
+                        if (is_executable($path)) {
+                            $phpBinary = $path;
+                            break;
+                        }
+                    }
+                }
+                if (!$phpBinary) {
+                    // Try direct command name in case it's in PATH
+                    $phpBinary = 'php' . $parts[0] . '.' . $parts[1];
+                }
+            }
+        }
+
+        if (!$phpBinary) {
+            $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
+            $phpBinary = $phpFinder->find(false) ?: 'php';
+        }
 
         $projectDir = $this->getParameter('kernel.project_dir');
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
