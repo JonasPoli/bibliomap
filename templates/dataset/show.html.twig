@@ -115,103 +115,261 @@
 
 {# Documentos #}
 <div class="bm-card">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-            <h2 style="font-size:16px;font-weight:600;color:var(--bm-text);margin:0">
-                <i class="bi bi-file-text me-2 text-accent"></i>Documentos desta importação
-            </h2>
-            <p style="font-size:12px;color:var(--bm-text-muted);margin:4px 0 0">{{ totalDocs|number_format }} documentos</p>
-        </div>
-        {% if totalPages > 1 %}
-            <div style="font-size:12px;color:var(--bm-text-muted)">Página {{ currentPage }} de {{ totalPages }}</div>
-        {% endif %}
+    <div class="mb-4" style="border-bottom:1px solid var(--bm-border)">
+        <ul class="nav nav-tabs bm-nav-tabs" id="datasetTabs" role="tablist" style="border:none;margin-bottom:-1px">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if activeTab == 'imported' %}active{% endif %}" id="imported-tab" data-bs-toggle="tab" data-bs-target="#imported-pane" type="button" role="tab" aria-controls="imported-pane" aria-selected="{% if activeTab == 'imported' %}true{% else %}false{% endif %}">
+                    <i class="bi bi-file-text me-2"></i>Documentos Importados
+                    <span class="badge rounded-pill bg-secondary ms-2" style="font-size:10px">{{ totalDocs|number_format }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if activeTab == 'duplicates' %}active{% endif %}" id="duplicates-tab" data-bs-toggle="tab" data-bs-target="#duplicates-pane" type="button" role="tab" aria-controls="duplicates-pane" aria-selected="{% if activeTab == 'duplicates' %}true{% else %}false{% endif %}">
+                    <i class="bi bi-copy me-2 text-warning"></i>Duplicados Ignorados
+                    <span class="badge rounded-pill bg-warning text-dark ms-2" style="font-size:10px">{{ totalSkips|number_format }}</span>
+                </button>
+            </li>
+        </ul>
     </div>
 
-    {% if documents is empty %}
-        <div style="text-align:center;padding:40px;color:var(--bm-text-muted)">
-            <i class="bi bi-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>
-            Nenhum documento nesta importação.
-        </div>
-    {% else %}
-        <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:12px">
-                <thead>
-                    <tr style="border-bottom:2px solid var(--bm-border)">
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">#</th>
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600;min-width:280px">Título</th>
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Autores</th>
-                        <th style="padding:8px 10px;color:var(--bm-text-muted);font-weight:600">Ano</th>
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Fonte</th>
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">DOI</th>
-                        <th style="padding:8px 10px;text-align:center;color:var(--bm-text-muted);font-weight:600">Cit.</th>
-                        <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Tipo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% set offset = (currentPage - 1) * 50 %}
-                    {% for i, doc in documents %}
-                        <tr style="border-bottom:1px solid var(--bm-border)"
-                            onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background=''">
-                            <td style="padding:9px 10px;color:var(--bm-text-muted)">{{ offset + i + 1 }}</td>
-                            <td style="padding:9px 10px;max-width:280px">
-                                <div style="font-weight:500;color:var(--bm-text);line-height:1.4;white-space:normal">
-                                    {{ doc.title|default('—')|slice(0,90) }}{% if doc.title|length > 90 %}…{% endif %}
-                                </div>
-                            </td>
-                            <td style="padding:9px 10px;color:var(--bm-text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                                {{ doc.authorsString|slice(0,60) }}{% if doc.authorsString|length > 60 %}…{% endif %}
-                            </td>
-                            <td style="padding:9px 10px;text-align:center;color:var(--bm-text);font-weight:500">{{ doc.year ?? '—' }}</td>
-                            <td style="padding:9px 10px;color:var(--bm-text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                                {{ doc.sourceTitle|default('—')|slice(0,40) }}
-                            </td>
-                            <td style="padding:9px 10px">
-                                {% if doc.doi %}
-                                    <a href="https://doi.org/{{ doc.doi }}" target="_blank"
-                                       style="color:var(--bm-accent);font-size:11px;font-family:monospace">
-                                        {{ doc.doi|slice(0,22) }}{% if doc.doi|length > 22 %}…{% endif %}
-                                    </a>
-                                {% else %}
-                                    <span style="color:var(--bm-text-muted)">—</span>
-                                {% endif %}
-                            </td>
-                            <td style="padding:9px 10px;text-align:center">
-                                {% if doc.citedBy is not null %}
-                                    <span style="font-weight:600;color:{{ doc.citedBy > 10 ? 'var(--bm-accent)' : 'var(--bm-text-muted)' }}">{{ doc.citedBy }}</span>
-                                {% else %}
-                                    <span style="color:var(--bm-text-muted)">0</span>
-                                {% endif %}
-                            </td>
-                            <td style="padding:9px 10px">
-                                {% if doc.documentType %}
-                                    <span style="font-size:10px;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 7px;border-radius:4px;white-space:nowrap">{{ doc.documentType }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <style>
+        .bm-nav-tabs .nav-link {
+            color: var(--bm-text-muted);
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 12px 18px;
+            background: transparent;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .bm-nav-tabs .nav-link:hover {
+            color: var(--bm-text);
+            border-bottom-color: rgba(255,255,255,0.1);
+        }
+        .bm-nav-tabs .nav-link.active {
+            color: var(--bm-accent);
+            border-bottom-color: var(--bm-accent);
+            background: transparent;
+        }
+    </style>
 
-        {# Paginação #}
-        {% if totalPages > 1 %}
-            <div style="display:flex;justify-content:center;gap:6px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bm-border)">
-                {% if currentPage > 1 %}
-                    <a href="?page={{ currentPage - 1 }}" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
-                        <i class="bi bi-chevron-left me-1"></i>Anterior
-                    </a>
-                {% endif %}
-                <span style="font-size:13px;color:var(--bm-text-muted);padding:6px 14px;line-height:1.6">
-                    {{ currentPage }} / {{ totalPages }}
-                </span>
-                {% if currentPage < totalPages %}
-                    <a href="?page={{ currentPage + 1 }}" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
-                        Próxima <i class="bi bi-chevron-right ms-1"></i>
-                    </a>
+    <div class="tab-content" id="datasetTabContent">
+        {# Aba 1: Documentos Importados #}
+        <div class="tab-pane fade {% if activeTab == 'imported' %}show active{% endif %}" id="imported-pane" role="tabpanel" aria-labelledby="imported-tab" tabindex="0">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <p style="font-size:12px;color:var(--bm-text-muted);margin:0">{{ totalDocs|number_format }} documentos importados com sucesso.</p>
+                </div>
+                {% if totalPages > 1 %}
+                    <div style="font-size:12px;color:var(--bm-text-muted)">Página {{ currentPage }} de {{ totalPages }}</div>
                 {% endif %}
             </div>
-        {% endif %}
-    {% endif %}
+
+            {% if documents is empty %}
+                <div style="text-align:center;padding:40px;color:var(--bm-text-muted)">
+                    <i class="bi bi-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>
+                    Nenhum documento nesta importação.
+                </div>
+            {% else %}
+                <div style="overflow-x:auto">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--bm-border)">
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">#</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600;min-width:280px">Título</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Autores</th>
+                                <th style="padding:8px 10px;color:var(--bm-text-muted);font-weight:600">Ano</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Fonte</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">DOI</th>
+                                <th style="padding:8px 10px;text-align:center;color:var(--bm-text-muted);font-weight:600">Cit.</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set offset = (currentPage - 1) * 50 %}
+                            {% for i, doc in documents %}
+                                <tr style="border-bottom:1px solid var(--bm-border)"
+                                    onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background=''">
+                                    <td style="padding:9px 10px;color:var(--bm-text-muted)">{{ offset + i + 1 }}</td>
+                                    <td style="padding:9px 10px;max-width:280px">
+                                        <div style="font-weight:500;color:var(--bm-text);line-height:1.4;white-space:normal">
+                                            {{ doc.title|default('—')|slice(0,90) }}{% if doc.title|length > 90 %}…{% endif %}
+                                        </div>
+                                    </td>
+                                    <td style="padding:9px 10px;color:var(--bm-text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        {{ doc.authorsString|slice(0,60) }}{% if doc.authorsString|length > 60 %}…{% endif %}
+                                    </td>
+                                    <td style="padding:9px 10px;text-align:center;color:var(--bm-text);font-weight:500">{{ doc.year ?? '—' }}</td>
+                                    <td style="padding:9px 10px;color:var(--bm-text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        {{ doc.sourceTitle|default('—')|slice(0,40) }}
+                                    </td>
+                                    <td style="padding:9px 10px">
+                                        {% if doc.doi %}
+                                            <a href="https://doi.org/{{ doc.doi }}" target="_blank"
+                                               style="color:var(--bm-accent);font-size:11px;font-family:monospace">
+                                                {{ doc.doi|slice(0,22) }}{% if doc.doi|length > 22 %}…{% endif %}
+                                            </a>
+                                        {% else %}
+                                            <span style="color:var(--bm-text-muted)">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:9px 10px;text-align:center">
+                                        {% if doc.citedBy is not null %}
+                                            <span style="font-weight:600;color:{{ doc.citedBy > 10 ? 'var(--bm-accent)' : 'var(--bm-text-muted)' }}">{{ doc.citedBy }}</span>
+                                        {% else %}
+                                            <span style="color:var(--bm-text-muted)">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:9px 10px">
+                                        {% if doc.documentType %}
+                                            <span style="font-size:10px;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 7px;border-radius:4px;white-space:nowrap">{{ doc.documentType }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {# Paginação #}
+                {% if totalPages > 1 %}
+                    <div style="display:flex;justify-content:center;gap:6px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bm-border)">
+                        {% if currentPage > 1 %}
+                            <a href="?page={{ currentPage - 1 }}&page_skip={{ currentPageSkip }}&tab=imported" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
+                                <i class="bi bi-chevron-left me-1"></i>Anterior
+                            </a>
+                        {% endif %}
+                        <span style="font-size:13px;color:var(--bm-text-muted);padding:6px 14px;line-height:1.6">
+                            {{ currentPage }} / {{ totalPages }}
+                        </span>
+                        {% if currentPage < totalPages %}
+                            <a href="?page={{ currentPage + 1 }}&page_skip={{ currentPageSkip }}&tab=imported" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
+                                Próxima <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        {# Aba 2: Duplicados Ignorados #}
+        <div class="tab-pane fade {% if activeTab == 'duplicates' %}show active{% endif %}" id="duplicates-pane" role="tabpanel" aria-labelledby="duplicates-tab" tabindex="0">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <p style="font-size:12px;color:var(--bm-text-muted);margin:0">{{ totalSkips|number_format }} registros identificados como duplicados e ignorados para evitar redundância.</p>
+                </div>
+                {% if totalPagesSkip > 1 %}
+                    <div style="font-size:12px;color:var(--bm-text-muted)">Página {{ currentPageSkip }} de {{ totalPagesSkip }}</div>
+                {% endif %}
+            </div>
+
+            {% if skips is empty %}
+                <div style="text-align:center;padding:40px;color:var(--bm-text-muted)">
+                    <i class="bi bi-copy" style="font-size:32px;display:block;margin-bottom:8px"></i>
+                    Nenhum registro considerado duplicado nesta importação.
+                </div>
+            {% else %}
+                <div style="overflow-x:auto">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--bm-border)">
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600">#</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600;min-width:280px;width:35%">Registro Ignorado</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600;width:15%">Motivo</th>
+                                <th style="padding:8px 10px;text-align:left;color:var(--bm-text-muted);font-weight:600;min-width:280px;width:40%">Documento Existente Colidente</th>
+                                <th style="padding:8px 10px;text-align:center;color:var(--bm-text-muted);font-weight:600;width:10%">Rastreado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set offsetSkip = (currentPageSkip - 1) * 50 %}
+                            {% for i, skip in skips %}
+                                <tr style="border-bottom:1px solid var(--bm-border)"
+                                    onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background=''">
+                                    <td style="padding:12px 10px;color:var(--bm-text-muted);vertical-align:top">{{ offsetSkip + i + 1 }}</td>
+                                    <td style="padding:12px 10px;vertical-align:top">
+                                        <div style="font-weight:600;color:var(--bm-text);line-height:1.4;margin-bottom:4px">
+                                            {{ skip.title|default('—') }}
+                                        </div>
+                                        {% if skip.doi %}
+                                            <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+                                                <span style="color:var(--bm-text-muted)">DOI:</span>
+                                                <a href="https://doi.org/{{ skip.doi }}" target="_blank"
+                                                   style="color:var(--bm-accent);font-family:monospace">
+                                                    {{ skip.doi }}
+                                                </a>
+                                            </div>
+                                        {% elseif skip.hash %}
+                                            <div style="font-size:10px;color:var(--bm-text-muted);font-family:monospace">
+                                                HASH: {{ skip.hash }}
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:12px 10px;vertical-align:top">
+                                        {% if skip.reason == 'doi' %}
+                                            <span class="badge text-bg-danger" style="font-size:10px;padding:4px 8px"><i class="bi bi-fingerprint me-1"></i>DOI Conflitante</span>
+                                        {% elseif skip.reason == 'hash' %}
+                                            <span class="badge text-bg-warning text-dark" style="font-size:10px;padding:4px 8px"><i class="bi bi-hash me-1"></i>Título + Ano</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary" style="font-size:10px;padding:4px 8px"><i class="bi bi-shield-exclamation me-1"></i>Restrição Banco</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:12px 10px;vertical-align:top">
+                                        {% if skip.matchedDocument %}
+                                            <div style="font-weight:500;color:var(--bm-text-muted);line-height:1.4;margin-bottom:4px">
+                                                {{ skip.matchedDocument.title }}
+                                            </div>
+                                            <div style="display:flex;align-items:center;gap:10px;font-size:11px">
+                                                {% if skip.matchedDocument.year %}
+                                                    <span style="background:rgba(255,255,255,0.05);color:var(--bm-text);padding:1px 5px;border-radius:3px;font-size:10px">{{ skip.matchedDocument.year }}</span>
+                                                {% endif %}
+                                                {% if skip.matchedDocument.doi %}
+                                                    <span style="color:var(--bm-text-muted)">DOI: <span style="font-family:monospace">{{ skip.matchedDocument.doi }}</span></span>
+                                                {% endif %}
+                                                <span style="color:var(--bm-accent);font-weight:500">
+                                                    <i class="bi bi-check-circle-fill text-success me-1"></i>Duplicado Confirmado
+                                                </span>
+                                            </div>
+                                        {% else %}
+                                            <div style="color:var(--bm-text-muted);font-style:italic">
+                                                <i class="bi bi-question-circle me-1"></i>
+                                                Documento correspondente já importado anteriormente neste projeto (ID de link indisponível).
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:12px 10px;text-align:center;color:var(--bm-text-muted);vertical-align:top;white-space:nowrap">
+                                        {{ skip.createdAt|date('d/m/Y') }}
+                                        <div style="font-size:10px;color:var(--bm-text-muted);margin-top:2px">{{ skip.createdAt|date('H:i') }}</div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {# Paginação #}
+                {% if totalPagesSkip > 1 %}
+                    <div style="display:flex;justify-content:center;gap:6px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bm-border)">
+                        {% if currentPageSkip > 1 %}
+                            <a href="?page={{ currentPage }}&page_skip={{ currentPageSkip - 1 }}&tab=duplicates" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
+                                <i class="bi bi-chevron-left me-1"></i>Anterior
+                            </a>
+                        {% endif %}
+                        <span style="font-size:13px;color:var(--bm-text-muted);padding:6px 14px;line-height:1.6">
+                            {{ currentPageSkip }} / {{ totalPagesSkip }}
+                        </span>
+                        {% if currentPageSkip < totalPagesSkip %}
+                            <a href="?page={{ currentPage }}&page_skip={{ currentPageSkip + 1 }}&tab=duplicates" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
+                                Próxima <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {# Zona de perigo #}

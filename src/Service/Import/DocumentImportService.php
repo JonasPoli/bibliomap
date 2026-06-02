@@ -53,20 +53,56 @@ class DocumentImportService
         $this->preloadCaches();
 
         // Pre-load existing DOIs and hashes for O(1) deduplication (one query each)
-        $existingDois   = $this->loadSet('SELECT doi  FROM document WHERE project_id = ? AND doi  IS NOT NULL', $projectId);
-        $existingHashes = $this->loadSet('SELECT hash FROM document WHERE project_id = ? AND hash IS NOT NULL', $projectId);
+        $existingDois   = $this->loadMap('SELECT doi, id FROM document WHERE project_id = ? AND doi IS NOT NULL', $projectId);
+        $existingHashes = $this->loadMap('SELECT hash, id FROM document WHERE project_id = ? AND hash IS NOT NULL', $projectId);
 
         // Batch accumulators
         $docsBatch        = [];
         $authorLinksBatch = [];
         $kwLinksBatch     = [];
+        $skipsBatch       = [];
 
         foreach ($records as $dto) {
             try {
                 $hash = $this->computeHash($dto);
 
-                if ($dto->doi && isset($existingDois[$dto->doi])) { $stats['skipped']++; continue; }
-                if ($hash    && isset($existingHashes[$hash]))    { $stats['skipped']++; continue; }
+                if ($dto->doi && isset($existingDois[$dto->doi])) {
+                    $stats['skipped']++;
+                    $matchedId = is_int($existingDois[$dto->doi]) ? $existingDois[$dto->doi] : null;
+                    $skipsBatch[] = [
+                        'dataset_id'          => $datasetId,
+                        'title'               => $dto->title ?? 'Sem título',
+                        'doi'                 => $dto->doi,
+                        'hash'               => $hash,
+                        'reason'              => 'doi',
+                        'matched_document_id' => $matchedId,
+                        'created_at'          => $now,
+                    ];
+                    if (count($skipsBatch) >= self::BATCH_SIZE) {
+                        $this->flushSkipsBatch($skipsBatch);
+                        $skipsBatch = [];
+                    }
+                    continue;
+                }
+
+                if ($hash && isset($existingHashes[$hash])) {
+                    $stats['skipped']++;
+                    $matchedId = is_int($existingHashes[$hash]) ? $existingHashes[$hash] : null;
+                    $skipsBatch[] = [
+                        'dataset_id'          => $datasetId,
+                        'title'               => $dto->title ?? 'Sem título',
+                        'doi'                 => $dto->doi,
+                        'hash'               => $hash,
+                        'reason'              => 'hash',
+                        'matched_document_id' => $matchedId,
+                        'created_at'          => $now,
+                    ];
+                    if (count($skipsBatch) >= self::BATCH_SIZE) {
+                        $this->flushSkipsBatch($skipsBatch);
+                        $skipsBatch = [];
+                    }
+                    continue;
+                }
 
                 if ($dto->doi)  $existingDois[$dto->doi]   = true;
                 if ($hash)      $existingHashes[$hash]      = true;
@@ -111,7 +147,7 @@ class DocumentImportService
                 $stats['imported']++;
 
                 if (count($docsBatch) >= self::BATCH_SIZE) {
-                    $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch);
+                    $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
                     // Reconcile: some records may have been rejected by the DB unique constraint
                     $dbSkipped = $result['skipped'];
                     if ($dbSkipped > 0) {
@@ -140,7 +176,7 @@ class DocumentImportService
 
         // Final partial batch
         if ($docsBatch) {
-            $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch);
+            $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
             $dbSkipped = $result['skipped'];
             if ($dbSkipped > 0) {
                 $stats['imported'] -= $dbSkipped;
@@ -149,6 +185,10 @@ class DocumentImportService
             if ($onProgress !== null) {
                 $onProgress($stats);
             }
+        }
+
+        if ($skipsBatch) {
+            $this->flushSkipsBatch($skipsBatch);
         }
 
         return $stats;
@@ -282,7 +322,7 @@ class DocumentImportService
      *
      * @return array{inserted: int, skipped: int}
      */
-    private function flushBatch(array $docs, array $authorLinks, array $kwLinks): array
+    private function flushBatch(array $docs, array $authorLinks, array $kwLinks, string $now): array
     {
         $conn = $this->conn();
         $inserted = 0;
@@ -318,6 +358,32 @@ class DocumentImportService
                 // Record already exists in this project (db-level safety net)
                 $conn->rollBack();
                 $skipped++;
+
+                $matchedDocId = null;
+                if (!empty($docRow['doi'])) {
+                    $matchedDocId = $conn->fetchOne(
+                        'SELECT id FROM document WHERE project_id = ? AND doi = ?',
+                        [$docRow['project_id'], $docRow['doi']]
+                    );
+                }
+                if (!$matchedDocId && !empty($docRow['hash'])) {
+                    $matchedDocId = $conn->fetchOne(
+                        'SELECT id FROM document WHERE project_id = ? AND hash = ?',
+                        [$docRow['project_id'], $docRow['hash']]
+                    );
+                }
+
+                try {
+                    $conn->insert('dataset_skip', [
+                        'dataset_id'          => $docRow['dataset_id'],
+                        'title'               => substr($docRow['title'] ?? 'Sem título', 0, 1000),
+                        'doi'                 => $docRow['doi'] ?? null,
+                        'hash'               => $docRow['hash'] ?? null,
+                        'reason'              => 'db_constraint',
+                        'matched_document_id' => $matchedDocId ? (int) $matchedDocId : null,
+                        'created_at'          => $now,
+                    ]);
+                } catch (\Throwable) {}
             } catch (\Throwable $e) {
                 $conn->rollBack();
                 $this->logger->warning('Batch insert failed: ' . $e->getMessage(), [
@@ -328,6 +394,42 @@ class DocumentImportService
         }
 
         return ['inserted' => $inserted, 'skipped' => $skipped];
+    }
+
+    private function loadMap(string $sql, int $projectId): array
+    {
+        $rows = $this->conn()->fetchAllAssociative($sql, [$projectId]);
+        $map  = [];
+        foreach ($rows as $row) {
+            $cols = array_values($row);
+            if ($cols[0] !== null) {
+                $map[$cols[0]] = (int) $cols[1];
+            }
+        }
+        return $map;
+    }
+
+    private function flushSkipsBatch(array $skips): void
+    {
+        $conn = $this->conn();
+        $conn->beginTransaction();
+        try {
+            foreach ($skips as $skip) {
+                $conn->insert('dataset_skip', [
+                    'dataset_id'          => $skip['dataset_id'],
+                    'title'               => substr($skip['title'], 0, 1000),
+                    'doi'                 => $skip['doi'],
+                    'hash'               => $skip['hash'],
+                    'reason'              => $skip['reason'],
+                    'matched_document_id' => $skip['matched_document_id'],
+                    'created_at'          => $skip['created_at'],
+                ]);
+            }
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            $this->logger->error('Failed to insert skips batch: ' . $e->getMessage());
+        }
     }
 
     private function buildDocRow(BibliographicRecordDTO $dto, int $projectId, int $datasetId, string $now, ?string $hash): array

@@ -26,6 +26,9 @@ services:
     App\Service\Import\WosImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\LensCsvImporter:
+        tags: ['app.bibliographic_importer']
+
 
     App\Service\Import\ImporterResolver:
         arguments:

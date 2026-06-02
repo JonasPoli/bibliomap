@@ -54,6 +54,21 @@ class DatasetController extends AbstractController
         $documents = $this->documentRepo->findByDataset($dataset->getId(), $page, 50);
         $totalDocs = $this->documentRepo->countByDataset($dataset->getId());
 
+        $pageSkip = max(1, (int) $request->query->get('page_skip', 1));
+        $limitSkip = 50;
+
+        $skipRepo = $this->em->getRepository(\App\Entity\DatasetSkip::class);
+        $skips = $skipRepo->findBy(
+            ['dataset' => $dataset],
+            ['id' => 'ASC'],
+            $limitSkip,
+            ($pageSkip - 1) * $limitSkip
+        );
+        $totalSkips = $skipRepo->count(['dataset' => $dataset]);
+
+        // Auto-determine active tab based on query param
+        $activeTab = $request->query->has('page_skip') || $request->query->get('tab') === 'duplicates' ? 'duplicates' : 'imported';
+
         return $this->render('dataset/show.html.twig', [
             'project' => $project,
             'dataset' => $dataset,
@@ -61,6 +76,11 @@ class DatasetController extends AbstractController
             'totalDocs' => $totalDocs,
             'currentPage' => $page,
             'totalPages' => (int) ceil($totalDocs / 50),
+            'skips' => $skips,
+            'totalSkips' => $totalSkips,
+            'currentPageSkip' => $pageSkip,
+            'totalPagesSkip' => (int) ceil($totalSkips / $limitSkip),
+            'activeTab' => $activeTab,
         ]);
     }
 
