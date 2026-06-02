@@ -167,20 +167,30 @@ class ImportController extends AbstractController
         //   - Symfony Profiler collecting 100k+ SQL queries → OOM
         //   - Monolog NormalizerFormatter buffering log data → OOM
         //   - PHP web request timeout (max_execution_time)
-        $phpBinary = null;
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $phpBinary  = null;
+
         if (defined('PHP_VERSION')) {
             $parts = explode('.', PHP_VERSION);
             if (count($parts) >= 2) {
                 $versionSuffix = $parts[0] . $parts[1]; // e.g., "84"
-                $possiblePaths = [
-                    '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php',
-                    '/usr/bin/php' . $versionSuffix,
-                    '/usr/local/bin/php' . $versionSuffix,
-                ];
-                foreach ($possiblePaths as $path) {
-                    if (is_executable($path)) {
-                        $phpBinary = $path;
-                        break;
+                
+                // If on RunCloud, we can predict the binary path directly without calling is_executable().
+                // This gracefully bypasses any open_basedir restriction warnings on FPM.
+                if (str_contains($projectDir, '/home/runcloud')) {
+                    $phpBinary = '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php';
+                }
+
+                if (!$phpBinary) {
+                    $possiblePaths = [
+                        '/usr/bin/php' . $versionSuffix,
+                        '/usr/local/bin/php' . $versionSuffix,
+                    ];
+                    foreach ($possiblePaths as $path) {
+                        if (@is_executable($path)) {
+                            $phpBinary = $path;
+                            break;
+                        }
                     }
                 }
                 if (!$phpBinary) {
@@ -189,7 +199,7 @@ class ImportController extends AbstractController
                         '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
                     ];
                     foreach ($possiblePathsWithDot as $path) {
-                        if (is_executable($path)) {
+                        if (@is_executable($path)) {
                             $phpBinary = $path;
                             break;
                         }
@@ -206,8 +216,6 @@ class ImportController extends AbstractController
             $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
             $phpBinary = $phpFinder->find(false) ?: 'php';
         }
-
-        $projectDir = $this->getParameter('kernel.project_dir');
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
 
         $appEnv  = $_SERVER['APP_ENV'] ?? 'dev';
