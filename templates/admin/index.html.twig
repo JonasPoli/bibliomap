@@ -1,0 +1,112 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Painel Administrativo{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Dashboard</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-shield-check text-accent me-2"></i>Painel de Administração
+    </h1>
+    <p class="bm-page-subtitle">Gerencie usuários, acessos e configurações da plataforma.</p>
+</div>
+
+{# Stats cards #}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center" style="border-color: var(--bm-warning);">
+            <div class="bm-stat-value" style="color: var(--bm-warning);">{{ counts.pending }}</div>
+            <div class="bm-stat-label">Pendentes</div>
+            <div class="mt-2"><i class="bi bi-hourglass-split" style="color:var(--bm-warning);font-size:20px"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center" style="border-color: var(--bm-success);">
+            <div class="bm-stat-value" style="color: var(--bm-success);">{{ counts.active }}</div>
+            <div class="bm-stat-label">Ativos</div>
+            <div class="mt-2"><i class="bi bi-person-check" style="color:var(--bm-success);font-size:20px"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center" style="border-color: var(--bm-danger);">
+            <div class="bm-stat-value" style="color: var(--bm-danger);">{{ counts.inactive }}</div>
+            <div class="bm-stat-label">Inativos</div>
+            <div class="mt-2"><i class="bi bi-person-x" style="color:var(--bm-danger);font-size:20px"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value">{{ counts.total }}</div>
+            <div class="bm-stat-label">Total de usuários</div>
+            <div class="mt-2"><i class="bi bi-people" style="color:var(--bm-accent);font-size:20px"></i></div>
+        </div>
+    </div>
+</div>
+
+{# Pending alert #}
+{% if counts.pending > 0 %}
+<div class="alert bm-alert d-flex align-items-center gap-3 mb-4"
+     style="background: rgba(210,153,34,0.08); border-color: var(--bm-warning); color: var(--bm-warning);">
+    <i class="bi bi-bell-fill fs-5"></i>
+    <div>
+        <strong>{{ counts.pending }} cadastro(s) aguardando aprovação.</strong>
+        <a href="{{ path('app_admin_users', {status: 'pending'}) }}" class="ms-2" style="color:var(--bm-warning);text-decoration:underline">
+            Revisar agora →
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{# Recent users #}
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="bm-page-title mb-0" style="font-size:16px">
+            <i class="bi bi-clock-history text-accent me-2"></i>Cadastros nas últimas 24h
+        </h2>
+        <a href="{{ path('app_admin_users') }}" class="btn-bm-secondary btn btn-sm">Ver todos</a>
+    </div>
+
+    {% if recent is empty %}
+        <p class="text-muted-bm text-center py-4">Nenhum cadastro recente.</p>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" style="color:var(--bm-text)">
+                <thead>
+                    <tr style="font-size:12px;color:var(--bm-text-muted);border-color:var(--bm-border)">
+                        <th>Nome</th><th>E-mail</th><th>Instituição</th><th>Status</th><th>Cadastro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for user in recent %}
+                    <tr style="border-color:var(--bm-border)">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="bm-avatar" style="width:28px;height:28px;font-size:11px">{{ user.name|first|upper }}</div>
+                                <span style="font-size:13px;font-weight:500">{{ user.name }}</span>
+                            </div>
+                        </td>
+                        <td style="font-size:13px;color:var(--bm-text-muted)">{{ user.email }}</td>
+                        <td style="font-size:13px;color:var(--bm-text-muted)">{{ user.institution ?? '—' }}</td>
+                        <td>
+                            {% if user.isPending() %}
+                                <span class="badge" style="background:rgba(210,153,34,0.15);color:var(--bm-warning);font-size:11px">⏳ Pendente</span>
+                            {% elseif user.isActive() %}
+                                <span class="badge" style="background:rgba(63,185,80,0.15);color:var(--bm-success);font-size:11px">✓ Ativo</span>
+                            {% else %}
+                                <span class="badge" style="background:rgba(248,81,73,0.15);color:var(--bm-danger);font-size:11px">✕ Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:12px;color:var(--bm-text-muted)">{{ user.createdAt|date('d/m H:i') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -37,12 +37,9 @@ echo -e "${BLUE}==> Limpeza concluída com sucesso!${NC}"
 
 php bin/console tailwind:build --minify
 php bin/console asset-map:compile
-
 php bin/console liip:imagine:cache:remove
 
 
-
-
-/opt/cpanel/ea-php83/root/bin/php bin/console tailwind:build
-/opt/cpanel/ea-php83/root/bin/php bin/console asset-map:compile
-/opt/cpanel/ea-php83/root/bin/php bin/console  liip:imagine:cache:remove
+/RunCloud/Packages/php84rc/bin/php bin/console tailwind:build
+/RunCloud/Packages/php84rc/bin/php bin/console asset-map:compile
+/RunCloud/Packages/php84rc/bin/php bin/console  liip:imagine:cache:remove

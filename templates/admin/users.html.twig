@@ -1,0 +1,286 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gerenciar Usuários — Admin{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .admin-users-table th { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--bm-text-muted); border-color:var(--bm-border)!important; padding: 10px 12px; }
+    .admin-users-table td { border-color:var(--bm-border)!important; padding: 12px; vertical-align:middle; font-size:13.5px; }
+    .admin-users-table tbody tr { transition: background .15s; }
+    .admin-users-table tbody tr:hover { background: rgba(79,142,247,0.04); }
+    .status-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:600; }
+    .badge-pending  { background:rgba(210,153,34,0.12); color:var(--bm-warning); border:1px solid rgba(210,153,34,0.3); }
+    .badge-active   { background:rgba(63,185,80,0.12);  color:var(--bm-success); border:1px solid rgba(63,185,80,0.3); }
+    .badge-inactive { background:rgba(248,81,73,0.12);  color:var(--bm-danger);  border:1px solid rgba(248,81,73,0.3); }
+    .filter-tab { padding:6px 16px; border-radius:20px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid var(--bm-border); background:transparent; color:var(--bm-text-muted); transition:all .15s; }
+    .filter-tab.active, .filter-tab:hover { background:rgba(79,142,247,0.1); color:var(--bm-accent); border-color:var(--bm-accent); }
+    .user-avatar { width:36px; height:36px; border-radius:50%; background:var(--bm-gradient); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:white; flex-shrink:0; }
+    .action-btn { padding:4px 10px; font-size:12px; border-radius:6px; border:1px solid; cursor:pointer; transition:all .15s; font-weight:500; background:transparent; }
+    .action-btn:hover { opacity:.85; transform:translateY(-1px); }
+    .btn-approve { color:var(--bm-success); border-color:var(--bm-success); }
+    .btn-approve:hover { background:rgba(63,185,80,0.1); }
+    .btn-reject  { color:var(--bm-danger);  border-color:var(--bm-danger); }
+    .btn-reject:hover  { background:rgba(248,81,73,0.1); }
+    .btn-impersonate { color:var(--bm-accent); border-color:var(--bm-accent); }
+    .btn-impersonate:hover { background:rgba(79,142,247,0.1); }
+    .btn-activate { color:var(--bm-success); border-color:var(--bm-success); }
+    .btn-activate:hover { background:rgba(63,185,80,0.1); }
+    .empty-state { text-align:center; padding:60px 20px; color:var(--bm-text-muted); }
+    .empty-state i { font-size:48px; margin-bottom:16px; opacity:.3; }
+    #searchInput { max-width:300px; }
+    .results-count { font-size:12px; color:var(--bm-text-muted); }
+    .admin-role-badge { font-size:9.5px; padding:1px 6px; border-radius:4px; background:rgba(168,85,247,0.15); color:#a855f7; font-weight:700; border:1px solid rgba(168,85,247,0.3); vertical-align:middle; margin-left:4px; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Usuários</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-people text-accent me-2"></i>Gerenciar Usuários
+        </h1>
+        <p class="bm-page-subtitle">Aprove, rejeite ou impersone usuários da plataforma.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ path('app_admin_index') }}" class="btn-bm-secondary btn btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Dashboard
+        </a>
+    </div>
+</div>
+
+{# ── Filter bar ── #}
+<div class="bm-card mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        {# Status tabs #}
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ path('app_admin_users', {status:'all', period:period, sort:sort, search:search}) }}"
+               class="filter-tab {{ status == 'all' ? 'active' : '' }}">
+                Todos <span class="ms-1 opacity-75">({{ counts.total }})</span>
+            </a>
+            <a href="{{ path('app_admin_users', {status:'pending', period:period, sort:sort, search:search}) }}"
+               class="filter-tab {{ status == 'pending' ? 'active' : '' }}"
+               style="{{ status == 'pending' ? '' : (counts.pending > 0 ? 'color:var(--bm-warning);border-color:rgba(210,153,34,0.4)' : '') }}">
+                ⏳ Pendentes
+                {% if counts.pending > 0 %}
+                    <span class="ms-1" style="background:var(--bm-warning);color:#000;padding:0 5px;border-radius:10px;font-size:10px">{{ counts.pending }}</span>
+                {% endif %}
+            </a>
+            <a href="{{ path('app_admin_users', {status:'active', period:period, sort:sort, search:search}) }}"
+               class="filter-tab {{ status == 'active' ? 'active' : '' }}">
+                ✓ Ativos <span class="ms-1 opacity-75">({{ counts.active }})</span>
+            </a>
+            <a href="{{ path('app_admin_users', {status:'inactive', period:period, sort:sort, search:search}) }}"
+               class="filter-tab {{ status == 'inactive' ? 'active' : '' }}">
+                ✕ Inativos <span class="ms-1 opacity-75">({{ counts.inactive }})</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-3 align-items-end">
+        {# Live search #}
+        <div class="flex-grow-1">
+            <label class="form-label">Buscar</label>
+            <div class="position-relative">
+                <i class="bi bi-search position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:var(--bm-text-muted);font-size:14px"></i>
+                <input id="searchInput" type="text" class="form-control" value="{{ search }}"
+                       placeholder="Nome, e-mail ou instituição..."
+                       style="padding-left:36px" autocomplete="off">
+            </div>
+        </div>
+
+        {# Period filter #}
+        <div>
+            <label class="form-label">Período</label>
+            <select id="periodSelect" class="form-select" style="min-width:150px">
+                <option value="all"  {{ period == 'all'  ? 'selected' : '' }}>Todos os períodos</option>
+                <option value="24h"  {{ period == '24h'  ? 'selected' : '' }}>Últimas 24h</option>
+                <option value="7d"   {{ period == '7d'   ? 'selected' : '' }}>Últimos 7 dias</option>
+                <option value="30d"  {{ period == '30d'  ? 'selected' : '' }}>Últimos 30 dias</option>
+            </select>
+        </div>
+
+        {# Sort #}
+        <div>
+            <label class="form-label">Ordenar por</label>
+            <select id="sortSelect" class="form-select" style="min-width:170px">
+                <option value="newest"     {{ sort == 'newest'    ? 'selected' : '' }}>Mais recentes</option>
+                <option value="oldest"     {{ sort == 'oldest'    ? 'selected' : '' }}>Mais antigos</option>
+                <option value="name_asc"   {{ sort == 'name_asc'  ? 'selected' : '' }}>Nome A–Z</option>
+                <option value="name_desc"  {{ sort == 'name_desc' ? 'selected' : '' }}>Nome Z–A</option>
+                <option value="last_login" {{ sort == 'last_login'? 'selected' : '' }}>Último acesso</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label d-block">&nbsp;</label>
+            <button id="applyFilters" class="btn btn-bm-primary">
+                <i class="bi bi-funnel me-1"></i>Filtrar
+            </button>
+        </div>
+    </div>
+</div>
+
+{# Results count #}
+<div class="d-flex align-items-center justify-content-between mb-2 px-1">
+    <span class="results-count" id="resultsCount">
+        {{ users|length }} usuário(s) encontrado(s)
+    </span>
+</div>
+
+{# Users table #}
+<div class="bm-card p-0" style="overflow:hidden">
+    {% if users is empty %}
+        <div class="empty-state">
+            <i class="bi bi-person-x d-block"></i>
+            <p class="mb-0 fw-500">Nenhum usuário encontrado</p>
+            <small>Tente ajustar os filtros acima.</small>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table admin-users-table mb-0" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>E-mail</th>
+                        <th>Instituição</th>
+                        <th>Status</th>
+                        <th>Cadastro</th>
+                        <th>Último acesso</th>
+                        <th style="text-align:right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for user in users %}
+                    <tr data-name="{{ user.name|lower }}" data-email="{{ user.email|lower }}" data-institution="{{ user.institution|lower }}">
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="user-avatar">{{ user.name|first|upper }}</div>
+                                <div>
+                                    <div style="font-weight:600;color:var(--bm-text)">
+                                        {{ user.name }}
+                                        {% if user.isAdmin() %}
+                                            <span class="admin-role-badge">ADMIN</span>
+                                        {% endif %}
+                                    </div>
+                                    <div style="font-size:11px;color:var(--bm-text-muted)">#{{ user.id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="color:var(--bm-text-muted)">{{ user.email }}</td>
+                        <td style="color:var(--bm-text-muted)">{{ user.institution ?? '—' }}</td>
+                        <td>
+                            {% if user.isPending() %}
+                                <span class="status-badge badge-pending"><i class="bi bi-hourglass-split"></i> Pendente</span>
+                            {% elseif user.isActive() %}
+                                <span class="status-badge badge-active"><i class="bi bi-check-circle"></i> Ativo</span>
+                            {% else %}
+                                <span class="status-badge badge-inactive"><i class="bi bi-x-circle"></i> Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:var(--bm-text-muted);font-size:12px">
+                            {{ user.createdAt|date('d/m/Y') }}<br>
+                            <span style="font-size:11px;opacity:.7">{{ user.createdAt|date('H:i') }}</span>
+                        </td>
+                        <td style="color:var(--bm-text-muted);font-size:12px">
+                            {% if user.lastLoginAt %}
+                                {{ user.lastLoginAt|date('d/m/Y H:i') }}
+                            {% else %}
+                                <span style="opacity:.4">Nunca</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                {# Approve #}
+                                {% if user.isPending() or user.isInactive() %}
+                                    <form method="post" action="{{ path('app_admin_user_approve', {id: user.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('admin_user_' ~ user.id) }}">
+                                        <button type="submit" class="action-btn btn-approve" title="Aprovar acesso"
+                                                onclick="return confirm('Aprovar acesso de {{ user.name }}?')">
+                                            <i class="bi bi-check-lg me-1"></i>Aprovar
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                {# Reject / Inactivate #}
+                                {% if user.isPending() or user.isActive() %}
+                                    <form method="post" action="{{ path('app_admin_user_reject', {id: user.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('admin_user_' ~ user.id) }}">
+                                        <button type="submit" class="action-btn btn-reject" title="{{ user.isPending() ? 'Rejeitar cadastro' : 'Desativar usuário' }}"
+                                                onclick="return confirm('{{ user.isPending() ? 'Rejeitar cadastro' : 'Desativar' }} de {{ user.name }}?')">
+                                            <i class="bi bi-x-lg me-1"></i>{{ user.isPending() ? 'Rejeitar' : 'Desativar' }}
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                {# Impersonate #}
+                                {% if user.isActive() and not user.isAdmin() %}
+                                    <a href="{{ path('app_admin_user_impersonate', {id: user.id}) }}"
+                                       class="action-btn btn-impersonate"
+                                       title="Entrar como este usuário"
+                                       onclick="return confirm('Você vai impersonar {{ user.name }}. Deseja continuar?')">
+                                        <i class="bi bi-person-fill-gear me-1"></i>Impersonar
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    const searchInput   = document.getElementById('searchInput');
+    const periodSelect  = document.getElementById('periodSelect');
+    const sortSelect    = document.getElementById('sortSelect');
+    const applyBtn      = document.getElementById('applyFilters');
+    const resultsCount  = document.getElementById('resultsCount');
+    const tbody         = document.querySelector('#usersTable tbody');
+
+    // Live client-side search (filters visible rows instantly)
+    if (searchInput && tbody) {
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim().toLowerCase();
+            let visible = 0;
+            tbody.querySelectorAll('tr').forEach(row => {
+                const name        = row.dataset.name        || '';
+                const email       = row.dataset.email       || '';
+                const institution = row.dataset.institution || '';
+                const match = !q || name.includes(q) || email.includes(q) || institution.includes(q);
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            if (resultsCount) {
+                resultsCount.textContent = `${visible} usuário(s) encontrado(s)`;
+            }
+        });
+    }
+
+    // Apply filters (full server-side reload)
+    function applyFilters() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('search', searchInput ? searchInput.value : '');
+        params.set('period', periodSelect ? periodSelect.value : 'all');
+        params.set('sort',   sortSelect   ? sortSelect.value   : 'newest');
+        // Keep current status tab
+        if (!params.has('status')) params.set('status', 'all');
+        window.location.search = params.toString();
+    }
+
+    if (applyBtn)     applyBtn.addEventListener('click', applyFilters);
+    if (periodSelect) periodSelect.addEventListener('change', applyFilters);
+    if (sortSelect)   sortSelect.addEventListener('change', applyFilters);
+})();
+</script>
+{% endblock %}
