@@ -170,51 +170,45 @@ class ImportController extends AbstractController
         $projectDir = $this->getParameter('kernel.project_dir');
         $phpBinary  = null;
 
-        if (defined('PHP_VERSION')) {
+        // 1. If on RunCloud (production), predict the binary directly without calling is_executable()
+        // to bypass any open_basedir restriction warnings on FPM.
+        if (str_contains($projectDir, '/home/runcloud') && defined('PHP_VERSION')) {
             $parts = explode('.', PHP_VERSION);
             if (count($parts) >= 2) {
-                $versionSuffix = $parts[0] . $parts[1]; // e.g., "84"
-                
-                // If on RunCloud, we can predict the binary path directly without calling is_executable().
-                // This gracefully bypasses any open_basedir restriction warnings on FPM.
-                if (str_contains($projectDir, '/home/runcloud')) {
-                    $phpBinary = '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php';
-                }
+                $versionSuffix = $parts[0] . $parts[1];
+                $phpBinary = '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php';
+            }
+        }
 
-                if (!$phpBinary) {
-                    $possiblePaths = [
-                        '/usr/bin/php' . $versionSuffix,
-                        '/usr/local/bin/php' . $versionSuffix,
-                    ];
-                    foreach ($possiblePaths as $path) {
-                        if (@is_executable($path)) {
-                            $phpBinary = $path;
-                            break;
-                        }
+        // 2. Otherwise, use Symfony's standard PhpExecutableFinder which is highly robust for local mac
+        if (!$phpBinary) {
+            $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
+            $phpBinary = $phpFinder->find(false);
+        }
+
+        // 3. Fallback to common binary names/paths if finder failed
+        if (!$phpBinary && defined('PHP_VERSION')) {
+            $parts = explode('.', PHP_VERSION);
+            if (count($parts) >= 2) {
+                $versionSuffix = $parts[0] . $parts[1];
+                $possiblePaths = [
+                    '/usr/bin/php' . $versionSuffix,
+                    '/usr/local/bin/php' . $versionSuffix,
+                    '/usr/bin/php' . $parts[0] . '.' . $parts[1],
+                    '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
+                ];
+                foreach ($possiblePaths as $path) {
+                    if (@is_executable($path)) {
+                        $phpBinary = $path;
+                        break;
                     }
-                }
-                if (!$phpBinary) {
-                    $possiblePathsWithDot = [
-                        '/usr/bin/php' . $parts[0] . '.' . $parts[1],
-                        '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
-                    ];
-                    foreach ($possiblePathsWithDot as $path) {
-                        if (@is_executable($path)) {
-                            $phpBinary = $path;
-                            break;
-                        }
-                    }
-                }
-                if (!$phpBinary) {
-                    // Try direct command name in case it's in PATH
-                    $phpBinary = 'php' . $parts[0] . '.' . $parts[1];
                 }
             }
         }
 
+        // 4. Default sane fallback
         if (!$phpBinary) {
-            $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
-            $phpBinary = $phpFinder->find(false) ?: 'php';
+            $phpBinary = 'php';
         }
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
 
