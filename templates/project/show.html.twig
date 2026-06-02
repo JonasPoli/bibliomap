@@ -122,19 +122,37 @@
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
-            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-value">
+                {% if summary is defined and summary.total_docs > 0 %}
+                    {{ summary.total_docs|number_format(0,',','.') }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
             <div class="bm-stat-label"><i class="bi bi-file-text me-1"></i>Documentos</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
-            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-value">
+                {% if summary is defined and summary.total_authors > 0 %}
+                    {{ summary.total_authors|number_format(0,',','.') }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
             <div class="bm-stat-label"><i class="bi bi-people me-1"></i>Autores</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
-            <div class="bm-stat-value" style="color:var(--bm-text-muted)">—</div>
+            <div class="bm-stat-value">
+                {% if summary is defined and summary.total_keywords > 0 %}
+                    {{ summary.total_keywords|number_format(0,',','.') }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
             <div class="bm-stat-label"><i class="bi bi-tags me-1"></i>Palavras-chave</div>
         </div>
     </div>

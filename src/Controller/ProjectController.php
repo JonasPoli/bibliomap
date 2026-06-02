@@ -57,12 +57,17 @@ class ProjectController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_projects_show', methods: ['GET'])]
-    public function show(BibliometricProject $project): Response
-    {
+    public function show(
+        BibliometricProject $project,
+        \App\Service\Analytics\IndicatorService $indicators
+    ): Response {
         $this->denyAccessUnlessGranted('view', $project);
+
+        $summary = $indicators->summary($project->getId());
 
         return $this->render('project/show.html.twig', [
             'project' => $project,
+            'summary' => $summary,
         ]);
     }
 
