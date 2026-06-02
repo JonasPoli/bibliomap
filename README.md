@@ -21,13 +21,15 @@ Plataforma web para análise bibliométrica de produção científica. Importa b
 
 ## Requisitos
 
-| Componente | Versão mínima |
-|---|---|
-| PHP | **8.2** |
-| Composer | 2.x |
-| MySQL | 8.0+ (ou SQLite para desenvolvimento local) |
-| Git | qualquer versão recente |
-| Symfony CLI | recomendado (não obrigatório) |
+| Componente | Versão mínima | Versão usada neste projeto |
+|---|---|---|
+| PHP | **8.2** | **8.4** (definida em `.php-version`) |
+| Composer | 2.x | — |
+| MySQL | 8.0+ (ou SQLite para dev) | — |
+| Git | qualquer versão recente | — |
+| Symfony CLI | recomendado | — |
+
+> **Nota:** O arquivo `.php-version` na raiz do projeto instrui o Symfony CLI e ferramentas como `phpenv` / `asdf` a usar exatamente **PHP 8.4**. O `composer.json` aceita `>=8.2`, mas recomenda-se usar 8.4 para garantir compatibilidade total.
 
 Extensões PHP necessárias: `pdo`, `pdo_mysql` (ou `pdo_sqlite`), `ctype`, `iconv`, `mbstring`, `xml`, `zip`, `intl`.
 
@@ -41,7 +43,7 @@ O XAMPP é o jeito mais rápido de ter PHP + MySQL + Apache no Windows.
 
 #### 1. Baixar e instalar o XAMPP
 
-Acesse a página oficial e baixe a versão com **PHP 8.2** ou superior:
+Acesse a página oficial e baixe a versão com **PHP 8.4** (ou 8.2+ como mínimo):
 👉 **https://www.apachefriends.org/download.html**
 
 Execute o instalador e marque no mínimo:
@@ -71,7 +73,7 @@ $env:PATH += ";C:\xampp\php"
 Verifique:
 ```powershell
 php -v
-# Deve exibir PHP 8.2.x ou superior
+# Deve exibir PHP 8.4.x (ou 8.2.x como mínimo)
 ```
 
 #### 4. Instalar o Composer
@@ -126,16 +128,16 @@ sudo apt install software-properties-common -y
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
 
-# Instalar PHP 8.2 com extensões necessárias
-sudo apt install php8.2 php8.2-cli php8.2-fpm php8.2-mysql php8.2-sqlite3 \
-  php8.2-xml php8.2-mbstring php8.2-intl php8.2-zip php8.2-curl \
-  php8.2-ctype php8.2-iconv -y
+# Instalar PHP 8.4 com extensões necessárias (mínimo: 8.2)
+sudo apt install php8.4 php8.4-cli php8.4-fpm php8.4-mysql php8.4-sqlite3 \
+  php8.4-xml php8.4-mbstring php8.4-intl php8.4-zip php8.4-curl \
+  php8.4-ctype php8.4-iconv -y
 ```
 
 Verificar:
 ```bash
 php -v
-# PHP 8.2.x
+# PHP 8.4.x
 ```
 
 #### 4. Instalar o Composer
@@ -174,20 +176,24 @@ Se ainda não tiver o Homebrew:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-#### 2. Instalar PHP 8.2
+#### 2. Instalar PHP 8.4
 
 ```bash
-brew install php@8.2
+brew install php@8.4
 
 # Adicionar ao PATH (zsh)
-echo 'export PATH="/opt/homebrew/opt/php@8.2/bin:$PATH"' >> ~/.zshrc
-echo 'export PATH="/opt/homebrew/opt/php@8.2/sbin:$PATH"' >> ~/.zshrc
+echo 'export PATH="/opt/homebrew/opt/php@8.4/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="/opt/homebrew/opt/php@8.4/sbin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 # Verificar
 php -v
-# PHP 8.2.x
+# PHP 8.4.x
 ```
+
+> 💡 O Symfony CLI detecta automaticamente o arquivo `.php-version` na raiz do projeto
+> e usa o PHP 8.4 para `symfony serve`, `symfony console`, etc.
+> Não é necessário configuração adicional.
 
 #### 3. Instalar o MySQL
 
@@ -214,6 +220,9 @@ mysql_secure_installation
 brew install composer
 composer --version
 ```
+
+> O Composer lê o `.php-version` do projeto (via Symfony CLI) e usa o PHP 8.4
+> automaticamente ao instalar dependências.
 
 #### 5. Instalar o Git
 
