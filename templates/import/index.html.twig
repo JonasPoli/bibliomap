@@ -596,6 +596,10 @@ dropZone.addEventListener('drop', (e) => {
     if (file) { const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; showFile(file); }
 });
 document.getElementById('upload-form').addEventListener('submit', () => {
+    const overlay = document.getElementById('upload-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
     document.getElementById('upload-progress').style.display = 'block';
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enviando...';
@@ -617,4 +621,22 @@ document.querySelectorAll('.src-tab').forEach(tab => {
     });
 });
 </script>
+
+{# Loading overlay "por cima de tudo" #}
+<div id="upload-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,17,23,0.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+    <div style="font-size:48px">⚙️</div>
+    <div style="font-size:20px;font-weight:600;color:var(--bm-text)">Enviando arquivo e analisando...</div>
+    <div style="font-size:14px;color:var(--bm-text-muted);max-width:400px;text-align:center">
+        O servidor está recebendo o arquivo e auto-detectando o formato dos dados.
+        <br><strong>Não feche ou recarregue esta página.</strong>
+    </div>
+    <div style="width:300px;height:8px;background:var(--bm-border);border-radius:4px;overflow:hidden">
+        <div class="progress-indeterminate" style="height:100%;background:linear-gradient(90deg,#4f8ef7,#a855f7);border-radius:4px"></div>
+    </div>
+</div>
+
+<style>
+@keyframes indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+.progress-indeterminate { width: 40%; animation: indeterminate 1.5s ease-in-out infinite; }
+</style>
 {% endblock %}

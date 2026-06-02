@@ -183,8 +183,12 @@ class ImportController extends AbstractController
             escapeshellarg($logFile)
         );
 
-        $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
-        $process->start();
+        try {
+            $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
+            $process->start();
+        } catch (\Symfony\Component\Process\Exception\RuntimeException $e) {
+            $this->addFlash('danger', 'O processamento em segundo plano falhou porque a função PHP "proc_open" está desabilitada no php.ini do seu servidor (RunCloud). Para corrigir, acesse o painel do RunCloud, vá nas Configurações de PHP do Servidor e habilite as funções "proc_open" e "exec".');
+        }
 
 
         return $this->redirectToRoute('app_import_processing', [
