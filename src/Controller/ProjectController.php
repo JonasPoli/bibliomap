@@ -42,7 +42,7 @@ class ProjectController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $project->setUser($this->getUser());
-            $project->setSlug($this->slugService->generate($project->getTitle()));
+            $project->setSlug($this->slugService->generate($project->getTitle(), BibliometricProject::class));
 
             $this->em->persist($project);
             $this->em->flush();
