@@ -6,21 +6,58 @@
 
         {# Logo #}
         <div class="text-center mb-5">
-            <div style="width:56px;height:56px;background:linear-gradient(135deg,#4f8ef7,#a855f7);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px">📊</div>
-            <h1 style="font-size:24px;font-weight:700;color:var(--bm-text);margin:0">BiblioMap</h1>
-            <p style="color:var(--bm-text-muted);font-size:13px;margin:4px 0 0">Plataforma de análise bibliométrica</p>
+            <a href="{{ path('app_home') }}" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:4px">
+                <img src="/logo.svg" alt="BiblioMap" style="width:48px;height:48px;border-radius:13px">
+                <span style="font-size:22px;font-weight:800;color:var(--bm-text);letter-spacing:-.4px">BiblioMap</span>
+            </a>
+            <p style="color:var(--bm-text-muted);font-size:13px;margin:8px 0 0">Plataforma de análise bibliométrica</p>
         </div>
 
         {# Card #}
-        <div style="background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:16px;padding:32px">
-            <h2 style="font-size:18px;font-weight:600;color:var(--bm-text);margin:0 0 24px">Entrar na plataforma</h2>
+        <div style="background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:18px;padding:32px">
+            <h2 style="font-size:18px;font-weight:700;color:var(--bm-text);margin:0 0 24px">Entrar na plataforma</h2>
 
             {% if error %}
-                <div class="alert alert-danger d-flex gap-2 align-items-center mb-3" style="border-radius:8px;font-size:13px">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    {{ error.messageKey|trans(error.messageData, 'security') }}
-                </div>
+                {% set errMsg = error.messageKey|trans(error.messageData, 'security') %}
+                {% if 'aguardando aprovação' in errMsg or 'pendente' in errMsg|lower %}
+                    {# Pending user — special styled notice #}
+                    <div style="background:rgba(210,153,34,.07);border:1px solid rgba(210,153,34,.3);border-radius:12px;padding:16px;margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                            <span style="font-size:20px">⏳</span>
+                            <strong style="color:#d29922;font-size:14px">Conta aguardando aprovação</strong>
+                        </div>
+                        <p style="font-size:13px;color:#8b949e;line-height:1.6;margin:0">
+                            {{ errMsg }}
+                        </p>
+                        <a href="{{ path('app_cadastro_pendente') }}"
+                           style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12.5px;color:#d29922;text-decoration:none;font-weight:600;border:1px solid rgba(210,153,34,.3);padding:5px 12px;border-radius:8px">
+                            <i class="bi bi-info-circle"></i> Ver status do cadastro
+                        </a>
+                    </div>
+                {% elseif 'desativada' in errMsg or 'inativo' in errMsg|lower %}
+                    {# Inactive user #}
+                    <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:16px;margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                            <i class="bi bi-x-octagon-fill" style="color:#f87171;font-size:18px"></i>
+                            <strong style="color:#f87171;font-size:14px">Conta desativada</strong>
+                        </div>
+                        <p style="font-size:13px;color:#8b949e;line-height:1.6;margin:0">{{ errMsg }}</p>
+                    </div>
+                {% else %}
+                    {# Generic login error #}
+                    <div class="alert alert-danger d-flex gap-2 align-items-center mb-3" style="border-radius:10px;font-size:13px;border:1px solid rgba(248,81,73,.3);background:rgba(248,81,73,.07);color:var(--bm-danger)">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        {{ errMsg }}
+                    </div>
+                {% endif %}
             {% endif %}
+
+            {% for message in app.flashes('success') %}
+                <div style="background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.25);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:#3fb950;display:flex;gap:10px;align-items:flex-start">
+                    <i class="bi bi-check-circle-fill" style="margin-top:1px;flex-shrink:0"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
 
             <form method="post" id="login-form">
                 <div class="mb-3">
@@ -51,7 +88,7 @@
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 
                 <button type="submit" id="login-btn"
-                        style="width:100%;padding:10px;background:linear-gradient(135deg,#4f8ef7,#a855f7);border:none;border-radius:8px;color:white;font-weight:600;font-size:15px;cursor:pointer;transition:opacity 0.2s">
+                        style="width:100%;padding:11px;background:linear-gradient(135deg,#4f8ef7,#a855f7);border:none;border-radius:9px;color:white;font-weight:700;font-size:15px;cursor:pointer;transition:opacity .2s,transform .1s;letter-spacing:-.2px">
                     Entrar
                 </button>
             </form>
@@ -59,7 +96,7 @@
 
         <p class="text-center mt-4" style="font-size:13px;color:var(--bm-text-muted)">
             Não tem conta?
-            <a href="{{ path('app_register') }}" style="color:var(--bm-accent);font-weight:500">Criar conta grátis</a>
+            <a href="{{ path('app_register') }}" style="color:var(--bm-accent);font-weight:600">Criar conta grátis</a>
         </p>
     </div>
 </div>

@@ -67,7 +67,6 @@ class SecurityController extends AbstractController
             $em->persist($user);
             $em->flush();
 
-            $this->addFlash('success', 'Cadastro realizado! Sua conta está aguardando aprovação do administrador.');
             return $this->redirectToRoute('app_cadastro_pendente');
         }
 
