@@ -308,19 +308,21 @@
         </nav>
         <div class="bm-sidebar-footer">
             <div class="bm-user-mini">
-                <div class="bm-avatar">{{ app.user.name|first|upper }}</div>
-                <div>
-                    <div class="bm-user-name">{{ app.user.name|split(' ')|first }}</div>
-                    <div class="bm-user-role">
-                        {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
-                            <span style="color:#a855f7;font-weight:600">Impersonando</span>
-                        {% elseif is_granted('ROLE_ADMIN') %}
-                            <span style="color:var(--bm-accent)">Administrador</span>
-                        {% else %}
-                            Pesquisador
-                        {% endif %}
+                <a href="{{ path('app_profile_edit') }}" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;flex:1;min-width:0" title="Editar Perfil">
+                    <div class="bm-avatar">{{ app.user.name|first|upper }}</div>
+                    <div style="min-width:0;overflow:hidden">
+                        <div class="bm-user-name" style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden">{{ app.user.name|split(' ')|first }}</div>
+                        <div class="bm-user-role">
+                            {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+                                <span style="color:#a855f7;font-weight:600">Impersonando</span>
+                            {% elseif is_granted('ROLE_ADMIN') %}
+                                <span style="color:var(--bm-accent)">Administrador</span>
+                            {% else %}
+                                Pesquisador
+                            {% endif %}
+                        </div>
                     </div>
-                </div>
+                </a>
                 {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
                     <a href="{{ path('app_exit_impersonation') }}" class="ms-auto"
                        style="color:#a855f7" title="Sair da impersona&ccedil;&atilde;o">
