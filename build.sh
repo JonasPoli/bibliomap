@@ -131,11 +131,38 @@ fi
 # Limpa uploads de dataset processados (mantém uploads/seo que são imagens OG)
 if [ -d "public/uploads/datasets" ]; then
     step "Limpando uploads de datasets já importados..."
-    # Só remove arquivos csv/txt mais antigos que 30 dias
     find public/uploads/datasets -type f \( -name "*.csv" -o -name "*.txt" -o -name "*.xls" -o -name "*.xlsx" \) -mtime +30 -delete 2>/dev/null || true
     ok "Datasets antigos (>30 dias) removidos"
 else
     skip "Nenhum diretório de uploads de dataset"
+fi
+
+# ── 5. Composer install / autoloader ─────────────────────────────────────────
+if $IS_PROD; then
+    step "Rodando composer install (produção)..."
+
+    # Localiza o composer
+    COMPOSER_BIN=""
+    for candidate in /usr/local/bin/composer /usr/bin/composer "$HOME/.composer/vendor/bin/composer" composer; do
+        if "$PHP" "$candidate" --version &>/dev/null 2>&1 || command -v "$candidate" &>/dev/null; then
+            COMPOSER_BIN="$candidate"; break
+        fi
+    done
+
+    if [ -n "$COMPOSER_BIN" ]; then
+        "$PHP" "$COMPOSER_BIN" install \
+            --no-dev \
+            --optimize-autoloader \
+            --no-interaction \
+            --prefer-dist \
+            2>&1 | tail -6
+        ok "Dependências instaladas (no-dev, autoloader otimizado)"
+    else
+        warn "composer não encontrado — pulando. Certifique-se de que vendor/ está atualizado no servidor."
+    fi
+else
+    step "Regenerando autoloader do Composer..."
+    composer dump-autoload --optimize 2>/dev/null && ok "Autoloader regenerado" || skip "composer não disponível no PATH"
 fi
 
 # ── 6. Arquivos compilados de assets (AssetMapper) ────────────────────────────
