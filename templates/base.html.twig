@@ -181,9 +181,14 @@
                 <a href="{{ path('app_projects_show', {id: project.id}) }}" class="bm-nav-link">
                     <i class="bi bi-house"></i> Visão geral
                 </a>
+                <a href="{{ path('app_datasets_index', {projectId: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_datasets' %}active{% endif %}">
+                    <i class="bi bi-database"></i> Bases importadas
+                </a>
                 <a href="{{ path('app_import_index', {projectId: project.id}) }}"
-                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_import' %}active{% endif %}">
-                    <i class="bi bi-upload"></i> Importações
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_import' %}active{% endif %}"
+                   style="padding-left:32px;font-size:12.5px">
+                    <i class="bi bi-upload" style="font-size:13px"></i> Nova importação
                 </a>
                 <a href="{{ path('app_dashboard_index', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_dashboard' %}active{% endif %}">
