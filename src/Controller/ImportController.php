@@ -186,8 +186,8 @@ class ImportController extends AbstractController
         try {
             $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
             $process->start();
-        } catch (\Symfony\Component\Process\Exception\RuntimeException $e) {
-            $this->addFlash('danger', 'O processamento em segundo plano falhou porque a função PHP "proc_open" está desabilitada no php.ini do seu servidor (RunCloud). Para corrigir, acesse o painel do RunCloud, vá nas Configurações de PHP do Servidor e habilite as funções "proc_open" e "exec".');
+        } catch (\Throwable $e) {
+            $this->addFlash('warning', 'O registro foi criado com status pendente, mas a execução em segundo plano não pôde ser iniciada automaticamente: ' . $e->getMessage() . '. Para corrigir isso no RunCloud, edite as "disable_functions" nas configurações de PHP do seu servidor e garanta que TODAS as seguintes funções estejam habilitadas (removidas da lista): proc_open, proc_close, proc_get_status, proc_terminate, exec.');
         }
 
 
