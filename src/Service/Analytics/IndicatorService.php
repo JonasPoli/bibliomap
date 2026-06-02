@@ -40,8 +40,8 @@ class IndicatorService
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?
              GROUP BY a.id
              ORDER BY doc_count DESC, total_citations DESC
-             LIMIT ?',
-            [$projectId, $limit]
+             LIMIT ' . (int)$limit,
+            [$projectId]
         );
     }
 
@@ -58,8 +58,8 @@ class IndicatorService
              WHERE project_id = ? AND source_title IS NOT NULL AND source_title != \'\'
              GROUP BY source_title
              ORDER BY doc_count DESC
-             LIMIT ?',
-            [$projectId, $limit]
+             LIMIT ' . (int)$limit,
+            [$projectId]
         );
     }
 
@@ -67,6 +67,8 @@ class IndicatorService
 
     public function topKeywords(int $projectId, string $type = 'author', int $limit = 50): array
     {
+        // NOTE: LIMIT is inlined (not bound) to avoid MySQL < 8 quoting the
+        // integer as a string when the parameter array contains mixed types.
         return $this->conn->fetchAllAssociative(
             'SELECT k.term, k.normalized_term, COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
@@ -75,8 +77,8 @@ class IndicatorService
              WHERE k.type = ?
              GROUP BY k.id
              ORDER BY doc_count DESC
-             LIMIT ?',
-            [$projectId, $type, $limit]
+             LIMIT ' . (int)$limit,
+            [$projectId, $type]
         );
     }
 
