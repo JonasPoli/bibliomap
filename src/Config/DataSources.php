@@ -43,6 +43,7 @@ final class DataSources
             'logo'        => '/img/Scopus_logo.svg',
             'logoDark'    => '/img/Scopus_logo.svg',
             'logoType'    => 'svg',
+            'logoBg'      => null,   // orange logo — visible on dark
             'formats'     => ['csv'],
             'emoji'       => '🔬',
             'limit'       => 2000,
@@ -59,6 +60,7 @@ final class DataSources
             'logo'        => '/img/clarivate-logo.svg',
             'logoDark'    => '/img/clarivate-logo.svg',
             'logoType'    => 'svg',
+            'logoBg'      => '#ffffff',  // Clarivate SVG has black text
             'formats'     => ['txt'],
             'emoji'       => '🌐',
             'limit'       => 500,
@@ -75,6 +77,7 @@ final class DataSources
             'logo'        => '/img/IOI-Device.png',
             'logoDark'    => '/img/IOI-Device-onDark.png',
             'logoType'    => 'img',
+            'logoBg'      => null,   // IOI-onDark designed for dark backgrounds
             'formats'     => ['csv'],
             'emoji'       => '🔭',
             'limit'       => 1000,
@@ -91,6 +94,7 @@ final class DataSources
             'logo'        => '/img/US-NLM-PubMed-Logo.svg',
             'logoDark'    => '/img/US-NLM-PubMed-Logo.svg',
             'logoType'    => 'svg',
+            'logoBg'      => '#ffffff',  // NLM logo has dark-blue and dark text
             'formats'     => ['csv', 'nbib', 'xml'],
             'emoji'       => '🧬',
             'limit'       => null,
@@ -107,6 +111,7 @@ final class DataSources
             'logo'        => '/img/OpenAlex_logo_2021.svg',
             'logoDark'    => '/img/OpenAlex_logo_2021.svg',
             'logoType'    => 'svg',
+            'logoBg'      => null,   // assume colorful logo on transparent
             'formats'     => ['csv'],
             'emoji'       => '🔓',
             'limit'       => 10000,
@@ -123,6 +128,7 @@ final class DataSources
             'logo'        => '/img/idH-UrdJOS_1780373130233.png',
             'logoDark'    => '/img/idH-UrdJOS_1780373130233.png',
             'logoType'    => 'img',
+            'logoBg'      => '#ffffff',  // PNG logo assumed to have dark elements
             'formats'     => ['csv', 'ris'],
             'emoji'       => '🔗',
             'limit'       => null,
@@ -139,6 +145,7 @@ final class DataSources
             'logo'        => null,
             'logoDark'    => null,
             'logoType'    => null,
+            'logoBg'      => null,
             'formats'     => ['ris', 'bib', 'csv', 'xlsx', 'xml'],
             'emoji'       => '📄',
             'limit'       => null,

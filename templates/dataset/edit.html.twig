@@ -2,6 +2,44 @@
 
 {% block title %}Editar — {{ dataset.name }}{% endblock %}
 
+{% block stylesheets %}
+<style>
+.src-pick-card {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; padding:10px 6px;
+    border:1.5px solid var(--bm-border);
+    border-radius:10px;
+    background:rgba(255,255,255,.02);
+    transition:all .15s;
+    user-select:none;
+}
+.src-pick-card:hover {
+    border-color:var(--bm-accent);
+    background:rgba(79,142,247,.05);
+}
+.src-pick-card.active {
+    border-color:var(--bm-accent);
+    background:rgba(79,142,247,.10);
+    box-shadow:0 0 0 2px rgba(79,142,247,.2);
+}
+.src-pick-logo {
+    height:24px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+.src-pick-logo img { height:22px; width:auto; max-width:80px; object-fit:contain; display:block; }
+.src-pick-name {
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--bm-text-muted);
+    text-align:center;
+    line-height:1.2;
+}
+.src-pick-card.active .src-pick-name { color:var(--bm-accent); }
+</style>
+{% endblock %}
+
 {% block breadcrumb %}
     <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
     <span style="margin:0 8px;color:var(--bm-border)">/</span>
@@ -41,17 +79,31 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label" for="source">Base de dados de origem</label>
-                    <select id="source" name="source" class="form-select">
-                        <option value="scopus" {{ dataset.source == 'scopus' ? 'selected' : '' }}>🔬 Scopus</option>
-                        <option value="wos" {{ dataset.source == 'wos' ? 'selected' : '' }}>🌐 Web of Science</option>
-                        <option value="lens" {{ dataset.source == 'lens' ? 'selected' : '' }}>🔭 Lens.org</option>
-                        <option value="pubmed" {{ dataset.source == 'pubmed' ? 'selected' : '' }}>🧬 PubMed</option>
-                        <option value="openalex" {{ dataset.source == 'openalex' ? 'selected' : '' }}>🔓 OpenAlex</option>
-                        <option value="crossref" {{ dataset.source == 'crossref' ? 'selected' : '' }}>🔗 Crossref</option>
-                        <option value="other" {{ dataset.source == 'other' ? 'selected' : '' }}>📄 Outra</option>
-                    </select>
+                    <label class="form-label" for="source-picker">Base de dados de origem</label>
+                    <div id="source-picker" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
+                        {% for src_key, src in data_sources %}
+                            {% if src_key != 'generic' %}
+                            <label class="src-pick-card {{ dataset.source == src_key ? 'active' : '' }}"
+                                   for="src_{{ src_key }}" title="{{ src.label }}" style="cursor:pointer">
+                                <input type="radio" id="src_{{ src_key }}" name="source"
+                                       value="{{ src_key }}" style="display:none"
+                                       {{ dataset.source == src_key ? 'checked' : '' }}>
+                                <span class="src-pick-logo">{{ source_logo(src_key, 22) }}</span>
+                                <span class="src-pick-name">{{ src.label }}</span>
+                            </label>
+                            {% endif %}
+                        {% endfor %}
+                        <label class="src-pick-card {{ dataset.source not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'active' : '' }}"
+                               for="src_generic" title="Outra base" style="cursor:pointer">
+                            <input type="radio" id="src_generic" name="source"
+                                   value="generic" style="display:none"
+                                   {{ dataset.source not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'checked' : '' }}>
+                            <span class="src-pick-logo" style="font-size:20px">📄</span>
+                            <span class="src-pick-name">Outra</span>
+                        </label>
+                    </div>
                 </div>
+
 
                 <div class="row mb-4">
                     <div class="col-6">
@@ -121,4 +173,14 @@
         </div>
     </div>
 </div>
+<script>
+document.querySelectorAll('.src-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.src-pick-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const radio = card.querySelector('input[type=radio]');
+        if (radio) radio.checked = true;
+    });
+});
+</script>
 {% endblock %}

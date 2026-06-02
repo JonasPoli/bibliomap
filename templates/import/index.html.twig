@@ -91,8 +91,20 @@
     font-size:22px; font-weight:900; letter-spacing:-1px;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display: inline-block; animation: spin 1s linear infinite; }
+/* ── Source logo containers ── */
+.src-tab-img {
+    display:inline-flex;
+    align-items:center;
+    height:20px;
+    flex-shrink:0;
+}
+.src-tab-img img { height:18px; width:auto; max-width:90px; display:block; object-fit:contain; }
+.src-logo-box {
+    display:flex; align-items:center; justify-content:center;
+    min-width:54px; max-width:170px; height:48px;
+    flex-shrink:0;
+}
+.src-logo-box img { height:36px; width:auto; max-width:160px; display:block; object-fit:contain; }
 </style>
 {% endblock %}
 
@@ -167,22 +179,22 @@
             {# ── Tabs ── #}
             <div class="src-tabs" id="srcTabs">
                 <button class="src-tab active" data-src="scopus">
-                    <span style="font-size:16px">🔬</span> Scopus
+                    <span class="src-tab-img">{{ source_logo('scopus', 18) }}</span> Scopus
                 </button>
                 <button class="src-tab" data-src="wos">
-                    <span style="font-size:16px">🌐</span> Web of Science
+                    <span class="src-tab-img">{{ source_logo('wos', 18) }}</span> Web of Science
                 </button>
                 <button class="src-tab" data-src="lens">
-                    <span style="font-size:16px">🔭</span> Lens.org
+                    <span class="src-tab-img">{{ source_logo('lens', 18) }}</span> Lens.org
                 </button>
                 <button class="src-tab" data-src="pubmed">
-                    <span style="font-size:16px">🧬</span> PubMed
+                    <span class="src-tab-img">{{ source_logo('pubmed', 18) }}</span> PubMed
                 </button>
                 <button class="src-tab" data-src="openalex">
-                    <span style="font-size:16px">🔓</span> OpenAlex
+                    <span class="src-tab-img">{{ source_logo('openalex', 18) }}</span> OpenAlex
                 </button>
                 <button class="src-tab" data-src="crossref">
-                    <span style="font-size:16px">🔗</span> Crossref
+                    <span class="src-tab-img">{{ source_logo('crossref', 18) }}</span> Crossref
                 </button>
                 <button class="src-tab" data-src="other">
                     <span style="font-size:16px">📄</span> Outra base
@@ -192,7 +204,7 @@
             {# ════ SCOPUS ════ #}
             <div class="src-panel active" id="panel-scopus">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#e87722;color:white">Sc</div>
+                    <div class="src-logo-box">{{ source_logo('scopus', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Scopus (Elsevier)</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">scopus.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
@@ -224,7 +236,7 @@
             {# ════ WEB OF SCIENCE ════ #}
             <div class="src-panel" id="panel-wos">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#0056a0;color:white;font-size:13px;font-weight:900">WoS</div>
+                    <div class="src-logo-box">{{ source_logo('wos', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Web of Science (Clarivate)</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">webofscience.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-txt">Plain Text (.txt)</span></div>
@@ -333,7 +345,7 @@
             {# ════ LENS.ORG ════ #}
             <div class="src-panel" id="panel-lens">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#1a1a2e;color:#00d4ff;font-size:18px">🔭</div>
+                    <div class="src-logo-box">{{ source_logo('lens', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Lens.org</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">lens.org/scholar &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
@@ -355,7 +367,7 @@
             {# ════ PUBMED ════ #}
             <div class="src-panel" id="panel-pubmed">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#336699;color:white;font-size:13px;font-weight:900">PM</div>
+                    <div class="src-logo-box">{{ source_logo('pubmed', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">PubMed (NCBI/NLM)</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">pubmed.ncbi.nlm.nih.gov &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">NBIB/RIS</span></div>
@@ -383,7 +395,7 @@
             {# ════ OPENALEX ════ #}
             <div class="src-panel" id="panel-openalex">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#1a1a2e;color:#a78bfa;font-size:13px;font-weight:900">OA</div>
+                    <div class="src-logo-box">{{ source_logo('openalex', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">OpenAlex</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
@@ -411,7 +423,7 @@
             {# ════ CROSSREF ════ #}
             <div class="src-panel" id="panel-crossref">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#d11;color:white;font-size:13px;font-weight:900">CR</div>
+                    <div class="src-logo-box">{{ source_logo('crossref', 36) }}</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Crossref</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">crossref.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">RIS</span></div>
@@ -499,24 +511,32 @@
             <h3 style="font-size:13px;font-weight:700;color:var(--bm-text);margin:0 0 16px;text-transform:uppercase;letter-spacing:.5px">
                 <i class="bi bi-check2-circle text-accent me-2"></i>Formatos suportados
             </h3>
-            {% set bases = [
-                {name: 'Scopus',          icon: '🔬', ext: 'CSV',       color: '#3fb950'},
-                {name: 'Web of Science',  icon: '🌐', ext: 'TXT',       color: '#d29922'},
-                {name: 'Lens.org',        icon: '🔭', ext: 'CSV',       color: '#3fb950'},
-                {name: 'PubMed',          icon: '🧬', ext: 'CSV/NBIB',  color: '#3fb950'},
-                {name: 'OpenAlex',        icon: '🔓', ext: 'CSV',       color: '#3fb950'},
-                {name: 'Crossref',        icon: '🔗', ext: 'CSV/RIS',   color: '#4f8ef7'},
-                {name: 'RIS (universal)', icon: '📄', ext: 'RIS',       color: '#4f8ef7'},
-                {name: 'BibTeX',          icon: '📚', ext: 'BIB',       color: '#a855f7'},
-                {name: 'Excel',           icon: '📊', ext: 'XLSX',      color: '#10b981'},
-            ] %}
-            {% for base in bases %}
+            {% for src_key, src in data_sources %}
+                {% if src_key != 'generic' %}
                 <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
-                    <span style="font-size:18px">{{ base.icon }}</span>
-                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ base.name }}</div>
-                    <span style="font-size:10.5px;font-weight:700;color:{{ base.color }};background:rgba(255,255,255,.04);border:1px solid {{ base.color }}33;padding:2px 8px;border-radius:5px">{{ base.ext }}</span>
+                    <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+                        {{ source_logo(src_key, 16) }}
+                    </span>
+                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ src.label }}</div>
+                    <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">{{ src.formats|join('/')|upper }}</span>
                 </div>
+                {% endif %}
             {% endfor %}
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
+                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📄</span>
+                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">RIS (universal)</div>
+                <span style="font-size:10.5px;font-weight:700;color:#4f8ef7;background:rgba(255,255,255,.04);border:1px solid #4f8ef733;padding:2px 8px;border-radius:5px">RIS</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
+                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📚</span>
+                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">BibTeX</div>
+                <span style="font-size:10.5px;font-weight:700;color:#a855f7;background:rgba(255,255,255,.04);border:1px solid #a855f733;padding:2px 8px;border-radius:5px">BIB</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0">
+                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📊</span>
+                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">Excel</div>
+                <span style="font-size:10.5px;font-weight:700;color:#10b981;background:rgba(255,255,255,.04);border:1px solid #10b98133;padding:2px 8px;border-radius:5px">XLSX</span>
+            </div>
         </div>
 
         <div class="bm-card">

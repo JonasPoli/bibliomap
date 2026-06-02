@@ -59,20 +59,35 @@ class DataSourceExtension extends AbstractExtension implements GlobalsInterface
         $src = DataSources::get($key);
 
         if ($src === null || $src['logo'] === null) {
-            // Fallback: emoji in a styled span
             return $this->emojiSpan(DataSources::emoji($key), $height);
         }
 
         $logo = $dark ? ($src['logoDark'] ?? $src['logo']) : $src['logo'];
 
-        return sprintf(
+        $img = sprintf(
             '<img src="%s" alt="%s" height="%d" style="max-width:%dpx;object-fit:contain;display:block" loading="lazy">',
             htmlspecialchars($logo, ENT_QUOTES),
             htmlspecialchars($src['label'], ENT_QUOTES),
             $height,
-            $height * 5,  // generous max-width
+            $height * 6,
         );
+
+        // Logos with dark text need a light background pill so they read on dark UIs
+        $logoBg = $src['logoBg'] ?? null;
+        if ($logoBg) {
+            $padding = max(2, (int) ($height * 0.14));
+            $radius  = max(4, (int) ($height * 0.22));
+            $hPad    = $padding * 3;
+            $img = sprintf(
+                '<span style="display:inline-flex;align-items:center;background:%s;border-radius:%dpx;padding:%dpx %dpx">%s</span>',
+                htmlspecialchars($logoBg, ENT_QUOTES),
+                $radius, $padding, $hPad, $img
+            );
+        }
+
+        return $img;
     }
+
 
     public function sourceLabel(string $key): string
     {

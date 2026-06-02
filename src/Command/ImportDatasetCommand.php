@@ -6,7 +6,7 @@ use App\Entity\Dataset;
 use App\Repository\DatasetRepository;
 use App\Service\Import\DocumentImportService;
 use App\Service\Import\ImporterResolver;
-use App\Service\Import\ScopusCsvImporter;
+use App\Service\Import\WosImporter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -62,11 +62,11 @@ class ImportDatasetCommand extends Command
         $dataset->setStatus(Dataset::STATUS_IMPORTING);
         $this->em->flush();
 
-        // Resolve importer
-        $importer = $this->resolver->resolve(
-            pathinfo($filePath, PATHINFO_EXTENSION),
-            $dataset->getSource() ?? ''
-        ) ?? new ScopusCsvImporter();
+        // Resolve importer: try explicit source+format first, then auto-detect
+        $format   = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $source   = $dataset->getSource() ?? '';
+        $importer = $this->resolver->resolve($filePath, $format, $source)
+            ?? new WosImporter(); // sane fallback for .txt files
 
         try {
             // Count total rows
