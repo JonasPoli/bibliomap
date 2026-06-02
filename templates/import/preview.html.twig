@@ -278,6 +278,15 @@
 </style>
 
 <script>
+document.querySelectorAll('.src-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.src-pick-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const radio = card.querySelector('input[type=radio]');
+        if (radio) radio.checked = true;
+    });
+});
+
 document.getElementById('confirm-form').addEventListener('submit', function() {
     document.getElementById('confirm-btn').disabled = true;
     document.getElementById('confirm-btn').innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Importando...';
