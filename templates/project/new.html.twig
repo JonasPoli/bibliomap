@@ -56,7 +56,7 @@
                 <div style="display:flex;flex-wrap:wrap;gap:10px">
                     {% for child in form.databaseSources %}
                         <div style="display:flex;align-items:center;gap:6px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 14px;cursor:pointer"
-                             onclick="this.querySelector('input').click()">
+                             onclick="if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'LABEL') { this.querySelector('input').click(); }">
                             {{ form_widget(child) }}
                             {{ form_label(child, null, {label_attr: {style: 'margin:0;cursor:pointer;font-size:13px;font-weight:500'}}) }}
                         </div>
