@@ -323,6 +323,206 @@ class ReportController extends AbstractController
         ]);
     }
 
+    #[Route('/theoretical-lenses', name: 'app_report_theoretical_lenses', methods: ['GET'])]
+    public function theoreticalLenses(int $id): Response
+    {
+        $project = $this->getProject($id);
+
+        // Fetch all documents with title and abstract for text-mining
+        $documents = $this->conn->fetchAllAssociative(
+            'SELECT d.id, d.title, d.abstract_text, d.year, 
+                    (SELECT GROUP_CONCAT(a.name SEPARATOR ", ") 
+                     FROM author a 
+                     JOIN document_author da ON da.author_id = a.id 
+                     WHERE da.document_id = d.id) AS author_names
+             FROM document d
+             WHERE d.project_id = ?',
+            [$id]
+        );
+
+        $theorists = [
+            'latour' => [
+                'name' => 'Bruno Latour',
+                'category' => 'Teoria Ator-Rede e Construtivismo',
+                'terms' => ['latour', 'actor-network', 'ator-rede', 'non-human', 'não-humano', 'translation theory', 'teoria da tradução', 'actant', 'actante', 'simetria'],
+                'description' => 'Foca nas redes sociotécnicas formadas simetricamente por atores humanos e não humanos. Ideal para analisar o chatbot (ator não humano) e o extensionista rural (ator humano) agindo em coprodução de conhecimento.',
+                'icon' => 'bi-diagram-3-fill',
+                'color' => 'var(--bm-accent)',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'callon' => [
+                'name' => 'Michel Callon',
+                'category' => 'Teoria Ator-Rede e Construtivismo',
+                'terms' => ['callon', 'sociotechnic', 'sociotécnico', 'problematization', 'problematização', 'interessement', 'interessamento', 'enrolment', 'recrutamento'],
+                'description' => 'Estuda os processos de tradução de interesses e controvérsias em redes sociotécnicas. Ajuda a investigar como os extensionistas rurais aceitam, negociam ou resistem à introdução de um chatbot na sua rotina de trabalho.',
+                'icon' => 'bi-arrow-left-right',
+                'color' => '#4f8ef7',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'bijker' => [
+                'name' => 'Wiebe Bijker',
+                'category' => 'Teoria Ator-Rede e Construtivismo',
+                'terms' => ['bijker', 'social construction of technology', 'construção social da tecnologia', 'scot', 'relevant social groups', 'grupos sociais relevantes', 'interpretative flexibility', 'flexibilidade interpretativa', 'technological frame', 'quadro tecnológico'],
+                'description' => 'Trabalha na Construção Social da Tecnologia (SCOT). Excelente para entender a "flexibilidade interpretativa" do chatbot: o que a tecnologia significa para o desenvolvedor vs. o que ela significa para o extensionista do campo.',
+                'icon' => 'bi-shuffle',
+                'color' => '#5da5da',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'pinch' => [
+                'name' => 'Trevor Pinch',
+                'category' => 'Teoria Ator-Rede e Construtivismo',
+                'terms' => ['pinch', 'social construction of facts', 'construção social dos fatos', 'stabilization', 'estabilização', 'closure', 'fechamento interpretativo'],
+                'description' => 'Estuda a construção social dos fatos científicos e como as controvérsias em torno de novas tecnologias se estabilizam e fecham na sociedade.',
+                'icon' => 'bi-lock-fill',
+                'color' => '#3d5a80',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'foucault' => [
+                'name' => 'Michel Foucault',
+                'category' => 'Sociologia e Filosofia Crítica',
+                'terms' => ['foucault', 'power relations', 'relações de poder', 'discourse analysis', 'análise do discurso', 'biopower', 'biopoder', 'surveillance', 'vigilância', 'panopticon', 'panóptico', 'archeology of knowledge', 'arqueologia do saber'],
+                'description' => 'Analisa o poder descentralizado, o discurso e formas de controle. Ideal se a sua dissertação pretende discutir como o chatbot atua como um dispositivo de poder, vigilância do trabalho ou direcionamento do conhecimento rural.',
+                'icon' => 'bi-eye-fill',
+                'color' => 'var(--bm-warning)',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'bourdieu' => [
+                'name' => 'Pierre Bourdieu',
+                'category' => 'Sociologia e Filosofia Crítica',
+                'terms' => ['bourdieu', 'habitus', 'social field', 'campo social', 'social capital', 'capital social', 'cultural capital', 'capital cultural', 'symbolic violence', 'violência simbólica'],
+                'description' => 'Fornece a ótica de campo, habitus e capitais. Útil para investigar se os extensionistas com maior capital tecnológico ou cultural incorporam o chatbot de forma distinta, alterando as relações de poder no campo institucional da extensão rural.',
+                'icon' => 'bi-award-fill',
+                'color' => '#f28f3b',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'marx' => [
+                'name' => 'Karl Marx',
+                'category' => 'Sociologia e Filosofia Crítica',
+                'terms' => ['marx', 'capitalism', 'capitalismo', 'alienation', 'alienação', 'means of production', 'meios de produção', 'proletarianization', 'proletarização', 'labor force', 'força de trabalho'],
+                'description' => 'Foca no trabalho, exploração e tecnologia como meio de controle da força produtiva. Ajuda a discutir se a automação da extensão rural via IA representa uma forma de alienação ou de otimização das forças produtivas agrícolas.',
+                'icon' => 'bi-hammer',
+                'color' => 'var(--bm-danger)',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'habermas' => [
+                'name' => 'Jürgen Habermas',
+                'category' => 'Sociologia e Filosofia Crítica',
+                'terms' => ['habermas', 'communicative action', 'ação comunicativa', 'public sphere', 'esfera pública', 'communicative rationality', 'racionalidade comunicativa'],
+                'description' => 'Analisa a ação comunicativa e racionalidade do diálogo. Ideal para discutir a qualidade e a ética da comunicação entre o extensionista (humano) e o chatbot (sistema automatizado) a nível linguístico.',
+                'icon' => 'bi-chat-quote-fill',
+                'color' => '#9e2a2b',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'dagnino' => [
+                'name' => 'Renato Dagnino',
+                'category' => 'Pensamento Latino-Americano em CTS',
+                'terms' => ['dagnino', 'sociotechnical adequacy', 'adequação sociotécnica', 'social technology', 'tecnologia social', 'technological decision', 'decisão tecnológica', 'popular solidarity economy', 'economia solidária'],
+                'description' => 'Principal expoente brasileiro do PLACTS. Discute a "Adequação Sociotécnica" das tecnologias. Essencial para analisar se um chatbot (tecnologia convencional/norte-americana) pode ser readequado sociotécnica e localmente para apoiar a agricultura familiar brasileira e assentamentos.',
+                'icon' => 'bi-brightness-high-fill',
+                'color' => 'var(--bm-success)',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'herrera' => [
+                'name' => 'Amílcar Herrera',
+                'category' => 'Pensamento Latino-Americano em CTS',
+                'terms' => ['herrera', 'scientific policy', 'política científica', 'explicit policy', 'política explícita', 'implicit policy', 'política implícita', 'latin american scientific project', 'projeto científico latino-americano'],
+                'description' => 'Foca nas políticas de ciência e tecnologia implícitas vs. explícitas nos países em desenvolvimento. Excelente se a sua pesquisa avalia se a adoção de IA na extensão rural atende a uma política de desenvolvimento nacional ou apenas a interesses corporativos externos.',
+                'icon' => 'bi-bank',
+                'color' => '#2b9348',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'varsavsky' => [
+                'name' => 'Oscar Varsavsky',
+                'category' => 'Pensamento Latino-Americano em CTS',
+                'terms' => ['varsavsky', 'scientific rebellion', 'rebeldia científica', 'standard science', 'ciência padronizada', 'national science', 'ciência nacional', 'politicized science', 'ciência politizada'],
+                'description' => 'Crítica à "ciência padrão" e propõe uma ciência com compromisso político social focada em resolver os problemas do povo e do território. Perfeito para defender a criação de um chatbot voltado a problemas rurais locais específicos de pequenos produtores, contra a IA comercial genérica.',
+                'icon' => 'bi-shield-fire',
+                'color' => '#80b918',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'kuhn' => [
+                'name' => 'Thomas Kuhn',
+                'category' => 'Filosofia e História da Ciência',
+                'terms' => ['kuhn', 'scientific paradigm', 'paradigma científico', 'scientific revolution', 'revolução científica', 'normal science', 'ciência normal', 'incommensurability', 'incomensurabilidade'],
+                'description' => 'Foca em paradigmas e revoluções. Ajuda a analisar se a introdução de inteligência artificial generativa (chatbots) na extensão rural representa uma "ruptura de paradigma" no modo clássico de transferência de tecnologia.',
+                'icon' => 'bi-infinity',
+                'color' => '#f0883e',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+            'haraway' => [
+                'name' => 'Donna Haraway',
+                'category' => 'Filosofia e História da Ciência',
+                'terms' => ['haraway', 'cyborg', 'ciborgue', 'situated knowledges', 'saberes localizados', 'companion species', 'espécies companheiras', 'feminist epistemology', 'epistemologia feminista'],
+                'description' => 'Traz a perspectiva de saberes localizados e a figura do ciborgue (híbrido humano-máquina). Excelente para discutir a simbiose entre o extensionista e o chatbot como uma "entidade híbrida" geradora de saberes contextualizados e adaptados à realidade rural.',
+                'icon' => 'bi-gender-female',
+                'color' => '#e0aaff',
+                'match_count' => 0,
+                'docs' => [],
+            ],
+        ];
+
+        // Text mining loop
+        foreach ($documents as $doc) {
+            $textToSearch = strtolower(
+                $doc['title'] . ' ' . 
+                ($doc['abstract_text'] ?? '')
+            );
+
+            foreach ($theorists as $key => &$t) {
+                $matched = false;
+                foreach ($t['terms'] as $term) {
+                    if (str_contains($textToSearch, $term)) {
+                        $matched = true;
+                        break;
+                    }
+                }
+
+                if ($matched) {
+                    $t['match_count']++;
+                    if (count($t['docs']) < 5) {
+                        $t['docs'][] = [
+                            'id' => $doc['id'],
+                            'title' => $doc['title'],
+                            'year' => $doc['year'],
+                            'authors' => $doc['author_names'] ?? 'Autores desconhecidos',
+                        ];
+                    }
+                }
+            }
+        }
+        unset($t);
+
+        // Sort theorists by match_count descending
+        uasort($theorists, function ($a, $b) {
+            return $b['match_count'] <=> $a['match_count'];
+        });
+
+        // Group by category for visual cards
+        $categories = [];
+        foreach ($theorists as $key => $t) {
+            $categories[$t['category']][] = array_merge($t, ['key' => $key]);
+        }
+
+        return $this->render('report/theoretical_lenses.html.twig', [
+            'project'    => $project,
+            'theorists'  => $theorists,
+            'categories' => $categories,
+            'total_docs' => count($documents),
+        ]);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private function getProject(int $id): BibliometricProject

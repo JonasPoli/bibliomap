@@ -307,6 +307,10 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_report_keyword_evolution' %}active{% endif %}">
                     <i class="bi bi-graph-up-arrow"></i> Evolução de Palavras-Chave
                 </a>
+                <a href="{{ path('app_report_theoretical_lenses', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_theoretical_lenses' %}active{% endif %}">
+                    <i class="bi bi-mortarboard"></i> Lentes Teóricas (CTS)
+                </a>
                 <a href="{{ path('app_report_general', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_general' %}active{% endif %}">
                     <i class="bi bi-file-earmark-bar-graph"></i> Relatório Geral

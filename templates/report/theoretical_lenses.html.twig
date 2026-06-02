@@ -1,0 +1,184 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Lentes Teóricas & Referencial Teórico — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Lentes Teóricas</span>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <h1 class="bm-page-title">
+                <i class="bi bi-mortarboard me-2 text-accent"></i>
+                Lentes Teóricas (Referencial Teórico)
+            </h1>
+            <p class="bm-page-subtitle">Text-mining semântico do seu corpus cruzado com os clássicos e contemporâneos do PPGCTS e Sociologia</p>
+        </div>
+        <span class="badge" style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.25);font-size:12px;padding:6px 14px">
+            <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
+        </span>
+    </div>
+</div>
+
+<!-- Academic Context Alert -->
+<div class="alert d-flex align-items-start gap-3 mb-4 border-bm" style="background:rgba(79,142,247,0.06);border-radius:12px;padding:16px;color:var(--bm-text)">
+    <i class="bi bi-lightbulb-fill text-accent fs-4" style="flex-shrink:0;margin-top:2px"></i>
+    <div style="font-size:13.5px;line-height:1.5">
+        <strong>Como este relatório apoia sua dissertação da UFSCar?</strong> <br>
+        Nas pós-graduações, adotar uma <strong>Lente Teórica</strong> (ou referencial de base) fornece os conceitos fundamentais para analisar seu objeto de estudo (ex: <em>Chatbots e Inteligência Artificial na Extensão Rural</em>). 
+        Este módulo faz um mapeamento automático nos títulos e resumos das suas bases em busca dos termos e pensadores mais presentes na área para ajudar você a decidir qual autor melhor justifica a sua análise acadêmica.
+    </div>
+</div>
+
+<!-- Top Matches Row -->
+<h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:16px;letter-spacing:-0.2px">📊 Ranking de Relevância Teórica no seu Corpus</h4>
+<div class="row g-3 mb-4">
+    {% set count = 0 %}
+    {% for key, t in theorists|slice(0, 3) %}
+        {% if t.match_count > 0 or count < 3 %}
+        {% set count = count + 1 %}
+        <div class="col-md-4">
+            <div class="bm-card h-100" style="position:relative;overflow:hidden;border-color:{{ t.match_count > 0 ? t.color : 'var(--bm-border)' }}">
+                {# Left colored bar #}
+                <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:{{ t.color }}"></div>
+                
+                <div class="d-flex align-items-start justify-content-between mb-3 ps-1">
+                    <div style="width:40px;height:40px;background:rgba(255,255,255,0.04);border:1px solid var(--bm-border);border-radius:10px;display:flex;align-items:center;justify-content:center;color:{{ t.color }}">
+                        <i class="bi {{ t.icon }} fs-5"></i>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge" style="background:rgba(79,142,247,0.12);color:var(--bm-accent);font-size:10px;font-weight:600;text-transform:uppercase">{{ t.category }}</span>
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Relevância no Corpus</div>
+                    </div>
+                </div>
+                
+                <h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:6px;padding-left:4px">{{ t.name }}</h4>
+                <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;margin-bottom:16px;padding-left:4px">{{ t.description }}</p>
+                
+                <div class="d-flex align-items-center justify-content-between border-top border-bm pt-3 ps-1">
+                    <span style="font-size:11px;color:var(--bm-text-muted)">
+                        <strong>{{ t.match_count }}</strong> artigos detectados
+                    </span>
+                    <span class="badge" style="background:{{ t.match_count > 0 ? 'var(--bm-success)' : 'var(--bm-border)' }};color:white;font-size:10.5px;padding:4px 8px">
+                        {{ t.match_count > 0 ? ((t.match_count / total_docs) * 100)|round(1) ~ '%' : 'Sugestão Teórica' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Lenses categories -->
+<div style="display:flex;flex-direction:column;gap:32px">
+    {% for cat_name, members in categories %}
+        <div>
+            <h3 style="font-size:15px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;border-bottom:1px solid var(--bm-border);padding-bottom:6px">
+                {{ cat_name }}
+            </h3>
+            
+            <div style="display:flex;flex-direction:column;gap:16px">
+                {% for t in members %}
+                    <div class="bm-card" style="padding:24px">
+                        <div class="row g-3">
+                            <!-- Left block: Theorist Details -->
+                            <div class="col-lg-5 border-end-lg" style="border-right: 1px solid var(--bm-border)">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div style="width:48px;height:48px;background:rgba(255,255,255,0.03);border:1px solid var(--bm-border);border-radius:12px;display:flex;align-items:center;justify-content:center;color:{{ t.color }}">
+                                        <i class="bi {{ t.icon }} fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="font-size:17px;font-weight:700;color:var(--bm-text);margin:0">{{ t.name }}</h4>
+                                        <span style="font-size:11px;color:var(--bm-text-muted);font-weight:500">{{ t.category }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div style="font-size:13px;line-height:1.5;color:var(--bm-text);margin-bottom:16px">
+                                    <strong>Conexão com a Linha de Pesquisa:</strong> <br>
+                                    {{ t.description }}
+                                </div>
+                                
+                                <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.02);font-size:11.5px;color:var(--bm-text-muted)">
+                                    <strong>Palavras de mineração buscadas:</strong> <br>
+                                    <code style="color:var(--bm-accent)">{{ t.terms|join(', ') }}</code>
+                                </div>
+                            </div>
+                            
+                            <!-- Right block: Mapped Articles & Relevance -->
+                            <div class="col-lg-7 ps-lg-4">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h5 style="font-size:13px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0">
+                                        Artigos do seu Corpus relacionados
+                                    </h5>
+                                    <span class="badge" style="background:rgba(79,142,247,0.1);color:var(--bm-accent);font-size:12px">
+                                        {{ t.match_count }} artigos ({{ ((t.match_count / total_docs) * 100)|round(1) }}%)
+                                    </span>
+                                </div>
+                                
+                                {% if t.docs is not empty %}
+                                    <div style="display:flex;flex-direction:column;gap:8px">
+                                        {% for doc in t.docs %}
+                                            <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.01);font-size:12.5px;transition:all 0.15s ease">
+                                                <div style="font-weight:600;margin-bottom:3px;color:var(--bm-text)">
+                                                    <i class="bi bi-file-earmark-text me-1 text-accent"></i>
+                                                    {{ doc.title }}
+                                                </div>
+                                                <div style="font-size:11px;color:var(--bm-text-muted)">
+                                                    <span>{{ doc.authors }}</span>
+                                                    <span style="margin:0 4px">•</span>
+                                                    <span>{{ doc.year }}</span>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <!-- No papers found, showing how this theoretical framework is applicable -->
+                                    <div class="p-3 border border-bm rounded-3 text-center" style="background:rgba(255,255,255,0.01)">
+                                        <div style="font-size:24px;margin-bottom:8px">💡</div>
+                                        <h6 style="font-size:13.5px;font-weight:600;color:var(--bm-text);margin-bottom:4px">Como usar {{ t.name }} no seu trabalho?</h6>
+                                        <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;max-width:480px;margin:0 auto">
+                                            Embora seu corpus não cite diretamente termos do autor nos títulos/resumos (comum em buscas muito técnicas baseadas em IA), você pode adotar a sua teoria como <strong>Lente de Análise Crítica</strong> para o seu Chatbot voltado à Extensão Rural, contrapondo tecnologia padrão versus realidade de campo.
+                                        </p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Academic Guidance Card -->
+<div class="bm-card mt-5 border border-bm" style="background:linear-gradient(135deg, rgba(79,142,247,0.05) 0%, rgba(168,85,247,0.05) 100%)">
+    <h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:12px">🛠️ Guia Prático: Como redigir o Referencial Teórico na sua Dissertação</h4>
+    <div class="row g-3" style="font-size:13px;line-height:1.5">
+        <div class="col-md-4">
+            <div class="p-3 bg-bm-card border border-bm rounded-3">
+                <h5 style="font-size:13.5px;font-weight:700;color:var(--bm-accent);margin-bottom:6px">1. Justifique a escolha</h5>
+                No capítulo introdutório, explique que o chatbot não é apenas um "software técnico de IA", mas sim um <strong>artefato sociotécnico</strong> híbrido que interage na extensão rural. Justifique a lente (ex: Latour ou Dagnino) a ser usada.
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-bm-card border border-bm rounded-3">
+                <h5 style="font-size:13.5px;font-weight:700;color:#a855f7;margin-bottom:6px">2. Construa o Capítulo Teórico</h5>
+                Dedique o Capítulo 2 a detalhar a teoria adotada. Se escolher <strong>Dagnino</strong>, conceitue "Adequação Sociotécnica" e mostre como chatbots baseados em LLMs convencionais exigem readequação local para a agricultura familiar.
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-bm-card border border-bm rounded-3">
+                <h5 style="font-size:13.5px;font-weight:700;color:var(--bm-success);margin-bottom:6px">3. Use na análise dos dados</h5>
+                No capítulo de Resultados, analise a interação do extensionista com o chatbot através dos conceitos da lente teórica (ex: use os conceitos de "porta-voz", "tradução" e "inscrição" se escolheu a <strong>Teoria Ator-Rede</strong>).
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
