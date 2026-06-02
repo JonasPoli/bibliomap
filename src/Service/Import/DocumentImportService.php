@@ -36,8 +36,9 @@ class DocumentImportService
 
     /**
      * @param iterable<BibliographicRecordDTO> $records  Generator or array
+     * @param \Closure|null $onProgress  Called after every batch with current $stats
      */
-    public function importAll(iterable $records, Dataset $dataset): array
+    public function importAll(iterable $records, Dataset $dataset, ?\Closure $onProgress = null): array
     {
         $stats      = ['imported' => 0, 'skipped' => 0, 'errors' => 0];
         $projectId  = $dataset->getProject()->getId();
@@ -120,6 +121,12 @@ class DocumentImportService
                     $docsBatch        = [];
                     $authorLinksBatch = [];
                     $kwLinksBatch     = [];
+
+                    // Persist live progress to the DB so the status endpoint
+                    // can show real-time progress while the import runs
+                    if ($onProgress !== null) {
+                        $onProgress($stats);
+                    }
                 }
 
             } catch (\Throwable $e) {
@@ -138,6 +145,9 @@ class DocumentImportService
             if ($dbSkipped > 0) {
                 $stats['imported'] -= $dbSkipped;
                 $stats['skipped']  += $dbSkipped;
+            }
+            if ($onProgress !== null) {
+                $onProgress($stats);
             }
         }
 
