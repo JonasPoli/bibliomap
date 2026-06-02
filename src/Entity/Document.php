@@ -108,6 +108,9 @@ class Document
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $institutions = null;
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $references = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -212,6 +215,9 @@ class Document
 
     public function getInstitutions(): ?array { return $this->institutions; }
     public function setInstitutions(?array $v): static { $this->institutions = $v; return $this; }
+
+    public function getReferences(): ?array { return $this->references; }
+    public function setReferences(?array $v): static { $this->references = $v; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 

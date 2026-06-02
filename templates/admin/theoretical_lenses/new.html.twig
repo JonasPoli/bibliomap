@@ -1,0 +1,97 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nova Lente Teórica — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_admin_theoretical_lenses_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Lentes Teóricas</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Novo Autor</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-plus-circle me-2 text-accent"></i>Cadastrar Nova Lente Teórica
+    </h1>
+    <p class="bm-page-subtitle">Preencha os detalhes e palavras-chave para habilitar este pensador nas buscas semânticas.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_theoretical_lenses_new') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_lens_new') }}">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="nameInput" class="form-label">Nome do Autor / Pensador *</label>
+                        <input type="text" class="form-control" id="nameInput" name="name" required placeholder="Ex: Zygmunt Bauman" value="{{ lens.name }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="researchFieldInput" class="form-label">Área de Pesquisa / Linha *</label>
+                        <input type="text" class="form-control" id="researchFieldInput" name="researchField" required placeholder="Ex: Sociologia, Saúde Coletiva, Educação" value="{{ lens.researchField }}">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="categoryInput" class="form-label">Corrente / Categoria Teórica *</label>
+                        <input type="text" class="form-control" id="categoryInput" name="category" required placeholder="Ex: Sociologia Líquida, Construtivismo" value="{{ lens.category }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="colorInput" class="form-label">Cor Temática de Identificação</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="form-control form-control-color" id="colorInput" name="color" value="{{ lens.color ?: '#4f8ef7' }}" style="width: 48px; height: 38px; padding: 2px; background: none; border: 1px solid var(--bm-border); border-radius: 6px;">
+                            <span style="font-size: 12px; color: var(--bm-text-muted);">Define a cor de acento visual no relatório.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="termsInput" class="form-label">Palavras-Chave de Busca no Corpus (Separadas por vírgula) *</label>
+                    <textarea class="form-control" id="termsInput" name="terms" rows="2" required placeholder="Ex: bauman, modernidade liquida, liquido, amor liquido, individualizacao">{{ lens.terms|join(', ') }}</textarea>
+                    <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
+                        Termos textuais a serem minerados nos <strong>títulos e resumos</strong> dos artigos científicos do usuário.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="citationFormatsInput" class="form-label">Formatos de Citação nas Referências Bibliográficas (Um por linha) *</label>
+                    <textarea class="form-control" id="citationFormatsInput" name="citationFormats" rows="4" required placeholder="Ex: BAUMAN, Z.&#10;BAUMAN, Zygmunt&#10;BAUMAN Z&#10;Bauman, Z.">{{ lens.citationFormats|join("\n") }}</textarea>
+                    <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
+                        Padrões de citação literária usados na <strong>bibliografia</strong> para identificar quando este autor foi citado de fato.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="iconInput" class="form-label">Ícone Visual Representativo</label>
+                    <select class="form-select" id="iconInput" name="icon">
+                        <option value="bi-mortarboard" {{ lens.icon == 'bi-mortarboard' ? 'selected' : '' }}>🎓 Mortarboard (Acadêmico Geral)</option>
+                        <option value="bi-diagram-3-fill" {{ lens.icon == 'bi-diagram-3-fill' ? 'selected' : '' }}>🌐 Diagram (Redes, Sistemas, Atores)</option>
+                        <option value="bi-eye-fill" {{ lens.icon == 'bi-eye-fill' ? 'selected' : '' }}>👁️ Eye (Poder, Vigilância, Análise)</option>
+                        <option value="bi-hammer" {{ lens.icon == 'bi-hammer' ? 'selected' : '' }}>🔨 Hammer (Trabalho, Produção, Marxismo)</option>
+                        <option value="bi-chat-quote-fill" {{ lens.icon == 'bi-chat-quote-fill' ? 'selected' : '' }}>💬 Chat Quote (Diálogo, Linguagem, Ação)</option>
+                        <option value="bi-infinity" {{ lens.icon == 'bi-infinity' ? 'selected' : '' }}>🔄 Infinity (Ciclos, Paradigmas, Revoluções)</option>
+                        <option value="bi-award-fill" {{ lens.icon == 'bi-award-fill' ? 'selected' : '' }}>🏆 Award (Mérito, Habitus, Capitais)</option>
+                        <option value="bi-activity" {{ lens.icon == 'bi-activity' ? 'selected' : '' }}>⚡ Activity (Ação, Saúde, Movimento)</option>
+                        <option value="bi-people-fill" {{ lens.icon == 'bi-people-fill' ? 'selected' : '' }}>👥 People (Sociedade, Grupos Relevantes)</option>
+                        <option value="bi-shuffle" {{ lens.icon == 'bi-shuffle' ? 'selected' : '' }}>🔀 Shuffle (Flexibilidade, Transições)</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="descriptionInput" class="form-label">Conexão Teórica / Descrição Acadêmica *</label>
+                    <textarea class="form-control" id="descriptionInput" name="description" rows="4" required placeholder="Escreva um parágrafo que explique a contribuição deste autor e como sua linha teórica se conecta com investigações científicas contemporâneas...">{{ lens.description }}</textarea>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between border-top border-bm pt-3">
+                    <a href="{{ path('app_admin_theoretical_lenses_index') }}" class="btn btn-bm-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-bm-primary">Salvar Lente Teórica</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

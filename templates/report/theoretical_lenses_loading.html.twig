@@ -1,0 +1,173 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mapeamento de Lentes Teóricas — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Processando Lentes Teóricas</span>
+{% endblock %}
+
+{% block body %}
+<div style="max-width: 680px; margin: 40px auto;">
+    <div class="bm-card text-center" style="padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); background: linear-gradient(135deg, var(--bm-card-bg), rgba(79,142,247,0.05)); border: 1px solid var(--bm-border);">
+        <!-- Glowing Core Animated Icon -->
+        <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; top:0; left:0; width:100%; height:100%; border: 3px solid rgba(79,142,247,0.1); border-top: 3px solid var(--bm-accent); border-radius: 50%; animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; box-shadow: 0 0 15px rgba(79,142,247,0.2);"></div>
+            <i class="bi bi-cpu" style="font-size: 42px; color: var(--bm-accent); text-shadow: 0 0 10px rgba(79,142,247,0.5); animation: pulse 2s infinite ease-in-out;"></i>
+        </div>
+
+        <h2 style="font-size: 20px; font-weight: 700; color: var(--bm-text); margin-bottom: 8px;">
+            Mapeando Referencial Teórico
+        </h2>
+        <p style="font-size: 13.5px; color: var(--bm-text-muted); line-height: 1.6; max-width: 500px; margin: 0 auto 30px;">
+            Minerando o corpus textual de documentos e formatos de citações bibliográficas contra mais de 5.500 autores consagrados.
+        </p>
+
+        <!-- Progress Container -->
+        <div style="background: var(--bm-bg); border: 1px solid var(--bm-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: left;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span id="status-text" style="font-size: 13px; font-weight: 600; color: var(--bm-text);">
+                    <i class="bi bi-hourglass-split me-1 text-accent"></i>Inicializando...
+                </span>
+                <span id="percent-text" style="font-size: 13px; font-weight: 700; color: var(--bm-accent);">0%</span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div style="background: rgba(255,255,255,0.06); height: 8px; border-radius: 10px; overflow: hidden; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.03);">
+                <div id="progress-bar" style="background: linear-gradient(90deg, var(--bm-accent), #a855f7); width: 0%; height: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 10px; box-shadow: 0 0 10px rgba(79,142,247,0.4);"></div>
+            </div>
+
+            <!-- Steps logs -->
+            <div id="steps-container" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 11.5px; color: var(--bm-text-muted); border-top: 1px solid var(--bm-border); padding-top: 16px;">
+                <div id="step-init" class="step-log active"><i class="bi bi-circle me-2"></i>Passo 1: Carregando 5.513 lentes teóricas da base...</div>
+                <div id="step-process" class="step-log"><i class="bi bi-circle me-2"></i>Passo 2: Processando mineração do corpus (lotes)...</div>
+                <div id="step-finish" class="step-log"><i class="bi bi-circle me-2"></i>Passo 3: Mapeando formatos de citações acadêmicas e gerando painel...</div>
+            </div>
+        </div>
+
+        <div style="font-size: 12px; color: var(--bm-text-muted);">
+            <i class="bi bi-shield-fill-check text-success me-1"></i>O processo é executado em lotes rápidos e seguros para evitar timeouts de servidor.
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+.step-log {
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+.step-log.active {
+    color: var(--bm-accent);
+    font-weight: bold;
+}
+.step-log.done {
+    color: var(--bm-success);
+}
+.step-log.done i {
+    color: var(--bm-success);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const projectId = {{ project.id }};
+    const batchSize = 200;
+    let currentStep = 0;
+
+    let totalDocs = 0;
+
+    const statusText = document.getElementById('status-text');
+    const percentText = document.getElementById('percent-text');
+    const progressBar = document.getElementById('progress-bar');
+    
+    const stepInit = document.getElementById('step-init');
+    const stepProcess = document.getElementById('step-process');
+    const stepFinish = document.getElementById('step-finish');
+
+    function updateProgress(percent, statusMsg) {
+        percentText.innerText = Math.round(percent) + '%';
+        progressBar.style.width = percent + '%';
+        statusText.innerHTML = `<i class="bi bi-hourglass-split me-1 text-accent animate-spin"></i>${statusMsg}`;
+    }
+
+    function processBatch() {
+        fetch(`/projects/${projectId}/reports/theoretical-lenses/process-batch`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                step: currentStep,
+                batchSize: batchSize
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'initialized') {
+                totalDocs = data.totalDocs;
+                currentStep = data.nextStep;
+                
+                stepInit.classList.remove('active');
+                stepInit.classList.add('done');
+                stepInit.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Passo 1: Base de lentes carregada com sucesso!';
+                
+                stepProcess.classList.add('active');
+                
+                updateProgress(5, `Mapeamento iniciado. Total de documentos: ${totalDocs}`);
+                setTimeout(processBatch, 300);
+            } else if (data.status === 'processing') {
+                currentStep = data.nextStep;
+                const processed = data.processedDocs;
+                
+                let percent = 5 + ((processed / totalDocs) * 85);
+                if (percent > 90) percent = 90;
+                
+                updateProgress(percent, `Processados ${processed} de ${totalDocs} documentos...`);
+                setTimeout(processBatch, 200);
+            } else if (data.status === 'completed') {
+                stepProcess.classList.remove('active');
+                stepProcess.classList.add('done');
+                stepProcess.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Passo 2: Todos os ${totalDocs} documentos foram minerados!`;
+                
+                stepFinish.classList.add('active');
+                updateProgress(95, "Compilando resultados e formatos de citação...");
+                
+                setTimeout(function() {
+                    stepFinish.classList.remove('active');
+                    stepFinish.classList.add('done');
+                    stepFinish.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Passo 3: Painel gerado com sucesso! Redirecionando...';
+                    
+                    updateProgress(100, "Concluído!");
+                    setTimeout(function() {
+                        window.location.href = `/projects/${projectId}/reports/theoretical-lenses`;
+                    }, 500);
+                }, 800);
+            } else {
+                console.error("Erro inesperado no retorno do lote:", data);
+                statusText.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Ocorreu um erro no processamento.</span>';
+            }
+        })
+        .catch(error => {
+            console.error("Erro na requisição AJAX de lote:", error);
+            statusText.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Erro de conexão com o servidor.</span>';
+        });
+    }
+
+    // Iniciar a primeira etapa
+    processBatch();
+});
+</script>
+{% endblock %}

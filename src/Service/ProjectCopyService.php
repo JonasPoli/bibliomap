@@ -192,7 +192,7 @@ class ProjectCopyService
                  year, document_type, doi, pmid, isbn, issn, url, language,
                  source_title, volume, issue, page_start, page_end, publisher,
                  cited_by, local_citations, open_access_status, publication_stage,
-                 external_id, source, hash, countries, institutions, created_at)
+                 external_id, source, hash, countries, institutions, `references`, created_at)
              SELECT
                 :newProjectId,
                 {$caseWhen},
@@ -200,7 +200,7 @@ class ProjectCopyService
                 year, document_type, doi, pmid, isbn, issn, url, language,
                 source_title, volume, issue, page_start, page_end, publisher,
                 cited_by, local_citations, open_access_status, publication_stage,
-                external_id, source, hash, countries, institutions, NOW()
+                external_id, source, hash, countries, institutions, `references`, NOW()
              FROM document
              WHERE project_id = :oldProjectId
              ORDER BY id ASC",

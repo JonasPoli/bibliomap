@@ -45,77 +45,156 @@ class ImportController extends AbstractController
     {
         $project = $this->getProject($projectId);
 
-        /** @var UploadedFile|null $file */
-        $file = $request->files->get('file');
+        $filesBag = $request->files->get('file');
+        $uploadedFiles = is_array($filesBag) ? $filesBag : ($filesBag ? [$filesBag] : []);
 
-        if (!$file || !$file->isValid()) {
+        // Filter valid files
+        $uploadedFiles = array_filter($uploadedFiles, function($file) {
+            return $file instanceof UploadedFile && $file->isValid();
+        });
+
+        if (empty($uploadedFiles)) {
             $this->addFlash('danger', 'Nenhum arquivo válido recebido.');
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
         }
 
         $allowedExts = ['csv', 'txt', 'ris', 'bib', 'xlsx', 'json', 'nbib'];
-        $ext = strtolower($file->getClientOriginalExtension());
 
-        if (!in_array($ext, $allowedExts)) {
-            $this->addFlash('danger', 'Formato não suportado. Use CSV, TXT, RIS, BibTeX, XLSX, JSON ou NBIB.');
-            return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+        // If exactly one file, preserve the single file preview & confirm step
+        if (count($uploadedFiles) === 1) {
+            $file = reset($uploadedFiles);
+            $ext = strtolower($file->getClientOriginalExtension());
+
+            if (!in_array($ext, $allowedExts)) {
+                $this->addFlash('danger', 'Formato não suportado. Use CSV, TXT, RIS, BibTeX, XLSX, JSON ou NBIB.');
+                return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+            }
+
+            if ($file->getSize() > 600 * 1024 * 1024) {
+                $this->addFlash('danger', 'Arquivo muito grande. Máximo: 600MB.');
+                return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+            }
+
+            $originalFilename = $file->getClientOriginalName();
+            $fileSizeBytes    = $file->getSize();
+
+            $uploadDir = $this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId();
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $safeFilename = uniqid('import_') . '.' . $ext;
+            $file->move($uploadDir, $safeFilename);
+            $fullPath = $uploadDir . '/' . $safeFilename;
+
+            if ($fileSizeBytes === false || $fileSizeBytes === 0) {
+                $fileSizeBytes = filesize($fullPath) ?: 0;
+            }
+
+            $detections = $this->resolver->detectAll($fullPath);
+            $detected   = $detections[0] ?? null;
+
+            $previewRecords = [];
+            $headers        = [];
+            $totalRows      = 0;
+
+            $previewImporter = $detected ? $detected['importer'] : new ScopusCsvImporter();
+            $previewResult   = $previewImporter->parse($fullPath, 10);
+            $previewRecords  = $previewResult->records;
+            $headers         = $previewResult->headers;
+            $totalRows       = $previewResult->totalRead;
+
+            $session = $request->getSession();
+            $session->set('import_file', $fullPath);
+            $session->set('import_original_name', $originalFilename);
+            $session->set('import_source', $detected['source'] ?? 'unknown');
+            $session->set('import_format', $ext);
+            $session->set('import_project', $projectId);
+
+            return $this->render('import/preview.html.twig', [
+                'project'          => $project,
+                'detections'       => $detections,
+                'detected'         => $detected,
+                'previewRecords'   => $previewRecords,
+                'headers'          => $headers,
+                'totalRows'        => $totalRows,
+                'originalFilename' => $originalFilename,
+                'fileSize'         => $fileSizeBytes,
+            ]);
         }
 
-        if ($file->getSize() > 600 * 1024 * 1024) {
-            $this->addFlash('danger', 'Arquivo muito grande. Máximo: 600MB.');
-            return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+        // Multiple files enqueued directly
+        $createdDatasets = [];
+        foreach ($uploadedFiles as $file) {
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (!in_array($ext, $allowedExts)) {
+                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado: formato não suportado.', $file->getClientOriginalName()));
+                continue;
+            }
+
+            if ($file->getSize() > 600 * 1024 * 1024) {
+                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado: tamanho excede o limite de 600MB.', $file->getClientOriginalName()));
+                continue;
+            }
+
+            $originalFilename = $file->getClientOriginalName();
+            
+            $uploadDir = $this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId();
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $safeFilename = uniqid('import_') . '.' . $ext;
+            $file->move($uploadDir, $safeFilename);
+            $fullPath = $uploadDir . '/' . $safeFilename;
+
+            $detections = $this->resolver->detectAll($fullPath);
+            $detected   = $detections[0] ?? null;
+            $source     = $detected['source'] ?? 'unknown';
+
+            $dataset = new Dataset();
+            $dataset->setProject($project);
+            $dataset->setName(pathinfo($originalFilename, PATHINFO_FILENAME));
+            $dataset->setSource($source);
+            $dataset->setOriginalFilename($originalFilename);
+            $dataset->setFilePath($fullPath);
+            $dataset->setFileFormat($ext);
+            $dataset->setStatus(Dataset::STATUS_PENDING);
+
+            $this->em->persist($dataset);
+            $createdDatasets[] = $dataset;
         }
 
-        // Capture BEFORE move() — after move the temp file is deleted
-        $originalFilename = $file->getClientOriginalName();
-        $fileSizeBytes    = $file->getSize();
+        if (count($createdDatasets) > 0) {
+            $project->setStatus(BibliometricProject::STATUS_IMPORTING);
+            $this->em->flush();
 
-        // Move to persistent upload dir
-        $uploadDir = $this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId();
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+            $projectDir = $this->getParameter('kernel.project_dir');
+            $phpBinary  = $this->resolvePhpBinary($projectDir);
+            $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
+
+            foreach ($createdDatasets as $dataset) {
+                $logFile = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
+                $cmd = sprintf(
+                    'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
+                    escapeshellarg($phpBinary),
+                    escapeshellarg($projectDir),
+                    $dataset->getId(),
+                    escapeshellarg($appEnv),
+                    escapeshellarg($logFile)
+                );
+
+                try {
+                    $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
+                    $process->start();
+                } catch (\Throwable $e) {
+                    $this->addFlash('warning', 'O dataset foi criado, mas a execução em segundo plano não pôde ser iniciada para ' . $dataset->getOriginalFilename() . ': ' . $e->getMessage());
+                }
+            }
+
+            $this->addFlash('success', sprintf('%d arquivo(s) enviado(s) com sucesso e enfileirados para processamento!', count($createdDatasets)));
+            return $this->redirectToRoute('app_projects_show', ['id' => $projectId]);
         }
-        $safeFilename = uniqid('import_') . '.' . $ext;
-        $file->move($uploadDir, $safeFilename);
-        $fullPath = $uploadDir . '/' . $safeFilename;
 
-        if ($fileSizeBytes === false || $fileSizeBytes === 0) {
-            $fileSizeBytes = filesize($fullPath) ?: 0;
-        }
-
-        // Auto-detect source
-        $detections = $this->resolver->detectAll($fullPath);
-        $detected   = $detections[0] ?? null;
-
-        // Parse preview (first 10 rows only)
-        $previewRecords = [];
-        $headers        = [];
-        $totalRows      = 0;
-
-        $previewImporter = $detected ? $detected['importer'] : new ScopusCsvImporter();
-        $previewResult   = $previewImporter->parse($fullPath, 10);
-        $previewRecords  = $previewResult->records;
-        $headers         = $previewResult->headers;
-        $totalRows       = $previewResult->totalRead;
-
-        // Store in session
-        $session = $request->getSession();
-        $session->set('import_file', $fullPath);
-        $session->set('import_original_name', $originalFilename);
-        $session->set('import_source', $detected['source'] ?? 'unknown');
-        $session->set('import_format', $ext);
-        $session->set('import_project', $projectId);
-
-        return $this->render('import/preview.html.twig', [
-            'project'          => $project,
-            'detections'       => $detections,
-            'detected'         => $detected,
-            'previewRecords'   => $previewRecords,
-            'headers'          => $headers,
-            'totalRows'        => $totalRows,
-            'originalFilename' => $originalFilename,
-            'fileSize'         => $fileSizeBytes,
-        ]);
+        return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
     }
 
     // ── Step 3: Create dataset + launch background import ─────────────────────
@@ -162,57 +241,11 @@ class ImportController extends AbstractController
         $session->remove('import_file');
         $session->remove('import_source');
 
-        // Launch import as a detached background process.
-        // Running as a console command avoids:
-        //   - Symfony Profiler collecting 100k+ SQL queries → OOM
-        //   - Monolog NormalizerFormatter buffering log data → OOM
-        //   - PHP web request timeout (max_execution_time)
         $projectDir = $this->getParameter('kernel.project_dir');
-        $phpBinary  = null;
-
-        // 1. If on RunCloud (production), predict the binary directly without calling is_executable()
-        // to bypass any open_basedir restriction warnings on FPM.
-        if (str_contains($projectDir, '/home/runcloud') && defined('PHP_VERSION')) {
-            $parts = explode('.', PHP_VERSION);
-            if (count($parts) >= 2) {
-                $versionSuffix = $parts[0] . $parts[1];
-                $phpBinary = '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php';
-            }
-        }
-
-        // 2. Otherwise, use Symfony's standard PhpExecutableFinder which is highly robust for local mac
-        if (!$phpBinary) {
-            $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
-            $phpBinary = $phpFinder->find(false);
-        }
-
-        // 3. Fallback to common binary names/paths if finder failed
-        if (!$phpBinary && defined('PHP_VERSION')) {
-            $parts = explode('.', PHP_VERSION);
-            if (count($parts) >= 2) {
-                $versionSuffix = $parts[0] . $parts[1];
-                $possiblePaths = [
-                    '/usr/bin/php' . $versionSuffix,
-                    '/usr/local/bin/php' . $versionSuffix,
-                    '/usr/bin/php' . $parts[0] . '.' . $parts[1],
-                    '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
-                ];
-                foreach ($possiblePaths as $path) {
-                    if (@is_executable($path)) {
-                        $phpBinary = $path;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 4. Default sane fallback
-        if (!$phpBinary) {
-            $phpBinary = 'php';
-        }
+        $phpBinary  = $this->resolvePhpBinary($projectDir);
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
+        $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
 
-        $appEnv  = $_SERVER['APP_ENV'] ?? 'dev';
         $cmd = sprintf(
             'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
             escapeshellarg($phpBinary),
@@ -228,7 +261,6 @@ class ImportController extends AbstractController
         } catch (\Throwable $e) {
             $this->addFlash('warning', 'O registro foi criado com status pendente, mas a execução em segundo plano não pôde ser iniciada automaticamente: ' . $e->getMessage() . '. Para corrigir isso no RunCloud, edite as "disable_functions" nas configurações de PHP do seu servidor e garanta que TODAS as seguintes funções estejam habilitadas (removidas da lista): proc_open, proc_close, proc_get_status, proc_terminate, exec.');
         }
-
 
         return $this->redirectToRoute('app_import_processing', [
             'projectId' => $projectId,
@@ -296,5 +328,47 @@ class ImportController extends AbstractController
             throw $this->createAccessDeniedException();
         }
         return $project;
+    }
+
+    private function resolvePhpBinary(string $projectDir): string
+    {
+        $phpBinary = null;
+
+        // 1. RunCloud prediction
+        if (str_contains($projectDir, '/home/runcloud') && defined('PHP_VERSION')) {
+            $parts = explode('.', PHP_VERSION);
+            if (count($parts) >= 2) {
+                $versionSuffix = $parts[0] . $parts[1];
+                $phpBinary = '/RunCloud/Packages/php' . $versionSuffix . 'rc/bin/php';
+            }
+        }
+
+        // 2. Symfony standard executable finder
+        if (!$phpBinary) {
+            $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
+            $phpBinary = $phpFinder->find(false);
+        }
+
+        // 3. Fallback path prediction
+        if (!$phpBinary && defined('PHP_VERSION')) {
+            $parts = explode('.', PHP_VERSION);
+            if (count($parts) >= 2) {
+                $versionSuffix = $parts[0] . $parts[1];
+                $possiblePaths = [
+                    '/usr/bin/php' . $versionSuffix,
+                    '/usr/local/bin/php' . $versionSuffix,
+                    '/usr/bin/php' . $parts[0] . '.' . $parts[1],
+                    '/usr/local/bin/php' . $parts[0] . '.' . $parts[1],
+                ];
+                foreach ($possiblePaths as $path) {
+                    if (@is_executable($path)) {
+                        $phpBinary = $path;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $phpBinary ?: 'php';
     }
 }

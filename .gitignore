@@ -20,3 +20,5 @@
 ###< symfony/asset-mapper ###
 docs/*.csv
 docs/sources/*
+
+.DS_Store

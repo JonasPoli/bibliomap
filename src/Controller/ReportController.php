@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Entity\TheoreticalLens;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -326,201 +327,405 @@ class ReportController extends AbstractController
     #[Route('/theoretical-lenses', name: 'app_report_theoretical_lenses', methods: ['GET'])]
     public function theoreticalLenses(int $id): Response
     {
+
+        ini_set('memory_limit', '512M');
         $project = $this->getProject($id);
 
-        // Fetch all documents with title and abstract for text-mining
+        $cacheDir = $this->getParameter('kernel.project_dir') . '/var/theoretical_lenses_cache';
+        $cacheFile = $cacheDir . '/project_' . $id . '.json';
+
+        if (file_exists($cacheFile)) {
+            $cachedData = json_decode(file_get_contents($cacheFile), true);
+            if (is_array($cachedData)) {
+                return $this->render('report/theoretical_lenses.html.twig', [
+                    'project'         => $project,
+                    'theorists'       => $cachedData['theorists'],
+                    'categories'      => $cachedData['categories'],
+                    'total_docs'      => $cachedData['total_docs'],
+                    'research_fields' => $cachedData['research_fields'],
+                ]);
+            }
+        }
+
+        // Cache does not exist, redirect to the beautiful processing loading screen
+        return $this->redirectToRoute('app_report_theoretical_lenses_loading', ['id' => $id]);
+    }
+
+    #[Route('/theoretical-lenses/loading', name: 'app_report_theoretical_lenses_loading', methods: ['GET'])]
+    public function theoreticalLensesLoading(int $id): Response
+    {
+        $project = $this->getProject($id);
+        return $this->render('report/theoretical_lenses_loading.html.twig', [
+            'project' => $project,
+        ]);
+    }
+
+    #[Route('/theoretical-lenses/recalculate', name: 'app_report_theoretical_lenses_recalculate', methods: ['GET'])]
+    public function theoreticalLensesRecalculate(int $id): Response
+    {
+        $project = $this->getProject($id);
+        $cacheDir = $this->getParameter('kernel.project_dir') . '/var/theoretical_lenses_cache';
+        $cacheFile = $cacheDir . '/project_' . $id . '.json';
+        if (file_exists($cacheFile)) {
+            unlink($cacheFile);
+        }
+        return $this->redirectToRoute('app_report_theoretical_lenses_loading', ['id' => $id]);
+    }
+
+    #[Route('/theoretical-lenses/process-batch', name: 'app_report_theoretical_lenses_process_batch', methods: ['POST'])]
+    public function theoreticalLensesProcessBatch(int $id, Request $request): Response
+    {
+        ini_set('memory_limit', '512M');
+        $project = $this->getProject($id);
+        
+        $payload = json_decode($request->getContent(), true) ?? [];
+        $step = (int) ($payload['step'] ?? 0);
+        $batchSize = (int) ($payload['batchSize'] ?? 200);
+
+        
+        $session = $request->getSession();
+        
+        if ($step === 0) {
+            // STEP 0: Initialization
+            // Fetch all lenses matching fields efficiently from DB (lightweight, raw DBAL)
+            $lenses = $this->conn->fetchAllAssociative(
+                'SELECT id, name, terms, citation_formats FROM theoretical_lens'
+            );
+            
+            $theorists = [];
+            foreach ($lenses as $lens) {
+                $terms = json_decode($lens['terms'], true) ?? [];
+                $citations = json_decode($lens['citation_formats'], true) ?? [];
+                $theorists[$lens['id']] = [
+                    'id' => $lens['id'],
+                    'name' => $lens['name'],
+                    'terms' => $terms,
+                    'match_count' => 0,
+                    'docs' => [],
+                    'ref_match_count' => 0,
+                    'ref_docs' => [],
+                    'terms_lower' => array_map('strtolower', $terms),
+                    'citations_lower' => array_map('strtolower', $citations),
+                ];
+
+            }
+            
+            $session->set('theorists_batch_' . $id, $theorists);
+            
+            $totalDocs = (int) $this->conn->fetchOne(
+                'SELECT COUNT(*) FROM document WHERE project_id = ?',
+                [$id]
+            );
+            
+            return $this->json([
+                'status' => 'initialized',
+                'totalDocs' => $totalDocs,
+                'nextStep' => 1
+            ]);
+        }
+        
+        // STEP > 0: Process a batch slice of documents
+        $theorists = $session->get('theorists_batch_' . $id);
+        if (!$theorists) {
+            return $this->json(['error' => 'Not initialized'], 400);
+        }
+        
+        $offset = ($step - 1) * $batchSize;
         $documents = $this->conn->fetchAllAssociative(
-            'SELECT d.id, d.title, d.abstract_text, d.year, 
-                    (SELECT GROUP_CONCAT(a.name SEPARATOR ", ") 
-                     FROM author a 
-                     JOIN document_author da ON da.author_id = a.id 
-                     WHERE da.document_id = d.id) AS author_names
+            'SELECT d.id, d.title, d.abstract_text, d.year, d.references, d.doi, d.url
              FROM document d
-             WHERE d.project_id = ?',
+             WHERE d.project_id = ?
+             LIMIT ' . (int)$batchSize . ' OFFSET ' . (int)$offset,
             [$id]
         );
 
-        $theorists = [
-            'latour' => [
-                'name' => 'Bruno Latour',
-                'category' => 'Teoria Ator-Rede e Construtivismo',
-                'terms' => ['latour', 'actor-network', 'ator-rede', 'non-human', 'não-humano', 'translation theory', 'teoria da tradução', 'actant', 'actante', 'simetria'],
-                'description' => 'Foca nas redes sociotécnicas formadas simetricamente por atores humanos e não humanos. Ideal para analisar o chatbot (ator não humano) e o extensionista rural (ator humano) agindo em coprodução de conhecimento.',
-                'icon' => 'bi-diagram-3-fill',
-                'color' => 'var(--bm-accent)',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'callon' => [
-                'name' => 'Michel Callon',
-                'category' => 'Teoria Ator-Rede e Construtivismo',
-                'terms' => ['callon', 'sociotechnic', 'sociotécnico', 'problematization', 'problematização', 'interessement', 'interessamento', 'enrolment', 'recrutamento'],
-                'description' => 'Estuda os processos de tradução de interesses e controvérsias em redes sociotécnicas. Ajuda a investigar como os extensionistas rurais aceitam, negociam ou resistem à introdução de um chatbot na sua rotina de trabalho.',
-                'icon' => 'bi-arrow-left-right',
-                'color' => '#4f8ef7',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'bijker' => [
-                'name' => 'Wiebe Bijker',
-                'category' => 'Teoria Ator-Rede e Construtivismo',
-                'terms' => ['bijker', 'social construction of technology', 'construção social da tecnologia', 'scot', 'relevant social groups', 'grupos sociais relevantes', 'interpretative flexibility', 'flexibilidade interpretativa', 'technological frame', 'quadro tecnológico'],
-                'description' => 'Trabalha na Construção Social da Tecnologia (SCOT). Excelente para entender a "flexibilidade interpretativa" do chatbot: o que a tecnologia significa para o desenvolvedor vs. o que ela significa para o extensionista do campo.',
-                'icon' => 'bi-shuffle',
-                'color' => '#5da5da',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'pinch' => [
-                'name' => 'Trevor Pinch',
-                'category' => 'Teoria Ator-Rede e Construtivismo',
-                'terms' => ['pinch', 'social construction of facts', 'construção social dos fatos', 'stabilization', 'estabilização', 'closure', 'fechamento interpretativo'],
-                'description' => 'Estuda a construção social dos fatos científicos e como as controvérsias em torno de novas tecnologias se estabilizam e fecham na sociedade.',
-                'icon' => 'bi-lock-fill',
-                'color' => '#3d5a80',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'foucault' => [
-                'name' => 'Michel Foucault',
-                'category' => 'Sociologia e Filosofia Crítica',
-                'terms' => ['foucault', 'power relations', 'relações de poder', 'discourse analysis', 'análise do discurso', 'biopower', 'biopoder', 'surveillance', 'vigilância', 'panopticon', 'panóptico', 'archeology of knowledge', 'arqueologia do saber'],
-                'description' => 'Analisa o poder descentralizado, o discurso e formas de controle. Ideal se a sua dissertação pretende discutir como o chatbot atua como um dispositivo de poder, vigilância do trabalho ou direcionamento do conhecimento rural.',
-                'icon' => 'bi-eye-fill',
-                'color' => 'var(--bm-warning)',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'bourdieu' => [
-                'name' => 'Pierre Bourdieu',
-                'category' => 'Sociologia e Filosofia Crítica',
-                'terms' => ['bourdieu', 'habitus', 'social field', 'campo social', 'social capital', 'capital social', 'cultural capital', 'capital cultural', 'symbolic violence', 'violência simbólica'],
-                'description' => 'Fornece a ótica de campo, habitus e capitais. Útil para investigar se os extensionistas com maior capital tecnológico ou cultural incorporam o chatbot de forma distinta, alterando as relações de poder no campo institucional da extensão rural.',
-                'icon' => 'bi-award-fill',
-                'color' => '#f28f3b',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'marx' => [
-                'name' => 'Karl Marx',
-                'category' => 'Sociologia e Filosofia Crítica',
-                'terms' => ['marx', 'capitalism', 'capitalismo', 'alienation', 'alienação', 'means of production', 'meios de produção', 'proletarianization', 'proletarização', 'labor force', 'força de trabalho'],
-                'description' => 'Foca no trabalho, exploração e tecnologia como meio de controle da força produtiva. Ajuda a discutir se a automação da extensão rural via IA representa uma forma de alienação ou de otimização das forças produtivas agrícolas.',
-                'icon' => 'bi-hammer',
-                'color' => 'var(--bm-danger)',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'habermas' => [
-                'name' => 'Jürgen Habermas',
-                'category' => 'Sociologia e Filosofia Crítica',
-                'terms' => ['habermas', 'communicative action', 'ação comunicativa', 'public sphere', 'esfera pública', 'communicative rationality', 'racionalidade comunicativa'],
-                'description' => 'Analisa a ação comunicativa e racionalidade do diálogo. Ideal para discutir a qualidade e a ética da comunicação entre o extensionista (humano) e o chatbot (sistema automatizado) a nível linguístico.',
-                'icon' => 'bi-chat-quote-fill',
-                'color' => '#9e2a2b',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'dagnino' => [
-                'name' => 'Renato Dagnino',
-                'category' => 'Pensamento Latino-Americano em CTS',
-                'terms' => ['dagnino', 'sociotechnical adequacy', 'adequação sociotécnica', 'social technology', 'tecnologia social', 'technological decision', 'decisão tecnológica', 'popular solidarity economy', 'economia solidária'],
-                'description' => 'Principal expoente brasileiro do PLACTS. Discute a "Adequação Sociotécnica" das tecnologias. Essencial para analisar se um chatbot (tecnologia convencional/norte-americana) pode ser readequado sociotécnica e localmente para apoiar a agricultura familiar brasileira e assentamentos.',
-                'icon' => 'bi-brightness-high-fill',
-                'color' => 'var(--bm-success)',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'herrera' => [
-                'name' => 'Amílcar Herrera',
-                'category' => 'Pensamento Latino-Americano em CTS',
-                'terms' => ['herrera', 'scientific policy', 'política científica', 'explicit policy', 'política explícita', 'implicit policy', 'política implícita', 'latin american scientific project', 'projeto científico latino-americano'],
-                'description' => 'Foca nas políticas de ciência e tecnologia implícitas vs. explícitas nos países em desenvolvimento. Excelente se a sua pesquisa avalia se a adoção de IA na extensão rural atende a uma política de desenvolvimento nacional ou apenas a interesses corporativos externos.',
-                'icon' => 'bi-bank',
-                'color' => '#2b9348',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'varsavsky' => [
-                'name' => 'Oscar Varsavsky',
-                'category' => 'Pensamento Latino-Americano em CTS',
-                'terms' => ['varsavsky', 'scientific rebellion', 'rebeldia científica', 'standard science', 'ciência padronizada', 'national science', 'ciência nacional', 'politicized science', 'ciência politizada'],
-                'description' => 'Crítica à "ciência padrão" e propõe uma ciência com compromisso político social focada em resolver os problemas do povo e do território. Perfeito para defender a criação de um chatbot voltado a problemas rurais locais específicos de pequenos produtores, contra a IA comercial genérica.',
-                'icon' => 'bi-shield-fire',
-                'color' => '#80b918',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'kuhn' => [
-                'name' => 'Thomas Kuhn',
-                'category' => 'Filosofia e História da Ciência',
-                'terms' => ['kuhn', 'scientific paradigm', 'paradigma científico', 'scientific revolution', 'revolução científica', 'normal science', 'ciência normal', 'incommensurability', 'incomensurabilidade'],
-                'description' => 'Foca em paradigmas e revoluções. Ajuda a analisar se a introdução de inteligência artificial generativa (chatbots) na extensão rural representa uma "ruptura de paradigma" no modo clássico de transferência de tecnologia.',
-                'icon' => 'bi-infinity',
-                'color' => '#f0883e',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-            'haraway' => [
-                'name' => 'Donna Haraway',
-                'category' => 'Filosofia e História da Ciência',
-                'terms' => ['haraway', 'cyborg', 'ciborgue', 'situated knowledges', 'saberes localizados', 'companion species', 'espécies companheiras', 'feminist epistemology', 'epistemologia feminista'],
-                'description' => 'Traz a perspectiva de saberes localizados e a figura do ciborgue (híbrido humano-máquina). Excelente para discutir a simbiose entre o extensionista e o chatbot como uma "entidade híbrida" geradora de saberes contextualizados e adaptados à realidade rural.',
-                'icon' => 'bi-gender-female',
-                'color' => '#e0aaff',
-                'match_count' => 0,
-                'docs' => [],
-            ],
-        ];
-
-        // Text mining loop
-        foreach ($documents as $doc) {
-            $textToSearch = strtolower(
-                $doc['title'] . ' ' . 
-                ($doc['abstract_text'] ?? '')
+        
+        if (empty($documents)) {
+            // STEP FINAL: Finalization
+            // Sort theorists by matches
+            uasort($theorists, function ($a, $b) {
+                $comp = $b['match_count'] <=> $a['match_count'];
+                if ($comp === 0) {
+                    return $b['ref_match_count'] <=> $a['ref_match_count'];
+                }
+                return $comp;
+            });
+            
+            // Check if matches exist
+            $hasMatches = false;
+            foreach ($theorists as $t) {
+                if ($t['match_count'] > 0 || $t['ref_match_count'] > 0) {
+                    $hasMatches = true;
+                    break;
+                }
+            }
+            
+            $displayTheorists = [];
+            if ($hasMatches) {
+                foreach ($theorists as $key => $t) {
+                    if ($t['match_count'] > 0 || $t['ref_match_count'] > 0) {
+                        $displayTheorists[$key] = $t;
+                    }
+                }
+            } else {
+                $displayTheorists = array_slice($theorists, 0, 20, true);
+            }
+            
+            // Batch fetch full details (category, description, icon, color) ONLY for displayed theorists
+            $displayLensIds = array_keys($displayTheorists);
+            $fullLensMap = [];
+            if (!empty($displayLensIds)) {
+                $placeholders = implode(',', array_fill(0, count($displayLensIds), '?'));
+                $fullLensRows = $this->conn->fetchAllAssociative(
+                    "SELECT id, category, research_field, description, icon, color
+                     FROM theoretical_lens
+                     WHERE id IN ($placeholders)",
+                    $displayLensIds
+                );
+                foreach ($fullLensRows as $row) {
+                    $fullLensMap[$row['id']] = $row;
+                }
+            }
+            
+            // Merge details
+            foreach ($displayTheorists as $key => &$t) {
+                if (isset($fullLensMap[$key])) {
+                    $t['category'] = $fullLensMap[$key]['category'] ?? 'Geral';
+                    $t['researchField'] = $fullLensMap[$key]['research_field'] ?? 'Geral';
+                    $t['description'] = $fullLensMap[$key]['description'] ?? '';
+                    $t['icon'] = $fullLensMap[$key]['icon'] ?? 'bi-mortarboard';
+                    $t['color'] = $fullLensMap[$key]['color'] ?? '#4f8ef7';
+                } else {
+                    $t['category'] = 'Geral';
+                    $t['researchField'] = 'Geral';
+                    $t['description'] = '';
+                    $t['icon'] = 'bi-mortarboard';
+                    $t['color'] = '#4f8ef7';
+                }
+            }
+            unset($t);
+            
+            // Batch fetch author names for displayed sample documents
+            $docIds = [];
+            foreach ($displayTheorists as $t) {
+                foreach ($t['docs'] as $d) {
+                    $docIds[] = $d['id'];
+                }
+                foreach ($t['ref_docs'] as $d) {
+                    $docIds[] = $d['id'];
+                }
+            }
+            $docIds = array_unique($docIds);
+            
+            $authorMap = [];
+            if (!empty($docIds)) {
+                $placeholders = implode(',', array_fill(0, count($docIds), '?'));
+                $authorRows = $this->conn->fetchAllAssociative(
+                    "SELECT da.document_id, GROUP_CONCAT(a.name ORDER BY da.position SEPARATOR ', ') AS author_names
+                     FROM document_author da
+                     JOIN author a ON a.id = da.author_id
+                     WHERE da.document_id IN ($placeholders)
+                     GROUP BY da.document_id",
+                    $docIds
+                );
+                foreach ($authorRows as $row) {
+                    $authorMap[$row['document_id']] = $row['author_names'];
+                }
+            }
+            
+            // Fill authors
+            foreach ($displayTheorists as &$t) {
+                foreach ($t['docs'] as &$d) {
+                    if (isset($authorMap[$d['id']])) {
+                        $d['authors'] = $authorMap[$d['id']];
+                    }
+                }
+                unset($d);
+                foreach ($t['ref_docs'] as &$d) {
+                    if (isset($authorMap[$d['id']])) {
+                        $d['authors'] = $authorMap[$d['id']];
+                    }
+                }
+                unset($d);
+            }
+            unset($t);
+            
+            // Group by category for visual cards
+            $categories = [];
+            foreach ($displayTheorists as $key => $t) {
+                $categories[$t['category']][] = array_merge($t, ['key' => $key]);
+            }
+            
+            // Extract unique research fields
+            $researchFields = [];
+            foreach ($displayTheorists as $t) {
+                if ($t['researchField'] !== null && $t['researchField'] !== '') {
+                    if (!in_array($t['researchField'], $researchFields)) {
+                        $researchFields[] = $t['researchField'];
+                    }
+                }
+            }
+            sort($researchFields);
+            
+            $totalDocs = (int) $this->conn->fetchOne(
+                'SELECT COUNT(*) FROM document WHERE project_id = ?',
+                [$id]
             );
-
-            foreach ($theorists as $key => &$t) {
-                $matched = false;
-                foreach ($t['terms'] as $term) {
-                    if (str_contains($textToSearch, $term)) {
-                        $matched = true;
+            
+            // Save cache
+            $cacheDir = $this->getParameter('kernel.project_dir') . '/var/theoretical_lenses_cache';
+            if (!is_dir($cacheDir)) {
+                mkdir($cacheDir, 0777, true);
+            }
+            $cacheFile = $cacheDir . '/project_' . $id . '.json';
+            
+            $cachedData = [
+                'theorists' => $displayTheorists,
+                'categories' => $categories,
+                'total_docs' => $totalDocs,
+                'research_fields' => $researchFields,
+            ];
+            
+            file_put_contents($cacheFile, json_encode($cachedData));
+            
+            // Clean up session
+            $session->remove('theorists_batch_' . $id);
+            
+            return $this->json(['status' => 'completed']);
+        }
+        
+        // Match slice documents against theorists
+        foreach ($documents as $doc) {
+            $textLower = strtolower(($doc['title'] ?? '') . ' ' . ($doc['abstract_text'] ?? ''));
+            $allRefsText = '';
+            if (!empty($doc['references'])) {
+                $refs = json_decode($doc['references'], true);
+                if (is_array($refs)) {
+                    $allRefsText = strtolower(implode(' || ', $refs));
+                }
+            }
+            
+            foreach ($theorists as &$t) {
+                $terms = $t['terms_lower'];
+                $citations = $t['citations_lower'];
+                
+                if (empty($terms)) {
+                    continue;
+                }
+                
+                // 1. Direct match (Title/Abstract)
+                $directMatched = false;
+                foreach ($terms as $term) {
+                    if (str_contains($textLower, $term)) {
+                        $directMatched = true;
                         break;
                     }
                 }
-
-                if ($matched) {
+                
+                if ($directMatched) {
                     $t['match_count']++;
                     if (count($t['docs']) < 5) {
                         $t['docs'][] = [
                             'id' => $doc['id'],
                             'title' => $doc['title'],
                             'year' => $doc['year'],
-                            'authors' => $doc['author_names'] ?? 'Autores desconhecidos',
+                            'authors' => 'Autores desconhecidos',
+                            'doi' => $doc['doi'] ?? null,
+                            'url' => $doc['url'] ?? null,
+                        ];
+                    }
+                }
+                
+                // 2. Cited References match
+                $refMatched = false;
+                if (!empty($citations)) {
+                    foreach ($citations as $cit) {
+                        if (str_contains($allRefsText, $cit)) {
+                            $refMatched = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!$refMatched) {
+                    foreach ($terms as $term) {
+                        if (str_contains($allRefsText, $term)) {
+                            $refMatched = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if ($refMatched) {
+                    $t['ref_match_count']++;
+                    if (count($t['ref_docs']) < 5) {
+                        $t['ref_docs'][] = [
+                            'id' => $doc['id'],
+                            'title' => $doc['title'],
+                            'year' => $doc['year'],
+                            'authors' => 'Autores desconhecidos',
+                            'doi' => $doc['doi'] ?? null,
+                            'url' => $doc['url'] ?? null,
                         ];
                     }
                 }
             }
-        }
-        unset($t);
-
-        // Sort theorists by match_count descending
-        uasort($theorists, function ($a, $b) {
-            return $b['match_count'] <=> $a['match_count'];
-        });
-
-        // Group by category for visual cards
-        $categories = [];
-        foreach ($theorists as $key => $t) {
-            $categories[$t['category']][] = array_merge($t, ['key' => $key]);
+            unset($t);
         }
 
-        return $this->render('report/theoretical_lenses.html.twig', [
-            'project'    => $project,
-            'theorists'  => $theorists,
-            'categories' => $categories,
-            'total_docs' => count($documents),
+        
+        $session->set('theorists_batch_' . $id, $theorists);
+        
+        return $this->json([
+            'status' => 'processing',
+            'processedDocs' => $offset + count($documents),
+            'nextStep' => $step + 1
         ]);
+    }
+
+    #[Route('/theoretical-lenses/add', name: 'app_report_theoretical_lenses_add', methods: ['POST'])]
+    public function addTheoreticalLens(int $id, Request $request): Response
+    {
+        $project = $this->getProject($id);
+
+        $name = trim($request->request->get('name', ''));
+        $category = trim($request->request->get('category', ''));
+        $researchField = trim($request->request->get('research_field', ''));
+        $termsString = trim($request->request->get('terms', ''));
+        $description = trim($request->request->get('description', ''));
+        $icon = trim($request->request->get('icon', 'bi-mortarboard'));
+        $color = trim($request->request->get('color', '#4f8ef7'));
+
+        if ($name === '' || $category === '' || $description === '') {
+            $this->addFlash('error', 'Nome, Categoria e Descrição são campos obrigatórios.');
+            return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $project->getId()]);
+        }
+
+        // Clean research field
+        if ($researchField === '') {
+            $researchField = 'Geral';
+        }
+
+        // Parse terms
+        $terms = array_filter(array_map('trim', explode(',', $termsString)));
+        // Lowercase for unified matches
+        $terms = array_map('strtolower', $terms);
+
+        $lens = new TheoreticalLens();
+        $lens->setName($name);
+        $lens->setCategory($category);
+        $lens->setResearchField($researchField);
+        $lens->setTerms(array_values(array_unique($terms)));
+        $lens->setDescription($description);
+        $lens->setIcon($icon);
+        $lens->setColor($color);
+
+        $this->em->persist($lens);
+        $this->em->flush();
+
+        $this->addFlash('success', sprintf('Lente teórica de "%s" cadastrada com sucesso!', $name));
+
+        return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $project->getId()]);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

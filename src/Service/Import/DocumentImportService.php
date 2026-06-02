@@ -333,7 +333,20 @@ class DocumentImportService
         foreach ($docs as $i => $docRow) {
             $conn->beginTransaction();
             try {
-                $conn->insert('document', $docRow);
+                $columns = [];
+                $placeholders = [];
+                $params = [];
+                foreach ($docRow as $col => $val) {
+                    $columns[] = '`' . $col . '`';
+                    $placeholders[] = '?';
+                    $params[] = $val;
+                }
+                $sql = sprintf(
+                    'INSERT INTO document (%s) VALUES (%s)',
+                    implode(', ', $columns),
+                    implode(', ', $placeholders)
+                );
+                $conn->executeStatement($sql, $params);
                 $docId = (int) $conn->lastInsertId();
 
                 foreach ($authorLinks[$i] as $link) {
@@ -463,6 +476,7 @@ class DocumentImportService
             'hash'              => $hash,
             'countries'         => $dto->countries ? json_encode(array_values($dto->countries), JSON_UNESCAPED_UNICODE) : null,
             'institutions'      => $dto->institutions ? json_encode(array_values($dto->institutions), JSON_UNESCAPED_UNICODE) : null,
+            'references'        => $dto->references ? json_encode(array_values($dto->references), JSON_UNESCAPED_UNICODE) : null,
             'created_at'        => $now,
         ];
     }

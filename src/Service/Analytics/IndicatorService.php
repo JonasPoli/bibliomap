@@ -197,18 +197,17 @@ class IndicatorService
         );
 
         $authorsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT a.id) FROM author a
-             JOIN document_author da ON da.author_id = a.id
+            'SELECT COUNT(DISTINCT da.author_id) FROM document_author da
              JOIN document d ON d.id = da.document_id AND d.project_id = ?',
             [$projectId]
         );
 
         $keywordsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT k.id) FROM keyword k
-             JOIN document_keyword dk ON dk.keyword_id = k.id
+            'SELECT COUNT(DISTINCT dk.keyword_id) FROM document_keyword dk
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?',
             [$projectId]
         );
+
 
         return array_merge($row, [
             'total_authors'  => $authorsCount,

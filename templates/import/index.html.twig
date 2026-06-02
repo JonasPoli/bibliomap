@@ -130,17 +130,17 @@
                      onclick="document.getElementById('file-input').click()">
                     <div id="drop-icon" style="font-size:48px;margin-bottom:12px">📁</div>
                     <div style="font-size:15px;font-weight:500;color:var(--bm-text);margin-bottom:4px">
-                        Arraste o arquivo aqui ou <span style="color:var(--bm-accent)">clique para selecionar</span>
+                        Arraste os arquivos aqui ou <span style="color:var(--bm-accent)">clique para selecionar</span>
                     </div>
                     <div style="font-size:12px;color:var(--bm-text-muted)">
-                        CSV, TXT (Web of Science), RIS, BibTeX, XLSX — até 500&nbsp;MB
+                        Selecione um ou múltiplos arquivos: CSV, TXT (Web of Science), RIS, BibTeX, XLSX — até 500&nbsp;MB cada
                     </div>
                     <div id="file-info" style="display:none;margin-top:16px;padding:12px;background:rgba(79,142,247,0.1);border-radius:8px;border:1px solid rgba(79,142,247,0.2)">
                         <div id="file-name" style="font-size:14px;font-weight:500;color:var(--bm-accent)"></div>
                         <div id="file-size" style="font-size:12px;color:var(--bm-text-muted)"></div>
                     </div>
-                    <input type="file" id="file-input" name="file" accept=".csv,.txt,.ris,.bib,.xlsx,.json,.nbib"
-                           style="position:absolute;inset:0;opacity:0;cursor:pointer" required>
+                    <input type="file" id="file-input" name="file[]" accept=".csv,.txt,.ris,.bib,.xlsx,.json,.nbib"
+                           style="position:absolute;inset:0;opacity:0;cursor:pointer" required multiple>
                 </div>
 
                 <div class="d-flex justify-content-end gap-3 mt-4">
@@ -703,21 +703,35 @@ function formatSize(bytes) {
     if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
     return (bytes/1024).toFixed(0) + ' KB';
 }
-function showFile(file) {
-    fileName.textContent = file.name;
-    fileSize.textContent = formatSize(file.size);
+function showFiles(files) {
+    if (files.length === 1) {
+        fileName.textContent = files[0].name;
+        fileSize.textContent = formatSize(files[0].size);
+    } else {
+        fileName.innerHTML = `<strong>${files.length} arquivos selecionados</strong>`;
+        let totalSize = 0;
+        for (let i = 0; i < files.length; i++) totalSize += files[i].size;
+        fileSize.textContent = 'Tamanho total: ' + formatSize(totalSize);
+    }
     fileInfo.style.display = 'block';
     uploadBtn.disabled = false;
     dropZone.style.borderColor = 'var(--bm-accent)';
     document.getElementById('drop-icon').textContent = '✅';
 }
-input.addEventListener('change', () => { if (input.files[0]) showFile(input.files[0]); });
+input.addEventListener('change', () => { if (input.files.length > 0) showFiles(input.files); });
 dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--bm-accent)'; dropZone.style.background = 'rgba(79,142,247,0.05)'; });
 dropZone.addEventListener('dragleave', ()  => { dropZone.style.borderColor = 'var(--bm-border)'; dropZone.style.background = ''; });
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) { const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; showFile(file); }
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const dt = new DataTransfer();
+        for (let i = 0; i < files.length; i++) {
+            dt.items.add(files[i]);
+        }
+        input.files = dt.files;
+        showFiles(files);
+    }
 });
 document.getElementById('upload-form').addEventListener('submit', () => {
     const overlay = document.getElementById('upload-overlay');

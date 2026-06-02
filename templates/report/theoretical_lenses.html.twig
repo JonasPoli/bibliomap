@@ -13,39 +13,65 @@
 {% block body %}
 <!-- Page Header -->
 <div class="bm-page-header">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div>
             <h1 class="bm-page-title">
                 <i class="bi bi-mortarboard me-2 text-accent"></i>
                 Lentes Teóricas (Referencial Teórico)
             </h1>
-            <p class="bm-page-subtitle">Text-mining semântico do seu corpus cruzado com os clássicos e contemporâneos do PPGCTS e Sociologia</p>
+            <p class="bm-page-subtitle">Text-mining semântico do seu corpus cruzado com os clássicos e contemporâneos do seu campo de pesquisa</p>
         </div>
-        <span class="badge" style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.25);font-size:12px;padding:6px 14px">
-            <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
-        </span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge me-2" style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.25);font-size:12px;padding:6px 14px;height:34px;display:inline-flex;align-items:center;">
+                <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
+            </span>
+            <a href="{{ path('app_report_theoretical_lenses_recalculate', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;text-decoration:none;font-size:13px;padding:6px 14px;">
+                <i class="bi bi-arrow-clockwise"></i> Recalcular
+            </a>
+            <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
+                <i class="bi bi-plus-circle"></i> + Nova Lente
+            </button>
+
+            <select id="researchFieldFilter" class="form-select form-select-sm" style="width: auto; min-width: 170px; height:34px; background-color: var(--bm-card-bg); color: var(--bm-text); border-color: var(--bm-border); border-radius:8px; font-weight: 500;">
+                <option value="">Todas as Áreas</option>
+                {% for field in research_fields %}
+                    <option value="{{ field }}">{{ field }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
 </div>
+
+<!-- Flash Messages -->
+{% for label, messages in app.flashes %}
+    {% for message in messages %}
+        <div class="alert alert-{{ label == 'error' ? 'danger' : label }} alert-dismissible fade show border-bm mb-4" role="alert" style="border-radius: 12px; font-size:13.5px;">
+            <i class="bi {{ label == 'success' ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger' }} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endfor %}
 
 <!-- Academic Context Alert -->
 <div class="alert d-flex align-items-start gap-3 mb-4 border-bm" style="background:rgba(79,142,247,0.06);border-radius:12px;padding:16px;color:var(--bm-text)">
     <i class="bi bi-lightbulb-fill text-accent fs-4" style="flex-shrink:0;margin-top:2px"></i>
     <div style="font-size:13.5px;line-height:1.5">
-        <strong>Como este relatório apoia sua dissertação da UFSCar?</strong> <br>
-        Nas pós-graduações, adotar uma <strong>Lente Teórica</strong> (ou referencial de base) fornece os conceitos fundamentais para analisar seu objeto de estudo (ex: <em>Chatbots e Inteligência Artificial na Extensão Rural</em>). 
-        Este módulo faz um mapeamento automático nos títulos e resumos das suas bases em busca dos termos e pensadores mais presentes na área para ajudar você a decidir qual autor melhor justifica a sua análise acadêmica.
+        <strong>Como este relatório apoia sua dissertação ou tese?</strong> <br>
+        Nas pós-graduações, adotar uma <strong>Lente Teórica</strong> (ou referencial de base) fornece os conceitos fundamentais para analisar seu objeto de estudo.
+        Este módulo faz um mapeamento automático nos títulos e resumos em busca de termos e pensadores (<strong>Citação Direta</strong>) e varre a lista de <strong>Referências Bibliográficas</strong> em busca de cocitações aos clássicos da literatura acadêmica.
     </div>
 </div>
 
 <!-- Top Matches Row -->
-<h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:16px;letter-spacing:-0.2px">📊 Ranking de Relevância Teórica no seu Corpus</h4>
+<h4 id="topMatchesTitle" style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:16px;letter-spacing:-0.2px">📊 Ranking de Relevância Teórica no seu Corpus</h4>
 <div class="row g-3 mb-4">
     {% set count = 0 %}
-    {% for key, t in theorists|slice(0, 3) %}
-        {% if t.match_count > 0 or count < 3 %}
+    {% for key, t in theorists %}
+        {% if (t.match_count > 0 or t.ref_match_count > 0 or count < 3) and count < 3 %}
         {% set count = count + 1 %}
-        <div class="col-md-4">
-            <div class="bm-card h-100" style="position:relative;overflow:hidden;border-color:{{ t.match_count > 0 ? t.color : 'var(--bm-border)' }}">
+        <div class="col-md-4 top-lens-card" data-research-field="{{ t.researchField }}">
+            <div class="bm-card h-100" style="position:relative;overflow:hidden;border-color:{{ t.match_count > 0 or t.ref_match_count > 0 ? t.color : 'var(--bm-border)' }}">
                 {# Left colored bar #}
                 <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:{{ t.color }}"></div>
                 
@@ -60,14 +86,14 @@
                 </div>
                 
                 <h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:6px;padding-left:4px">{{ t.name }}</h4>
-                <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;margin-bottom:16px;padding-left:4px">{{ t.description }}</p>
+                <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;margin-bottom:16px;padding-left:4px">{{ t.description|slice(0, 110) }}...</p>
                 
                 <div class="d-flex align-items-center justify-content-between border-top border-bm pt-3 ps-1">
-                    <span style="font-size:11px;color:var(--bm-text-muted)">
-                        <strong>{{ t.match_count }}</strong> artigos detectados
+                    <span style="font-size:11.5px;color:var(--bm-text-muted)">
+                        <strong>{{ t.match_count }}</strong> diretas &nbsp;·&nbsp; <strong>{{ t.ref_match_count }}</strong> nas refs
                     </span>
-                    <span class="badge" style="background:{{ t.match_count > 0 ? 'var(--bm-success)' : 'var(--bm-border)' }};color:white;font-size:10.5px;padding:4px 8px">
-                        {{ t.match_count > 0 ? ((t.match_count / total_docs) * 100)|round(1) ~ '%' : 'Sugestão Teórica' }}
+                    <span class="badge" style="background:{{ t.match_count > 0 or t.ref_match_count > 0 ? t.color : 'var(--bm-border)' }};color:white;font-size:10.5px;padding:4px 8px">
+                        {{ (t.match_count > 0 or t.ref_match_count > 0) ? (((t.match_count + t.ref_match_count) / total_docs) * 100)|round(1) ~ '%' : 'Sugestão Teórica' }}
                     </span>
                 </div>
             </div>
@@ -77,16 +103,16 @@
 </div>
 
 <!-- Lenses categories -->
-<div style="display:flex;flex-direction:column;gap:32px">
+<div id="lensesContainer" style="display:flex;flex-direction:column;gap:32px">
     {% for cat_name, members in categories %}
-        <div>
+        <div class="category-block" data-category="{{ cat_name }}">
             <h3 style="font-size:15px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;border-bottom:1px solid var(--bm-border);padding-bottom:6px">
                 {{ cat_name }}
             </h3>
             
             <div style="display:flex;flex-direction:column;gap:16px">
                 {% for t in members %}
-                    <div class="bm-card" style="padding:24px">
+                    <div class="bm-card lens-card" style="padding:24px" data-research-field="{{ t.researchField }}">
                         <div class="row g-3">
                             <!-- Left block: Theorist Details -->
                             <div class="col-lg-5 border-end-lg" style="border-right: 1px solid var(--bm-border)">
@@ -95,7 +121,10 @@
                                         <i class="bi {{ t.icon }} fs-4"></i>
                                     </div>
                                     <div>
-                                        <h4 style="font-size:17px;font-weight:700;color:var(--bm-text);margin:0">{{ t.name }}</h4>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h4 style="font-size:17px;font-weight:700;color:var(--bm-text);margin:0">{{ t.name }}</h4>
+                                            <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--bm-text-muted);font-size:9.5px;border:1px solid var(--bm-border);">{{ t.researchField }}</span>
+                                        </div>
                                         <span style="font-size:11px;color:var(--bm-text-muted);font-weight:500">{{ t.category }}</span>
                                     </div>
                                 </div>
@@ -113,41 +142,100 @@
                             
                             <!-- Right block: Mapped Articles & Relevance -->
                             <div class="col-lg-7 ps-lg-4">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <h5 style="font-size:13px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0">
-                                        Artigos do seu Corpus relacionados
-                                    </h5>
-                                    <span class="badge" style="background:rgba(79,142,247,0.1);color:var(--bm-accent);font-size:12px">
-                                        {{ t.match_count }} artigos ({{ ((t.match_count / total_docs) * 100)|round(1) }}%)
-                                    </span>
-                                </div>
+                                <ul class="nav nav-pills mb-3" id="lens-tabs-{{ t.id }}" role="tablist" style="gap:6px;">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active py-1.5 px-3" id="direct-tab-{{ t.id }}" data-bs-toggle="pill" data-bs-target="#direct-panel-{{ t.id }}" type="button" role="tab" aria-controls="direct-panel-{{ t.id }}" aria-selected="true" style="font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-radius:6px; border:1px solid var(--bm-border); color:var(--bm-text-muted); background:transparent;">
+                                            Citação Direta ({{ t.match_count }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link py-1.5 px-3" id="ref-tab-{{ t.id }}" data-bs-toggle="pill" data-bs-target="#ref-panel-{{ t.id }}" type="button" role="tab" aria-controls="ref-panel-{{ t.id }}" aria-selected="false" style="font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-radius:6px; border:1px solid var(--bm-border); color:var(--bm-text-muted); background:transparent;">
+                                            Citação nas Referências ({{ t.ref_match_count }})
+                                        </button>
+                                    </li>
+                                </ul>
                                 
-                                {% if t.docs is not empty %}
-                                    <div style="display:flex;flex-direction:column;gap:8px">
-                                        {% for doc in t.docs %}
-                                            <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.01);font-size:12.5px;transition:all 0.15s ease">
-                                                <div style="font-weight:600;margin-bottom:3px;color:var(--bm-text)">
-                                                    <i class="bi bi-file-earmark-text me-1 text-accent"></i>
-                                                    {{ doc.title }}
-                                                </div>
-                                                <div style="font-size:11px;color:var(--bm-text-muted)">
-                                                    <span>{{ doc.authors }}</span>
-                                                    <span style="margin:0 4px">•</span>
-                                                    <span>{{ doc.year }}</span>
-                                                </div>
+                                <div class="tab-content" id="lens-tabs-content-{{ t.id }}">
+                                    <!-- Direct Match Panel -->
+                                    <div class="tab-pane fade show active" id="direct-panel-{{ t.id }}" role="tabpanel" aria-labelledby="direct-tab-{{ t.id }}">
+                                        {% if t.docs is not empty %}
+                                            <div style="display:flex;flex-direction:column;gap:8px">
+                                                {% for doc in t.docs %}
+                                                    <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.01);font-size:12.5px;">
+                                                        <div style="font-weight:600;margin-bottom:3px;color:var(--bm-text)">
+                                                            <i class="bi bi-file-earmark-text me-1 text-accent"></i>
+                                                            {% set doc_link = '' %}
+                                                            {% if doc.doi is defined and doc.doi is not empty %}
+                                                                {% set doc_link = 'https://doi.org/' ~ doc.doi %}
+                                                            {% elseif doc.url is defined and doc.url is not empty %}
+                                                                {% set doc_link = doc.url %}
+                                                            {% else %}
+                                                                {% set doc_link = 'https://scholar.google.com/scholar?q=' ~ doc.title|url_encode %}
+                                                            {% endif %}
+                                                            <a href="{{ doc_link }}" target="_blank" style="color:var(--bm-text); text-decoration:none; transition: color 0.15s ease-in-out;" onmouseover="this.style.color='var(--bm-accent)'" onmouseout="this.style.color='var(--bm-text)'">
+                                                                {{ doc.title }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9.5px; opacity:0.65;"></i>
+                                                            </a>
+                                                        </div>
+                                                        <div style="font-size:11px;color:var(--bm-text-muted)">
+                                                            <span>{{ doc.authors }}</span>
+                                                            <span style="margin:0 4px">•</span>
+                                                            <span>{{ doc.year }}</span>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
                                             </div>
-                                        {% endfor %}
+                                        {% else %}
+                                            <div class="p-3 border border-bm rounded-3 text-center" style="background:rgba(255,255,255,0.01)">
+                                                <div style="font-size:24px;margin-bottom:8px">💡</div>
+                                                <h6 style="font-size:13.5px;font-weight:600;color:var(--bm-text);margin-bottom:4px">Como usar {{ t.name }} no seu trabalho?</h6>
+                                                <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;margin:0">
+                                                    Embora seu corpus não cite diretamente os termos do autor nos títulos/resumos (comum em buscas muito técnicas baseadas em IA), você pode adotar a sua teoria como <strong>Lente de Análise Crítica</strong> para o seu trabalho.
+                                                </p>
+                                            </div>
+                                        {% endif %}
                                     </div>
-                                {% else %}
-                                    <!-- No papers found, showing how this theoretical framework is applicable -->
-                                    <div class="p-3 border border-bm rounded-3 text-center" style="background:rgba(255,255,255,0.01)">
-                                        <div style="font-size:24px;margin-bottom:8px">💡</div>
-                                        <h6 style="font-size:13.5px;font-weight:600;color:var(--bm-text);margin-bottom:4px">Como usar {{ t.name }} no seu trabalho?</h6>
-                                        <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;max-width:480px;margin:0 auto">
-                                            Embora seu corpus não cite diretamente termos do autor nos títulos/resumos (comum em buscas muito técnicas baseadas em IA), você pode adotar a sua teoria como <strong>Lente de Análise Crítica</strong> para o seu Chatbot voltado à Extensão Rural, contrapondo tecnologia padrão versus realidade de campo.
-                                        </p>
+                                    
+                                    <!-- References Match Panel -->
+                                    <div class="tab-pane fade" id="ref-panel-{{ t.id }}" role="tabpanel" aria-labelledby="ref-tab-{{ t.id }}">
+                                        {% if t.ref_docs is not empty %}
+                                            <div style="display:flex;flex-direction:column;gap:8px">
+                                                {% for doc in t.ref_docs %}
+                                                    <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.01);font-size:12.5px;">
+                                                        <div style="font-weight:600;margin-bottom:3px;color:var(--bm-text)">
+                                                            <i class="bi bi-journal-text me-1 text-success"></i>
+                                                            {% set doc_link = '' %}
+                                                            {% if doc.doi is defined and doc.doi is not empty %}
+                                                                {% set doc_link = 'https://doi.org/' ~ doc.doi %}
+                                                            {% elseif doc.url is defined and doc.url is not empty %}
+                                                                {% set doc_link = doc.url %}
+                                                            {% else %}
+                                                                {% set doc_link = 'https://scholar.google.com/scholar?q=' ~ doc.title|url_encode %}
+                                                            {% endif %}
+                                                            <a href="{{ doc_link }}" target="_blank" style="color:var(--bm-text); text-decoration:none; transition: color 0.15s ease-in-out;" onmouseover="this.style.color='var(--bm-accent)'" onmouseout="this.style.color='var(--bm-text)'">
+                                                                {{ doc.title }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9.5px; opacity:0.65;"></i>
+                                                            </a>
+                                                        </div>
+                                                        <div style="font-size:11px;color:var(--bm-text-muted)">
+                                                            <span>{{ doc.authors }}</span>
+                                                            <span style="margin:0 4px">•</span>
+                                                            <span>{{ doc.year }}</span>
+                                                            <span style="margin:0 4px">•</span>
+                                                            <span class="text-success"><i class="bi bi-bookmark-fill me-1"></i>Citado nas referências (Bibliografia)</span>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <div class="p-3 border border-bm rounded-3 text-center" style="background:rgba(255,255,255,0.01)">
+                                                <div style="font-size:24px;margin-bottom:8px">📚</div>
+                                                <h6 style="font-size:13.5px;font-weight:600;color:var(--bm-text);margin-bottom:4px">Nenhuma citação nas referências detectada</h6>
+                                                <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.4;margin:0">
+                                                    Nenhum dos artigos do corpus cita este pensador na bibliografia de apoio. Certifique-se de que os seus arquivos importados contêm a lista de referências (comum nos formatos Plain Text do WoS, MEDLINE do PubMed, e exports do Lens.org/Scopus).
+                                                </p>
+                                            </div>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -164,21 +252,174 @@
         <div class="col-md-4">
             <div class="p-3 bg-bm-card border border-bm rounded-3">
                 <h5 style="font-size:13.5px;font-weight:700;color:var(--bm-accent);margin-bottom:6px">1. Justifique a escolha</h5>
-                No capítulo introdutório, explique que o chatbot não é apenas um "software técnico de IA", mas sim um <strong>artefato sociotécnico</strong> híbrido que interage na extensão rural. Justifique a lente (ex: Latour ou Dagnino) a ser usada.
+                No capítulo introdutório, explique que o problema estudado não é apenas um "desafio técnico", mas sim um <strong>objeto sociotécnico</strong> complexo inserido em sua realidade local. Justifique a lente teórica adotada.
             </div>
         </div>
         <div class="col-md-4">
             <div class="p-3 bg-bm-card border border-bm rounded-3">
                 <h5 style="font-size:13.5px;font-weight:700;color:#a855f7;margin-bottom:6px">2. Construa o Capítulo Teórico</h5>
-                Dedique o Capítulo 2 a detalhar a teoria adotada. Se escolher <strong>Dagnino</strong>, conceitue "Adequação Sociotécnica" e mostre como chatbots baseados em LLMs convencionais exigem readequação local para a agricultura familiar.
+                Dedique o Capítulo 2 a detalhar a teoria adotada. Explore seus conceitos mais importantes e evidencie a literatura acadêmica correspondente ao seu respectivo referencial.
             </div>
         </div>
         <div class="col-md-4">
             <div class="p-3 bg-bm-card border border-bm rounded-3">
                 <h5 style="font-size:13.5px;font-weight:700;color:var(--bm-success);margin-bottom:6px">3. Use na análise dos dados</h5>
-                No capítulo de Resultados, analise a interação do extensionista com o chatbot através dos conceitos da lente teórica (ex: use os conceitos de "porta-voz", "tradução" e "inscrição" se escolheu a <strong>Teoria Ator-Rede</strong>).
+                No capítulo de Análise e Resultados, analise o comportamento empírico observado através dos conceitos fornecidos pela lente teórica escolhida, gerando uma reflexão científica madura.
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Adicionar Lente Teórica -->
+<div class="modal fade" id="addLensModal" tabindex="-1" aria-labelledby="addLensModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background-color: var(--bm-card-bg); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 16px;">
+            <form action="{{ path('app_report_theoretical_lenses_add', {id: project.id}) }}" method="POST">
+                <div class="modal-header border-bm" style="border-bottom: 1px solid var(--bm-border);">
+                    <h5 class="modal-title" id="addLensModalLabel" style="font-weight: 700; color: var(--bm-text);">
+                        <i class="bi bi-plus-circle-fill text-accent me-2"></i>Nova Lente Teórica / Referencial
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="font-size: 13.5px; line-height: 1.5; padding: 24px; color: var(--bm-text);">
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="nameInput" class="form-label" style="font-weight: 600;">Nome do Autor / Pensador *</label>
+                            <input type="text" class="form-control" id="nameInput" name="name" required placeholder="Ex: Zygmunt Bauman" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="researchFieldInput" class="form-label" style="font-weight: 600;">Área de Pesquisa *</label>
+                            <input type="text" class="form-control" id="researchFieldInput" name="research_field" required placeholder="Ex: Saúde Coletiva, Administração, Educação" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="categoryInput" class="form-label" style="font-weight: 600;">Categoria / Corrente Teórica *</label>
+                            <input type="text" class="form-control" id="categoryInput" name="category" required placeholder="Ex: Sociologia Líquida, Epidemiologia Crítica" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="colorInput" class="form-label" style="font-weight: 600;">Cor Temática (Identidade)</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" class="form-control form-control-color" id="colorInput" name="color" value="#4f8ef7" title="Escolha uma cor de tema" style="width: 48px; height: 38px; padding: 2px; background: none; border: 1px solid var(--bm-border); border-radius: 6px;">
+                                <span style="font-size: 12px; color: var(--bm-text-muted);">Layout personalizado no relatório.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="termsInput" class="form-label" style="font-weight: 600;">Palavras-Chave de Mineração (Separadas por vírgula) *</label>
+                        <textarea class="form-control" id="termsInput" name="terms" rows="2" required placeholder="Ex: bauman, modernidade liquida, liquido, amor liquido, individualizacao" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;"></textarea>
+                        <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
+                            Termos de texto buscados nas publicações do seu corpus.
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label for="iconInput" class="form-label" style="font-weight: 600;">Ícone Representativo</label>
+                            <select class="form-select" id="iconInput" name="icon" style="background-color: var(--bm-card-bg); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
+                                <option value="bi-mortarboard" selected>🎓 Mortarboard (Acadêmico Geral)</option>
+                                <option value="bi-diagram-3-fill">🌐 Diagram (Redes, Sistemas, Atores)</option>
+                                <option value="bi-eye-fill">👁️ Eye (Poder, Vigilância, Análise)</option>
+                                <option value="bi-hammer">🔨 Hammer (Trabalho, Produção, Marxismo)</option>
+                                <option value="bi-chat-quote-fill">💬 Chat Quote (Diálogo, Linguagem, Ação)</option>
+                                <option value="bi-infinity">🔄 Infinity (Ciclos, Paradigmas, Revoluções)</option>
+                                <option value="bi-award-fill">🏆 Award (Mérito, Habitus, Capitais)</option>
+                                <option value="bi-activity">⚡ Activity (Ação, Saúde, Movimento)</option>
+                                <option value="bi-people-fill">👥 People (Sociedade, Grupos Relevantes)</option>
+                                <option value="bi-shuffle">🔀 Shuffle (Flexibilidade, Transições)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="descriptionInput" class="form-label" style="font-weight: 600;">Conexão com a Linha de Pesquisa (Descrição Acadêmica) *</label>
+                        <textarea class="form-control" id="descriptionInput" name="description" rows="4" required placeholder="Explique como essa lente teórica ajuda a enxergar e analisar o seu objeto de estudo específico..." style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;"></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-bm" style="border-top: 1px solid var(--bm-border);">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
+                    <button type="submit" class="btn btn-accent" style="border-radius: 8px; color: white;">Salvar Referencial</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<style>
+/* Custom style to override Bootstrap default Nav Pills active background */
+.nav-pills .nav-link.active {
+    background-color: var(--bm-accent) !important;
+    border-color: var(--bm-accent) !important;
+    color: white !important;
+}
+.nav-pills .nav-link:not(.active):hover {
+    background-color: rgba(255,255,255,0.03) !important;
+    color: var(--bm-text) !important;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterSelect = document.getElementById('researchFieldFilter');
+    const lensCards = document.querySelectorAll('.lens-card');
+    const topLensCards = document.querySelectorAll('.top-lens-card');
+    const categoryBlocks = document.querySelectorAll('.category-block');
+    const rankingTitle = document.getElementById('topMatchesTitle');
+
+    filterSelect.addEventListener('change', function() {
+        const selectedValue = this.value;
+
+        // Filter Top matches cards
+        let visibleTopCount = 0;
+        topLensCards.forEach(card => {
+            const field = card.getAttribute('data-research-field');
+            if (!selectedValue || field === selectedValue) {
+                card.style.display = 'block';
+                visibleTopCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Hide ranking title if no top matches are visible
+        if (rankingTitle) {
+            rankingTitle.style.display = visibleTopCount > 0 ? 'block' : 'none';
+        }
+
+        // Filter main list lens cards
+        lensCards.forEach(card => {
+            const field = card.getAttribute('data-research-field');
+            if (!selectedValue || field === selectedValue) {
+                card.style.setProperty('display', 'block', 'important');
+            } else {
+                card.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // Hide categories that have no visible cards
+        categoryBlocks.forEach(block => {
+            const blockCards = block.querySelectorAll('.lens-card');
+            let hasVisible = false;
+            blockCards.forEach(c => {
+                if (c.style.display !== 'none') {
+                    hasVisible = true;
+                }
+            });
+
+            if (hasVisible) {
+                block.style.display = 'block';
+            } else {
+                block.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -1,0 +1,184 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gerenciamento de Lentes Teóricas — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Lentes Teóricas</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <h1 class="bm-page-title">
+                <i class="bi bi-mortarboard me-2 text-accent"></i>
+                Gerenciar Lentes Teóricas
+            </h1>
+            <p class="bm-page-subtitle">Adicione, edite ou remova autores e seus formatos de citação para a mineração do corpus.</p>
+        </div>
+        <div>
+            <a href="{{ path('app_admin_theoretical_lenses_new') }}" class="btn btn-bm-primary d-inline-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle"></i> + Nova Lente
+            </a>
+        </div>
+    </div>
+</div>
+
+{# Filters Card #}
+<div class="bm-card mb-4" style="padding: 16px;">
+    <form method="GET" action="{{ path('app_admin_theoretical_lenses_index') }}" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text border-bm" style="background:rgba(255,255,255,0.02);color:var(--bm-text-muted)">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" name="search" class="form-control" placeholder="Buscar por nome, categoria ou descrição..." value="{{ search }}">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <select name="field" class="form-select form-select-sm">
+                <option value="">Todas as Áreas de Pesquisa</option>
+                {% for field in fields %}
+                    <option value="{{ field }}" {{ fieldFilter == field ? 'selected' : '' }}>{{ field }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-bm-primary btn-sm flex-grow-1" style="height: 33px;">Filtrar</button>
+            {% if search or fieldFilter %}
+                <a href="{{ path('app_admin_theoretical_lenses_index') }}" class="btn btn-bm-secondary btn-sm d-flex align-items-center justify-content-center" style="height: 33px;" title="Limpar Filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{# Lenses Table #}
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div style="font-size: 13.5px; color: var(--bm-text-muted)">
+            Mostrando <strong>{{ lenses|length }}</strong> de <strong>{{ totalItems }}</strong> registros cadastrados.
+        </div>
+    </div>
+
+    {% if lenses is empty %}
+        <div class="text-center py-5">
+            <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+            <h5 style="font-weight: 600; color: var(--bm-text);">Nenhuma lente teórica encontrada</h5>
+            <p class="text-muted-bm mb-0">Tente ajustar seus critérios de busca ou filtros.</p>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" style="color:var(--bm-text); font-size: 13.5px;">
+                <thead>
+                    <tr style="color:var(--bm-text-muted); border-color:var(--bm-border)">
+                        <th style="width: 60px;">ID</th>
+                        <th>Autor / Pensador</th>
+                        <th>Área / Categoria</th>
+                        <th>Palavras-Chave de Busca</th>
+                        <th>Formatos de Citação</th>
+                        <th class="text-end" style="width: 140px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for lens in lenses %}
+                    <tr style="border-color:var(--bm-border)">
+                        <td style="color:var(--bm-text-muted); font-family:var(--bs-font-monospace)">#{{ lens.id }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:28px; height:28px; background:rgba(255,255,255,0.03); border:1px solid var(--bm-border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:{{ lens.color }}">
+                                    <i class="bi {{ lens.icon }}"></i>
+                                </div>
+                                <span style="font-weight:600">{{ lens.name }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge" style="background:rgba(255,255,255,0.05); color:var(--bm-text-muted); border: 1px solid var(--bm-border)">{{ lens.researchField }}</span>
+                            <div style="font-size: 11px; color: var(--bm-text-muted); margin-top: 2px;">{{ lens.category }}</div>
+                        </td>
+                        <td>
+                            {% for term in lens.terms %}
+                                <code style="color: var(--bm-accent); background: rgba(79,142,247,0.05); padding: 1px 4px; border-radius: 4px; font-size: 10.5px;">{{ term }}</code>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <div style="display:flex; flex-direction:column; gap:2px">
+                                {% for format in lens.citationFormats|slice(0, 3) %}
+                                    <span style="font-size: 11px; font-family: monospace; color: var(--bm-success)">{{ format }}</span>
+                                {% endfor %}
+                                {% if lens.citationFormats|length > 3 %}
+                                    <span style="font-size: 9.5px; color: var(--bm-text-muted)">+{{ lens.citationFormats|length - 3 }} formatos</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-1">
+                                <a href="{{ path('app_admin_theoretical_lenses_edit', {id: lens.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" title="Editar Lente">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="POST" action="{{ path('app_admin_theoretical_lenses_delete', {id: lens.id}) }}" onsubmit="return confirm('Tem certeza absoluta de que deseja excluir a lente teórica de {{ lens.name|escape('js') }}?');" style="display:inline-block">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_lens_delete_' ~ lens.id) }}">
+                                    <button class="btn btn-sm btn-outline-danger px-2 py-1" style="border-radius:8px;" title="Remover Lente">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Pagination #}
+        {% if totalPages > 1 %}
+            <div class="d-flex align-items-center justify-content-between mt-3 border-top border-bm pt-3">
+                <div style="font-size: 12.5px; color: var(--bm-text-muted)">
+                    Página <strong>{{ page }}</strong> de <strong>{{ totalPages }}</strong>
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {# First & Previous #}
+                        <li class="page-item {{ page == 1 ? 'disabled' : '' }}">
+                            <a class="page-link border-bm bg-transparent" href="{{ path('app_admin_theoretical_lenses_index', {page: 1, search: search, field: fieldFilter}) }}" style="color: var(--bm-text)">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item {{ page == 1 ? 'disabled' : '' }}">
+                            <a class="page-link border-bm bg-transparent" href="{{ path('app_admin_theoretical_lenses_index', {page: page - 1, search: search, field: fieldFilter}) }}" style="color: var(--bm-text)">
+                                Anterior
+                            </a>
+                        </li>
+
+                        {# Page numbers around current #}
+                        {% set startPage = max(1, page - 2) %}
+                        {% set endPage = min(totalPages, page + 2) %}
+                        {% for p in startPage..endPage %}
+                            <li class="page-item {{ page == p ? 'active' : '' }}">
+                                <a class="page-link border-bm {{ page == p ? 'btn-accent' : 'bg-transparent' }}" href="{{ path('app_admin_theoretical_lenses_index', {page: p, search: search, field: fieldFilter}) }}" style="{{ page == p ? 'color:white; border-color:var(--bm-accent)' : 'color: var(--bm-text)' }}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                        {% endfor %}
+
+                        {# Next & Last #}
+                        <li class="page-item {{ page == totalPages ? 'disabled' : '' }}">
+                            <a class="page-link border-bm bg-transparent" href="{{ path('app_admin_theoretical_lenses_index', {page: page + 1, search: search, field: fieldFilter}) }}" style="color: var(--bm-text)">
+                                Próxima
+                            </a>
+                        </li>
+                        <li class="page-item {{ page == totalPages ? 'disabled' : '' }}">
+                            <a class="page-link border-bm bg-transparent" href="{{ path('app_admin_theoretical_lenses_index', {page: totalPages, search: search, field: fieldFilter}) }}" style="color: var(--bm-text)">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

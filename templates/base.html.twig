@@ -342,6 +342,11 @@
                    style="padding-left:32px;font-size:12.5px">
                     <i class="bi bi-people" style="font-size:13px"></i> Usu&aacute;rios
                 </a>
+                <a href="{{ path('app_admin_theoretical_lenses_index') }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin_theoretical_lenses' %}active{% endif %}"
+                   style="padding-left:32px;font-size:12.5px">
+                    <i class="bi bi-mortarboard" style="font-size:13px"></i> Lentes Te&oacute;ricas
+                </a>
                 <a href="{{ path('app_admin_settings') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_admin_settings' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">
