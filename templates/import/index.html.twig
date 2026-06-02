@@ -224,31 +224,111 @@
             {# ════ WEB OF SCIENCE ════ #}
             <div class="src-panel" id="panel-wos">
                 <div class="src-header">
-                    <div class="src-logo" style="background:#0056a0;color:white">WoS</div>
+                    <div class="src-logo" style="background:#0056a0;color:white;font-size:13px;font-weight:900">WoS</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Web of Science (Clarivate)</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">webofscience.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-txt">TXT</span></div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">webofscience.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-txt">Plain Text (.txt)</span></div>
                     </div>
                 </div>
+
                 <ol class="step-list">
-                    <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.webofscience.com" target="_blank" style="color:var(--bm-accent)">webofscience.com</a> e execute sua busca.</div></li>
-                    <li><div class="step-num">2</div><div class="step-text">Selecione os registros. Para selecionar todos: clique no checkbox superior e escolha <strong>"Select all records on this page"</strong>, ou use "Add all records to Marked List".</div></li>
-                    <li><div class="step-num">3</div><div class="step-text">Clique em <strong>"Export"</strong> e selecione <strong>"Tab-delimited File"</strong> (ou "Other File Formats" em versões mais antigas).</div></li>
-                    <li><div class="step-num">4</div><div class="step-text">
-                        Na janela de exportação, configure:
-                        <ul style="margin:6px 0 0 4px;padding-left:16px;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
-                            <li>Records: <strong>All records on page</strong> ou intervalo de registros</li>
-                            <li>Record Content: <strong>Full Record and Cited References</strong></li>
-                            <li>File Format: <strong>Tab-delimited (Win, UTF-8)</strong></li>
-                        </ul>
-                    </div></li>
-                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.txt</code> será baixado.</div></li>
+                    <li>
+                        <div class="step-num">1</div>
+                        <div class="step-text">
+                            Acesse <a href="https://www.webofscience.com" target="_blank" style="color:var(--bm-accent)">webofscience.com</a>
+                            e execute sua busca. Anote o número total de resultados (ex: <em>"42.791 Documents"</em>).
+                        </div>
+                    </li>
+                    <li>
+                        <div class="step-num">2</div>
+                        <div class="step-text">
+                            Clique no botão <strong>"Export"</strong> (menu dropdown acima da lista de resultados, ao lado de "Add To Marked List").
+                        </div>
+                    </li>
+                    <li>
+                        <div class="step-num">3</div>
+                        <div class="step-text">
+                            No menu que abre, selecione <strong>"Plain text file"</strong>.<br>
+                            <span style="font-size:12px;color:var(--bm-text-muted)">⚠ Não escolha "EndNote desktop", "RIS" ou "BibTeX" — o BiblioMap identifica melhor o formato Plain Text do WoS, que inclui todas as tags de campo.</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="step-num">4</div>
+                        <div class="step-text">
+                            Na janela <strong>"Export Records to Plain Text File"</strong>:
+                            <ul style="margin:8px 0 0 4px;padding-left:16px;line-height:1.9;font-size:13px;color:var(--bm-text-muted)">
+                                <li>Selecione <strong style="color:var(--bm-text)">"Records from:"</strong> e defina o intervalo — ex: <code>1</code> a <code>500</code></li>
+                                <li>Em <strong style="color:var(--bm-text)">"Record Content"</strong>, selecione <strong style="color:var(--bm-text)">"Full Record and Cited References"</strong></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="step-num">5</div>
+                        <div class="step-text">
+                            Clique em <strong>"Export"</strong>. O arquivo <code>savedrecs.txt</code> será baixado automaticamente.
+                            Renomeie para algo identificável (ex: <code>wos_1_500.txt</code>) antes de importar.
+                        </div>
+                    </li>
                 </ol>
-                <div class="step-note">
+
+                {# Batch export section #}
+                <div style="margin:20px 0 12px;padding:14px 16px;background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.18);border-radius:12px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                        <i class="bi bi-stack" style="color:var(--bm-accent);font-size:15px"></i>
+                        <strong style="font-size:13.5px;color:var(--bm-text)">Como exportar mais de 500 registros (em lotes)</strong>
+                    </div>
+                    <p style="font-size:13px;color:var(--bm-text-muted);margin:0 0 10px;line-height:1.6">
+                        O WoS limita cada exportação a <strong style="color:var(--bm-text)">500 registros por vez</strong>.
+                        Para buscas com mais resultados, repita o processo ajustando o intervalo a cada exportação:
+                    </p>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;align-items:center">
+                        <code style="background:rgba(255,255,255,.05);padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.08);color:#c9d1d9;white-space:nowrap">1 → 500</code>
+                        <span style="color:var(--bm-text-muted)">1º arquivo → <code>wos_1_500.txt</code></span>
+                        <code style="background:rgba(255,255,255,.05);padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.08);color:#c9d1d9;white-space:nowrap">501 → 1000</code>
+                        <span style="color:var(--bm-text-muted)">2º arquivo → <code>wos_501_1000.txt</code></span>
+                        <code style="background:rgba(255,255,255,.05);padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.08);color:#c9d1d9;white-space:nowrap">1001 → 1500</code>
+                        <span style="color:var(--bm-text-muted)">3º arquivo → e assim por diante…</span>
+                    </div>
+                    <p style="font-size:12.5px;color:var(--bm-text-muted);margin:10px 0 0;line-height:1.6">
+                        Importe cada arquivo separadamente no mesmo projeto. O BiblioMap faz a
+                        <strong style="color:var(--bm-text)">deduplicação automática</strong> entre os lotes, eliminando registros duplicados pelo hash título+ano.
+                    </p>
+                </div>
+
+                {# File format reference #}
+                <div style="margin-top:16px">
+                    <div style="font-size:12px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+                        Estrutura do arquivo gerado
+                    </div>
+                    <div style="font-family:'Fira Mono','Cascadia Code',monospace;font-size:11.5px;background:#060b14;border:1px solid #1e2d45;border-radius:10px;padding:14px 16px;line-height:1.8;overflow-x:auto">
+                        <span style="color:#6a9955">FN Clarivate Analytics Web of Science</span><br>
+                        <span style="color:#6a9955">VR 1.0</span><br>
+                        <span style="color:#569cd6">PT</span> <span style="color:#ce9178">J</span> &nbsp;<span style="color:#4a5568">← tipo: J=artigo, C=conferência, B=livro</span><br>
+                        <span style="color:#569cd6">AU</span> <span style="color:#ce9178">Sobrenome, N</span> &nbsp;<span style="color:#4a5568">← autores (um por linha com indentação)</span><br>
+                        <span style="color:#569cd6">AF</span> <span style="color:#ce9178">Nome Completo</span> &nbsp;<span style="color:#4a5568">← nome completo dos autores</span><br>
+                        <span style="color:#569cd6">TI</span> <span style="color:#ce9178">Título do artigo</span><br>
+                        <span style="color:#569cd6">SO</span> <span style="color:#ce9178">NOME DO PERIÓDICO</span><br>
+                        <span style="color:#569cd6">DE</span> <span style="color:#ce9178">palavra-chave; outra keyword</span><br>
+                        <span style="color:#569cd6">AB</span> <span style="color:#ce9178">Resumo completo do artigo...</span><br>
+                        <span style="color:#569cd6">PY</span> <span style="color:#b5cea8">2024</span> &nbsp;<span style="color:#4a5568">← ano de publicação</span><br>
+                        <span style="color:#569cd6">DI</span> <span style="color:#ce9178">10.xxxx/xxxxx</span> &nbsp;<span style="color:#4a5568">← DOI</span><br>
+                        <span style="color:#569cd6">UT</span> <span style="color:#ce9178">WOS:000XXXXXXXXXX</span> &nbsp;<span style="color:#4a5568">← ID único WoS</span><br>
+                        <span style="color:#569cd6">ER</span> &nbsp;<span style="color:#4a5568">← fim do registro</span><br>
+                        <br>
+                        <span style="color:#4a5568">PT J  ← próximo registro...</span>
+                    </div>
+                </div>
+
+                <div class="step-note" style="margin-top:16px">
                     <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
-                    <span><strong style="color:#94a3b8">Limite:</strong> o WoS exporta até 1.000 registros por vez. Para lotes maiores, use a opção "Marked List" e exporte em grupos de 1.000. O BiblioMap detecta automaticamente o formato WoS pelas tags de campo (<code>PT</code>, <code>AU</code>, <code>TI</code>, <code>SO</code>...).</span>
+                    <span>
+                        O arquivo começa sempre com <code>FN Clarivate Analytics Web of Science</code> e <code>VR 1.0</code>.
+                        Cada registro termina com a tag <code>ER</code> em linha isolada.
+                        O BiblioMap detecta automaticamente este formato e mapeia todas as tags de campo.
+                    </span>
                 </div>
             </div>
+
 
             {# ════ LENS.ORG ════ #}
             <div class="src-panel" id="panel-lens">
