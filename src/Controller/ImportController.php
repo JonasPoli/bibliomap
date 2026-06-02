@@ -167,13 +167,16 @@ class ImportController extends AbstractController
         //   - Symfony Profiler collecting 100k+ SQL queries → OOM
         //   - Monolog NormalizerFormatter buffering log data → OOM
         //   - PHP web request timeout (max_execution_time)
+        $phpFinder = new \Symfony\Component\Process\PhpExecutableFinder();
+        $phpBinary = $phpFinder->find(false) ?: 'php';
+
         $projectDir = $this->getParameter('kernel.project_dir');
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
 
         $appEnv  = $_SERVER['APP_ENV'] ?? 'dev';
         $cmd = sprintf(
             'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg($phpBinary),
             escapeshellarg($projectDir),
             $dataset->getId(),
             escapeshellarg($appEnv),

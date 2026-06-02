@@ -1,0 +1,485 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gráfico de Três Campos — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Gráfico de Três Campos</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
+</button>
+<a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-arrow-left me-1"></i> Voltar
+</a>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Layout Grid ─────────────────────────────────────────────── */
+.tf-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+/* ── Sidebar controls ────────────────────────────────────────── */
+.tf-sidebar {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: start;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+.sidebar-section-title {
+    font-size: 11px; font-weight: 700; color: var(--bm-text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--bm-border);
+    padding-bottom: 6px;
+}
+.control-group {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 12px;
+}
+.control-label {
+    font-size: 12.5px; font-weight: 600; color: var(--bm-text-muted);
+    display: flex; justify-content: space-between;
+}
+.control-input {
+    background: var(--bm-bg); border: 1px solid var(--bm-border);
+    color: var(--bm-text); border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; font-weight: 500;
+}
+.control-input:focus { outline: none; border-color: var(--bm-accent); }
+input[type="range"] {
+    accent-color: var(--bm-accent);
+}
+
+/* ── Main Sankey Area ────────────────────────────────────────── */
+.tf-card-wrap {
+    background: var(--bm-card-bg);
+    border: 1px solid var(--bm-border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+.chart-container {
+    position: relative;
+    height: 600px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    border: 1px solid var(--bm-border);
+    padding: 10px;
+}
+.tf-loading {
+    position: absolute; inset: 0;
+    background: rgba(22,27,34,0.9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--bm-text-muted); font-size: 14px; gap: 12px;
+    z-index: 20;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table Styling ───────────────────────────────────────────── */
+.tbl-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--bm-border);
+    padding-top: 20px;
+}
+.tf-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px;
+}
+.tf-table th {
+    padding: 10px 12px; text-align: left; color: var(--bm-text-muted);
+    font-weight: 600; border-bottom: 2px solid var(--bm-border);
+    text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.5px;
+}
+.tf-table td {
+    padding: 12px 12px; border-bottom: 1px solid var(--bm-border); color: var(--bm-text);
+}
+.tf-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+.col-header-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;
+}
+.pill-left { background: rgba(79, 142, 247, 0.15); color: #4f8ef7; border: 1px solid rgba(79, 142, 247, 0.3); }
+.pill-middle { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
+.pill-right { background: rgba(57, 211, 83, 0.15); color: #39d353; border: 1px solid rgba(57, 211, 83, 0.3); }
+</style>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header" style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:42px;height:42px;background:var(--bm-gradient);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow: 0 4px 10px rgba(79,142,247,0.3)">
+            <i class="bi bi-bezier2" style="color:white"></i>
+        </div>
+        <div>
+            <h1 class="bm-page-title" style="margin:0">Gráfico de Três Campos (Three-Fields Plot)</h1>
+            <p class="bm-page-subtitle" style="margin:0">Relações tridimensionais conectando fluxos de autoria, termos, periódicos e nações</p>
+        </div>
+    </div>
+</div>
+
+<!-- Main Layout Grid -->
+<div class="tf-layout">
+
+    <!-- Left Controls Sidebar -->
+    <div class="tf-sidebar">
+        <div>
+            <div class="sidebar-section-title">Estrutura das Colunas</div>
+            
+            <!-- Left Field -->
+            <div class="control-group">
+                <label class="control-label">Coluna Esquerda (Origem)</label>
+                <select id="param-left" class="control-input" onchange="loadThreeFields()">
+                    <option value="country" selected>Países</option>
+                    <option value="author">Autores</option>
+                    <option value="source">Periódicos / Fontes</option>
+                    <option value="institution">Instituições</option>
+                </select>
+            </div>
+
+            <!-- Middle Field -->
+            <div class="control-group">
+                <label class="control-label">Coluna Central (Mediação)</label>
+                <select id="param-middle" class="control-input" onchange="loadThreeFields()">
+                    <option value="keyword_author" selected>Palavras-Chave de Autor</option>
+                    <option value="keyword_indexed">Palavras-Chave Indexadas</option>
+                    <option value="author">Autores</option>
+                    <option value="institution">Instituições</option>
+                </select>
+            </div>
+
+            <!-- Right Field -->
+            <div class="control-group">
+                <label class="control-label">Coluna Direita (Destino)</label>
+                <select id="param-right" class="control-input" onchange="loadThreeFields()">
+                    <option value="source" selected>Periódicos / Fontes</option>
+                    <option value="country">Países</option>
+                    <option value="author">Autores</option>
+                    <option value="institution">Instituições</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <div class="sidebar-section-title">Filtros & Métricas</div>
+            
+            <!-- Nodes Limit -->
+            <div class="control-group">
+                <label class="control-label">
+                    <span>Limite de Itens por Coluna</span>
+                    <span id="lbl-limit" style="color:var(--bm-accent);font-weight:700">15</span>
+                </label>
+                <input type="range" id="param-limit" min="5" max="50" step="5" value="15" oninput="updateLimitLabel(this.value)" onchange="loadThreeFields()">
+                <small class="text-muted" style="font-size:10px">Controla a densidade visual e legibilidade do fluxo.</small>
+            </div>
+
+            <!-- Min Link Weight -->
+            <div class="control-group">
+                <label class="control-label">
+                    <span>Frequência Mínima (Conexão)</span>
+                    <span id="lbl-min-weight" style="color:var(--bm-accent);font-weight:700">1</span>
+                </label>
+                <input type="range" id="param-min-weight" min="1" max="20" value="1" oninput="updateWeightLabel(this.value)" onchange="loadThreeFields()">
+                <small class="text-muted" style="font-size:10px">Esconde conexões raras entre as colunas.</small>
+            </div>
+        </div>
+
+        <div style="font-size:11.5px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px;line-height:1.6">
+            <span style="font-weight:700;display:block;margin-bottom:6px;color:var(--bm-text)"><i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-warning)"></i>Dica de Visualização</span>
+            O gráfico mostra a migração de conceitos. Você pode arrastar os blocos verticalmente para ajustar e tornar a leitura mais clara. Passe o mouse sobre uma linha para ver a força exata daquela conexão.
+        </div>
+    </div>
+
+    <!-- Right Plot Area -->
+    <div class="tf-card-wrap">
+        
+        <!-- Loading Indicator -->
+        <div class="tf-loading" id="tf-loading">
+            <i class="bi bi-arrow-clockwise spin" style="font-size:24px;color:var(--bm-accent)"></i>
+            <span>Mapeando co-ocorrências e gerando fluxos tridimensionais…</span>
+        </div>
+
+        <!-- Diagram Chart Area -->
+        <div class="chart-container">
+            <div id="three-fields-chart" style="width:100%;height:100%"></div>
+        </div>
+
+        <!-- Flows Legend Table -->
+        <div class="tbl-wrap">
+            <div class="sidebar-section-title" style="margin-bottom:12px">Lista Completa de Fluxos Bibliométricos</div>
+            <table class="tf-table" id="table-flows">
+                <thead>
+                    <tr>
+                        <th id="th-left">Coluna Esquerda</th>
+                        <th style="width:120px;text-align:center">Conexão</th>
+                        <th id="th-middle">Coluna Central</th>
+                        <th style="width:120px;text-align:center">Conexão</th>
+                        <th id="th-right">Coluna Direita</th>
+                    </tr>
+                </thead>
+                <tbody id="list-flows">
+                    <!-- Loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<!-- Load Apache ECharts from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>
+// ── Global Config ────────────────────────────────────────────────────────────
+const DATA_URL = '{{ path('app_three_fields_data', {id: project.id}) }}';
+let myChart    = null;
+let tfData     = null; // cached JSON coordinates
+
+const fieldLabels = {
+    'author': 'Autores',
+    'keyword_author': 'Palavras-Chave de Autor',
+    'keyword_indexed': 'Palavras-Chave Indexadas',
+    'source': 'Periódicos / Fontes',
+    'country': 'Países',
+    'institution': 'Instituições'
+};
+
+function updateLimitLabel(v) { document.getElementById('lbl-limit').textContent = v; }
+function updateWeightLabel(v) { document.getElementById('lbl-min-weight').textContent = v; }
+function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+
+function getColors() {
+    const light = isThemeLight();
+    return {
+        text: light ? '#24292f' : '#e6edf3',
+        labelColor: light ? '#24292f' : '#e6edf3',
+        lineColor: light ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)',
+    };
+}
+
+// ── Theme Re-drawing Listener ────────────────────────────────────────────────
+window.addEventListener('bm-theme-changed', () => {
+    if (tfData) {
+        renderSankey();
+    }
+});
+
+// ── Fetch Three Fields Data ──────────────────────────────────────────────────
+async function loadThreeFields() {
+    const loading = document.getElementById('tf-loading');
+    loading.style.display = 'flex';
+
+    const left      = document.getElementById('param-left').value;
+    const middle    = document.getElementById('param-middle').value;
+    const right     = document.getElementById('param-right').value;
+    const limit     = document.getElementById('param-limit').value;
+    const minWeight = document.getElementById('param-min-weight').value;
+
+    // Update table headers
+    document.getElementById('th-left').innerHTML = `<span class="col-header-pill pill-left">${fieldLabels[left]}</span>`;
+    document.getElementById('th-middle').innerHTML = `<span class="col-header-pill pill-middle">${fieldLabels[middle]}</span>`;
+    document.getElementById('th-right').innerHTML = `<span class="col-header-pill pill-right">${fieldLabels[right]}</span>`;
+
+    const url = `${DATA_URL}?left=${left}&middle=${middle}&right=${right}&limit=${limit}&minWeight=${minWeight}`;
+
+    try {
+        const response = await fetch(url);
+        tfData = await response.json();
+        
+        renderSankey();
+        renderTable();
+    } catch (e) {
+        console.error("Failed loading three fields data:", e);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+// Helper to strip the dynamic ECharts uniqueness suffix for display
+function cleanLabel(label) {
+    return label.replace(/\s\[[LMR]\]$/, '');
+}
+
+// ── Render ECharts Sankey ────────────────────────────────────────────────────
+function renderSankey() {
+    const chartDom = document.getElementById('three-fields-chart');
+    if (!myChart) {
+        myChart = echarts.init(chartDom);
+    }
+
+    const cl = getColors();
+
+    // Map labels of nodes to clear visual styling
+    const nodes = tfData.nodes.map(n => {
+        let color = '#4f8ef7'; // Esquerda (Blue)
+        if (n.name.includes('[M]')) color = '#a855f7'; // Centro (Purple)
+        else if (n.name.includes('[R]')) color = '#3fb950'; // Direita (Green)
+
+        return {
+            name: n.name,
+            itemStyle: {
+                color: color,
+                borderColor: color
+            }
+        };
+    });
+
+    const option = {
+        tooltip: {
+            trigger: 'item',
+            triggerOn: 'mousemove',
+            formatter: function (params) {
+                if (params.dataType === 'node') {
+                    return `<b>${cleanLabel(params.name)}</b>`;
+                }
+                const cleanSource = cleanLabel(params.data.source);
+                const cleanTarget = cleanLabel(params.data.target);
+                return `<b>${cleanSource}</b> ➔ <b>${cleanTarget}</b><br/>` + 
+                       `Frequência da Relação: <b>${params.data.value} documentos</b>`;
+            }
+        },
+        series: [
+            {
+                type: 'sankey',
+                layout: 'none',
+                emphasis: {
+                    focus: 'adjacency'
+                },
+                data: nodes,
+                links: tfData.links,
+                lineStyle: {
+                    color: 'gradient',
+                    curveness: 0.5,
+                    opacity: 0.25
+                },
+                label: {
+                    position: 'right',
+                    formatter: function (params) {
+                        return cleanLabel(params.name);
+                    },
+                    color: cl.labelColor,
+                    fontSize: 11,
+                    fontFamily: '"Inter", sans-serif',
+                    fontWeight: '600'
+                },
+                draggable: true
+            }
+        ]
+    };
+
+    myChart.setOption(option);
+    
+    // Auto-resize graph
+    window.addEventListener('resize', () => {
+        myChart.resize();
+    });
+}
+
+// ── Render Legend Table ──────────────────────────────────────────────────────
+function renderTable() {
+    const tbody = document.getElementById('list-flows');
+    tbody.innerHTML = '';
+
+    if (tfData.links.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-2"></i>Nenhum fluxo identificado com a frequência atual. Tente reduzir a "Frequência Mínima" ou aumentar a lista de itens.</td></tr>';
+        return;
+    }
+
+    // Sort links by value desc
+    const sorted = [...tfData.links].sort((a, b) => b.value - a.value);
+
+    // Filter Left-to-Middle links and Middle-to-Right links
+    const lmLinks = sorted.filter(l => l.source.includes('[L]') && l.target.includes('[M]'));
+    const mrLinks = sorted.filter(l => l.source.includes('[M]') && l.target.includes('[R]'));
+
+    const rows = [];
+    const maxLen = Math.max(lmLinks.length, mrLinks.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        const lm = lmLinks[i] || null;
+        const mr = mrLinks[i] || null;
+
+        rows.push(`
+            <tr>
+                <td style="font-weight:600;color:var(--bm-text)">${lm ? cleanLabel(lm.source) : ''}</td>
+                <td style="text-align:center;font-weight:700;color:#4f8ef7">${lm ? `➔ ${lm.value} ➔` : ''}</td>
+                <td style="font-weight:600;color:var(--bm-text)">${lm ? cleanLabel(lm.target) : (mr ? cleanLabel(mr.source) : '')}</td>
+                <td style="text-align:center;font-weight:700;color:#39d353">${mr ? `➔ ${mr.value} ➔` : ''}</td>
+                <td style="font-weight:600;color:var(--bm-text)">${mr ? cleanLabel(mr.target) : ''}</td>
+            </tr>
+        `);
+    }
+
+    tbody.innerHTML = rows.join('');
+}
+
+// ── Export CSV Table (Microsoft Excel accents and semicolon friendly) ────────
+function exportCSV() {
+    if (!tfData || tfData.links.length === 0) {
+        alert("Sem dados disponíveis para exportação.");
+        return;
+    }
+
+    let csvContent = "\uFEFF";
+    csvContent += "Origem;Forca Link 1;Intermediario;Forca Link 2;Destino\r\n";
+
+    const lmLinks = tfData.links.filter(l => l.source.includes('[L]') && l.target.includes('[M]'));
+    const mrLinks = tfData.links.filter(l => l.source.includes('[M]') && l.target.includes('[R]'));
+    const maxLen = Math.max(lmLinks.length, mrLinks.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        const lm = lmLinks[i] || null;
+        const mr = mrLinks[i] || null;
+        
+        const row = [
+            lm ? cleanLabel(lm.source) : '',
+            lm ? lm.value : '',
+            lm ? cleanLabel(lm.target) : (mr ? cleanLabel(mr.source) : ''),
+            mr ? mr.value : '',
+            mr ? cleanLabel(mr.target) : ''
+        ];
+        csvContent += row.join(";") + "\r\n";
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = 'fluxo-3-campos-projeto-{{ project.title|slice(0,20)|escape("js")|replace({" ": "_"}) }}.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Initialize
+loadThreeFields();
+</script>
+{% endblock %}

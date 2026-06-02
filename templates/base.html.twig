@@ -240,6 +240,10 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_thematic_evolution' %}active{% endif %}">
                     <i class="bi bi-bar-chart-steps"></i> Evolução temática
                 </a>
+                <a href="{{ path('app_three_fields_plot', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_three_fields' %}active{% endif %}">
+                    <i class="bi bi-bezier2"></i> Gráfico de Três Campos
+                </a>
                 <div class="bm-nav-section" style="margin-top:8px">Relatórios</div>
                 <a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_report_keyword_evolution' %}active{% endif %}">

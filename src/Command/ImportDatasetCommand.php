@@ -82,9 +82,14 @@ class ImportDatasetCommand extends Command
 
             // Stream import — never loads all records into memory
             $stream = $importer->parseStream($filePath);
-            $stats  = $this->importService->importAll($stream, $dataset);
+            $stats  = $this->importService->importAll($stream, $dataset, function (array $currentStats) use ($dataset) {
+                $dataset->setImportedCount($currentStats['imported']);
+                $dataset->setDuplicatedCount($currentStats['skipped']);
+                $dataset->setErrorCount($currentStats['errors']);
+                $this->em->flush();
+            });
 
-            // Update dataset with results
+            // Update dataset with final results
             $dataset->setImportedCount($stats['imported']);
             $dataset->setDuplicatedCount($stats['skipped']);
             $dataset->setErrorCount($stats['errors']);
