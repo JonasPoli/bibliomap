@@ -170,15 +170,18 @@ class ImportController extends AbstractController
         $projectDir = $this->getParameter('kernel.project_dir');
         $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
 
+        $appEnv  = $_SERVER['APP_ENV'] ?? 'dev';
         $cmd = sprintf(
-            '%s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=prod --no-debug > %s 2>&1 &',
+            'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
             escapeshellarg(PHP_BINARY),
             escapeshellarg($projectDir),
             $dataset->getId(),
+            escapeshellarg($appEnv),
             escapeshellarg($logFile)
         );
 
         exec($cmd);
+
 
         return $this->redirectToRoute('app_import_processing', [
             'projectId' => $projectId,
