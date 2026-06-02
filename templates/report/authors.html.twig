@@ -62,13 +62,44 @@
 
     <!-- Lotka Law chart -->
     <div class="col-xl-6">
-        <div class="bm-card h-100">
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <h5 class="card-title mb-0" style="font-weight:700">Lei de Lotka</h5>
-                <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Distribuição de Produtividade</span>
+        <div class="bm-card h-100" style="display:flex;flex-direction:column">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="card-title mb-0" style="font-weight:700">Lei de Lotka</h5>
+                    <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Distribuição de Produtividade</span>
+                </div>
+                <button class="btn btn-sm p-0 border-0 text-accent d-flex align-items-center gap-1" type="button" data-bs-toggle="collapse" data-bs-target="#lotka-explanation" aria-expanded="false" aria-controls="lotka-explanation" title="Entender a Lei de Lotka" style="background:transparent;font-size:12px;color:var(--bm-accent);font-weight:600">
+                    <i class="bi bi-info-circle fs-6"></i>
+                    <span>O que é isso?</span>
+                </button>
             </div>
             <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Observado vs. esperado: frequência de autores com N publicações</p>
-            <div style="position:relative;height:270px">
+            
+            <!-- Collapsible explanation panel -->
+            <div class="collapse mb-2" id="lotka-explanation">
+                <div class="p-3 border-bm rounded-3" style="background:rgba(79,142,247,0.04);font-size:12.5px;line-height:1.5;color:var(--bm-text)">
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <i class="bi bi-mortarboard text-accent fs-5"></i>
+                        <div>
+                            <strong>O que é a Lei de Lotka?</strong>
+                            <p class="mb-0 text-accent-hover" style="font-size:11.5px">Formulada por Alfred J. Lotka em 1926, é uma das três leis clássicas da bibliometria.</p>
+                        </div>
+                    </div>
+                    <p class="mb-2">Ela descreve o padrão de <strong>produtividade dos cientistas</strong> em qualquer campo de pesquisa, revelando que:</p>
+                    <ul class="mb-2 ps-3" style="list-style-type:square">
+                        <li>A <strong>grande maioria dos autores</strong> publica pouquíssimos artigos (frequentemente apenas 1).</li>
+                        <li>Uma <strong>minoria altamente produtiva</strong> é responsável pela maior parte da produção científica total.</li>
+                    </ul>
+                    <div class="p-2 bg-bm-card border border-bm rounded-2 mb-2 font-monospace" style="font-size:11px">
+                        <strong>Princípio Teórico:</strong> Se N autores publicam 1 artigo, o número de autores que publicarão X artigos é de aproximadamente <strong>N / X²</strong> (ex: para cada 100 autores de 1 artigo, espera-se que 25 publiquem 2 artigos e 11 publiquem 3).
+                    </div>
+                    <p class="mb-0" style="color:var(--bm-text-muted)">
+                        <strong>Como interpretar o gráfico?</strong> A linha tracejada <span style="color:#f0883e;font-weight:700">Laranja</span> indica a distribuição ideal esperada de Lotka. As barras <span style="color:#4f8ef7;font-weight:700">Azuis</span> mostram o comportamento real do seu corpus. Desvios acentuados indicam dinâmicas específicas de autoria da sua amostra (ex: grande presença de coautoria ou hiper-concentração).
+                    </p>
+                </div>
+            </div>
+            
+            <div style="position:relative;height:270px;flex:1">
                 <canvas id="chart-lotka"></canvas>
             </div>
         </div>
