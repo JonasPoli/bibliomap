@@ -355,8 +355,9 @@
                     <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.lens.org/lens/scholar/search" target="_blank" style="color:var(--bm-accent)">lens.org/lens/scholar</a> e realize sua busca.</div></li>
                     <li><div class="step-num">2</div><div class="step-text">Após obter os resultados, clique no ícone de <strong>Export</strong> (ícone de seta para baixo, no canto superior direito da lista de resultados).</div></li>
                     <li><div class="step-num">3</div><div class="step-text">Na janela de exportação, selecione o formato <strong>CSV</strong>.</div></li>
-                    <li><div class="step-num">4</div><div class="step-text">Em <strong>Fields</strong>, mantenha "All fields" selecionado para garantir todos os metadados necessários.</div></li>
-                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.csv</code> será baixado.</div></li>
+                    <li><div class="step-num">4</div><div class="step-text">Em <strong>Fields</strong>, mantenha <strong>"All fields"</strong> selecionado para garantir todos os metadados de abstract e afiliação.</div></li>
+                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O Lens iniciará o processamento em segundo plano (pode levar alguns minutos para buscas grandes).</div></li>
+                    <li><div class="step-num">6</div><div class="step-text">Assim que o arquivo for gerado, você receberá um aviso por e-mail. Para baixar, clique no link do e-mail ou vá na barra lateral esquerda do Lens em <strong>Notifications</strong> e clique em <strong>"Export complete"</strong> para obter o seu arquivo <code>lens-export.csv</code>.</div></li>
                 </ol>
                 <div class="step-note">
                     <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
@@ -372,6 +373,10 @@
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">PubMed (NCBI/NLM)</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">pubmed.ncbi.nlm.nih.gov &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">NBIB/RIS</span></div>
                     </div>
+                </div>
+                <div class="step-note step-note-warn" style="margin-bottom:16px">
+                    <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Atenção ao Exportar:</strong> Não clique no ícone de download (seta para baixo) que fica ao lado do gráfico de linha do tempo lateral <strong>"RESULTS BY YEAR"</strong>. Aquele botão baixa apenas o quantitativo anual de publicações (arquivo <code>PubMed_Timeline_Results_by_Year.csv</code>), que não possui os metadados dos artigos e não serve para importação. Use sempre o botão <strong>"Save"</strong> no topo da tela.</span>
                 </div>
                 <ol class="step-list">
                     <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" style="color:var(--bm-accent)">pubmed.ncbi.nlm.nih.gov</a> e faça sua busca.</div></li>
@@ -389,6 +394,125 @@
                 <div class="step-note step-note-tip">
                     <i class="bi bi-lightbulb" style="color:#3fb950;flex-shrink:0;margin-top:2px"></i>
                     <span><strong style="color:#94a3b8">Dica:</strong> para exportar com abstract e termos MeSH, prefira o formato <strong>PubMed</strong> (<code>.nbib</code>). O arquivo CSV do PubMed tem menos campos, mas é igualmente aceito pelo BiblioMap. Para mais de 10.000 registros, utilize a API E-utilities da NCBI.</span>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--bm-text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <i class="bi bi-file-earmark-bar-graph text-accent"></i>
+                        Comparativo de Formatos de Exportação do PubMed
+                    </div>
+                    <p style="font-size: 13px; color: var(--bm-text-muted); margin-bottom: 16px; line-height: 1.55;">
+                        O PubMed permite exportar dados em diferentes formatos. Veja abaixo o que cada formato contém e escolha a melhor opção para a sua análise:
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                        {# Formato 1: MEDLINE/PubMed #}
+                        <div style="padding: 16px; background: rgba(63,185,80,.03); border: 1px solid rgba(63,185,80,.18); border-radius: 12px;">
+                            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="fmt-badge" style="background: rgba(63,185,80,.12); color: #3fb950; border: 1px solid rgba(63,185,80,.3);">PubMed / MEDLINE</span>
+                                    <code style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #c9d1d9;">.nbib</code>
+                                    <code style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #c9d1d9;">.txt</code>
+                                </div>
+                                <span style="font-size: 11px; font-weight: 700; color: #3fb950; text-transform: uppercase; background: rgba(63,185,80,.15); padding: 2px 8px; border-radius: 5px; letter-spacing: .3px;">
+                                    <i class="bi bi-star-fill me-1"></i>Recomendado
+                                </span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--bm-text); margin-bottom: 6px;">
+                                Formato completo com tags estruturadas (ex: <code style="color:#4f8ef7">PMID-</code>, <code style="color:#4f8ef7">TI-</code>, <code style="color:#4f8ef7">AB-</code>)
+                            </div>
+                            <p style="font-size: 12.5px; color: var(--bm-text-muted); margin-bottom: 10px; line-height: 1.5;">
+                                É o <strong>padrão ouro</strong> para importação. Contém tags explícitas e estruturadas para máquina. O BiblioMap lê com máxima precisão todos os campos bibliográficos e textuais.
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px;">
+                                <span style="color: var(--bm-text-muted); font-weight: 600;">Metadados incluídos:</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Título</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Autores</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Resumo (Abstract)</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Revista e Ano</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>DOI e PMID</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Afiliações e Keywords (MeSH)</span>
+                            </div>
+                        </div>
+
+                        {# Formato 2: CSV #}
+                        <div style="padding: 16px; background: rgba(79,142,247,.03); border: 1px solid rgba(79,142,247,.18); border-radius: 12px;">
+                            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="fmt-badge" style="background: rgba(79,142,247,.12); color: #4f8ef7; border: 1px solid rgba(79,142,247,.3);">CSV (Planilha)</span>
+                                    <code style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #c9d1d9;">.csv</code>
+                                </div>
+                                <span style="font-size: 11px; font-weight: 700; color: #4f8ef7; text-transform: uppercase; background: rgba(79,142,247,.15); padding: 2px 8px; border-radius: 5px; letter-spacing: .3px;">
+                                    Suportado (Leve)
+                                </span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--bm-text); margin-bottom: 6px;">
+                                Tabela contendo os metadados principais dos artigos
+                            </div>
+                            <p style="font-size: 12.5px; color: var(--bm-text-muted); margin-bottom: 10px; line-height: 1.5;">
+                                Excelente para importações rápidas e análise de rede de coautoria ou periódicos. <strong>Atenção:</strong> a planilha CSV exportada pelo PubMed não inclui os textos de resumos (abstracts) nem palavras-chave de indexação (MeSH).
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px;">
+                                <span style="color: var(--bm-text-muted); font-weight: 600;">Metadados incluídos:</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Título</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Autores</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Resumo (Abstract)</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Revista e Ano</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>DOI e PMID</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Afiliações e Keywords (MeSH)</span>
+                            </div>
+                        </div>
+
+                        {# Formato 3: PMID List #}
+                        <div style="padding: 16px; background: rgba(210,153,34,.03); border: 1px solid rgba(210,153,34,.18); border-radius: 12px;">
+                            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="fmt-badge" style="background: rgba(210,153,34,.12); color: #d29922; border: 1px solid rgba(210,153,34,.3);">PMID List (Lista de IDs)</span>
+                                    <code style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #c9d1d9;">.txt</code>
+                                </div>
+                                <span style="font-size: 11px; font-weight: 700; color: #d29922; text-transform: uppercase; background: rgba(210,153,34,.15); padding: 2px 8px; border-radius: 5px; letter-spacing: .3px;">
+                                    Inadequado para Importar
+                                </span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--bm-text); margin-bottom: 6px;">
+                                Apenas números identificadores (ex: 34534279), sem metadados
+                            </div>
+                            <p style="font-size: 12.5px; color: var(--bm-text-muted); margin-bottom: 10px; line-height: 1.5;">
+                                Contém apenas os IDs únicos do PubMed, um por linha. Não possui nenhum detalhe bibliográfico (sem título, ano, autores, etc.). Não deve ser importado diretamente no BiblioMap, pois o sistema precisa dos metadados para construir seus gráficos e análises.
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px;">
+                                <span style="color: var(--bm-text-muted); font-weight: 600;">Metadados incluídos:</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Título</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Autores</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Resumo (Abstract)</span>
+                                <span style="color: #ea6050;"><i class="bi bi-x-circle-fill me-1"></i>Revista e Ano</span>
+                                <span style="color: #3fb950;"><i class="bi bi-check-circle-fill me-1"></i>Apenas PMID</span>
+                            </div>
+                        </div>
+
+                        {# Formato 4: Summary & Abstract #}
+                        <div style="padding: 16px; background: rgba(239,68,68,.03); border: 1px solid rgba(239,68,68,.18); border-radius: 12px;">
+                            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="fmt-badge" style="background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.3);">Summary / Abstract (Texto Corrido)</span>
+                                    <code style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #c9d1d9;">.txt</code>
+                                </div>
+                                <span style="font-size: 11px; font-weight: 700; color: #f87171; text-transform: uppercase; background: rgba(239,68,68,.15); padding: 2px 8px; border-radius: 5px; letter-spacing: .3px;">
+                                    Não Suportado
+                                </span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--bm-text); margin-bottom: 6px;">
+                                Citações formatadas para leitura humana direta, sem tags estruturadas
+                            </div>
+                            <p style="font-size: 12.5px; color: var(--bm-text-muted); margin-bottom: 10px; line-height: 1.5;">
+                                Estes arquivos organizam o texto como blocos legíveis por pessoas (com numerações simples ou blocos de afiliação e resumo sem tags delimitadoras). Como não há tags para a máquina separar onde termina o autor e onde começa o título ou a revista, esses formatos não são suportados para importação.
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px;">
+                                <span style="color: var(--bm-text-muted); font-weight: 600;">Metadados incluídos:</span>
+                                <span style="color: #e3b341;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Apenas no texto corrido legível (impossível extrair de forma estruturada)</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -53,11 +53,11 @@ class ImportController extends AbstractController
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
         }
 
-        $allowedExts = ['csv', 'txt', 'ris', 'bib', 'xlsx', 'json'];
+        $allowedExts = ['csv', 'txt', 'ris', 'bib', 'xlsx', 'json', 'nbib'];
         $ext = strtolower($file->getClientOriginalExtension());
 
         if (!in_array($ext, $allowedExts)) {
-            $this->addFlash('danger', 'Formato não suportado. Use CSV, TXT, RIS, BibTeX, XLSX ou JSON.');
+            $this->addFlash('danger', 'Formato não suportado. Use CSV, TXT, RIS, BibTeX, XLSX, JSON ou NBIB.');
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
         }
 

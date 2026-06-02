@@ -14,10 +14,14 @@ class ImporterResolver
 
     public function resolve(string $filePath, string $format, ?string $source = null): ?BibliographicImporterInterface
     {
-        // 1. Try by explicit source/format
-        foreach ($this->importers as $importer) {
-            if ($importer->supports($format, $source)) {
-                return $importer;
+        $src = strtolower(trim($source ?? ''));
+
+        // 1. Try by explicit source/format (only if source is set and specific)
+        if ($src !== '' && $src !== 'generic' && $src !== 'unknown') {
+            foreach ($this->importers as $importer) {
+                if ($importer->supports($format, $source)) {
+                    return $importer;
+                }
             }
         }
 
