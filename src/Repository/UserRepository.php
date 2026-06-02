@@ -116,4 +116,23 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Returns all active users except the given one, sorted by name.
+     * Used to populate the "copy project to" user selector.
+     *
+     * @return User[]
+     */
+    public function findActiveUsersExcept(int $excludeId): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.status = :status')
+            ->setParameter('status', User::STATUS_ACTIVE)
+            ->andWhere('u.id != :excludeId')
+            ->setParameter('excludeId', $excludeId)
+            ->orderBy('u.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
+

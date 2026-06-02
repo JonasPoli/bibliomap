@@ -227,6 +227,14 @@
                                         <i class="bi bi-person-fill-gear me-1"></i>Impersonar
                                     </a>
                                 {% endif %}
+
+                                {# Projects #}
+                                <a href="{{ path('app_admin_projects_user', {id: user.id}) }}"
+                                   class="action-btn"
+                                   style="color:#a855f7;border-color:rgba(168,85,247,.4)"
+                                   title="Ver e copiar projetos deste usuário">
+                                    <i class="bi bi-folder2-open me-1"></i>Projetos
+                                </a>
                             </div>
                         </td>
                     </tr>

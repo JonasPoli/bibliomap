@@ -274,8 +274,22 @@
                 </a>
                 <a href="#" class="bm-nav-link" style="opacity:0.4" title="Em breve"><i class="bi bi-download"></i> Exportações</a>
             {% endif %}
-            {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_PREVIOUS_ADMIN') %}
-                <div class="bm-nav-section" style="margin-top:8px">Administração</div>
+            {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+                {# ── Impersonation exit — prominent nav item ── #}
+                <div style="margin:8px 0 4px;padding:0 12px">
+                    <a href="{{ path('app_exit_impersonation') }}"
+                       class="bm-nav-link"
+                       style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);border-radius:10px;color:#c084fc;font-weight:700;gap:10px">
+                        <i class="bi bi-person-fill-x" style="font-size:15px;color:#a855f7"></i>
+                        Sair da Impersona&ccedil;&atilde;o
+                    </a>
+                </div>
+                <div class="bm-nav-section" style="margin-top:8px">
+                    <i class="bi bi-person-fill-gear" style="font-size:11px;margin-right:4px;color:#a855f7"></i>
+                    Navegando como {{ app.user.name|split(' ')|first }}
+                </div>
+            {% elseif is_granted('ROLE_ADMIN') %}
+                <div class="bm-nav-section" style="margin-top:8px">Administra&ccedil;&atilde;o</div>
                 <a href="{{ path('app_admin_index') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin' %}active{% endif %}">
                     <i class="bi bi-shield-check"></i> Painel Admin
@@ -283,12 +297,12 @@
                 <a href="{{ path('app_admin_users') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_admin_users' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">
-                    <i class="bi bi-people" style="font-size:13px"></i> Usuários
+                    <i class="bi bi-people" style="font-size:13px"></i> Usu&aacute;rios
                 </a>
                 <a href="{{ path('app_admin_settings') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_admin_settings' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">
-                    <i class="bi bi-sliders" style="font-size:13px"></i> Configurações
+                    <i class="bi bi-sliders" style="font-size:13px"></i> Configura&ccedil;&otilde;es
                 </a>
             {% endif %}
         </nav>
@@ -308,8 +322,8 @@
                     </div>
                 </div>
                 {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
-                    <a href="{{ path('app_admin_exit_impersonation') }}" class="ms-auto"
-                       style="color:#a855f7" title="Sair da impersonação">
+                    <a href="{{ path('app_exit_impersonation') }}" class="ms-auto"
+                       style="color:#a855f7" title="Sair da impersona&ccedil;&atilde;o">
                         <i class="bi bi-person-fill-x"></i>
                     </a>
                 {% else %}
@@ -345,10 +359,10 @@
                 <strong>Modo impersonação ativo</strong> —
                 Você está navegando como <strong>{{ app.user.name }}</strong> ({{ app.user.email }}).
             </div>
-            <a href="{{ path('app_admin_exit_impersonation') }}"
+            <a href="{{ path('app_exit_impersonation') }}"
                class="btn btn-sm"
                style="background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.4);border-radius:8px;font-size:12px;font-weight:600;padding:5px 14px">
-                <i class="bi bi-person-fill-x me-1"></i>Sair da impersonação
+                <i class="bi bi-person-fill-x me-1"></i>Sair da impersona&ccedil;&atilde;o
             </a>
         </div>
         {% endif %}

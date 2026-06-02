@@ -10,10 +10,96 @@
     <span class="current">Importar dados</span>
 {% endblock %}
 
+{% block stylesheets %}
+<style>
+/* ── Source tabs ── */
+.src-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+.src-tab {
+    display:flex; align-items:center; gap:7px;
+    padding:7px 14px; border-radius:10px;
+    border:1px solid var(--bm-border); background:transparent;
+    color:var(--bm-text-muted); font-size:13px; font-weight:500;
+    cursor:pointer; transition:all .18s;
+    font-family: inherit;
+}
+.src-tab:hover { border-color:var(--bm-accent); color:var(--bm-accent); background:rgba(79,142,247,.05); }
+.src-tab.active {
+    background:rgba(79,142,247,.12); color:var(--bm-accent);
+    border-color:rgba(79,142,247,.45); font-weight:700;
+}
+.src-panel { display:none; }
+.src-panel.active { display:block; }
+
+/* ── Steps ── */
+.step-list { list-style:none; padding:0; margin:0; }
+.step-list li {
+    display:flex; gap:14px; align-items:flex-start;
+    padding:11px 0; border-bottom:1px solid var(--bm-border);
+}
+.step-list li:last-child { border-bottom:none; }
+.step-num {
+    width:26px; height:26px; border-radius:50%; flex-shrink:0;
+    background:rgba(79,142,247,.13); border:1.5px solid rgba(79,142,247,.3);
+    color:var(--bm-accent); font-size:12px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+}
+.step-text { font-size:13.5px; color:var(--bm-text); line-height:1.55; }
+.step-text strong { color:var(--bm-text); }
+.step-text code {
+    font-family: 'Fira Mono', 'Cascadia Code', monospace;
+    font-size:12px; padding:2px 7px; border-radius:5px;
+    background:rgba(255,255,255,.06); color:#c9d1d9;
+    border:1px solid rgba(255,255,255,.08);
+}
+.step-note {
+    display:flex; gap:10px; align-items:flex-start;
+    background:rgba(210,153,34,.06);
+    border:1px solid rgba(210,153,34,.2);
+    border-radius:10px; padding:12px 14px;
+    margin-top:16px; font-size:12.5px; color:#94a3b8; line-height:1.6;
+}
+.step-note-warn {
+    background:rgba(239,68,68,.06);
+    border-color:rgba(239,68,68,.2);
+}
+.step-note-tip {
+    background:rgba(63,185,80,.06);
+    border-color:rgba(63,185,80,.2);
+}
+.fmt-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:6px; font-size:11.5px; font-weight:700;
+    letter-spacing:.3px; text-transform:uppercase;
+}
+.fmt-csv  { background:rgba(63,185,80,.12);  color:#3fb950; border:1px solid rgba(63,185,80,.3); }
+.fmt-txt  { background:rgba(210,153,34,.12); color:#d29922; border:1px solid rgba(210,153,34,.3); }
+.fmt-ris  { background:rgba(79,142,247,.12); color:#4f8ef7; border:1px solid rgba(79,142,247,.3); }
+.fmt-bib  { background:rgba(168,85,247,.12); color:#a855f7; border:1px solid rgba(168,85,247,.3); }
+.fmt-xlsx { background:rgba(16,185,129,.12); color:#10b981; border:1px solid rgba(16,185,129,.3); }
+.fmt-xml  { background:rgba(244,114,182,.12);color:#f472b6; border:1px solid rgba(244,114,182,.3); }
+
+/* ── Source header ── */
+.src-header {
+    display:flex; align-items:center; gap:14px;
+    padding:16px 20px; margin:-4px -4px 20px;
+    background:rgba(255,255,255,.02);
+    border:1px solid var(--bm-border); border-radius:12px;
+}
+.src-logo {
+    width:44px; height:44px; border-radius:11px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px; font-weight:900; letter-spacing:-1px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title"><i class="bi bi-upload me-2 text-accent"></i>Importar Base Bibliográfica</h1>
-    <p class="bm-page-subtitle">Passo 1 de 2 — Selecione o arquivo para importação</p>
+    <p class="bm-page-subtitle">Passo 1 de 2 — Selecione o arquivo exportado da base de dados</p>
 </div>
 
 <div class="row">
@@ -35,13 +121,13 @@
                         Arraste o arquivo aqui ou <span style="color:var(--bm-accent)">clique para selecionar</span>
                     </div>
                     <div style="font-size:12px;color:var(--bm-text-muted)">
-                        CSV, TXT (Web of Science), RIS, BibTeX — até 500MB
+                        CSV, TXT (Web of Science), RIS, BibTeX, XLSX — até 500&nbsp;MB
                     </div>
                     <div id="file-info" style="display:none;margin-top:16px;padding:12px;background:rgba(79,142,247,0.1);border-radius:8px;border:1px solid rgba(79,142,247,0.2)">
                         <div id="file-name" style="font-size:14px;font-weight:500;color:var(--bm-accent)"></div>
                         <div id="file-size" style="font-size:12px;color:var(--bm-text-muted)"></div>
                     </div>
-                    <input type="file" id="file-input" name="file" accept=".csv,.txt,.ris,.bib,.xlsx,.json"
+                    <input type="file" id="file-input" name="file" accept=".csv,.txt,.ris,.bib,.xlsx,.json,.nbib"
                            style="position:absolute;inset:0;opacity:0;cursor:pointer" required>
                 </div>
 
@@ -54,7 +140,7 @@
             </form>
         </div>
 
-        {# Progress bar (hidden initially) #}
+        {# Progress bar #}
         <div id="upload-progress" style="display:none" class="bm-card">
             <div style="font-size:14px;font-weight:500;color:var(--bm-text);margin-bottom:12px">
                 <i class="bi bi-arrow-repeat spin me-2" style="color:var(--bm-accent)"></i>Enviando arquivo...
@@ -63,44 +149,325 @@
                 <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,#4f8ef7,#a855f7);width:0%;transition:width 0.3s"></div>
             </div>
         </div>
-    </div>
+
+        {# ════════════════════════════════════════════════
+           HELP PANEL
+        ════════════════════════════════════════════════ #}
+        <div class="bm-card mt-2">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+                <div style="width:32px;height:32px;border-radius:9px;background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.25);display:flex;align-items:center;justify-content:center">
+                    <i class="bi bi-question-circle" style="color:#d29922;font-size:15px"></i>
+                </div>
+                <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--bm-text)">Como exportar o arquivo da minha base de dados?</div>
+                    <div style="font-size:12px;color:var(--bm-text-muted)">Selecione a base e siga o passo a passo</div>
+                </div>
+            </div>
+
+            {# ── Tabs ── #}
+            <div class="src-tabs" id="srcTabs">
+                <button class="src-tab active" data-src="scopus">
+                    <span style="font-size:16px">🔬</span> Scopus
+                </button>
+                <button class="src-tab" data-src="wos">
+                    <span style="font-size:16px">🌐</span> Web of Science
+                </button>
+                <button class="src-tab" data-src="lens">
+                    <span style="font-size:16px">🔭</span> Lens.org
+                </button>
+                <button class="src-tab" data-src="pubmed">
+                    <span style="font-size:16px">🧬</span> PubMed
+                </button>
+                <button class="src-tab" data-src="openalex">
+                    <span style="font-size:16px">🔓</span> OpenAlex
+                </button>
+                <button class="src-tab" data-src="crossref">
+                    <span style="font-size:16px">🔗</span> Crossref
+                </button>
+                <button class="src-tab" data-src="other">
+                    <span style="font-size:16px">📄</span> Outra base
+                </button>
+            </div>
+
+            {# ════ SCOPUS ════ #}
+            <div class="src-panel active" id="panel-scopus">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#e87722;color:white">Sc</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Scopus (Elsevier)</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">scopus.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+                    </div>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.scopus.com" target="_blank" style="color:var(--bm-accent)">scopus.com</a> e realize sua busca normalmente.</div></li>
+                    <li><div class="step-num">2</div><div class="step-text">Selecione os registros desejados. Para todos: marque o checkbox no topo e clique em <strong>"Select all"</strong> (pode selecionar até 2.000 por vez).</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">Clique no botão <strong>"Export"</strong> no menu superior dos resultados.</div></li>
+                    <li><div class="step-num">4</div><div class="step-text">Escolha o formato <strong>CSV (Excel)</strong>.</div></li>
+                    <li><div class="step-num">5</div><div class="step-text">
+                        Na tela de seleção de campos, marque ao menos:
+                        <ul style="margin:6px 0 0 4px;padding-left:16px;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
+                            <li>Citation Information</li>
+                            <li>Bibliographical Information</li>
+                            <li>Abstract &amp; Keywords</li>
+                            <li>Funding Details</li>
+                            <li>Other Information</li>
+                        </ul>
+                    </div></li>
+                    <li><div class="step-num">6</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.csv</code> será baixado automaticamente.</div></li>
+                </ol>
+                <div class="step-note">
+                    <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Limite:</strong> o Scopus exporta até 2.000 registros por vez. Para buscas maiores, use filtros de ano ou exporte em lotes e importe cada arquivo separadamente no mesmo projeto.</span>
+                </div>
+            </div>
+
+            {# ════ WEB OF SCIENCE ════ #}
+            <div class="src-panel" id="panel-wos">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#0056a0;color:white">WoS</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Web of Science (Clarivate)</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">webofscience.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-txt">TXT</span></div>
+                    </div>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.webofscience.com" target="_blank" style="color:var(--bm-accent)">webofscience.com</a> e execute sua busca.</div></li>
+                    <li><div class="step-num">2</div><div class="step-text">Selecione os registros. Para selecionar todos: clique no checkbox superior e escolha <strong>"Select all records on this page"</strong>, ou use "Add all records to Marked List".</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">Clique em <strong>"Export"</strong> e selecione <strong>"Tab-delimited File"</strong> (ou "Other File Formats" em versões mais antigas).</div></li>
+                    <li><div class="step-num">4</div><div class="step-text">
+                        Na janela de exportação, configure:
+                        <ul style="margin:6px 0 0 4px;padding-left:16px;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
+                            <li>Records: <strong>All records on page</strong> ou intervalo de registros</li>
+                            <li>Record Content: <strong>Full Record and Cited References</strong></li>
+                            <li>File Format: <strong>Tab-delimited (Win, UTF-8)</strong></li>
+                        </ul>
+                    </div></li>
+                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.txt</code> será baixado.</div></li>
+                </ol>
+                <div class="step-note">
+                    <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Limite:</strong> o WoS exporta até 1.000 registros por vez. Para lotes maiores, use a opção "Marked List" e exporte em grupos de 1.000. O BiblioMap detecta automaticamente o formato WoS pelas tags de campo (<code>PT</code>, <code>AU</code>, <code>TI</code>, <code>SO</code>...).</span>
+                </div>
+            </div>
+
+            {# ════ LENS.ORG ════ #}
+            <div class="src-panel" id="panel-lens">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#1a1a2e;color:#00d4ff;font-size:18px">🔭</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Lens.org</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">lens.org/scholar &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+                    </div>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.lens.org/lens/scholar/search" target="_blank" style="color:var(--bm-accent)">lens.org/lens/scholar</a> e realize sua busca.</div></li>
+                    <li><div class="step-num">2</div><div class="step-text">Após obter os resultados, clique no ícone de <strong>Export</strong> (ícone de seta para baixo, no canto superior direito da lista de resultados).</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">Na janela de exportação, selecione o formato <strong>CSV</strong>.</div></li>
+                    <li><div class="step-num">4</div><div class="step-text">Em <strong>Fields</strong>, mantenha "All fields" selecionado para garantir todos os metadados necessários.</div></li>
+                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.csv</code> será baixado.</div></li>
+                </ol>
+                <div class="step-note">
+                    <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Limite:</strong> a exportação gratuita do Lens.org é limitada a ~1.000 registros. Para conjuntos maiores, utilize a <a href="https://docs.api.lens.org" target="_blank" style="color:var(--bm-accent)">API do Lens</a> (requer solicitação de token) ou divida a busca em períodos.</span>
+                </div>
+            </div>
+
+            {# ════ PUBMED ════ #}
+            <div class="src-panel" id="panel-pubmed">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#336699;color:white;font-size:13px;font-weight:900">PM</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">PubMed (NCBI/NLM)</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">pubmed.ncbi.nlm.nih.gov &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">NBIB/RIS</span></div>
+                    </div>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" style="color:var(--bm-accent)">pubmed.ncbi.nlm.nih.gov</a> e faça sua busca.</div></li>
+                    <li><div class="step-num">2</div><div class="step-text">Clique em <strong>"Save"</strong> (botão acima dos resultados).</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">
+                        Selecione o formato:
+                        <ul style="margin:6px 0 0 4px;padding-left:16px;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
+                            <li><strong>CSV</strong> — exporta os campos principais (título, autores, PMID, DOI, ano, revista)</li>
+                            <li><strong>PubMed</strong> (recomendado) — exporta o formato estruturado completo com abstract e MeSH terms</li>
+                        </ul>
+                    </div></li>
+                    <li><div class="step-num">4</div><div class="step-text">Em "Selection", escolha <strong>"All results"</strong> para exportar tudo, ou "Selection" para itens marcados.</div></li>
+                    <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Create file"</strong>. O arquivo <code>.csv</code> ou <code>.nbib</code> será baixado.</div></li>
+                </ol>
+                <div class="step-note step-note-tip">
+                    <i class="bi bi-lightbulb" style="color:#3fb950;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Dica:</strong> para exportar com abstract e termos MeSH, prefira o formato <strong>PubMed</strong> (<code>.nbib</code>). O arquivo CSV do PubMed tem menos campos, mas é igualmente aceito pelo BiblioMap. Para mais de 10.000 registros, utilize a API E-utilities da NCBI.</span>
+                </div>
+            </div>
+
+            {# ════ OPENALEX ════ #}
+            <div class="src-panel" id="panel-openalex">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#1a1a2e;color:#a78bfa;font-size:13px;font-weight:900">OA</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">OpenAlex</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+                    </div>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text"><strong>Pela interface web:</strong> acesse <a href="https://openalex.org/works" target="_blank" style="color:var(--bm-accent)">openalex.org/works</a> e faça sua busca.</div></li>
+                    <li><div class="step-num">2</div><div class="step-text">Clique em <strong>"Export"</strong> (ícone de download no topo direito dos resultados) e selecione <strong>CSV</strong>.</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">O arquivo <code>.csv</code> será gerado e baixado automaticamente (limite: ~10.000 registros pela interface).</div></li>
+                </ol>
+                <div style="margin:16px 0 4px;font-size:12.5px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px">Via API (para conjuntos maiores)</div>
+                <ol class="step-list" style="margin-top:4px" start="4">
+                    <li><div class="step-num">4</div><div class="step-text">
+                        Use a API pública do OpenAlex com saída CSV:
+                        <br><code>https://api.openalex.org/works?filter=title.search:machine+learning&amp;select=id,title,doi,publication_year,authorships,primary_location&amp;format=csv</code>
+                    </div></li>
+                    <li><div class="step-num">5</div><div class="step-text">Para paginar, adicione o parâmetro <code>&amp;cursor=*</code> (cursor-based pagination) e itere até obter todos os resultados.</div></li>
+                </ol>
+                <div class="step-note">
+                    <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Open Access:</strong> o OpenAlex é gratuito e sem autenticação para a API pública. Para conjuntos muito grandes (&gt;1M), use o <a href="https://docs.openalex.org/download-all-data/openalex-snapshot" target="_blank" style="color:var(--bm-accent)">OpenAlex Snapshot</a> (download completo via AWS S3).</span>
+                </div>
+            </div>
+
+            {# ════ CROSSREF ════ #}
+            <div class="src-panel" id="panel-crossref">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#d11;color:white;font-size:13px;font-weight:900">CR</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Crossref</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">crossref.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">RIS</span></div>
+                    </div>
+                </div>
+                <div class="step-note step-note-warn" style="margin-bottom:16px">
+                    <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Importante:</strong> o Crossref não possui uma interface de busca/export direta para usuários finais. Os dados são acessados principalmente via API REST. Veja as opções abaixo.</span>
+                </div>
+                <ol class="step-list">
+                    <li><div class="step-num">1</div><div class="step-text">
+                        <strong>Via API REST (recomendado):</strong><br>
+                        <code>https://api.crossref.org/works?query=machine+learning&amp;rows=1000&amp;format=json</code><br>
+                        <span style="font-size:12px;color:var(--bm-text-muted)">Converta o JSON para CSV com uma ferramenta como Python (pandas) antes de importar.</span>
+                    </div></li>
+                    <li><div class="step-num">2</div><div class="step-text">
+                        <strong>Via Crossref Metadata Search:</strong> acesse <a href="https://search.crossref.org" target="_blank" style="color:var(--bm-accent)">search.crossref.org</a>, busque por título/autor/DOI e exporte os resultados como RIS ou BibTeX (botão "Export").</div></li>
+                    <li><div class="step-num">3</div><div class="step-text">
+                        <strong>Via Scopus ou WoS:</strong> a forma mais prática é exportar de Scopus ou WoS (que incluem DOIs do Crossref) e importar normalmente — o BiblioMap vincula os registros via DOI.
+                    </div></li>
+                    <li><div class="step-num">4</div><div class="step-text">
+                        <strong>Via DOI Batch Lookup:</strong> envie uma lista de DOIs para <a href="https://doi.crossref.org/servlet/csv" target="_blank" style="color:var(--bm-accent)">doi.crossref.org/servlet/csv</a> para obter metadados em CSV.
+                    </div></li>
+                </ol>
+            </div>
+
+            {# ════ OUTRA BASE ════ #}
+            <div class="src-panel" id="panel-other">
+                <div class="src-header">
+                    <div class="src-logo" style="background:#1e2d45;color:var(--bm-accent)">📄</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Qualquer outra base</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">Formatos universais aceitos: <span class="fmt-badge fmt-ris">RIS</span> <span class="fmt-badge fmt-bib" style="margin-left:4px">BibTeX</span> <span class="fmt-badge fmt-xlsx" style="margin-left:4px">XLSX</span> <span class="fmt-badge fmt-xml" style="margin-left:4px">XML</span></div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                    {# RIS #}
+                    <div style="padding:14px;background:rgba(79,142,247,.05);border:1px solid rgba(79,142,247,.15);border-radius:10px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                            <span class="fmt-badge fmt-ris">.RIS</span>
+                            <span style="font-size:12px;font-weight:600;color:var(--bm-text)">RIS / RefMan</span>
+                        </div>
+                        <p style="font-size:12.5px;color:var(--bm-text-muted);margin:0;line-height:1.55">Formato universal suportado por Zotero, Mendeley, EndNote, Embase, Cochrane, ERIC, PsycINFO e a maioria das bases acadêmicas. Procure "Export" → "RIS" ou "Reference Manager" na base que usa.</p>
+                    </div>
+                    {# BibTeX #}
+                    <div style="padding:14px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.15);border-radius:10px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                            <span class="fmt-badge fmt-bib">.BIB</span>
+                            <span style="font-size:12px;font-weight:600;color:var(--bm-text)">BibTeX / LaTeX</span>
+                        </div>
+                        <p style="font-size:12.5px;color:var(--bm-text-muted);margin:0;line-height:1.55">Comum em bases como Google Scholar, ACM Digital Library, IEEE Xplore, arXiv e Springer. Procure "Export" → "BibTeX" ou "Download citation" → ".bib".</p>
+                    </div>
+                    {# XLSX #}
+                    <div style="padding:14px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.15);border-radius:10px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                            <span class="fmt-badge fmt-xlsx">.XLSX</span>
+                            <span style="font-size:12px;font-weight:600;color:var(--bm-text)">Excel / Planilha</span>
+                        </div>
+                        <p style="font-size:12.5px;color:var(--bm-text-muted);margin:0;line-height:1.55">Planilhas Excel exportadas de bases customizadas. O BiblioMap detecta automaticamente colunas como Title, Authors, Year, DOI, Abstract, Source, etc.</p>
+                    </div>
+                    {# XML #}
+                    <div style="padding:14px;background:rgba(244,114,182,.05);border:1px solid rgba(244,114,182,.15);border-radius:10px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                            <span class="fmt-badge fmt-xml">.XML</span>
+                            <span style="font-size:12px;font-weight:600;color:var(--bm-text)">PubMed XML / MEDLINE</span>
+                        </div>
+                        <p style="font-size:12.5px;color:var(--bm-text-muted);margin:0;line-height:1.55">Exportação XML estruturada do PubMed/MEDLINE, arXiv ou bases que seguem o padrão JATS. Indicado quando se quer o abstract e MeSH terms completos.</p>
+                    </div>
+                </div>
+
+                <div class="step-note step-note-tip">
+                    <i class="bi bi-lightbulb" style="color:#3fb950;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Não encontrou sua base?</strong> Se a base que você usa exporta em qualquer formato acima (RIS, BibTeX, CSV, XLSX, XML), o BiblioMap consegue importar. Caso tenha dúvidas, entre em contato com o administrador da plataforma informando o nome da base e o formato disponível.</span>
+                </div>
+            </div>
+
+        </div>{# /bm-card help #}
+
+    </div>{# /col-lg-8 #}
 
     <div class="col-12 col-lg-4">
-        <div class="bm-card">
-            <h3 style="font-size:13px;font-weight:600;color:var(--bm-text);margin:0 0 16px">
-                <i class="bi bi-database text-accent me-2"></i>Bases suportadas
+        {# Quick reference sidebar #}
+        <div class="bm-card mb-4">
+            <h3 style="font-size:13px;font-weight:700;color:var(--bm-text);margin:0 0 16px;text-transform:uppercase;letter-spacing:.5px">
+                <i class="bi bi-check2-circle text-accent me-2"></i>Formatos suportados
             </h3>
-
             {% set bases = [
-                {name: 'Scopus', icon: '🔬', ext: 'CSV', desc: 'Exportação padrão do Scopus'},
-                {name: 'Web of Science', icon: '🌐', ext: 'TXT', desc: 'Formato WoS (tags AU, TI, SO...)'},
-                {name: 'Lens.org', icon: '🔭', ext: 'CSV', desc: 'Exportação CSV do Lens'},
-                {name: 'PubMed', icon: '🧬', ext: 'CSV/XML', desc: 'CSV ou XML do PubMed'},
-                {name: 'Genérico RIS', icon: '📄', ext: 'RIS', desc: 'Qualquer exportação .ris'},
-                {name: 'BibTeX', icon: '📚', ext: 'BIB', desc: 'Exportação .bib de qualquer base'},
+                {name: 'Scopus',          icon: '🔬', ext: 'CSV',       color: '#3fb950'},
+                {name: 'Web of Science',  icon: '🌐', ext: 'TXT',       color: '#d29922'},
+                {name: 'Lens.org',        icon: '🔭', ext: 'CSV',       color: '#3fb950'},
+                {name: 'PubMed',          icon: '🧬', ext: 'CSV/NBIB',  color: '#3fb950'},
+                {name: 'OpenAlex',        icon: '🔓', ext: 'CSV',       color: '#3fb950'},
+                {name: 'Crossref',        icon: '🔗', ext: 'CSV/RIS',   color: '#4f8ef7'},
+                {name: 'RIS (universal)', icon: '📄', ext: 'RIS',       color: '#4f8ef7'},
+                {name: 'BibTeX',          icon: '📚', ext: 'BIB',       color: '#a855f7'},
+                {name: 'Excel',           icon: '📊', ext: 'XLSX',      color: '#10b981'},
             ] %}
-
             {% for base in bases %}
-                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bm-border)">
-                    <span style="font-size:20px">{{ base.icon }}</span>
-                    <div style="flex:1">
-                        <div style="font-size:13px;font-weight:500;color:var(--bm-text)">{{ base.name }}</div>
-                        <div style="font-size:11px;color:var(--bm-text-muted)">{{ base.desc }}</div>
-                    </div>
-                    <span style="font-size:10px;font-weight:600;background:rgba(79,142,247,0.1);color:var(--bm-accent);padding:2px 8px;border-radius:4px">{{ base.ext }}</span>
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
+                    <span style="font-size:18px">{{ base.icon }}</span>
+                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ base.name }}</div>
+                    <span style="font-size:10.5px;font-weight:700;color:{{ base.color }};background:rgba(255,255,255,.04);border:1px solid {{ base.color }}33;padding:2px 8px;border-radius:5px">{{ base.ext }}</span>
                 </div>
             {% endfor %}
+        </div>
+
+        <div class="bm-card">
+            <h3 style="font-size:13px;font-weight:700;color:var(--bm-text);margin:0 0 14px;text-transform:uppercase;letter-spacing:.5px">
+                <i class="bi bi-lightning text-accent me-2"></i>Dicas rápidas
+            </h3>
+            <ul style="list-style:none;padding:0;margin:0;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
+                <li style="padding:6px 0;border-bottom:1px solid var(--bm-border);display:flex;gap:8px">
+                    <i class="bi bi-check-lg" style="color:var(--bm-success);flex-shrink:0;margin-top:2px"></i>
+                    Exporte com <strong style="color:var(--bm-text)">todos os campos</strong> disponíveis
+                </li>
+                <li style="padding:6px 0;border-bottom:1px solid var(--bm-border);display:flex;gap:8px">
+                    <i class="bi bi-check-lg" style="color:var(--bm-success);flex-shrink:0;margin-top:2px"></i>
+                    Inclua <strong style="color:var(--bm-text)">abstract e palavras-chave</strong> sempre que possível
+                </li>
+                <li style="padding:6px 0;border-bottom:1px solid var(--bm-border);display:flex;gap:8px">
+                    <i class="bi bi-check-lg" style="color:var(--bm-success);flex-shrink:0;margin-top:2px"></i>
+                    Para &gt;2.000 registros, <strong style="color:var(--bm-text)">exporte em lotes</strong> e importe cada arquivo
+                </li>
+                <li style="padding:6px 0;display:flex;gap:8px">
+                    <i class="bi bi-check-lg" style="color:var(--bm-success);flex-shrink:0;margin-top:2px"></i>
+                    O BiblioMap faz <strong style="color:var(--bm-text)">deduplicação automática</strong> entre datasets
+                </li>
+            </ul>
         </div>
     </div>
 </div>
 
-<style>
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display: inline-block; animation: spin 1s linear infinite; }
-</style>
-
 <script>
-const input = document.getElementById('file-input');
+// ── File upload interaction ────────────────────────────────────────────────
+const input    = document.getElementById('file-input');
 const dropZone = document.getElementById('drop-zone');
 const fileInfo = document.getElementById('file-info');
 const fileName = document.getElementById('file-name');
@@ -112,7 +479,6 @@ function formatSize(bytes) {
     if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
     return (bytes/1024).toFixed(0) + ' KB';
 }
-
 function showFile(file) {
     fileName.textContent = file.name;
     fileSize.textContent = formatSize(file.size);
@@ -121,31 +487,34 @@ function showFile(file) {
     dropZone.style.borderColor = 'var(--bm-accent)';
     document.getElementById('drop-icon').textContent = '✅';
 }
-
 input.addEventListener('change', () => { if (input.files[0]) showFile(input.files[0]); });
-
-dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--bm-accent)'; dropZone.style.background = 'rgba(79,142,247,0.05)'; });
-dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--bm-border)'; dropZone.style.background = ''; });
+dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--bm-accent)'; dropZone.style.background = 'rgba(79,142,247,0.05)'; });
+dropZone.addEventListener('dragleave', ()  => { dropZone.style.borderColor = 'var(--bm-border)'; dropZone.style.background = ''; });
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        showFile(file);
-    }
+    if (file) { const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; showFile(file); }
 });
-
 document.getElementById('upload-form').addEventListener('submit', () => {
     document.getElementById('upload-progress').style.display = 'block';
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enviando...';
     let w = 0;
-    const iv = setInterval(() => {
+    setInterval(() => {
         w = Math.min(w + Math.random() * 5, 90);
         document.getElementById('progress-bar').style.width = w + '%';
     }, 300);
+});
+
+// ── Source help tabs ──────────────────────────────────────────────────────
+document.querySelectorAll('.src-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const src = tab.dataset.src;
+        document.querySelectorAll('.src-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.src-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + src).classList.add('active');
+    });
 });
 </script>
 {% endblock %}
