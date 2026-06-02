@@ -32,15 +32,18 @@ class IndicatorService
     public function topAuthors(int $projectId, int $limit = 20): array
     {
         return $this->conn->fetchAllAssociative(
-            'SELECT a.name, a.normalized_name,
-                    COUNT(DISTINCT da.document_id) AS doc_count,
-                    SUM(d.cited_by)                AS total_citations
-             FROM author a
-             JOIN document_author da ON da.author_id = a.id
-             JOIN document d         ON d.id = da.document_id AND d.project_id = ?
-             GROUP BY a.id
-             ORDER BY doc_count DESC, total_citations DESC
-             LIMIT ' . (int)$limit,
+            'SELECT a.name, a.normalized_name, t.doc_count, t.total_citations
+             FROM (
+                 SELECT da.author_id,
+                        COUNT(DISTINCT da.document_id) AS doc_count,
+                        SUM(d.cited_by)                AS total_citations
+                 FROM document_author da
+                 JOIN document d ON d.id = da.document_id AND d.project_id = ?
+                 GROUP BY da.author_id
+                 ORDER BY doc_count DESC, total_citations DESC
+                 LIMIT ' . (int)$limit . '
+             ) t
+             JOIN author a ON a.id = t.author_id',
             [$projectId]
         );
     }
@@ -70,14 +73,17 @@ class IndicatorService
         // NOTE: LIMIT is inlined (not bound) to avoid MySQL < 8 quoting the
         // integer as a string when the parameter array contains mixed types.
         return $this->conn->fetchAllAssociative(
-            'SELECT k.term, k.normalized_term, COUNT(DISTINCT dk.document_id) AS doc_count
-             FROM keyword k
-             JOIN document_keyword dk ON dk.keyword_id = k.id
-             JOIN document d           ON d.id = dk.document_id AND d.project_id = ?
-             WHERE k.type = ?
-             GROUP BY k.id
-             ORDER BY doc_count DESC
-             LIMIT ' . (int)$limit,
+            'SELECT k.term, k.normalized_term, t.doc_count
+             FROM (
+                 SELECT dk.keyword_id, COUNT(DISTINCT dk.document_id) AS doc_count
+                 FROM document_keyword dk
+                 JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                 JOIN keyword k2 ON k2.id = dk.keyword_id AND k2.type = ?
+                 GROUP BY dk.keyword_id
+                 ORDER BY doc_count DESC
+                 LIMIT ' . (int)$limit . '
+             ) t
+             JOIN keyword k ON k.id = t.keyword_id',
             [$projectId, $type]
         );
     }
