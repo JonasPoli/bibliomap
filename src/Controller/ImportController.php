@@ -183,7 +183,8 @@ class ImportController extends AbstractController
             escapeshellarg($logFile)
         );
 
-        exec($cmd);
+        $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
+        $process->start();
 
 
         return $this->redirectToRoute('app_import_processing', [
