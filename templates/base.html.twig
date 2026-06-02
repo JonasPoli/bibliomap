@@ -176,11 +176,25 @@
             display: block;
             opacity: 1;
         }
+        .bm-menu-toggle {
+            display: none !important;
+        }
+        .bm-sidebar-close {
+            display: none !important;
+        }
         @media (max-width: 768px) {
             .bm-sidebar { transform: translateX(-100%); }
             .bm-sidebar.open { transform: translateX(0); }
             .bm-topbar { left: 0; padding: 0 16px; }
             .bm-main { margin-left: 0; padding: 16px; }
+            .bm-menu-toggle {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+            }
+            .bm-sidebar-close {
+                display: block !important;
+            }
         }
         .text-accent { color: var(--bm-accent) !important; }
         .text-muted-bm { color: var(--bm-text-muted) !important; }
@@ -199,7 +213,7 @@
 {% if app.user %}
     <aside class="bm-sidebar" id="sidebar">
         <!-- Mobile Sidebar Close Button -->
-        <button class="btn d-md-none position-absolute top-0 end-0 m-3 p-1 border-0" onclick="toggleMobileSidebar()" style="background:transparent;z-index:1001;color:var(--bm-text-muted)" title="Fechar Menu">
+        <button class="btn bm-sidebar-close position-absolute top-0 end-0 m-3 p-1 border-0" onclick="toggleMobileSidebar()" style="background:transparent;z-index:1001;color:var(--bm-text-muted)" title="Fechar Menu">
             <i class="bi bi-x-lg" style="font-size:18px"></i>
         </button>
         <a href="{{ path('app_projects_index') }}" class="bm-logo">
@@ -366,7 +380,7 @@
     <header class="bm-topbar">
         <div class="d-flex align-items-center gap-2">
             <!-- Mobile Menu Toggle -->
-            <button class="btn btn-sm d-md-none border-0 p-1 me-1" onclick="toggleMobileSidebar()" title="Abrir Menu" style="background:transparent;color:var(--bm-text)">
+            <button class="btn btn-sm bm-menu-toggle border-0 p-1 me-1" onclick="toggleMobileSidebar()" title="Abrir Menu" style="background:transparent;color:var(--bm-text)">
                 <i class="bi bi-list" style="font-size:24px"></i>
             </button>
             <div class="bm-breadcrumb">
