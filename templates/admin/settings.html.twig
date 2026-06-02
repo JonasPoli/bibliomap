@@ -1,0 +1,316 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Configurações do Site — Admin{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .settings-section { background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:14px; padding:28px; margin-bottom:24px; }
+    .settings-section-title { font-size:14px; font-weight:700; color:var(--bm-text); margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+    .settings-section-desc  { font-size:12.5px; color:var(--bm-text-muted); margin-bottom:20px; }
+    .og-preview { position:relative; width:100%; max-width:400px; border-radius:12px; overflow:hidden; border:2px dashed var(--bm-border); background:var(--bm-bg); aspect-ratio:1200/630; display:flex; align-items:center; justify-content:center; }
+    .og-preview img { width:100%; height:100%; object-fit:cover; display:none; }
+    .og-preview img.visible { display:block; }
+    .og-preview .og-placeholder { display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--bm-text-muted); font-size:13px; }
+    .og-preview .og-placeholder i { font-size:40px; opacity:.3; }
+    .og-upload-area { border:2px dashed var(--bm-border); border-radius:10px; padding:20px; text-align:center; cursor:pointer; transition:all .2s; }
+    .og-upload-area:hover, .og-upload-area.dragover { border-color:var(--bm-accent); background:rgba(79,142,247,0.05); }
+    .og-upload-area i { font-size:28px; color:var(--bm-accent); margin-bottom:8px; }
+    .og-upload-label { font-size:13px; color:var(--bm-text-muted); }
+    .og-upload-label strong { color:var(--bm-accent); }
+    .analytics-preview { background:rgba(79,142,247,0.06); border:1px solid rgba(79,142,247,0.2); border-radius:8px; padding:14px 16px; font-size:12.5px; color:var(--bm-text-muted); font-family:'JetBrains Mono',monospace; }
+    .tag-active { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+    .tag-active.on  { background:rgba(63,185,80,0.12); color:var(--bm-success); border:1px solid rgba(63,185,80,0.25); }
+    .tag-active.off { background:rgba(139,148,158,0.12); color:var(--bm-text-muted); border:1px solid var(--bm-border); }
+    .char-counter { font-size:11px; color:var(--bm-text-muted); text-align:right; margin-top:4px; }
+    .char-counter.warn { color:var(--bm-warning); }
+    .char-counter.bad  { color:var(--bm-danger); }
+    .seo-score { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--bm-text-muted); margin-top:6px; }
+    .seo-bar { flex:1; height:4px; background:var(--bm-border); border-radius:2px; overflow:hidden; }
+    .seo-bar-fill { height:100%; border-radius:2px; transition:width .3s; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Configurações do Site</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-start justify-content-between">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-sliders text-accent me-2"></i>Configurações do Site
+        </h1>
+        <p class="bm-page-subtitle">SEO, Google Analytics e identidade do BiblioMap.</p>
+    </div>
+    <div>
+        {% if site_settings.googleAnalyticsId %}
+            <span class="tag-active on"><i class="bi bi-graph-up-arrow"></i>Analytics ativo</span>
+        {% else %}
+            <span class="tag-active off"><i class="bi bi-graph-up-arrow"></i>Analytics inativo</span>
+        {% endif %}
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="settingsForm" novalidate>
+    <input type="hidden" name="_token" value="{{ csrf_token('admin_settings') }}">
+    <input type="hidden" name="removeOgImage" id="removeOgImage" value="0">
+
+    {# ── Google Analytics ── #}
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-graph-up-arrow" style="color:var(--bm-accent)"></i>
+            Google Analytics
+        </div>
+        <p class="settings-section-desc">
+            Insira o Measurement ID do GA4 (ex: <code>G-XXXXXXXXXX</code>). Deixe em branco para desativar.
+            O script será injetado automaticamente em <strong>todas as páginas</strong> (pública e restrita).
+        </p>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-6">
+                <label class="form-label">Measurement ID (GA4)</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="background:var(--bm-bg);border-color:var(--bm-border);color:var(--bm-text-muted)">
+                        <i class="bi bi-tag"></i>
+                    </span>
+                    <input type="text" class="form-control" name="googleAnalyticsId"
+                           value="{{ settings.googleAnalyticsId ?? '' }}"
+                           placeholder="G-XXXXXXXXXX" id="analyticsInput"
+                           pattern="^G-[A-Z0-9]{4,}$">
+                </div>
+                <div class="mt-2 analytics-preview" id="analyticsPreview" style="{{ settings.googleAnalyticsId ? '' : 'display:none' }}">
+                    &lt;script async src="https://www.googletagmanager.com/gtag/js?id=<span id="analyticsTag">{{ settings.googleAnalyticsId }}</span>"&gt;&lt;/script&gt;
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div style="background:rgba(79,142,247,0.05);border-radius:10px;padding:16px;font-size:12.5px;color:var(--bm-text-muted);line-height:1.7">
+                    <i class="bi bi-info-circle text-accent me-1"></i>
+                    <strong>Como obter o ID:</strong><br>
+                    Google Analytics → Admin → Fluxos de dados → Selecionar fluxo → Measurement ID
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── SEO Geral ── #}
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-search" style="color:var(--bm-accent)"></i>
+            SEO — Página Inicial
+        </div>
+        <p class="settings-section-desc">
+            Metadados da home pública. Afetam Google, redes sociais e apps de mensagens.
+        </p>
+
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">Título da página <span style="color:var(--bm-danger)">*</span></label>
+                <input type="text" class="form-control" name="seoTitle" id="seoTitle" required
+                       value="{{ settings.seoTitle }}" maxlength="70"
+                       placeholder="BiblioMap — Plataforma Bibliométrica">
+                <div class="char-counter" id="seoTitleCounter">{{ settings.seoTitle|length }}/70 caracteres</div>
+                <div class="seo-score">
+                    <span>SEO</span>
+                    <div class="seo-bar"><div class="seo-bar-fill" id="seoTitleBar" style="background:var(--bm-success);width:0%"></div></div>
+                    <span id="seoTitleHint"></span>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Descrição (meta description) <span style="color:var(--bm-danger)">*</span></label>
+                <textarea class="form-control" name="seoDescription" id="seoDescription" rows="3"
+                          maxlength="165" required
+                          placeholder="Descreva o BiblioMap em 120–160 caracteres...">{{ settings.seoDescription }}</textarea>
+                <div class="char-counter" id="seoDescCounter">{{ settings.seoDescription|length }}/165 caracteres</div>
+                <div class="seo-score">
+                    <span>SEO</span>
+                    <div class="seo-bar"><div class="seo-bar-fill" id="seoDescBar" style="background:var(--bm-success);width:0%"></div></div>
+                    <span id="seoDescHint"></span>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Keywords (separadas por vírgula)</label>
+                <input type="text" class="form-control" name="seoKeywords"
+                       value="{{ settings.seoKeywords }}"
+                       placeholder="bibliometria, cientometria, análise bibliométrica...">
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">URL base do site <span style="color:var(--bm-danger)">*</span></label>
+                <input type="url" class="form-control" name="baseUrl" required
+                       value="{{ settings.baseUrl }}"
+                       placeholder="https://bibliomap.example.com">
+                <small class="text-muted-bm" style="font-size:11px">Usada nos links canônicos e Open Graph. Sem barra no final.</small>
+            </div>
+        </div>
+    </div>
+
+    {# ── OG Image ── #}
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <i class="bi bi-image" style="color:var(--bm-accent)"></i>
+            Imagem Open Graph (OG Image)
+        </div>
+        <p class="settings-section-desc">
+            Aparece quando a home é compartilhada no WhatsApp, Twitter/X, LinkedIn, etc.
+            Tamanho recomendado: <strong>1200 × 630 px</strong>. Formatos: JPG, PNG, WebP.
+        </p>
+
+        <div class="row g-4 align-items-start">
+            {# Preview #}
+            <div class="col-md-5">
+                <label class="form-label">Preview atual</label>
+                <div class="og-preview" id="ogPreview">
+                    <img id="ogPreviewImg"
+                         src="{{ settings.ogImageUrl ?? '' }}"
+                         alt="OG Image"
+                         class="{{ settings.ogImage ? 'visible' : '' }}">
+                    <div class="og-placeholder" id="ogPlaceholder" style="{{ settings.ogImage ? 'display:none' : '' }}">
+                        <i class="bi bi-card-image"></i>
+                        <span>1200 × 630 px</span>
+                        <small>Nenhuma imagem</small>
+                    </div>
+                </div>
+                {% if settings.ogImage %}
+                    <div class="mt-2 d-flex align-items-center gap-2">
+                        <span style="font-size:12px;color:var(--bm-text-muted)">
+                            <i class="bi bi-check-circle text-success me-1"></i>{{ settings.ogImage }}
+                        </span>
+                        <button type="button" id="removeImgBtn" class="btn btn-sm"
+                                style="font-size:11px;color:var(--bm-danger);border:1px solid var(--bm-danger);padding:2px 8px;border-radius:6px;background:transparent">
+                            <i class="bi bi-trash me-1"></i>Remover
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+
+            {# Upload area #}
+            <div class="col-md-7">
+                <label class="form-label">Upload de nova imagem</label>
+                <div class="og-upload-area" id="ogDropArea" onclick="document.getElementById('ogImageInput').click()">
+                    <i class="bi bi-cloud-upload d-block mx-auto"></i>
+                    <div class="og-upload-label">
+                        <strong>Clique para selecionar</strong> ou arraste a imagem aqui
+                    </div>
+                    <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
+                        JPG, PNG, WebP · Máx. 5 MB · Ideal: 1200×630 px
+                    </div>
+                </div>
+                <input type="file" id="ogImageInput" name="ogImage" accept="image/jpeg,image/png,image/webp"
+                       style="display:none">
+                <div id="ogFileInfo" class="mt-2" style="font-size:12px;color:var(--bm-text-muted);display:none">
+                    <i class="bi bi-file-earmark-image me-1 text-accent"></i>
+                    <span id="ogFileName"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Save button #}
+    <div class="d-flex justify-content-end gap-3">
+        <a href="{{ path('app_admin_index') }}" class="btn-bm-secondary btn">Cancelar</a>
+        <button type="submit" class="btn btn-bm-primary">
+            <i class="bi bi-floppy me-2"></i>Salvar configurações
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    // ── Analytics preview ──────────────────────────────────────
+    const analyticsInput   = document.getElementById('analyticsInput');
+    const analyticsPreview = document.getElementById('analyticsPreview');
+    const analyticsTag     = document.getElementById('analyticsTag');
+
+    analyticsInput?.addEventListener('input', () => {
+        const val = analyticsInput.value.trim();
+        if (val) {
+            analyticsPreview.style.display = 'block';
+            analyticsTag.textContent = val;
+        } else {
+            analyticsPreview.style.display = 'none';
+        }
+    });
+
+    // ── SEO char counters & score bars ──────────────────────────
+    function updateCounter(inputId, counterId, barId, hintId, min, max) {
+        const input   = document.getElementById(inputId);
+        const counter = document.getElementById(counterId);
+        const bar     = document.getElementById(barId);
+        const hint    = document.getElementById(hintId);
+        if (!input || !counter) return;
+
+        function update() {
+            const len = input.value.length;
+            counter.textContent = `${len}/${max} caracteres`;
+            counter.className   = 'char-counter' + (len > max ? ' bad' : len > max * 0.9 ? ' warn' : '');
+
+            if (bar) {
+                const pct  = Math.min(100, (len / max) * 100);
+                const good = len >= min && len <= max;
+                bar.style.width      = pct + '%';
+                bar.style.background = good ? 'var(--bm-success)' : (len < min ? 'var(--bm-warning)' : 'var(--bm-danger)');
+            }
+            if (hint) {
+                hint.textContent = len < min ? `Min. ${min} chars` : (len > max ? 'Muito longo!' : '✓ Ideal');
+                hint.style.color = (len >= min && len <= max) ? 'var(--bm-success)' : 'var(--bm-warning)';
+            }
+        }
+        input.addEventListener('input', update);
+        update();
+    }
+
+    updateCounter('seoTitle',       'seoTitleCounter', 'seoTitleBar', 'seoTitleHint', 30, 70);
+    updateCounter('seoDescription', 'seoDescCounter',  'seoDescBar',  'seoDescHint',  120, 165);
+
+    // ── OG Image upload ──────────────────────────────────────────
+    const ogInput    = document.getElementById('ogImageInput');
+    const ogPreview  = document.getElementById('ogPreviewImg');
+    const ogHolder   = document.getElementById('ogPlaceholder');
+    const ogDropArea = document.getElementById('ogDropArea');
+    const ogFileInfo = document.getElementById('ogFileInfo');
+    const ogFileName = document.getElementById('ogFileName');
+    const removeBtn  = document.getElementById('removeImgBtn');
+    const removeFlag = document.getElementById('removeOgImage');
+
+    function handleImageFile(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            ogPreview.src = e.target.result;
+            ogPreview.classList.add('visible');
+            if (ogHolder) ogHolder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+        if (ogFileInfo) {
+            ogFileInfo.style.display = 'block';
+            ogFileName.textContent   = `${file.name} (${(file.size/1024).toFixed(0)} KB)`;
+        }
+        if (removeFlag) removeFlag.value = '0';
+    }
+
+    ogInput?.addEventListener('change', () => handleImageFile(ogInput.files[0]));
+
+    // Drag & drop
+    ['dragenter','dragover'].forEach(ev => ogDropArea?.addEventListener(ev, e => { e.preventDefault(); ogDropArea.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev => ogDropArea?.addEventListener(ev, e => { e.preventDefault(); ogDropArea.classList.remove('dragover'); }));
+    ogDropArea?.addEventListener('drop', e => handleImageFile(e.dataTransfer.files[0]));
+
+    // Remove image button
+    removeBtn?.addEventListener('click', () => {
+        if (!confirm('Remover a imagem OG atual?')) return;
+        ogPreview.src = '';
+        ogPreview.classList.remove('visible');
+        if (ogHolder) ogHolder.style.display = '';
+        ogInput.value = '';
+        if (ogFileInfo) ogFileInfo.style.display = 'none';
+        if (removeFlag) removeFlag.value = '1';
+        removeBtn.style.display = 'none';
+    });
+})();
+</script>
+{% endblock %}
