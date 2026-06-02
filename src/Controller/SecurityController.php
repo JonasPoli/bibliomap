@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 class SecurityController extends AbstractController
@@ -79,5 +80,23 @@ class SecurityController extends AbstractController
     public function pending(): Response
     {
         return $this->render('security/pending.html.twig');
+    }
+
+    /**
+     * Exits switch_user impersonation.
+     * Must live OUTSIDE AdminController so that users being impersonated
+     * (who lack ROLE_ADMIN) can still reach this URL.
+     * Symfony's SwitchUserListener processes _switch_user=_exit before
+     * any authorization check, restoring the original admin session.
+     */
+    #[Route('/sair-impersonacao', name: 'app_exit_impersonation')]
+    #[IsGranted('ROLE_PREVIOUS_ADMIN')]
+    public function exitImpersonation(): Response
+    {
+        // The _switch_user=_exit query param is handled by Symfony's firewall
+        // listener — it restores the admin before the target route is rendered.
+        return $this->redirectToRoute('app_admin_users', [
+            '_switch_user' => '_exit',
+        ]);
     }
 }

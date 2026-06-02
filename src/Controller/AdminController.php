@@ -129,16 +129,6 @@ class AdminController extends AbstractController
         ]);
     }
 
-    // ─── Exit impersonation ──────────────────────────────────────────────────
-
-    #[Route('/sair-impersonacao', name: 'exit_impersonation')]
-    public function exitImpersonation(): Response
-    {
-        return $this->redirectToRoute('app_admin_users', [
-            '_switch_user' => '_exit',
-        ]);
-    }
-
     // ─── Site Settings ───────────────────────────────────────────────────────
 
     #[Route('/configuracoes', name: 'settings')]
