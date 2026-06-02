@@ -160,7 +160,28 @@
         .form-control:focus, .form-select:focus { border-color: var(--bm-accent) !important; box-shadow: 0 0 0 3px rgba(79,142,247,0.15) !important; }
         .form-label { font-size: 13px; font-weight: 500; color: var(--bm-text-muted); margin-bottom: 6px; }
         .form-check-input:checked { background-color: var(--bm-accent); border-color: var(--bm-accent); }
-        @media (max-width: 768px) { .bm-sidebar { transform: translateX(-100%); } .bm-sidebar.open { transform: translateX(0); } .bm-topbar { left: 0; } .bm-main { margin-left: 0; } }
+        .bm-sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 995;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .bm-sidebar-backdrop.show {
+            display: block;
+            opacity: 1;
+        }
+        @media (max-width: 768px) {
+            .bm-sidebar { transform: translateX(-100%); }
+            .bm-sidebar.open { transform: translateX(0); }
+            .bm-topbar { left: 0; padding: 0 16px; }
+            .bm-main { margin-left: 0; padding: 16px; }
+        }
         .text-accent { color: var(--bm-accent) !important; }
         .text-muted-bm { color: var(--bm-text-muted) !important; }
         .border-bm { border-color: var(--bm-border) !important; }
@@ -177,6 +198,10 @@
 
 {% if app.user %}
     <aside class="bm-sidebar" id="sidebar">
+        <!-- Mobile Sidebar Close Button -->
+        <button class="btn d-md-none position-absolute top-0 end-0 m-3 p-1 border-0" onclick="toggleMobileSidebar()" style="background:transparent;z-index:1001;color:var(--bm-text-muted)" title="Fechar Menu">
+            <i class="bi bi-x-lg" style="font-size:18px"></i>
+        </button>
         <a href="{{ path('app_projects_index') }}" class="bm-logo">
             <div class="bm-logo-icon" style="background:none;padding:0">
                 <img src="/logo.svg" alt="BiblioMap" width="36" height="36" style="display:block">
@@ -336,10 +361,17 @@
             </div>
         </div>
     </aside>
+    <div class="bm-sidebar-backdrop" id="sidebar-backdrop"></div>
 
     <header class="bm-topbar">
-        <div class="bm-breadcrumb">
-            {% block breadcrumb %}<span class="current">Dashboard</span>{% endblock %}
+        <div class="d-flex align-items-center gap-2">
+            <!-- Mobile Menu Toggle -->
+            <button class="btn btn-sm d-md-none border-0 p-1 me-1" onclick="toggleMobileSidebar()" title="Abrir Menu" style="background:transparent;color:var(--bm-text)">
+                <i class="bi bi-list" style="font-size:24px"></i>
+            </button>
+            <div class="bm-breadcrumb">
+                {% block breadcrumb %}<span class="current">Dashboard</span>{% endblock %}
+            </div>
         </div>
         <div class="d-flex align-items-center gap-3">
             {% block topbar_actions %}{% endblock %}
@@ -347,7 +379,7 @@
             <!-- Global Theme Toggle Button -->
             <button class="btn btn-sm d-flex align-items-center gap-2 border" onclick="toggleGlobalTheme()" title="Alternar Tema Claro/Escuro" style="padding:6px 12px;font-size:13px;border-radius:8px;background:transparent;border-color:var(--bm-border) !important;color:var(--bm-text-muted)">
                 <i class="bi bi-sun bm-theme-icon" style="font-size:14px;color:var(--bm-accent)"></i>
-                <span class="bm-theme-label" style="font-weight:600">Escuro</span>
+                <span class="bm-theme-label d-none d-sm-inline" style="font-weight:600">Escuro</span>
             </button>
         </div>
     </header>
@@ -418,10 +450,42 @@
         });
     }
 
+    function toggleMobileSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (!sidebar || !backdrop) return;
+        
+        if (sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('show');
+            setTimeout(() => {
+                if (!sidebar.classList.contains('open')) {
+                    backdrop.style.display = 'none';
+                }
+            }, 250);
+        } else {
+            backdrop.style.display = 'block';
+            // Trigger reflow
+            backdrop.offsetHeight;
+            sidebar.classList.add('open');
+            backdrop.classList.add('show');
+        }
+    }
+
     // Run on DOMContentLoaded to set the correct icon initial state
     document.addEventListener('DOMContentLoaded', () => {
         const activeTheme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
         updateThemeToggleIcons(activeTheme);
+        
+        // Setup mobile sidebar backdrop click listener
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', () => {
+                if (document.getElementById('sidebar').classList.contains('open')) {
+                    toggleMobileSidebar();
+                }
+            });
+        }
     });
 </script>
 {% block javascripts %}{% endblock %}
