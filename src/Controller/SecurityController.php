@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Form\RegistrationFormType;
+use App\Security\LoginFormAuthenticator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,15 +19,20 @@ class SecurityController extends AbstractController
     public function login(AuthenticationUtils $authenticationUtils): Response
     {
         if ($this->getUser()) {
+            /** @var User $user */
+            $user = $this->getUser();
+            if ($user->isPending()) {
+                return $this->redirectToRoute('app_cadastro_pendente');
+            }
             return $this->redirectToRoute('app_projects_index');
         }
 
-        $error = $authenticationUtils->getLastAuthenticationError();
+        $error        = $authenticationUtils->getLastAuthenticationError();
         $lastUsername = $authenticationUtils->getLastUsername();
 
         return $this->render('security/login.html.twig', [
             'last_username' => $lastUsername,
-            'error' => $error,
+            'error'         => $error,
         ]);
     }
 
@@ -57,16 +63,23 @@ class SecurityController extends AbstractController
             );
             $user->setPassword($hashedPassword);
             $user->setRoles(['ROLE_USER']);
+            $user->setStatus(User::STATUS_PENDING);
 
             $em->persist($user);
             $em->flush();
 
-            $this->addFlash('success', 'Conta criada com sucesso! Faça login.');
-            return $this->redirectToRoute('app_login');
+            $this->addFlash('success', 'Cadastro realizado! Sua conta está aguardando aprovação do administrador.');
+            return $this->redirectToRoute('app_cadastro_pendente');
         }
 
         return $this->render('security/register.html.twig', [
             'form' => $form,
         ]);
+    }
+
+    #[Route('/cadastro-pendente', name: 'app_cadastro_pendente')]
+    public function pending(): Response
+    {
+        return $this->render('security/pending.html.twig');
     }
 }

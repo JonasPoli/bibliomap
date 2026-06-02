@@ -18,6 +18,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['email'], message: 'Este e-mail já está em uso.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public const STATUS_PENDING  = 'pending';
+    public const STATUS_ACTIVE   = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -45,8 +49,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $country = null;
 
-    #[ORM\Column(length: 30, options: ['default' => 'active'])]
-    private string $status = 'active';
+    #[ORM\Column(length: 30, options: ['default' => 'pending'])]
+    private string $status = self::STATUS_PENDING;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
@@ -63,7 +67,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function __construct()
     {
-        $this->projects = new ArrayCollection();
+        $this->projects  = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
@@ -86,13 +90,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getRoles(): array
     {
-        $roles = $this->roles;
+        $roles   = $this->roles;
         $roles[] = 'ROLE_USER';
         return array_unique($roles);
     }
 
     /** @param list<string> $roles */
     public function setRoles(array $roles): static { $this->roles = $roles; return $this; }
+
+    public function isAdmin(): bool { return in_array('ROLE_ADMIN', $this->getRoles(), true); }
 
     public function getPassword(): ?string { return $this->password; }
     public function setPassword(string $password): static { $this->password = $password; return $this; }
@@ -105,6 +111,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getStatus(): string { return $this->status; }
     public function setStatus(string $status): static { $this->status = $status; return $this; }
+
+    public function isPending(): bool  { return $this->status === self::STATUS_PENDING; }
+    public function isActive(): bool   { return $this->status === self::STATUS_ACTIVE; }
+    public function isInactive(): bool { return $this->status === self::STATUS_INACTIVE; }
 
     public function getLastLoginAt(): ?\DateTimeImmutable { return $this->lastLoginAt; }
     public function setLastLoginAt(?\DateTimeImmutable $lastLoginAt): static { $this->lastLoginAt = $lastLoginAt; return $this; }
