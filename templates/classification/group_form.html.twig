@@ -1,0 +1,453 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ mode == 'edit' ? 'Editar Grupo' : 'Novo Grupo' }} — Classificação{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center gap-3">
+    <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12px;padding:6px 12px">
+        <i class="bi bi-arrow-left me-1"></i> Voltar
+    </a>
+    <div>
+        <h1 class="bm-page-title">{{ mode == 'edit' ? 'Editar Grupo' : 'Novo Grupo de Classificação' }}</h1>
+        <p class="bm-page-subtitle">{{ mode == 'edit' ? 'Altere o nome, tipo e termos do grupo.' : 'Defina o tipo, termos e cor do novo grupo.' }}</p>
+    </div>
+</div>
+
+{% for label, messages in app.flashes %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ label == 'success' ? 'success' : 'danger' }} bm-alert mb-3">
+        {{ msg|raw }}
+    </div>
+    {% endfor %}
+{% endfor %}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form action="{{ mode == 'edit'
+                ? path('app_classification_group_edit', {id: project.id, groupId: group.id})
+                : path('app_classification_group_new', {id: project.id}) }}"
+                  method="post" id="groupForm">
+
+                <input type="hidden" name="_token" value="{{ csrf_token(mode == 'edit' ? 'clf_group_edit_' ~ group.id : 'clf_group_new_' ~ project.id) }}">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label" for="name">Nome do Grupo <span style="color:var(--bm-danger)">*</span></label>
+                        <input type="text" id="name" name="name" class="form-control"
+                               value="{{ group.name }}" placeholder="Ex: Robótica e Mecanização" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="type">Tipo <span style="color:var(--bm-danger)">*</span></label>
+                        <select id="type" name="type" class="form-select" onchange="updateTypeInfo(this.value)">
+                            <option value="normal"       {{ group.type == 'normal'       ? 'selected' : '' }}>🗂 Normal / Temático</option>
+                            <option value="validator"    {{ group.type == 'validator'    ? 'selected' : '' }}>✅ Validador</option>
+                            <option value="noise"        {{ group.type == 'noise'        ? 'selected' : '' }}>🚫 Ruído / Falso Positivo</option>
+                            <option value="unclassified" {{ group.type == 'unclassified' ? 'selected' : '' }}>❓ Sem Classificação</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="typeInfo" class="alert bm-alert mb-3" style="font-size:12.5px"></div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="description">Descrição</label>
+                    <textarea id="description" name="description" class="form-control" rows="2"
+                              placeholder="Descreva o foco temático deste grupo…">{{ group.description }}</textarea>
+                </div>
+
+                {# ── Terms area ───────────────────────────────────────────── #}
+                <div class="mb-3">
+                    <label class="form-label">
+                        Termos de Classificação
+                        <span style="font-size:11px;color:var(--bm-text-muted)">(separe por vírgula ou pressione Enter/Tab)</span>
+                    </label>
+                    <div id="chipsContainer" style="min-height:80px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('termInput').focus()">
+                    </div>
+                    <input type="hidden" id="termsHidden" name="terms" value="{{ group.terms|join(',') }}">
+                    <div class="mt-2">
+                        <input type="text" id="termInput" class="form-control"
+                               placeholder="Digite um termo e pressione Enter, Tab ou vírgula…"
+                               style="font-family:monospace;font-size:13px">
+                    </div>
+                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('machine learning,neural network,deep learning,algorithm,artificial intelligence')">+ IA básica</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('robot,drone,uav,autonomous,harvester')">+ Robótica</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('irrigation,water,moisture,groundwater')">+ Recursos Hídricos</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('climate,weather,carbon,sustainable,emissions')">+ Clima e Meio Ambiente</button>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label" for="color">Cor</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" id="color" name="color" value="{{ group.color ?? '#4f8ef7' }}"
+                                   style="width:50px;height:38px;padding:2px;border-radius:6px;border:1px solid var(--bm-border);background:var(--bm-bg)">
+                            <input type="text" id="colorHex" class="form-control"
+                                   value="{{ group.color ?? '#4f8ef7' }}" placeholder="#4f8ef7"
+                                   style="font-family:monospace"
+                                   oninput="document.getElementById('color').value=this.value">
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Ícone</label>
+                        <div style="display:flex;align-items:center;gap:.6rem">
+                            <div id="iconPreviewWrap" style="width:40px;height:40px;flex-shrink:0;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--bm-accent)">
+                                <i id="iconPreview" class="bi {{ group.icon ?? 'bi-collection' }}"></i>
+                            </div>
+                            <input type="text" id="icon" name="icon" class="form-control"
+                                   value="{{ group.icon ?? 'bi-collection' }}" placeholder="bi-collection"
+                                   oninput="updateIconPreview(this.value)" style="font-family:monospace;font-size:13px">
+                            <button type="button" class="btn btn-bm-secondary" onclick="openIconPicker()" style="white-space:nowrap;font-size:12px;padding:6px 12px">
+                                <i class="bi bi-grid me-1"></i> Escolher
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="position">Ordem de Processamento</label>
+                        <input type="number" id="position" name="position" class="form-control"
+                               value="{{ group.position }}" min="0" max="999">
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Menor = processado primeiro</div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-bm-primary">
+                        <i class="bi bi-{{ mode == 'edit' ? 'check-lg' : 'plus-lg' }} me-1"></i>
+                        {{ mode == 'edit' ? 'Salvar alterações' : 'Criar Grupo' }}
+                    </button>
+                    <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# RIGHT: tips panel #}
+    <div class="col-lg-4">
+        <div class="bm-card mb-3">
+            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:10px"><i class="bi bi-info-circle text-accent me-1"></i> Tipos de Grupo</h6>
+            <div class="d-flex flex-column gap-2" style="font-size:12.5px">
+                <div><span class="badge text-bg-warning">Validador</span> <span style="color:var(--bm-text-muted)">O documento DEVE conter um desses termos. Se não, vai para Ruído.</span></div>
+                <div><span class="badge text-bg-danger">Ruído</span> <span style="color:var(--bm-text-muted)">Se encontrado, descarta o documento como falso positivo.</span></div>
+                <div><span class="badge text-bg-primary">Normal</span> <span style="color:var(--bm-text-muted)">Classificação temática. Primeiro grupo que der match vence.</span></div>
+                <div><span class="badge text-bg-secondary">Sem Grupo</span> <span style="color:var(--bm-text-muted)">Grupo especial criado automaticamente para documentos sem enquadramento.</span></div>
+            </div>
+        </div>
+        <div class="bm-card">
+            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:10px"><i class="bi bi-lightbulb text-accent me-1"></i> Dicas</h6>
+            <ul style="font-size:12px;color:var(--bm-text-muted);line-height:1.7;padding-left:16px;margin:0">
+                <li>Os termos são comparados em <strong style="color:var(--bm-text)">minúsculas</strong> com o título + resumo + palavras-chave</li>
+                <li>Use termos específicos para reduzir falsos positivos</li>
+                <li>Validadores são verificados antes dos grupos temáticos</li>
+                <li>A ordem de processamento (posição) determina qual grupo vence em caso de múltiplos matches</li>
+                <li>Depois de executar, você pode mover documentos manualmente entre grupos</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{# ── Bootstrap Icon Picker Modal ──────────────────────────────────────────── #}
+<div id="bm-icon-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(10,12,22,.88);backdrop-filter:blur(12px);z-index:9999;align-items:center;justify-content:center">
+    <div id="bm-icon-modal" style="background:var(--bm-card-bg);border:1px solid var(--bm-border);box-shadow:0 25px 60px rgba(0,0,0,.6);border-radius:20px;padding:1.75rem;width:min(760px,96vw);max-height:90vh;display:flex;flex-direction:column;gap:1.25rem">
+        <style>
+        @keyframes bmModalScale{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+        #bm-icon-modal{animation:bmModalScale .3s cubic-bezier(0.34, 1.56, 0.64, 1)}
+        .bm-itab{padding:.45rem 1.1rem;border-radius:20px;font-size:.76rem;font-weight:600;background:rgba(255,255,255,.03);color:var(--bm-text-muted);border:1px solid var(--bm-border);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+        .bm-itab:hover{background:rgba(255,255,255,.07);color:var(--bm-text)}
+        .bm-itab.active{background:linear-gradient(135deg,rgba(79,142,247,.2),rgba(79,142,247,.05));color:#818cf8;border-color:var(--bm-accent);box-shadow:0 4px 12px rgba(79,142,247,.15)}
+        #bm-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:.55rem;overflow-y:auto;max-height:340px;padding-right:.2rem}
+        #bm-icon-grid button{width:58px;height:58px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:12px;cursor:pointer;color:var(--bm-text);font-size:1.35rem;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(0.175,0.885,0.32,1.275)}
+        #bm-icon-grid button:hover{background:linear-gradient(135deg,var(--bm-accent),#6366f1);border-color:var(--bm-accent);color:#fff;transform:scale(1.15) rotate(3deg);box-shadow:0 6px 18px rgba(79,142,247,.35)}
+        #bm-icon-grid::-webkit-scrollbar{width:5px}
+        #bm-icon-grid::-webkit-scrollbar-track{background:transparent}
+        #bm-icon-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:10px}
+        #bm-icon-search:focus{border-color:var(--bm-accent);box-shadow:0 0 10px rgba(79,142,247,.25)}
+        </style>
+
+        {# Header #}
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bm-border);padding-bottom:.75rem">
+            <div style="display:flex;align-items:center;gap:.6rem">
+                <i class="bi bi-grid-fill" style="color:var(--bm-accent);font-size:1.2rem"></i>
+                <span style="font-weight:800;font-size:1.15rem;color:var(--bm-text)">Escolher Ícone Bootstrap</span>
+            </div>
+            <button onclick="closeIconPicker()" type="button" style="background:none;border:none;cursor:pointer;color:var(--bm-text-muted);font-size:1.4rem;line-height:1;transition:color .15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--bm-text-muted)'">✕</button>
+        </div>
+
+        {# Search #}
+        <div style="position:relative;display:flex;align-items:center">
+            <i class="bi bi-search" style="position:absolute;left:14px;color:var(--bm-text-muted);font-size:1rem"></i>
+            <input type="text" id="bm-icon-search" placeholder="Pesquisar ícones… ex: chart, robot, leaf"
+                   oninput="filterBmIcons(this.value)"
+                   style="padding-left:2.5rem;width:100%;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:10px;height:44px;color:var(--bm-text);font-size:.9rem;outline:none">
+        </div>
+
+        {# Tabs #}
+        <div style="display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.5rem;border-bottom:1px solid var(--bm-border)">
+            <button class="bm-itab active" type="button" onclick="switchBmTab('all',this)">Todos</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('data',this)">Dados &amp; Gráficos</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('science',this)">Ciência &amp; Natureza</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('tech',this)">Tecnologia</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('people',this)">Pessoas &amp; Org.</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('ui',this)">Interface</button>
+            <button class="bm-itab" type="button" onclick="switchBmTab('arrows',this)">Setas</button>
+        </div>
+
+        {# Icon grid #}
+        <div id="bm-icon-grid"></div>
+
+        {# Preview pane #}
+        <div style="display:flex;align-items:center;gap:1.25rem;padding:.85rem 1.15rem;background:rgba(255,255,255,0.03);border:1px solid var(--bm-border);border-radius:14px;min-height:64px">
+            <div id="bm-pane-icon" style="font-size:2rem;width:50px;height:50px;background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--bm-accent);transition:all .18s ease">
+                <i class="bi bi-collection"></i>
+            </div>
+            <div>
+                <div id="bm-pane-name" style="font-size:.9rem;font-weight:700;font-family:monospace;color:var(--bm-text)">bi-collection</div>
+                <div id="bm-pane-desc" style="font-size:.75rem;color:var(--bm-text-muted)">Passe o mouse sobre um ícone para visualizar</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+const typeInfoMap = {
+    normal:       ['primary', 'bi-collection', 'Grupo temático. O motor busca este grupo após validar o documento e verificar ruídos. Primeiro grupo com match vence.'],
+    validator:    ['warning',  'bi-shield-check', 'O documento DEVE conter pelo menos um desses termos. Caso contrário, é enviado automaticamente ao grupo de Ruído.'],
+    noise:        ['danger',   'bi-ban', 'Se qualquer um desses termos for encontrado no documento, ele é descartado como falso positivo. Verificado ANTES dos grupos temáticos.'],
+    unclassified: ['secondary','bi-question-circle', 'Grupo especial para documentos que não se enquadraram em nenhum grupo temático. Criado automaticamente; evite duplicar.'],
+};
+
+function updateTypeInfo(type) {
+    const [color, icon, text] = typeInfoMap[type] || ['secondary', 'bi-info-circle', ''];
+    const el = document.getElementById('typeInfo');
+    el.className = `alert alert-${color} bm-alert mb-3`;
+    el.style.fontSize = '12.5px';
+    el.innerHTML = `<i class="bi ${icon} me-2"></i>${text}`;
+}
+updateTypeInfo(document.getElementById('type').value);
+
+document.getElementById('color').addEventListener('input', function() {
+    document.getElementById('colorHex').value = this.value;
+});
+
+// ─── Icon Preview ─────────────────────────────────────────────────────────────
+function updateIconPreview(val) {
+    const cls = val.trim().startsWith('bi-') ? 'bi ' + val.trim() : 'bi bi-' + val.trim();
+    document.getElementById('iconPreview').className = cls;
+}
+
+// ─── Chip / Tag input ─────────────────────────────────────────────────────────
+const terms = new Set();
+
+function renderChips() {
+    const container = document.getElementById('chipsContainer');
+    container.querySelectorAll('.term-chip').forEach(c => c.remove());
+    terms.forEach(term => {
+        const chip = document.createElement('span');
+        chip.className = 'term-chip';
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:5px;padding:3px 8px;font-size:11.5px;font-family:monospace;color:var(--bm-accent)';
+        chip.innerHTML = `${term} <button type="button" onclick="removeTerm('${term.replace(/'/g,"\\'")}',this)" style="background:none;border:none;cursor:pointer;padding:0;color:var(--bm-text-muted);font-size:13px;line-height:1" title="Remover">&times;</button>`;
+        container.appendChild(chip);
+    });
+    document.getElementById('termsHidden').value = [...terms].join(',');
+}
+function removeTerm(term) { terms.delete(term); renderChips(); }
+function addTerm(raw) { const t = raw.trim().toLowerCase(); if (t) terms.add(t); }
+function addTerms(csv) { csv.split(',').forEach(t => addTerm(t)); renderChips(); }
+
+'{{ group.terms|join(',') }}'.split(',').filter(t => t.trim()).forEach(t => terms.add(t.trim()));
+renderChips();
+
+const termInput = document.getElementById('termInput');
+termInput.addEventListener('keydown', function(e) {
+    if (['Enter', 'Tab', ','].includes(e.key)) {
+        e.preventDefault(); addTerm(this.value); this.value = ''; renderChips();
+    }
+});
+termInput.addEventListener('blur', function() {
+    if (this.value.trim()) { addTerm(this.value); this.value = ''; renderChips(); }
+});
+
+// ─── Bootstrap Icon Picker ────────────────────────────────────────────────────
+const BI_ICONS = [
+    'bi-bar-chart','bi-bar-chart-fill','bi-bar-chart-line','bi-bar-chart-steps',
+    'bi-pie-chart','bi-pie-chart-fill','bi-graph-up','bi-graph-up-arrow','bi-graph-down',
+    'bi-graph-down-arrow','bi-diagram-2','bi-diagram-3','bi-diagram-3-fill',
+    'bi-table','bi-grid','bi-grid-fill','bi-grid-3x3','bi-grid-3x3-gap',
+    'bi-database','bi-database-fill','bi-database-add','bi-database-check',
+    'bi-funnel','bi-funnel-fill','bi-filter','bi-filter-circle',
+    'bi-sort-alpha-down','bi-sort-numeric-down','bi-list-ol','bi-list-ul',
+    'bi-123','bi-percent','bi-calculator','bi-calculator-fill',
+    'bi-flower1','bi-flower2','bi-flower3','bi-tree','bi-tree-fill',
+    'bi-leaf','bi-leaf-fill','bi-bug','bi-bug-fill',
+    'bi-water','bi-droplet','bi-droplet-fill','bi-droplet-half',
+    'bi-sun','bi-sun-fill','bi-moon','bi-moon-fill','bi-cloud','bi-cloud-fill',
+    'bi-cloud-rain','bi-cloud-sun','bi-cloud-sun-fill','bi-thermometer',
+    'bi-wind','bi-snow','bi-snow2','bi-snow3',
+    'bi-globe','bi-globe-americas','bi-globe-europe-africa','bi-globe-asia-australia',
+    'bi-geo','bi-geo-fill','bi-geo-alt','bi-geo-alt-fill','bi-map','bi-map-fill',
+    'bi-camera','bi-camera-fill','bi-camera2','bi-binoculars','bi-binoculars-fill',
+    'bi-eyedropper','bi-flask','bi-flask-fill','bi-virus','bi-virus2',
+    'bi-robot','bi-cpu','bi-cpu-fill','bi-motherboard','bi-gpu-card',
+    'bi-radioactive','bi-infinity','bi-recycle',
+    'bi-laptop','bi-laptop-fill','bi-pc','bi-pc-fill','bi-phone','bi-phone-fill',
+    'bi-tablet','bi-tablet-fill','bi-hdd','bi-hdd-fill','bi-hdd-network','bi-server',
+    'bi-wifi','bi-wifi-2','bi-wifi-off','bi-bluetooth','bi-usb','bi-usb-drive',
+    'bi-terminal','bi-terminal-fill','bi-code','bi-code-slash','bi-code-square',
+    'bi-braces','bi-braces-asterisk','bi-brackets','bi-filetype-json',
+    'bi-github','bi-git','bi-gitlab','bi-stack',
+    'bi-broadcast','bi-broadcast-pin','bi-router','bi-router-fill',
+    'bi-rss','bi-rss-fill','bi-qr-code','bi-qr-code-scan',
+    'bi-radar','bi-bezier','bi-bezier2',
+    'bi-people','bi-people-fill','bi-person','bi-person-fill',
+    'bi-person-circle','bi-person-badge','bi-person-check','bi-person-lines-fill',
+    'bi-person-vcard','bi-person-workspace','bi-person-gear',
+    'bi-mortarboard','bi-mortarboard-fill','bi-book','bi-book-fill',
+    'bi-journal','bi-journal-text','bi-journal-bookmark','bi-journal-check',
+    'bi-briefcase','bi-briefcase-fill','bi-building','bi-building-fill',
+    'bi-bank','bi-bank2','bi-shop','bi-shop-window',
+    'bi-award','bi-award-fill','bi-trophy','bi-trophy-fill',
+    'bi-star','bi-star-fill','bi-shield','bi-shield-fill','bi-shield-check',
+    'bi-shield-lock','bi-patch-check','bi-patch-check-fill',
+    'bi-collection','bi-collection-fill','bi-clipboard','bi-clipboard-fill',
+    'bi-clipboard-check','bi-clipboard-data','bi-clipboard2-data',
+    'bi-folder','bi-folder-fill','bi-folder2','bi-folder2-open',
+    'bi-box','bi-box-fill','bi-box2','bi-boxes','bi-archive','bi-archive-fill',
+    'bi-search','bi-zoom-in','bi-zoom-out','bi-eye','bi-eye-fill','bi-eye-slash',
+    'bi-bell','bi-bell-fill','bi-bell-slash','bi-chat','bi-chat-fill',
+    'bi-chat-dots','bi-chat-dots-fill','bi-chat-square-text','bi-envelope',
+    'bi-envelope-fill','bi-envelope-open','bi-send','bi-send-fill',
+    'bi-check','bi-check2','bi-check-circle','bi-check-circle-fill',
+    'bi-x','bi-x-circle','bi-x-circle-fill','bi-ban','bi-slash-circle',
+    'bi-exclamation','bi-exclamation-circle','bi-exclamation-triangle',
+    'bi-info','bi-info-circle','bi-info-circle-fill','bi-question-circle',
+    'bi-question-circle-fill','bi-lightning','bi-lightning-fill','bi-lightning-charge',
+    'bi-gear','bi-gear-fill','bi-gear-wide','bi-sliders','bi-sliders2',
+    'bi-toggle-on','bi-toggle-off','bi-list','bi-list-check','bi-card-list',
+    'bi-card-text','bi-columns','bi-layout-split','bi-layout-text-window',
+    'bi-layers','bi-layers-fill','bi-tag','bi-tag-fill','bi-tags',
+    'bi-hash','bi-at','bi-key','bi-key-fill','bi-lock','bi-lock-fill',
+    'bi-unlock','bi-unlock-fill','bi-link','bi-link-45deg','bi-paperclip',
+    'bi-pin','bi-pin-fill','bi-pin-angle','bi-pin-map','bi-cursor',
+    'bi-hand-index','bi-hand-thumbs-up','bi-hand-thumbs-down',
+    'bi-play','bi-play-fill','bi-pause','bi-pause-fill','bi-stop','bi-stop-fill',
+    'bi-download','bi-upload','bi-cloud-download','bi-cloud-upload',
+    'bi-share','bi-share-fill','bi-trash','bi-trash-fill',
+    'bi-pencil','bi-pencil-fill','bi-pen','bi-pen-fill','bi-eraser','bi-eraser-fill',
+    'bi-image','bi-image-fill','bi-images','bi-film','bi-camera-video',
+    'bi-mic','bi-mic-fill','bi-volume-up','bi-volume-down','bi-headphones',
+    'bi-arrow-up','bi-arrow-down','bi-arrow-left','bi-arrow-right',
+    'bi-arrow-up-right','bi-arrow-up-left','bi-arrow-down-right','bi-arrow-down-left',
+    'bi-arrow-up-circle','bi-arrow-down-circle','bi-arrow-left-circle','bi-arrow-right-circle',
+    'bi-arrow-clockwise','bi-arrow-counterclockwise','bi-arrow-repeat',
+    'bi-chevron-up','bi-chevron-down','bi-chevron-left','bi-chevron-right',
+    'bi-chevron-double-up','bi-chevron-double-down','bi-chevron-double-left','bi-chevron-double-right',
+    'bi-caret-up','bi-caret-down','bi-caret-left','bi-caret-right',
+    'bi-caret-up-fill','bi-caret-down-fill','bi-caret-left-fill','bi-caret-right-fill',
+    'bi-dash','bi-dash-circle','bi-dash-lg','bi-plus','bi-plus-circle','bi-plus-lg',
+    'bi-three-dots','bi-three-dots-vertical','bi-compass','bi-compass-fill',
+    'bi-crosshair','bi-crosshair2','bi-cursor-fill',
+];
+
+const BI_CATS = {
+    data:    v => ['bar-chart','pie-chart','graph','diagram','table','grid','database','funnel','filter','sort','list','percent','calculator','123'].some(k => v.includes(k)),
+    science: v => ['flower','tree','leaf','bug','water','droplet','sun','moon','cloud','thermo','wind','snow','globe','geo','map','camera','binocular','flask','virus','robot','cpu','radioactive','infinity','recycle'].some(k => v.includes(k)),
+    tech:    v => ['laptop','pc','phone','tablet','hdd','server','wifi','bluetooth','usb','terminal','code','braces','brackets','github','git','broadcast','router','rss','qr','radar','bezier'].some(k => v.includes(k)),
+    people:  v => ['people','person','mortarboard','book','journal','briefcase','building','bank','shop','award','trophy','star','shield','patch','collection','clipboard','folder','box','archive'].some(k => v.includes(k)),
+    ui:      v => ['search','zoom','eye','bell','chat','envelope','send','check','x-circle','ban','slash','exclamation','info','question','lightning','gear','sliders','toggle','list','card','column','layout','layer','tag','hash','key','lock','link','paperclip','pin','cursor','hand','play','pause','stop','download','upload','share','trash','pencil','pen','eraser','image','film','camera','mic','volume','headphone'].some(k => v.includes(k)),
+    arrows:  v => ['arrow','chevron','caret','dash','plus','three-dots','compass','crosshair','cursor'].some(k => v.includes(k)),
+};
+
+let _bmTab = 'all', _bmList = [], _bmRendered = 0;
+const _bmLimit = 120;
+
+function getBmList(tab) {
+    if (tab === 'all') return BI_ICONS;
+    const fn = BI_CATS[tab];
+    return fn ? BI_ICONS.filter(ic => fn(ic.replace('bi-',''))) : BI_ICONS;
+}
+
+function renderBmIcons(list) {
+    _bmList = list; _bmRendered = 0;
+    document.getElementById('bm-icon-grid').innerHTML = '';
+    appendBmIcons();
+}
+
+function appendBmIcons() {
+    const grid = document.getElementById('bm-icon-grid');
+    const end = Math.min(_bmRendered + _bmLimit, _bmList.length);
+    for (let i = _bmRendered; i < end; i++) {
+        const ic = _bmList[i];
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.title = ic;
+        btn.innerHTML = `<i class="bi ${ic}"></i>`;
+        btn.onclick = () => selectBmIcon(ic);
+        btn.onmouseenter = () => previewBmIcon(ic);
+        grid.appendChild(btn);
+    }
+    _bmRendered = end;
+    if (_bmRendered < _bmList.length) {
+        const s = document.createElement('div');
+        s.id = 'bm-sentinel';
+        s.style.cssText = 'grid-column:1/-1;text-align:center;padding:.5rem;font-size:.75rem;color:var(--bm-text-muted)';
+        s.textContent = `Role para mais… (${_bmRendered}/${_bmList.length})`;
+        grid.appendChild(s);
+    }
+}
+
+function openIconPicker() {
+    document.getElementById('bm-icon-modal-overlay').style.display = 'flex';
+    document.getElementById('bm-icon-search').value = '';
+    document.querySelectorAll('.bm-itab').forEach((t,i) => t.classList.toggle('active', i===0));
+    _bmTab = 'all';
+    renderBmIcons(getBmList('all'));
+    setTimeout(() => document.getElementById('bm-icon-search').focus(), 100);
+    const cur = document.getElementById('icon').value;
+    if (cur) previewBmIcon(cur);
+
+    document.getElementById('bm-icon-grid').onscroll = function() {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 50) {
+            const s = document.getElementById('bm-sentinel');
+            if (s) { s.remove(); appendBmIcons(); }
+        }
+    };
+}
+
+function closeIconPicker() {
+    document.getElementById('bm-icon-modal-overlay').style.display = 'none';
+}
+
+function selectBmIcon(ic) {
+    document.getElementById('icon').value = ic;
+    updateIconPreview(ic);
+    previewBmIcon(ic);
+    closeIconPicker();
+}
+
+function previewBmIcon(ic) {
+    document.getElementById('bm-pane-icon').innerHTML = `<i class="bi ${ic}"></i>`;
+    document.getElementById('bm-pane-name').textContent = ic;
+    document.getElementById('bm-pane-desc').textContent = 'Bootstrap Icons — clique para selecionar';
+}
+
+function switchBmTab(tab, btn) {
+    document.querySelectorAll('.bm-itab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    _bmTab = tab;
+    document.getElementById('bm-icon-search').value = '';
+    renderBmIcons(getBmList(tab));
+}
+
+function filterBmIcons(q) {
+    const term = q.toLowerCase().replace('bi-','').trim();
+    const base = getBmList(_bmTab);
+    renderBmIcons(term ? base.filter(ic => ic.toLowerCase().includes(term)) : base);
+}
+
+document.getElementById('bm-icon-modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeIconPicker();
+});
+</script>
+{% endblock %}

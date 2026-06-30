@@ -1,0 +1,304 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Resultados da Classificação — {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-list-ul me-2 text-accent"></i>Resultados da Classificação
+        </h1>
+        <p class="bm-page-subtitle">{{ project.title }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
+            <i class="bi bi-sliders me-1"></i> Grupos
+        </a>
+        <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </a>
+        <form action="{{ path('app_classification_run', {id: project.id}) }}" method="post" class="d-inline">
+            <input type="hidden" name="_token" value="{{ csrf_token('clf_run_' ~ project.id) }}">
+            <button type="submit" class="btn btn-bm-primary" style="font-size:12.5px">
+                <i class="bi bi-arrow-clockwise me-1"></i> Re-executar
+            </button>
+        </form>
+    </div>
+</div>
+
+{% for label, messages in app.flashes %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ label == 'success' ? 'success' : 'danger' }} bm-alert mb-3">{{ msg|raw }}</div>
+    {% endfor %}
+{% endfor %}
+
+{% if not hasResult %}
+<div class="bm-card text-center py-5">
+    <div style="font-size:48px;margin-bottom:12px">📊</div>
+    <h5 style="color:var(--bm-text)">Nenhuma classificação executada ainda</h5>
+    <p style="color:var(--bm-text-muted);font-size:13px">Execute a classificação na tela de grupos.</p>
+    <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-primary">Ir para Grupos</a>
+</div>
+{% else %}
+
+{# ── Tab navigation by group ───────────────────────────────────────────────── #}
+<div class="row g-0 mb-0">
+    <div class="col-12">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px">
+            {% for group in groups %}
+            {% set cnt = counts[group.id] ?? 0 %}
+            <a href="{{ path('app_classification_results', {id: project.id, group: group.id}) }}"
+               style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:600;text-decoration:none;border:2px solid {{ activeGroup and activeGroup.id == group.id ? group.color : 'var(--bm-border)' }};background:{{ activeGroup and activeGroup.id == group.id ? group.color ~ '22' : 'transparent' }};color:{{ activeGroup and activeGroup.id == group.id ? group.color : 'var(--bm-text-muted)' }};transition:all 0.2s">
+                <i class="bi {{ group.icon }}"></i>
+                {{ group.name }}
+                {% if cnt > 0 %}<span style="background:{{ group.color }};color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">{{ cnt }}</span>{% endif %}
+            </a>
+            {% endfor %}
+            {# Unclassified tab #}
+            {% set unc_cnt = counts[0] ?? counts[''] ?? counts[null] ?? 0 %}
+            {% if unc_cnt > 0 %}
+            <a href="{{ path('app_classification_results', {id: project.id, group: 'unclassified'}) }}"
+               style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:600;text-decoration:none;border:2px solid {{ activeGroupId == 'unclassified' ? '#6b7280' : 'var(--bm-border)' }};background:{{ activeGroupId == 'unclassified' ? 'rgba(107,114,128,0.12)' : 'transparent' }};color:{{ activeGroupId == 'unclassified' ? '#9ca3af' : 'var(--bm-text-muted)' }}">
+                <i class="bi bi-question-circle"></i> Sem grupo
+                <span style="background:#6b7280;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">{{ unc_cnt }}</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Active group header ────────────────────────────────────────────────────── #}
+{% if activeGroup %}
+<div class="bm-card mb-3" style="border-left:4px solid {{ activeGroup.color }};padding:12px 18px">
+    <div class="d-flex align-items-center gap-3">
+        <i class="bi {{ activeGroup.icon }}" style="font-size:22px;color:{{ activeGroup.color }}"></i>
+        <div>
+            <div style="font-weight:700;font-size:15px;color:var(--bm-text)">{{ activeGroup.name }}</div>
+            {% if activeGroup.description %}<div style="font-size:12.5px;color:var(--bm-text-muted)">{{ activeGroup.description }}</div>{% endif %}
+        </div>
+        <div class="ms-auto d-flex gap-2 align-items-center">
+            <span class="badge text-bg-{{ activeGroup.typeColor }}">{{ activeGroup.typeLabel }}</span>
+            <span style="font-size:13px;color:var(--bm-text-muted)">{{ total }} documentos {% if totalPages > 1 %}— página {{ page }}/{{ totalPages }}{% endif %}</span>
+        </div>
+    </div>
+    {% if activeGroup.terms|length > 0 %}
+    <div class="d-flex flex-wrap gap-1 mt-2">
+        {% for term in activeGroup.terms %}
+        <span style="font-size:10px;background:rgba(255,255,255,0.05);border:1px solid var(--bm-border);border-radius:4px;padding:2px 7px;color:var(--bm-text-muted);font-family:monospace">{{ term }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% elseif activeGroupId == 'unclassified' %}
+<div class="bm-card mb-3" style="border-left:4px solid #6b7280;padding:12px 18px">
+    <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-question-circle" style="font-size:22px;color:#9ca3af"></i>
+        <div>
+            <div style="font-weight:700;font-size:15px;color:var(--bm-text)">Sem Classificação</div>
+            <div style="font-size:12.5px;color:var(--bm-text-muted)">Documentos que não se enquadraram em nenhum grupo — revisão manual recomendada.</div>
+        </div>
+        <div class="ms-auto"><span style="font-size:13px;color:var(--bm-text-muted)">{{ total }} documentos {% if totalPages > 1 %}— página {{ page }}/{{ totalPages }}{% endif %}</span></div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Document list ─────────────────────────────────────────────────────────── #}
+{% if documents|length == 0 %}
+<div class="bm-card text-center py-4">
+    <i class="bi bi-inbox" style="font-size:32px;color:var(--bm-text-muted)"></i>
+    <p style="color:var(--bm-text-muted);margin-top:8px;font-size:13px">Nenhum documento neste grupo.</p>
+</div>
+{% else %}
+{# ── Pagination macro ───────────────────────────────────────────────────── #}
+{% macro pagination(page, totalPages, project, activeGroupId) %}
+{% if totalPages > 1 %}
+<nav style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;gap:8px;flex-wrap:wrap">
+    <div style="font-size:12.5px;color:var(--bm-text-muted)">
+        Página <strong style="color:var(--bm-text)">{{ page }}</strong> de <strong style="color:var(--bm-text)">{{ totalPages }}</strong>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+        {% if page > 1 %}
+        <a href="{{ path('app_classification_results', {id: project.id, group: activeGroupId, page: 1}) }}"
+           style="padding:5px 12px;border-radius:6px;background:var(--bm-bg);border:1px solid var(--bm-border);color:var(--bm-text-muted);text-decoration:none;font-size:12px">
+            <i class="bi bi-chevron-double-left"></i>
+        </a>
+        <a href="{{ path('app_classification_results', {id: project.id, group: activeGroupId, page: page - 1}) }}"
+           style="padding:5px 12px;border-radius:6px;background:var(--bm-bg);border:1px solid var(--bm-border);color:var(--bm-text);text-decoration:none;font-size:12px">
+            <i class="bi bi-chevron-left me-1"></i> Anterior
+        </a>
+        {% endif %}
+        {% for p in max(1, page - 2)..min(totalPages, page + 2) %}
+        <a href="{{ path('app_classification_results', {id: project.id, group: activeGroupId, page: p}) }}"
+           style="padding:5px 12px;border-radius:6px;background:{{ p == page ? 'var(--bm-accent)' : 'var(--bm-bg)' }};border:1px solid {{ p == page ? 'var(--bm-accent)' : 'var(--bm-border)' }};color:{{ p == page ? '#fff' : 'var(--bm-text)' }};text-decoration:none;font-size:12px;font-weight:{{ p == page ? '700' : '400' }}">
+            {{ p }}
+        </a>
+        {% endfor %}
+        {% if page < totalPages %}
+        <a href="{{ path('app_classification_results', {id: project.id, group: activeGroupId, page: page + 1}) }}"
+           style="padding:5px 12px;border-radius:6px;background:var(--bm-bg);border:1px solid var(--bm-border);color:var(--bm-text);text-decoration:none;font-size:12px">
+            Próxima <i class="bi bi-chevron-right ms-1"></i>
+        </a>
+        <a href="{{ path('app_classification_results', {id: project.id, group: activeGroupId, page: totalPages}) }}"
+           style="padding:5px 12px;border-radius:6px;background:var(--bm-bg);border:1px solid var(--bm-border);color:var(--bm-text-muted);text-decoration:none;font-size:12px">
+            <i class="bi bi-chevron-double-right"></i>
+        </a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+{% endmacro %}
+{% import _self as p %}
+{{ p.pagination(page, totalPages, project, activeGroupId) }}
+<div style="display:flex;flex-direction:column;gap:10px">
+{% for clf in documents %}
+{% set doc = clf.document %}
+{% set kws = doc.documentKeywords %}
+{% set authorsStr = doc.authorsString %}
+<div class="bm-card doc-card" style="padding:16px 20px" data-id="{{ doc.id }}">
+    <div class="d-flex align-items-start gap-3">
+        <div style="flex:1;min-width:0">
+            {# Title + links #}
+            <div class="d-flex align-items-start gap-2 mb-1 flex-wrap">
+                <div style="font-weight:600;font-size:13.5px;color:var(--bm-text);line-height:1.4;flex:1">
+                    {{ doc.title }}
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    {% if doc.doi %}
+                    <a href="https://doi.org/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px" title="DOI">
+                        <i class="bi bi-box-arrow-up-right"></i> DOI
+                    </a>
+                    <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px" title="Sci-Hub">
+                        <i class="bi bi-key"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Authors / Year / Source #}
+            <div style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:8px">
+                {{ authorsStr ? authorsStr|slice(0,120) ~ (authorsStr|length > 120 ? '…' : '') : '—' }}
+                {% if doc.year %} · <strong style="color:var(--bm-accent)">{{ doc.year }}</strong>{% endif %}
+                {% if doc.sourceTitle %} · <em>{{ doc.sourceTitle|slice(0,60) }}</em>{% endif %}
+                {% if doc.citedBy %} · <span style="color:var(--bm-warning)"><i class="bi bi-quote"></i> {{ doc.citedBy }}</span>{% endif %}
+            </div>
+
+            {# Matched term badge #}
+            {% if clf.matchedTerm %}
+            <div class="mb-2">
+                <span style="font-size:10.5px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:4px;padding:2px 8px;font-family:monospace;color:var(--bm-accent)">
+                    <i class="bi bi-lightning-fill"></i> {{ clf.matchedTerm }}
+                </span>
+                {% if clf.manualOverride %}<span class="badge text-bg-warning ms-1" style="font-size:9px">Manual</span>{% endif %}
+            </div>
+            {% endif %}
+
+            {# Keywords chips #}
+            {% if kws|length > 0 %}
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                {% for dk in kws|slice(0, 20) %}
+                {% set kw = dk.keyword %}
+                {% if kw %}
+                <span class="kw-chip" style="font-size:10.5px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:4px;padding:2px 7px;color:#c084fc;cursor:default" title="{{ kw.term }}">{{ kw.term }}</span>
+                {% endif %}
+                {% endfor %}
+                {% if kws|length > 20 %}<span style="font-size:10.5px;color:var(--bm-text-muted)">+{{ kws|length - 20 }}</span>{% endif %}
+            </div>
+            {% endif %}
+
+            {# Abstract (collapsible) #}
+            {% if doc.abstractText %}
+            <details class="abstract-details">
+                <summary style="font-size:11.5px;color:var(--bm-text-muted);cursor:pointer;user-select:none;margin-bottom:4px">
+                    <i class="bi bi-chevron-right" style="font-size:10px"></i> Resumo
+                </summary>
+                <div class="abstract-text" style="font-size:12px;color:var(--bm-text-muted);line-height:1.6;margin-top:6px;padding:10px;background:rgba(0,0,0,0.15);border-radius:6px;border-left:3px solid var(--bm-border)">
+                    {{ doc.abstractText }}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        {# Move group action #}
+        <div class="flex-shrink-0" style="min-width:160px">
+            <label style="font-size:10.5px;color:var(--bm-text-muted);display:block;margin-bottom:4px">Mover para:</label>
+            <select class="form-select form-select-sm move-select" data-doc-id="{{ doc.id }}" style="font-size:12px">
+                {% for group in groups %}
+                <option value="{{ group.id }}" {{ activeGroup and activeGroup.id == group.id ? 'selected' : '' }}>
+                    {{ group.name }}
+                </option>
+                {% endfor %}
+                <option value="unclassified" {{ activeGroupId == 'unclassified' ? 'selected' : '' }}>❓ Sem grupo</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-1 move-btn"
+                    data-doc-id="{{ doc.id }}" style="font-size:11px">
+                <i class="bi bi-arrow-right-circle me-1"></i> Mover
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+{# bottom pagination #}
+{% import _self as p %}
+{{ p.pagination(page, totalPages, project, activeGroupId) }}
+{% endif %}
+
+{% endif %}{# hasResult #}
+{% endblock %}
+
+{% block javascripts %}
+<script>
+const csrfToken  = '{{ csrf_token("clf_move_" ~ project.id) }}';
+const projectId  = {{ project.id }};
+
+document.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const docId  = this.dataset.docId;
+        const select = document.querySelector(`.move-select[data-doc-id="${docId}"]`);
+        const groupId = select.value;
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const fd = new FormData();
+        fd.append('_token',   csrfToken);
+        fd.append('doc_id',   docId);
+        fd.append('group_id', groupId === 'unclassified' ? '' : groupId);
+
+        try {
+            const res = await fetch(`/projects/${projectId}/classification/move`, {method:'POST', body: fd});
+            const data = await res.json();
+            if (data.ok) {
+                const card = document.querySelector(`.doc-card[data-id="${docId}"]`);
+                card.style.opacity = '0.4';
+                card.style.transition = 'opacity 0.4s';
+                setTimeout(() => card.remove(), 500);
+                this.innerHTML = '<i class="bi bi-check2 text-success"></i> OK';
+            } else {
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i> Mover';
+                alert('Erro: ' + (data.error || 'desconhecido'));
+            }
+        } catch(e) {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i> Mover';
+        }
+    });
+});
+
+// Highlight matched term in abstract
+document.querySelectorAll('.abstract-details').forEach(details => {
+    details.addEventListener('toggle', function() {
+        if (!this.open) return;
+        const card     = this.closest('.doc-card');
+        const termBadge = card.querySelector('[style*="bi-lightning-fill"]');
+        if (!termBadge) return;
+        const term = termBadge.textContent.trim().replace('⚡', '').trim();
+        if (!term) return;
+        const abs = this.querySelector('.abstract-text');
+        const re  = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        abs.innerHTML = abs.textContent.replace(re, '<mark style="background:rgba(255,200,0,0.3);color:inherit;border-radius:2px;padding:0 2px">$1</mark>');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,265 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Classificação Temática — {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-collection-fill me-2 text-accent"></i>Classificação Temática
+        </h1>
+        <p class="bm-page-subtitle">Crie grupos, defina termos de classificação e aplique o motor automático ao corpus.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if hasResult %}
+        <a href="{{ path('app_classification_results', {id: project.id}) }}" class="btn btn-bm-secondary">
+            <i class="bi bi-list-ul me-1"></i> Ver Resultados
+        </a>
+        <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </a>
+        {% endif %}
+        <a href="{{ path('app_classification_group_new', {id: project.id}) }}" class="btn btn-bm-primary">
+            <i class="bi bi-plus-lg me-1"></i> Novo Grupo
+        </a>
+    </div>
+</div>
+
+{% for label, messages in app.flashes %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'danger' ? 'danger' : 'warning') }} bm-alert mb-3">
+        <i class="bi bi-{{ label == 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill' }}"></i>
+        {{ msg|raw }}
+    </div>
+    {% endfor %}
+{% endfor %}
+
+{# ── STATS BAR ─────────────────────────────────────────────────────────────── #}
+{% if groups|length > 0 %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value text-accent">{{ groups|length }}</div>
+            <div class="bm-stat-label">Grupos</div>
+        </div>
+    </div>
+    {% set normal_count = groups|filter(g => g.type == 'normal')|length %}
+    {% set noise_count  = groups|filter(g => g.type == 'noise')|length %}
+    {% set val_count    = groups|filter(g => g.type == 'validator')|length %}
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-success)">{{ normal_count }}</div>
+            <div class="bm-stat-label">Temáticos</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-danger)">{{ noise_count }}</div>
+            <div class="bm-stat-label">Ruído</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-stat-card text-center">
+            <div class="bm-stat-value" style="color:var(--bm-warning)">{{ val_count }}</div>
+            <div class="bm-stat-label">Validadores</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    {# ── LEFT: groups list ──────────────────────────────────────────────────── #}
+    <div class="col-lg-8">
+        {% if groups|length == 0 %}
+        <div class="bm-card text-center py-5">
+            <div style="font-size:48px;margin-bottom:12px">📂</div>
+            <h5 style="color:var(--bm-text);font-weight:600">Nenhum grupo criado ainda</h5>
+            <p style="color:var(--bm-text-muted);font-size:13.5px;margin-bottom:20px">
+                Crie grupos temáticos (Normal), grupos de Ruído e Validadores para configurar o motor de classificação.
+            </p>
+            <a href="{{ path('app_classification_group_new', {id: project.id}) }}" class="btn btn-bm-primary">
+                <i class="bi bi-plus-lg me-1"></i> Criar primeiro grupo
+            </a>
+        </div>
+        {% else %}
+
+        {# Group by type #}
+        {% set type_labels = {
+            'validator':    ['Validadores', 'warning',   'bi-shield-check',    'Documentos devem conter ao menos um desses termos para serem considerados relevantes.'],
+            'noise':        ['Ruído / Falso Positivo', 'danger', 'bi-ban',       'Documentos com esses termos são descartados como falsos positivos.'],
+            'normal':       ['Grupos Temáticos', 'primary',  'bi-collection',     'Documentos são enquadrados no primeiro grupo cujos termos correspondem.'],
+            'unclassified': ['Sem Classificação', 'secondary', 'bi-question-circle', 'Documentos válidos que não se enquadraram em nenhum grupo temático.']
+        } %}
+
+        {% for type_key, type_info in type_labels %}
+            {% set type_groups = groups|filter(g => g.type == type_key) %}
+            {% if type_groups|length > 0 %}
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi {{ type_info[2] }} text-{{ type_info[1] }}"></i>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--bm-text-muted)">{{ type_info[0] }}</span>
+                    <span class="badge text-bg-{{ type_info[1] }}" style="font-size:10px">{{ type_groups|length }}</span>
+                </div>
+                <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:8px;padding-left:26px">
+                    {{ type_info[3] }}
+                </div>
+                {% for group in type_groups %}
+                {% set doc_count = counts[group.id] ?? 0 %}
+                <div class="bm-card mb-2" style="border-left:4px solid {{ group.color }};padding:14px 18px">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                        <div style="flex:1;min-width:0">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <i class="bi {{ group.icon }}" style="color:{{ group.color }};font-size:15px"></i>
+                                <span style="font-weight:600;color:var(--bm-text);font-size:14px">{{ group.name }}</span>
+                                <span class="badge text-bg-{{ group.typeColor }}" style="font-size:10px">{{ group.typeLabel }}</span>
+                                {% if doc_count > 0 %}
+                                <span class="badge text-bg-secondary" style="font-size:10px">{{ doc_count }} docs</span>
+                                {% endif %}
+                            </div>
+                            {% if group.description %}
+                            <div style="font-size:12px;color:var(--bm-text-muted);margin-bottom:8px;line-height:1.4">{{ group.description|slice(0, 150) }}{% if group.description|length > 150 %}…{% endif %}</div>
+                            {% endif %}
+                            {% if group.terms|length > 0 %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for term in group.terms|slice(0, 12) %}
+                                <span style="font-size:10.5px;background:rgba(255,255,255,0.05);border:1px solid var(--bm-border);border-radius:4px;padding:2px 7px;color:var(--bm-text-muted);font-family:monospace">{{ term }}</span>
+                                {% endfor %}
+                                {% if group.terms|length > 12 %}
+                                <span style="font-size:10.5px;color:var(--bm-text-muted)">+{{ group.terms|length - 12 }} mais</span>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <span style="font-size:11px;color:var(--bm-text-muted);font-style:italic">Nenhum termo definido</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-1 flex-shrink-0">
+                            <a href="{{ path('app_classification_group_edit', {id: project.id, groupId: group.id}) }}"
+                               class="btn btn-sm btn-outline-secondary" title="Editar" style="font-size:12px;padding:4px 10px">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir"
+                                    style="font-size:12px;padding:4px 10px"
+                                    onclick="confirmDelete({{ group.id }}, '{{ group.name|e('js') }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    {# ── RIGHT: run panel ───────────────────────────────────────────────────── #}
+    <div class="col-lg-4">
+        <div class="bm-card mb-3" style="background:linear-gradient(135deg,rgba(79,142,247,0.08),rgba(168,85,247,0.08));border-color:rgba(79,142,247,0.3)">
+            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:8px">
+                <i class="bi bi-lightning-fill text-accent me-1"></i> Motor de Classificação
+            </h6>
+            <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.55;margin-bottom:16px">
+                Processa todos os documentos do projeto em sequência:<br>
+                <strong style="color:var(--bm-warning)">① Validadores</strong> → <strong style="color:var(--bm-danger)">② Ruído</strong> → <strong style="color:var(--bm-accent)">③ Temático</strong> → <strong style="color:var(--bm-text-muted)">④ Sem grupo</strong>
+            </p>
+
+            {% if groups|length == 0 %}
+            <div style="font-size:12px;color:var(--bm-text-muted);font-style:italic">Crie ao menos um grupo antes de executar.</div>
+            {% else %}
+            <form action="{{ path('app_classification_run', {id: project.id}) }}" method="post" id="runForm">
+                <input type="hidden" name="_token" value="{{ csrf_token('clf_run_' ~ project.id) }}">
+                <button type="submit" class="btn btn-bm-primary w-100" id="runBtn">
+                    <i class="bi bi-play-fill me-1"></i> Executar Classificação
+                </button>
+                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:8px;text-align:center">
+                    ⚠️ Sobrescreve resultados anteriores
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if hasResult %}
+        <div class="bm-card">
+            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:12px">
+                <i class="bi bi-pie-chart-fill text-accent me-1"></i> Distribuição
+            </h6>
+            {% set total_classified = counts|reduce((carry, v) => carry + v, 0) %}
+            {% for group in groups %}
+                {% set cnt = counts[group.id] ?? 0 %}
+                {% if cnt > 0 %}
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span style="font-size:11.5px;color:var(--bm-text)">
+                            <i class="bi {{ group.icon }}" style="color:{{ group.color }}"></i>
+                            {{ group.name|slice(0,28) }}{% if group.name|length > 28 %}…{% endif %}
+                        </span>
+                        <span style="font-size:11px;color:var(--bm-text-muted)">{{ cnt }}</span>
+                    </div>
+                    <div style="height:5px;background:var(--bm-border);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;background:{{ group.color }};width:{{ total_classified > 0 ? (cnt / total_classified * 100)|round : 0 }}%;border-radius:3px;transition:width 0.5s ease"></div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            {% set unclassified_count = counts[0] ?? counts[''] ?? 0 %}
+            {% if unclassified_count > 0 %}
+            <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span style="font-size:11.5px;color:var(--bm-text)"><i class="bi bi-question-circle" style="color:#6b7280"></i> Sem grupo</span>
+                    <span style="font-size:11px;color:var(--bm-text-muted)">{{ unclassified_count }}</span>
+                </div>
+                <div style="height:5px;background:var(--bm-border);border-radius:3px;overflow:hidden">
+                    <div style="height:100%;background:#6b7280;width:{{ total_classified > 0 ? (unclassified_count / total_classified * 100)|round : 0 }}%;border-radius:3px"></div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="mt-3 text-center">
+                <a href="{{ path('app_classification_results', {id: project.id}) }}" class="btn btn-bm-secondary w-100" style="font-size:12.5px">
+                    <i class="bi bi-list-ul me-1"></i> Ver todos os documentos
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# Delete confirmation modal #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background:var(--bm-card-bg);border:1px solid var(--bm-border)">
+            <div class="modal-header" style="border-color:var(--bm-border)">
+                <h5 class="modal-title" style="color:var(--bm-text)">Excluir Grupo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="color:var(--bm-text-muted)">
+                Tem certeza que deseja excluir o grupo <strong id="deleteGroupName" style="color:var(--bm-text)"></strong>?
+                Todos os resultados deste grupo também serão removidos.
+            </div>
+            <div class="modal-footer" style="border-color:var(--bm-border)">
+                <button class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="post">
+                    <input type="hidden" name="_token" id="deleteToken">
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function confirmDelete(groupId, groupName) {
+    document.getElementById('deleteGroupName').textContent = groupName;
+    document.getElementById('deleteForm').action = '/projects/{{ project.id }}/classification/groups/' + groupId + '/delete';
+    document.getElementById('deleteToken').value = '{{ csrf_token("clf_group_del_" ~ "__ID__") }}'.replace('__ID__', groupId);
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+document.getElementById('runForm')?.addEventListener('submit', function() {
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processando…';
+});
+</script>
+{% endblock %}

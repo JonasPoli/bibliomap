@@ -204,42 +204,176 @@
     <!-- Table Column -->
     <div class="col-xl-6">
         <div class="bm-card h-100 d-flex flex-column">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Termos</h5>
-                <div class="d-flex gap-2">
-                    <select id="type-filter" class="form-select form-select-sm" style="width:120px;font-size:12px" onchange="filterTable()">
-                        <option value="">Todos</option>
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <h5 class="card-title mb-0" style="font-weight:700">
+                    {% if app.request.query.get('q') %}
+                        Resultado da busca: <span class="text-accent">"{{ app.request.query.get('q') }}"</span>
+                    {% else %}
+                        Tabela de Termos
+                    {% endif %}
+                </h5>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <select id="type-filter" class="form-select form-select-sm" style="width:110px;font-size:12px" onchange="filterTable()">
+                        <option value="">Todos Origem</option>
                         <option value="author">Autores</option>
                         <option value="indexed">Indexadas</option>
                     </select>
-                    <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar…" style="width:160px" oninput="filterTable()">
+                    <form method="get" action="{{ path('app_report_keywords', {id: project.id}) }}" class="d-flex gap-2 align-items-center mb-0">
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="q" value="{{ app.request.query.get('q') }}" class="form-control" placeholder="Buscar termo..." style="max-width:150px" autocomplete="off">
+                            <button type="submit" class="btn btn-bm-primary" style="border-radius:0 8px 8px 0 !important; background:var(--bm-accent); font-weight:600; padding:6px 14px">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        {% if app.request.query.get('q') %}
+                            <a href="{{ path('app_report_keywords', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="text-decoration:none; white-space:nowrap; padding:6px 12px">
+                                Limpar
+                            </a>
+                        {% endif %}
+                    </form>
                 </div>
             </div>
             <div class="table-responsive flex-grow-1" style="max-height:320px;overflow-y:auto">
                 <table class="table table-hover align-middle border-bm mb-0" id="kws-table" style="font-size:13px">
                     <thead class="sticky-top bg-bm-card border-bottom border-bm">
                         <tr>
-                            <th style="color:var(--bm-text-muted);font-weight:600">Palavra-Chave / Termo</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600">Origem</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Ocorrências</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Período</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortKeywordsTable(0, 'string')">
+                                Palavra-Chave / Termo <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            </th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortKeywordsTable(1, 'string')">
+                                Origem <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            </th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortKeywordsTable(2, 'number')">
+                                Ocorrências <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            </th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortKeywordsTable(3, 'string')">
+                                Período <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            </th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
-                        {% for kw in list %}
-                        <tr class="kw-row" data-term="{{ kw.term|lower }}" data-type="{{ kw.type }}">
-                            <td style="font-weight:600;color:var(--bm-text)">{{ kw.term }}</td>
-                            <td>
-                                <span class="badge" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.15)' : 'rgba(168,85,247,0.15)' }};color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }}">
-                                    {{ kw.type == 'author' ? 'Autor' : 'Indexada' }}
-                                </span>
-                            </td>
-                            <td style="text-align:right;font-weight:700" class="text-accent">{{ kw.freq }}</td>
-                            <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ kw.first_year }}–{{ kw.last_year }}</td>
-                        </tr>
-                        {% endfor %}
+                        {% if list is empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-tag-fill d-block fs-3 mb-2" style="color:var(--bm-text-muted)"></i>
+                                    Nenhuma palavra-chave encontrada com o termo pesquisado.
+                                </td>
+                            </tr>
+                        {% else %}
+                            {% for kw in list %}
+                            <tr class="kw-row" data-term="{{ kw.term|lower }}" data-type="{{ kw.type }}">
+                                <td style="font-weight:600;color:var(--bm-text)">{{ kw.term }}</td>
+                                <td>
+                                    <span class="badge" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.15)' : 'rgba(168,85,247,0.15)' }};color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }}">
+                                        {{ kw.type == 'author' ? 'Autor' : 'Indexada' }}
+                                    </span>
+                                </td>
+                                <td style="text-align:right;font-weight:700" class="text-accent">{{ kw.freq }}</td>
+                                <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ kw.first_year }}–{{ kw.last_year }}</td>
+                                <td style="text-align:center">
+                                    <button type="button" class="btn btn-sm btn-bm-secondary py-1 px-2 border-bm" 
+                                            onclick="viewKeywordWorks({{ project.id }}, {{ kw.id }}, '{{ kw.term|escape('js') }}')"
+                                            style="font-size:12px;border-radius:6px">
+                                        <i class="bi bi-file-earmark-text me-1"></i>Ver trabalhos
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Trabalhos da Palavra-Chave -->
+<div class="modal fade" id="keywordWorksModal" tabindex="-1" aria-labelledby="keywordWorksModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-bm-card border-bm text-bm">
+            <div class="modal-header border-bottom border-bm py-3">
+                <h5 class="modal-title" id="keywordWorksModalLabel" style="font-weight:700">
+                    <i class="bi bi-tag-fill me-2 text-accent"></i>
+                    Trabalhos com a Palavra-Chave: <span id="modalKeywordName" class="text-accent"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
+            </div>
+            <div class="modal-body p-4" style="min-height:220px">
+                
+                <!-- Loading Spinner -->
+                <div id="modalLoadingSpinner" class="text-center py-5">
+                    <div class="spinner-border text-accent" role="status" style="width: 2.5rem; height: 2.5rem;">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <div class="mt-2 text-muted" style="font-size:13px">Carregando trabalhos do banco de dados...</div>
+                </div>
+
+                <!-- Empty State Message -->
+                <div id="modalNoWorksMessage" class="alert alert-warning text-center border-0 py-4 mb-0" style="display:none;background:rgba(235,178,72,0.1);color:#ebb248;font-size:13px;border-radius:8px">
+                    <i class="bi bi-exclamation-triangle d-block fs-4 mb-2"></i>
+                    Nenhum trabalho correspondente foi localizado para esta palavra-chave.
+                </div>
+
+                <!-- Content Table -->
+                <div id="modalContentTable" style="display:none">
+                    <p class="text-muted mb-3" style="font-size:12.5px">
+                        Abaixo estão listados todos os trabalhos catalogados no projeto que contêm o termo selecionado.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border-bm mb-0" style="font-size:12.5px">
+                            <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                <tr>
+                                    <th style="color:var(--bm-text-muted);font-weight:600;min-width:350px">Autores - Ano - Nome do Trabalho (copiar para nome de arquivo)</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Citações</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600">Tipo</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600">Veículo / Fonte</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Link</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalKeywordWorksBody" class="border-0">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer border-top border-bm py-3">
+                <button type="button" class="btn btn-bm-secondary" data-bs-dismiss="modal" style="font-size:13px;font-weight:600">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal BibTeX -->
+<div class="modal fade" id="bibtexModal" tabindex="-1" aria-labelledby="bibtexModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-bm-card border-bm text-bm" style="background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:12px;">
+            <div class="modal-header border-bottom border-bm py-3 border-0 pb-0">
+                <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
+                    <i class="bi bi-code-slash me-2 text-accent"></i>
+                    Referência BibTeX para Zotero
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted" style="font-size:13px">
+                    Copie o código BibTeX abaixo e cole no Zotero (usando a opção <em>"Importar do Clipboard / Área de Transferência"</em>).
+                </p>
+                <div style="position:relative">
+                    <pre id="bibtexCode" class="p-3" style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;font-family:monospace;font-size:12.5px;color:var(--bm-text);white-space:pre-wrap;max-height:350px;overflow-y:auto;text-align:left"></pre>
+                    <button type="button" class="btn btn-sm btn-bm-primary" onclick="copyBibtexToClipboard()" style="position:absolute;top:10px;right:10px;background:var(--bm-accent);border:none;font-weight:600;padding:4px 12px;font-size:12px">
+                        <i class="bi bi-clipboard me-1"></i> Copiar
+                    </button>
+                </div>
+                <div id="copySuccessAlert" class="text-success mt-2" style="font-size:12px;display:none;font-weight:600">
+                    <i class="bi bi-check-circle-fill me-1"></i> Copiado com sucesso para a área de transferência!
+                </div>
+            </div>
+            <div class="modal-footer border-top border-bm py-3 border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-bm-secondary px-4" data-bs-dismiss="modal" style="font-size:13px;font-weight:600">Fechar</button>
             </div>
         </div>
     </div>
@@ -478,15 +612,236 @@ function rebuildChart() {
 }
 
 function filterTable() {
-    const q    = document.getElementById('table-search').value.toLowerCase().trim();
     const type = document.getElementById('type-filter').value;
     document.querySelectorAll('.kw-row').forEach(row => {
-        const term    = row.dataset.term;
         const rowType = row.dataset.type;
-        const matchQ  = !q || term.includes(q);
         const matchT  = !type || rowType === type;
-        row.style.display = (matchQ && matchT) ? '' : 'none';
+        row.style.display = matchT ? '' : 'none';
     });
+}
+
+let currentSortColumn = -1;
+let sortAscending = true;
+
+function sortKeywordsTable(columnIndex, type) {
+    const table = document.getElementById('kws-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('.kw-row'));
+    if (rows.length === 0) return;
+    
+    if (currentSortColumn === columnIndex) {
+        sortAscending = !sortAscending;
+    } else {
+        currentSortColumn = columnIndex;
+        sortAscending = true;
+    }
+
+    // Update header icons
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, idx) => {
+        const icon = th.querySelector('.sort-icon');
+        if (icon) {
+            if (idx === columnIndex) {
+                icon.className = sortAscending ? 'bi bi-caret-up-fill sort-icon ms-1' : 'bi bi-caret-down-fill sort-icon ms-1';
+                icon.style.color = 'var(--bm-accent)';
+                icon.style.opacity = '1';
+            } else {
+                icon.className = 'bi bi-arrow-down-up sort-icon ms-1';
+                icon.style.color = 'var(--bm-text-muted)';
+                icon.style.opacity = '0.3';
+            }
+        }
+    });
+
+    // Sort rows
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[columnIndex].textContent.trim();
+        const cellB = rowB.cells[columnIndex].textContent.trim();
+
+        if (type === 'number') {
+            const numA = parseFloat(cellA.replace(/[^\d.-]/g, '')) || 0;
+            const numB = parseFloat(cellB.replace(/[^\d.-]/g, '')) || 0;
+            return sortAscending ? numA - numB : numB - numA;
+        } else {
+            return sortAscending 
+                ? cellA.localeCompare(cellB, 'pt-BR', { sensitivity: 'base' })
+                : cellB.localeCompare(cellA, 'pt-BR', { sensitivity: 'base' });
+        }
+    });
+
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+function viewKeywordWorks(projectId, keywordId, keywordTerm) {
+    const modal = new bootstrap.Modal(document.getElementById('keywordWorksModal'));
+    
+    // Set keyword term in header
+    document.getElementById('modalKeywordName').textContent = keywordTerm;
+    
+    // Reset modal state
+    document.getElementById('modalLoadingSpinner').style.display = 'block';
+    document.getElementById('modalContentTable').style.display = 'none';
+    document.getElementById('modalNoWorksMessage').style.display = 'none';
+    document.getElementById('modalKeywordWorksBody').innerHTML = '';
+    
+    modal.show();
+    
+    // Fetch via AJAX
+    const url = `/projects/${projectId}/reports/keywords/${keywordId}/documents`;
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar os trabalhos.');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+            
+            if (!data.documents || data.documents.length === 0) {
+                document.getElementById('modalNoWorksMessage').style.display = 'block';
+                return;
+            }
+            
+            const tbody = document.getElementById('modalKeywordWorksBody');
+            data.documents.forEach(doc => {
+                const tr = document.createElement('tr');
+                
+                // Title td formatted with [All Authors] - [Year] - [Title]
+                const tdTitle = document.createElement('td');
+                tdTitle.style.fontWeight = '600';
+                tdTitle.style.color = 'var(--bm-text)';
+                const docTitle = (doc.title || 'Sem título').replace(/[:\/]/g, '');
+                const docYear = doc.year || '—';
+                const docAuthors = doc.author_names || 'Autor desconhecido';
+                const formattedTitle = `${docAuthors} - ${docYear} - ${docTitle}`;
+                tdTitle.title = formattedTitle;
+                tdTitle.textContent = formattedTitle + ' ';
+                
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'btn btn-sm btn-link p-0 text-muted ms-1';
+                copyBtn.style.verticalAlign = 'middle';
+                copyBtn.style.textDecoration = 'none';
+                copyBtn.title = 'Copiar nome reduzido (máx 250 caracteres)';
+                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+                copyBtn.onclick = function() {
+                    const cleanTitle = docTitle;
+                    const cleanYear = String(docYear);
+                    const cleanAuthors = String(docAuthors);
+                    const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
+                    let reducedAuthors = cleanAuthors;
+                    if (cleanAuthors.length > maxAuthorsLen) {
+                        reducedAuthors = cleanAuthors.slice(0, Math.max(0, maxAuthorsLen));
+                    }
+                    const textToCopy = `${reducedAuthors} - ${cleanYear} - ${cleanTitle}`;
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        const icon = copyBtn.querySelector('i');
+                        if (icon) {
+                            icon.className = 'bi bi-check2 text-success';
+                            setTimeout(() => {
+                                icon.className = 'bi bi-clipboard';
+                            }, 1500);
+                        }
+                    });
+                };
+                tdTitle.appendChild(copyBtn);
+                
+                tr.appendChild(tdTitle);
+                
+                // Year td
+                const tdYear = document.createElement('td');
+                tdYear.style.textAlign = 'center';
+                tdYear.textContent = doc.year || '—';
+                tr.appendChild(tdYear);
+                
+                // Citations td
+                const tdCit = document.createElement('td');
+                tdCit.style.textAlign = 'center';
+                tdCit.style.fontWeight = '700';
+                tdCit.className = 'text-accent';
+                tdCit.textContent = doc.cited_by !== null ? doc.cited_by : 0;
+                tr.appendChild(tdCit);
+                
+                // Document type td
+                const tdType = document.createElement('td');
+                tdType.style.color = 'var(--bm-text-muted)';
+                tdType.textContent = doc.document_type || '—';
+                tr.appendChild(tdType);
+                
+                // Source title td
+                const tdSource = document.createElement('td');
+                tdSource.style.maxWidth = '150px';
+                tdSource.style.overflow = 'hidden';
+                tdSource.style.textOverflow = 'ellipsis';
+                tdSource.style.whiteSpace = 'nowrap';
+                tdSource.style.color = 'var(--bm-text-muted)';
+                tdSource.title = doc.source_title || '—';
+                tdSource.textContent = doc.source_title || '—';
+                tr.appendChild(tdSource);
+                
+                // Link td
+                const tdLink = document.createElement('td');
+                tdLink.style.textAlign = 'center';
+                tdLink.style.whiteSpace = 'nowrap';
+                
+                let hasLink = false;
+                if (doc.doi) {
+                    const a = document.createElement('a');
+                    a.href = `https://doi.org/${doc.doi}`;
+                    a.target = '_blank';
+                    a.style.color = 'var(--bm-accent)';
+                    a.style.textDecoration = 'none';
+                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> DOI';
+                    tdLink.appendChild(a);
+
+                    const aSci = document.createElement('a');
+                    aSci.href = `https://sci-hub.box/${doc.doi}`;
+                    aSci.target = '_blank';
+                    aSci.style.color = 'var(--bm-accent)';
+                    aSci.style.textDecoration = 'none';
+                    aSci.style.marginLeft = '8px';
+                    aSci.title = 'Sci-Hub';
+                    aSci.innerHTML = '<i class="bi bi-key"></i> Sci-Hub';
+                    tdLink.appendChild(aSci);
+
+                    hasLink = true;
+                } else if (doc.url) {
+                    const a = document.createElement('a');
+                    a.href = doc.url;
+                    a.target = '_blank';
+                    a.style.color = 'var(--bm-accent)';
+                    a.style.textDecoration = 'none';
+                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> URL';
+                    tdLink.appendChild(a);
+                    hasLink = true;
+                }
+
+                const btnBib = document.createElement('button');
+                btnBib.type = 'button';
+                btnBib.className = 'btn btn-sm btn-outline-secondary py-0 px-2' + (hasLink ? ' ms-2' : '');
+                btnBib.style.fontSize = '11.5px';
+                btnBib.style.borderRadius = '4px';
+                btnBib.innerHTML = '<i class="bi bi-journal-code"></i> BibTeX';
+                btnBib.onclick = (e) => {
+                    e.preventDefault();
+                    showBibtex(doc, docAuthors);
+                };
+                tdLink.appendChild(btnBib);
+
+                tr.appendChild(tdLink);
+                
+                tbody.appendChild(tr);
+            });
+            
+            document.getElementById('modalContentTable').style.display = 'block';
+        })
+        .catch(err => {
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+            document.getElementById('modalNoWorksMessage').textContent = 'Erro: ' + err.message;
+            document.getElementById('modalNoWorksMessage').style.display = 'block';
+        });
 }
 
 function exportCSV() {
@@ -503,6 +858,81 @@ function exportCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+let currentBibtexText = '';
+
+function showBibtex(doc, authorsStr) {
+    let firstAuthor = 'Unknown';
+    if (authorsStr && authorsStr !== 'Autor desconhecido') {
+        const parts = authorsStr.split(';');
+        if (parts.length > 0) {
+            const first = parts[0].trim();
+            const commaIndex = first.indexOf(',');
+            if (commaIndex !== -1) {
+                firstAuthor = first.substring(0, commaIndex).trim().replace(/[^a-zA-Z]/g, '');
+            } else {
+                firstAuthor = first.replace(/[^a-zA-Z]/g, '');
+            }
+        }
+    }
+    const year = doc.year || '0000';
+    const citeKey = `${firstAuthor.toLowerCase()}${year}`;
+    
+    let bib = `@article{${citeKey},\n`;
+    bib += `  author = {${authorsStr.replace(/;/g, ' and')}},\n`;
+    bib += `  title = {${doc.title || 'Sem título'}},\n`;
+    if (doc.source_title) {
+        bib += `  journal = {${doc.source_title}},\n`;
+    }
+    bib += `  year = {${year}},\n`;
+    if (doc.volume) {
+        bib += `  volume = {${doc.volume}},\n`;
+    }
+    if (doc.issue) {
+        bib += `  number = {${doc.issue}},\n`;
+    }
+    if (doc.page_start || doc.page_end) {
+        const start = doc.page_start || '';
+        const end = doc.page_end || '';
+        bib += `  pages = {${start}${start && end ? '--' : ''}${end}},\n`;
+    }
+    if (doc.doi) {
+        bib += `  doi = {${doc.doi}},\n`;
+    }
+    if (doc.url) {
+        bib += `  url = {${doc.url}},\n`;
+    }
+    if (doc.publisher) {
+        bib += `  publisher = {${doc.publisher}},\n`;
+    }
+    if (doc.issn) {
+        bib += `  issn = {${doc.issn}},\n`;
+    }
+    if (doc.isbn) {
+        bib += `  isbn = {${doc.isbn}},\n`;
+    }
+    if (doc.abstract_text) {
+        bib += `  abstract = {${doc.abstract_text}},\n`;
+    }
+    bib += `}`;
+    
+    currentBibtexText = bib;
+    document.getElementById('bibtexCode').textContent = bib;
+    document.getElementById('copySuccessAlert').style.display = 'none';
+    
+    const modal = new bootstrap.Modal(document.getElementById('bibtexModal'));
+    modal.show();
+}
+
+function copyBibtexToClipboard() {
+    navigator.clipboard.writeText(currentBibtexText).then(() => {
+        const alert = document.getElementById('copySuccessAlert');
+        alert.style.display = 'block';
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 3000);
+    });
 }
 
 rebuildChart();

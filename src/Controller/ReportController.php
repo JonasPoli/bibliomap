@@ -232,16 +232,51 @@ class ReportController extends AbstractController
     // ── 6 Reports ─────────────────────────────────────────────────────────────
 
     #[Route('/authors', name: 'app_report_authors', methods: ['GET'])]
-    public function authors(int $id): Response
+    public function authors(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getAuthorsReport($project->getId());
+        $search = $request->query->get('q');
+        $data = $this->reportService->getAuthorsReport($project->getId(), 100, $search);
         return $this->render('report/authors.html.twig', [
             'project'        => $project,
             'list'           => $data['list'],
             'kpis'           => $data['kpis'],
             'lotka_observed' => $data['lotka_observed'],
             'lotka_expected' => $data['lotka_expected'],
+        ]);
+    }
+
+    #[Route('/authors/{authorId}/documents', name: 'app_report_author_documents', methods: ['GET'])]
+    public function authorDocuments(int $id, int $authorId): Response
+    {
+        $project = $this->getProject($id);
+        
+        // Fetch all documents for this author inside this project
+        $documents = $this->conn->fetchAllAssociative(
+            'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
+                    d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
+                    (
+                        SELECT GROUP_CONCAT(a2.name ORDER BY da2.position SEPARATOR \'; \')
+                        FROM document_author da2
+                        JOIN author a2 ON a2.id = da2.author_id
+                        WHERE da2.document_id = d.id
+                    ) AS author_names
+             FROM document d
+             JOIN document_author da ON d.id = da.document_id
+             WHERE d.project_id = ? AND da.author_id = ?
+             ORDER BY d.year DESC, d.title ASC',
+            [$project->getId(), $authorId]
+        );
+
+        // Fetch author name
+        $authorName = $this->conn->fetchOne(
+            'SELECT name FROM author WHERE id = ?',
+            [$authorId]
+        );
+
+        return $this->json([
+            'authorName' => $authorName ?: 'Autor desconhecido',
+            'documents' => $documents,
         ]);
     }
 
@@ -271,14 +306,77 @@ class ReportController extends AbstractController
     }
 
     #[Route('/keywords', name: 'app_report_keywords', methods: ['GET'])]
-    public function keywords(int $id): Response
+    public function keywords(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getKeywordsReport($project->getId());
+        $search = $request->query->get('q');
+        $data = $this->reportService->getKeywordsReport($project->getId(), 150, $search);
         return $this->render('report/keywords.html.twig', [
             'project' => $project,
             'list'    => $data['list'],
             'kpis'    => $data['kpis'],
+        ]);
+    }
+
+    #[Route('/keywords/{keywordId}/documents', name: 'app_report_keyword_documents', methods: ['GET'])]
+    public function keywordDocuments(int $id, int $keywordId): Response
+    {
+        $project = $this->getProject($id);
+        
+        // Fetch all documents for this keyword inside this project
+        $documents = $this->conn->fetchAllAssociative(
+            'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
+                    d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
+                    (
+                        SELECT GROUP_CONCAT(a2.name ORDER BY da2.position SEPARATOR \'; \')
+                        FROM document_author da2
+                        JOIN author a2 ON a2.id = da2.author_id
+                        WHERE da2.document_id = d.id
+                    ) AS author_names
+             FROM document d
+             JOIN document_keyword dk ON d.id = dk.document_id
+             WHERE d.project_id = ? AND dk.keyword_id = ?
+             ORDER BY d.year DESC, d.title ASC',
+            [$project->getId(), $keywordId]
+        );
+
+        // Fetch keyword term
+        $keywordTerm = $this->conn->fetchOne(
+            'SELECT term FROM keyword WHERE id = ?',
+            [$keywordId]
+        );
+
+        return $this->json([
+            'keyword' => $keywordTerm ?: 'Palavra-chave desconhecida',
+            'documents' => $documents,
+        ]);
+    }
+
+    #[Route('/documents/search', name: 'app_report_documents_search', methods: ['GET'])]
+    public function search(int $id, Request $request): Response
+    {
+        $project = $this->getProject($id);
+        
+        $filters = [
+            'author'   => $request->query->get('author', ''),
+            'keyword'  => $request->query->get('keyword', ''),
+            'abstract' => $request->query->get('abstract', ''),
+            'title'    => $request->query->get('title', ''),
+            'year'     => $request->query->get('year', ''),
+        ];
+
+        // Only run search if at least one filter is specified
+        $hasSearch = !empty(array_filter($filters));
+        $list = [];
+        if ($hasSearch) {
+            $list = $this->reportService->searchDocuments($project->getId(), $filters);
+        }
+
+        return $this->render('report/search.html.twig', [
+            'project'   => $project,
+            'filters'   => $filters,
+            'list'      => $list,
+            'hasSearch' => $hasSearch,
         ]);
     }
 
@@ -728,6 +826,20 @@ class ReportController extends AbstractController
         return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $project->getId()]);
     }
 
+    // ── Classification Report ──────────────────────────────────────────────────
+
+    #[Route('/classification', name: 'app_report_classification', methods: ['GET'])]
+    public function classificationReport(int $id): Response
+    {
+        $project = $this->getProject($id);
+        $data    = $this->reportService->getClassificationReport($project->getId());
+
+        return $this->render('report/classification_report.html.twig', [
+            'project' => $project,
+            'data'    => $data,
+        ]);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private function getProject(int $id): BibliometricProject
@@ -739,3 +851,4 @@ class ReportController extends AbstractController
         return $project;
     }
 }
+

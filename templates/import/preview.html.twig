@@ -98,6 +98,10 @@
                                    style="color:var(--bm-accent);font-size:11px;font-family:monospace">
                                     {{ rec.doi|slice(0,25) }}…
                                 </a>
+                                <a href="https://sci-hub.box/{{ rec.doi }}" target="_blank" class="ms-1"
+                                   style="color:var(--bm-accent)" title="Sci-Hub">
+                                    <i class="bi bi-key"></i>
+                                </a>
                             {% else %}
                                 <span style="color:var(--bm-text-muted)">—</span>
                             {% endif %}

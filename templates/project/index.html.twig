@@ -65,6 +65,10 @@
                         {% if project.databaseSources %}
                             <span><i class="bi bi-database me-1"></i>{{ project.databaseSources|length }} base{{ project.databaseSources|length > 1 ? 's' : '' }}</span>
                         {% endif %}
+                        {% set docCount = project_documents_count(project.id) %}
+                        {% if docCount > 0 %}
+                            <span><i class="bi bi-file-earmark-text me-1"></i>{{ docCount|number_format(0, ',', '.') }} doc{{ docCount > 1 ? 's' : '' }}</span>
+                        {% endif %}
                         {% if project.startYear and project.endYear %}
                             <span><i class="bi bi-calendar-range me-1"></i>{{ project.startYear }}–{{ project.endYear }}</span>
                         {% endif %}
@@ -75,6 +79,7 @@
                             <span class="ms-auto"><i class="bi bi-globe2"></i></span>
                         {% endif %}
                     </div>
+
                 </div>
             </div>
         {% endfor %}

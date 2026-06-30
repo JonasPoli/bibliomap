@@ -273,6 +273,14 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_documents' %}active{% endif %}">
                     <i class="bi bi-file-earmark-text"></i> Documentos
                 </a>
+                <a href="{{ path('app_report_documents_search', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_documents_search' %}active{% endif %}">
+                    <i class="bi bi-search"></i> Busca de Trabalhos
+                </a>
+                <a href="{{ path('app_classification_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_classification' %}active{% endif %}">
+                    <i class="bi bi-collection"></i> Classificação Temática
+                </a>
                 <a href="{{ path('app_report_keywords', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_keywords' %}active{% endif %}">
                     <i class="bi bi-tags"></i> Palavras-chave
@@ -315,7 +323,15 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_general' %}active{% endif %}">
                     <i class="bi bi-file-earmark-bar-graph"></i> Relatório Geral
                 </a>
+                {% if has_classification_results(project.id) %}
+                    <a href="{{ path('app_report_classification', {id: project.id}) }}"
+                       class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_classification' %}active{% endif %}">
+                        <i class="bi bi-grid-3x3-gap"></i> Rel. de Classificação
+                    </a>
+                {% endif %}
                 <a href="#" class="bm-nav-link" style="opacity:0.4" title="Em breve"><i class="bi bi-download"></i> Exportações</a>
+
+
             {% endif %}
             {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
                 {# ── Impersonation exit — prominent nav item ── #}

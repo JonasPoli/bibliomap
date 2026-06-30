@@ -212,6 +212,10 @@
                                                style="color:var(--bm-accent);font-size:11px;font-family:monospace">
                                                 {{ doc.doi|slice(0,22) }}{% if doc.doi|length > 22 %}…{% endif %}
                                             </a>
+                                            <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="ms-1"
+                                               style="color:var(--bm-accent)" title="Sci-Hub">
+                                                <i class="bi bi-key"></i>
+                                            </a>
                                         {% else %}
                                             <span style="color:var(--bm-text-muted)">—</span>
                                         {% endif %}
@@ -299,6 +303,10 @@
                                                 <a href="https://doi.org/{{ skip.doi }}" target="_blank"
                                                    style="color:var(--bm-accent);font-family:monospace">
                                                     {{ skip.doi }}
+                                                </a>
+                                                <a href="https://sci-hub.box/{{ skip.doi }}" target="_blank"
+                                                   style="color:var(--bm-accent)" title="Sci-Hub">
+                                                    <i class="bi bi-key"></i>
                                                 </a>
                                             </div>
                                         {% elseif skip.hash %}

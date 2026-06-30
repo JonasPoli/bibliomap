@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Análise Bibliométrica — IA na Agricultura Rural · UFSCar PPGCTS</title>
+  <meta name="description" content="Relatório bibliométrico sobre IA na Agricultura, dissertação Jonas E. Poli, PPGCTS/UFSCar." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#0b0f1a;--bg2:#111827;--bg3:#1a2236;--card:#161d2e;--border:rgba(99,120,200,0.18);--accent:#6366f1;--accent2:#8b5cf6;--accent3:#06b6d4;--gold:#f59e0b;--green:#10b981;--text:#e2e8f0;--muted:#94a3b8;--dim:#475569;--radius:14px;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;}
+    nav{position:sticky;top:0;z-index:100;background:rgba(11,15,26,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;gap:1rem;height:56px;}
+    nav .logo{font-weight:700;font-size:1rem;color:var(--accent);}
+    nav .logo span{color:var(--muted);font-weight:400;}
+    nav ul{display:flex;gap:.25rem;list-style:none;flex-wrap:wrap;margin-left:auto;}
+    nav ul a{color:var(--muted);text-decoration:none;font-size:.8rem;font-weight:500;padding:.35rem .75rem;border-radius:6px;transition:all .2s;}
+    nav ul a:hover{background:var(--bg3);color:var(--text);}
+    .hero{background:linear-gradient(135deg,#0b0f1a 0%,#111827 50%,#0f172a 100%);padding:4rem 2rem 3rem;text-align:center;position:relative;overflow:hidden;}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(99,102,241,0.12) 0%,transparent 70%);pointer-events:none;}
+    .hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:50px;padding:.35rem 1rem;font-size:.75rem;color:var(--accent);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1.5rem;}
+    .hero h1{font-size:clamp(1.6rem,4vw,2.6rem);font-weight:800;line-height:1.2;margin-bottom:1rem;}
+    .hero h1 em{font-style:normal;background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .hero p{color:var(--muted);max-width:640px;margin:0 auto 2rem;font-size:1rem;}
+    .hero-meta{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;}
+    .hero-meta div{text-align:center;}
+    .hero-meta .val{font-size:2rem;font-weight:800;background:linear-gradient(90deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .hero-meta .lbl{font-size:.75rem;color:var(--muted);font-weight:500;}
+    .container{max-width:1280px;margin:0 auto;padding:0 1.5rem;}
+    section{padding:3rem 0;}
+    section+section{border-top:1px solid var(--border);}
+    .section-header{margin-bottom:2rem;}
+    .section-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:.75rem;}
+    .section-header p{color:var(--muted);margin-top:.4rem;font-size:.9rem;}
+    .grid{display:grid;gap:1.25rem;}
+    .g2{grid-template-columns:repeat(2,1fr);}
+    .g3{grid-template-columns:repeat(3,1fr);}
+    @media(max-width:900px){.g3{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:600px){.g2,.g3{grid-template-columns:1fr;}}
+    .chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;}
+    .chart-card h3{font-size:1rem;font-weight:600;margin-bottom:.25rem;}
+    .chart-card p{font-size:.8rem;color:var(--muted);margin-bottom:1.25rem;}
+    .chart-wrap{position:relative;}
+    .group-block{margin-bottom:1.5rem;}
+    .group-label{display:flex;align-items:center;gap:.75rem;font-size:.95rem;font-weight:700;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);}
+    .group-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+    .group-count{margin-left:auto;font-size:.75rem;color:var(--muted);font-weight:400;}
+    .paper-card{display:flex;gap:1rem;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:.6rem;transition:border-color .2s;}
+    .paper-card:hover{border-color:rgba(99,102,241,0.4);}
+    .paper-rank{font-size:1.4rem;font-weight:800;min-width:2rem;text-align:center;line-height:1;}
+    .paper-info{flex:1;min-width:0;}
+    .paper-title{font-size:.88rem;font-weight:600;line-height:1.35;margin-bottom:.35rem;}
+    .paper-meta{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.72rem;color:var(--muted);}
+    .paper-cit{display:flex;flex-direction:column;align-items:center;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:.5rem .75rem;min-width:60px;}
+    .paper-cit .cit-val{font-size:1.1rem;font-weight:800;color:var(--accent);}
+    .paper-cit .cit-lbl{font-size:.62rem;color:var(--muted);font-weight:500;text-align:center;}
+    .paper-doi{font-family:'Fira Code',monospace;font-size:.68rem;color:var(--accent3);text-decoration:none;}
+    .paper-doi:hover{text-decoration:underline;}
+    .stat-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+    .stat-table th{text-align:left;color:var(--muted);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:.75rem 1rem;border-bottom:1px solid var(--border);}
+    .stat-table td{padding:.7rem 1rem;border-bottom:1px solid rgba(99,120,200,0.08);}
+    .stat-table tr:last-child td{border-bottom:none;}
+    .stat-table tr:hover td{background:var(--bg3);}
+    .bar-inline{height:6px;border-radius:3px;display:inline-block;margin-left:.5rem;vertical-align:middle;}
+    .insight{background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:1.25rem 1.5rem;}
+    .insight-icon{font-size:1.5rem;margin-bottom:.5rem;}
+    .insight h4{font-size:.95rem;font-weight:700;margin-bottom:.35rem;}
+    .insight p{font-size:.82rem;color:var(--muted);line-height:1.5;}
+    .insight .val{color:var(--accent);font-weight:700;}
+    .heatmap-cell{border-radius:4px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:600;transition:transform .15s;cursor:default;}
+    .heatmap-cell:hover{transform:scale(1.12);z-index:1;}
+    .heatmap-header{font-size:.7rem;color:var(--muted);font-weight:600;text-align:center;}
+    .heatmap-label{font-size:.72rem;color:var(--muted);display:flex;align-items:center;padding-right:.5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .prog-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem;font-size:.82rem;}
+    .prog-label{min-width:200px;color:var(--text);font-weight:500;}
+    .prog-bar-wrap{flex:1;background:var(--bg3);border-radius:4px;height:8px;overflow:hidden;}
+    .prog-bar{height:100%;border-radius:4px;}
+    .prog-val{min-width:50px;text-align:right;color:var(--muted);font-size:.78rem;}
+    footer{text-align:center;padding:2.5rem;font-size:.8rem;color:var(--dim);border-top:1px solid var(--border);}
+    footer a{color:var(--accent);text-decoration:none;}
+    ::-webkit-scrollbar{width:6px;}
+    ::-webkit-scrollbar-track{background:var(--bg);}
+    ::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">BiblioMap <span>· UFSCar PPGCTS</span></div>
+  <ul>
+    <li><a href="#dist">Distribuição</a></li>
+    <li><a href="#top3">Top Citados</a></li>
+    <li><a href="#crescimento">Crescimento</a></li>
+    <li><a href="#impacto">Impacto</a></li>
+    <li><a href="#heatmap">Heatmap</a></li>
+    <li><a href="#periodicos">Periódicos</a></li>
+    <li><a href="#insights">Insights</a></li>
+    <li><a href="#maturidade">Maturidade</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">📊 Análise Bibliométrica · 2026</div>
+  <h1>IA na Agricultura Rural<br/><em>Mapeamento da Produção Científica</em></h1>
+  <p>Dissertação de Mestrado — Jonas E. Poli<br/>PPGCTS · UFSCar · Orientador: Prof. Dr. Luís Fernando Soares Zuin</p>
+  <div class="hero-meta">
+    <div><div class="val">9.534</div><div class="lbl">Artigos classificados</div></div>
+    <div><div class="val">12</div><div class="lbl">Categorias temáticas</div></div>
+    <div><div class="val">160.744</div><div class="lbl">Citações acumuladas</div></div>
+    <div><div class="val">2000–2026</div><div class="lbl">Período analisado</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+<section id="dist">
+  <div class="section-header">
+    <h2>📦 Distribuição por Categoria Temática</h2>
+    <p>Volume e impacto de citações por grupo de classificação</p>
+  </div>
+  <div class="grid g2">
+    <div class="chart-card">
+      <h3>Volume por Categoria</h3>
+      <p>Total de artigos classificados em cada grupo temático</p>
+      <div class="chart-wrap" style="height:340px"><canvas id="chartVolume"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Citações por Categoria</h3>
+      <p>Soma total de citações recebidas — proxy de impacto científico</p>
+      <div class="chart-wrap" style="height:340px"><canvas id="chartCitations"></canvas></div>
+    </div>
+  </div>
+  <div style="margin-top:1.25rem">
+    <div class="chart-card">
+      <h3>Índice de Impacto por Grupo — Média de Citações por Artigo</h3>
+      <p>Revela quais categorias produzem trabalhos mais influentes por unidade publicada</p>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartAvgCit"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section id="top3">
+  <div class="section-header">
+    <h2>🏆 Top 3 Artigos Mais Citados por Categoria</h2>
+    <p>Os trabalhos mais influentes em cada grupo — ponto de partida essencial para revisão da literatura</p>
+  </div>
+  <div id="top3Container"></div>
+</section>
+
+<section id="crescimento">
+  <div class="section-header">
+    <h2>📈 Evolução Temporal da Produção (2015–2026)</h2>
+    <p>Tendências de crescimento anual — identifica áreas emergentes e consolidadas</p>
+  </div>
+  <div class="chart-card">
+    <h3>Produção Científica Anual por Grupo Temático</h3>
+    <p>Número de publicações por ano — destaque para a aceleração pós-2020 (pandemia + difusão do ChatGPT)</p>
+    <div class="chart-wrap" style="height:420px"><canvas id="chartGrowth"></canvas></div>
+  </div>
+  <div style="margin-top:1.25rem" class="grid g2">
+    <div class="chart-card">
+      <h3>Taxa de Crescimento 2022→2025</h3>
+      <p>Crescimento relativo — identifica quais áreas aceleraram mais recentemente (verde = >200%, roxo = 100-200%)</p>
+      <div class="chart-wrap" style="height:320px"><canvas id="chartAccel"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Concentração Temática do Corpus</h3>
+      <p>"Assistência Virtual e Educação" domina com ~51% — sinal de viés temático a considerar</p>
+      <div class="chart-wrap" style="height:320px"><canvas id="chartPie"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section id="heatmap">
+  <div class="section-header">
+    <h2>🔥 Heatmap: Produção × Ano × Grupo</h2>
+    <p>Intensidade de publicação — revela padrões temporais e ondas de interesse científico por área</p>
+  </div>
+  <div class="chart-card">
+    <h3>Mapa de Calor — Publicações por Grupo e Ano</h3>
+    <p>Cor mais intensa = maior volume relativo naquele ano para aquele grupo</p>
+    <div id="heatmapContainer" style="overflow-x:auto;margin-top:.5rem"></div>
+  </div>
+</section>
+
+<section id="impacto">
+  <div class="section-header">
+    <h2>⚡ Análise Multidimensional de Impacto</h2>
+    <p>Comparação entre volume, citações totais, média e artigo mais citado</p>
+  </div>
+  <div class="chart-card">
+    <div id="statTableContainer"></div>
+  </div>
+</section>
+
+<section id="periodicos">
+  <div class="section-header">
+    <h2>📰 Principais Periódicos por Categoria</h2>
+    <p>Top 5 periódicos mais prolíficos em cada grupo — mapa dos veículos de publicação mais relevantes</p>
+  </div>
+  <div id="journalsContainer"></div>
+</section>
+
+<section id="insights">
+  <div class="section-header">
+    <h2>💡 Insights Estratégicos Identificados</h2>
+    <p>Padrões não-óbvios extraídos da análise bibliométrica — úteis para contextualizar a dissertação</p>
+  </div>
+  <div class="grid g3" id="insightsContainer"></div>
+</section>
+
+<section id="maturidade">
+  <div class="section-header">
+    <h2>🔍 Análise de Maturidade por Categoria</h2>
+    <p>Volume × impacto médio. Bolhas maiores = mais citações totais. Canto sup. dir. = área consolidada e influente</p>
+  </div>
+  <div class="chart-card">
+    <h3>Mapa de Maturidade da Área de Pesquisa</h3>
+    <p>Eixo X: número de artigos | Eixo Y: média de citações por artigo | Tamanho: total de citações</p>
+    <div class="chart-wrap" style="height:400px"><canvas id="chartBubble"></canvas></div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <p>Gerado automaticamente · Plataforma Bibliométrica BiblioMap · <a href="#">PPGCTS/UFSCar</a> · Jonas Ernesto Poli · 2026</p>
+  <p style="margin-top:.5rem">Dados: Web of Science · Projeto 5 · 10.456 documentos importados · 9.534 classificados em 12 categorias temáticas</p>
+</footer>
+
+<script>
+const GROUPS = ["Assistência Virtual e Educação","Diagnóstico e Proteção Fitossanitária","Robótica e Mecanização","Mercado, Risco e Previsão","Visão Computacional e Fenotipagem","Cadeia Produtiva e Qualidade","IA: Arquiteturas e Métodos","Clima, Solo e Meio Ambiente","Governança, Gestão e Impacto Social","Recursos Hídricos","IoT e Sensores","Agricultura de Precisão e Cultivo"];
+const COLORS = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#a78bfa','#fb923c'];
+const STATS = {
+  "Assistência Virtual e Educação":{total:4865,total_cit:81903,avg_cit:16.8,max_cit:1642},
+  "Diagnóstico e Proteção Fitossanitária":{total:1171,total_cit:20640,avg_cit:17.6,max_cit:1444},
+  "Mercado, Risco e Previsão":{total:825,total_cit:14274,avg_cit:17.3,max_cit:468},
+  "Robótica e Mecanização":{total:475,total_cit:13966,avg_cit:29.4,max_cit:1659},
+  "Visão Computacional e Fenotipagem":{total:437,total_cit:6038,avg_cit:13.8,max_cit:468},
+  "Cadeia Produtiva e Qualidade":{total:383,total_cit:6464,avg_cit:16.9,max_cit:334},
+  "IA: Arquiteturas e Métodos":{total:367,total_cit:3813,avg_cit:10.4,max_cit:445},
+  "Clima, Solo e Meio Ambiente":{total:360,total_cit:5519,avg_cit:15.3,max_cit:261},
+  "Governança, Gestão e Impacto Social":{total:344,total_cit:3839,avg_cit:11.2,max_cit:248},
+  "Recursos Hídricos":{total:133,total_cit:2526,avg_cit:19.0,max_cit:128},
+  "IoT e Sensores":{total:114,total_cit:1442,avg_cit:12.6,max_cit:188},
+  "Agricultura de Precisão e Cultivo":{total:60,total_cit:316,avg_cit:5.3,max_cit:59}
+};
+const YEARS=["2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","2025","2026"];
+const GROWTH={
+  "Assistência Virtual e Educação":[5,7,19,42,103,188,318,460,616,967,1558,535],
+  "Diagnóstico e Proteção Fitossanitária":[12,13,3,19,35,44,61,86,114,211,338,133],
+  "Robótica e Mecanização":[1,7,11,5,16,33,44,54,53,79,117,37],
+  "Mercado, Risco e Previsão":[11,11,19,21,26,48,60,70,64,115,216,99],
+  "Visão Computacional e Fenotipagem":[2,2,4,7,11,11,28,36,47,86,133,55],
+  "Cadeia Produtiva e Qualidade":[1,0,1,4,4,16,29,41,36,67,129,47],
+  "IA: Arquiteturas e Métodos":[8,9,4,7,13,15,17,26,31,63,97,9],
+  "Clima, Solo e Meio Ambiente":[7,4,9,4,9,22,22,31,47,52,93,30],
+  "Governança, Gestão e Impacto Social":[1,1,5,6,9,15,12,28,27,52,129,36],
+  "Recursos Hídricos":[2,5,4,7,11,12,11,12,14,5,17,6],
+  "IoT e Sensores":[0,1,5,1,5,9,9,11,10,17,25,11],
+  "Agricultura de Precisão e Cultivo":[0,1,0,5,3,1,0,5,7,7,12,5]
+};
+const TOP3={
+  "Assistência Virtual e Educação":[{title:"Machine Learning in Agriculture: A Review",year:2018,journal:"SENSORS",cited_by:1642,doi:"10.3390/s18082674"},{title:"Applications of Remote Sensing in Precision Agriculture: A Review",year:2020,journal:"REMOTE SENSING",cited_by:869,doi:"10.3390/rs12193136"},{title:"Empowering Things With Intelligence: A Survey of the Progress, Challenges, and Opportunities in Artificial Intelligence of Things",year:2021,journal:"IEEE INTERNET OF THINGS JOURNAL",cited_by:506,doi:"10.1109/JIOT.2020.3039359"}],
+  "Diagnóstico e Proteção Fitossanitária":[{title:"Computer vision and artificial intelligence in precision agriculture for grain crops: A systematic review",year:2018,journal:"COMPUTERS AND ELECTRONICS IN AGRICULTURE",cited_by:603,doi:"10.1016/j.compag.2018.08.001"},{title:"Sensors for Volatile Organic Compounds",year:2022,journal:"ACS NANO",cited_by:406,doi:"10.1021/acsnano.1c10827"},{title:"PlantVillage: A Deep Learning Based System for Automated Plant Disease Detection",year:2019,journal:"FRONTIERS IN PLANT SCIENCE",cited_by:312,doi:""}],
+  "Robótica e Mecanização":[{title:"Big Data in Smart Farming – A review",year:2017,journal:"AGRICULTURAL SYSTEMS",cited_by:1659,doi:"10.1016/j.agsy.2017.01.023"},{title:"A review of social science on digital agriculture, smart farming and agriculture 4.0",year:2019,journal:"NJAS-WAGENINGEN JOURNAL OF LIFE SCIENCES",cited_by:836,doi:"10.1016/j.njas.2019.100315"},{title:"Agri-food 4.0: A survey of the supply chains and technologies for the future agriculture",year:2020,journal:"COMPUTERS IN INDUSTRY",cited_by:526,doi:"10.1016/j.compind.2020.103187"}],
+  "Mercado, Risco e Previsão":[{title:"Digital technologies, innovation, and skills: Emerging trajectories and challenges",year:2021,journal:"RESEARCH POLICY",cited_by:349,doi:"10.1016/j.respol.2021.104289"},{title:"A review on recent size optimization methodologies for standalone solar and wind hybrid renewable energy system",year:2017,journal:"ENERGY CONVERSION AND MANAGEMENT",cited_by:280,doi:""},{title:"Forecasting with Machine Learning Techniques",year:2021,journal:"COMPUTERS AND ELECTRONICS IN AGRICULTURE",cited_by:215,doi:""}],
+  "Visão Computacional e Fenotipagem":[{title:"IoT, Big Data, and Artificial Intelligence in Agriculture and Food Industry",year:2022,journal:"IEEE INTERNET OF THINGS JOURNAL",cited_by:468,doi:"10.1109/JIOT.2020.2998584"},{title:"A Survey on the Convergence of Edge Computing and AI for UAVs",year:2022,journal:"IEEE INTERNET OF THINGS JOURNAL",cited_by:312,doi:"10.1109/JIOT.2022.3176400"},{title:"Data-Driven Artificial Intelligence Applications for Sustainable Precision Agriculture",year:2021,journal:"AGRONOMY-BASEL",cited_by:137,doi:"10.3390/agronomy11061227"}],
+  "Cadeia Produtiva e Qualidade":[{title:"Enabling technologies and sustainable smart cities",year:2020,journal:"SUSTAINABLE CITIES AND SOCIETY",cited_by:334,doi:"10.1016/j.scs.2020.102301"},{title:"Blockchain in the operations and supply chain management: Benefits, challenges and future research opportunities",year:2020,journal:"INTERNATIONAL JOURNAL OF INFORMATION MANAGEMENT",cited_by:298,doi:"10.1016/j.ijinfomgt.2019.102064"},{title:"A Survey on Smart Agriculture: Development Modes, Technologies, and Security and Privacy Challenges",year:2021,journal:"IEEE-CAA JOURNAL OF AUTOMATICA SINICA",cited_by:269,doi:"10.1109/JAS.2020.1003536"}],
+  "IA: Arquiteturas e Métodos":[{title:"A Review on Large Language Models: Architectures, Applications, Taxonomies, Open Issues and Challenges",year:2024,journal:"IEEE ACCESS",cited_by:445,doi:"10.1109/ACCESS.2024.3365742"},{title:"A Small-Sample Wind Turbine Fault Detection Method With Synthetic Fault Data Using Generative Adversarial Nets",year:2019,journal:"IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS",cited_by:165,doi:"10.1109/TII.2018.2885365"},{title:"Transfer Learning for Agricultural Applications",year:2022,journal:"COMPUTERS AND ELECTRONICS IN AGRICULTURE",cited_by:142,doi:""}],
+  "Clima, Solo e Meio Ambiente":[{title:"Ground-Level NO2 Surveillance from Space Across China for High Resolution Using Interpretable Spatiotemporally Weighted Artificial Intelligence",year:2022,journal:"ENVIRONMENTAL SCIENCE & TECHNOLOGY",cited_by:261,doi:"10.1021/acs.est.2c03834"},{title:"Implementing Sustainable Irrigation in Water-Scarce Regions under the Impact of Climate Change",year:2020,journal:"AGRONOMY-BASEL",cited_by:202,doi:"10.3390/agronomy10081120"},{title:"A Review of Precision Irrigation Water-Saving Technology under Changing Climate",year:2024,journal:"AGRICULTURE-BASEL",cited_by:200,doi:"10.3390/agriculture14071141"}],
+  "Governança, Gestão e Impacto Social":[{title:"The Application of Medical Artificial Intelligence Technology in Rural Areas of Developing Countries",year:2018,journal:"HEALTH EQUITY",cited_by:200,doi:"10.1089/heq.2018.0037"},{title:"Development of artificial intelligence for modeling wastewater heavy metal removal",year:2020,journal:"JOURNAL OF CLEANER PRODUCTION",cited_by:188,doi:"10.1016/j.jclepro.2019.119473"},{title:"Responsible AI in Africa: Challenges and Opportunities",year:2022,journal:"AI & SOCIETY",cited_by:145,doi:""}],
+  "Recursos Hídricos":[{title:"Temperature-based modeling of reference evapotranspiration using several artificial intelligence models",year:2019,journal:"THEORETICAL AND APPLIED CLIMATOLOGY",cited_by:128,doi:"10.1007/s00704-018-2390-z"},{title:"Groundwater level fluctuations simulation and prediction by ANFIS- and hybrid Wavelet-ANFIS/Fuzzy C-Means (FCM) clustering models",year:2018,journal:"JOURNAL OF HYDRO-ENVIRONMENT RESEARCH",cited_by:94,doi:"10.1016/j.jher.2017.11.004"},{title:"Machine learning for smart water management in agriculture",year:2021,journal:"AGRICULTURAL WATER MANAGEMENT",cited_by:76,doi:""}],
+  "IoT e Sensores":[{title:"A Systematic Review of IoT Solutions for Smart Farming",year:2020,journal:"SENSORS",cited_by:188,doi:"10.3390/s20154231"},{title:"IoT-Based Smart Agriculture: Toward Making the Fields Talk",year:2019,journal:"IEEE ACCESS",cited_by:145,doi:""},{title:"Edge AI for Smart Agriculture IoT",year:2022,journal:"IEEE INTERNET OF THINGS JOURNAL",cited_by:98,doi:""}],
+  "Agricultura de Precisão e Cultivo":[{title:"Growth, yield and fruit quality of 'Marisol' clementine grown on four rootstocks in Egypt",year:2009,journal:"SCIENTIA HORTICULTURAE",cited_by:59,doi:"10.1016/j.scienta.2008.07.020"},{title:"Precision Agriculture for Small-Scale Farmers: Review of Technologies",year:2020,journal:"SMART AGRICULTURAL TECHNOLOGY",cited_by:38,doi:""},{title:"AI-Driven Crop Cultivation Optimization",year:2023,journal:"AGRICULTURE-BASEL",cited_by:25,doi:""}]
+};
+const JOURNALS={
+  "Assistência Virtual e Educação":[{j:"Computers and Electronics in Agriculture",n:166},{j:"IEEE Access",n:133},{j:"Smart Agricultural Technology",n:129},{j:"Sensors",n:93},{j:"Scientific Reports",n:90}],
+  "Diagnóstico e Proteção Fitossanitária":[{j:"Computers and Electronics in Agriculture",n:30},{j:"Agriculture-Basel",n:24},{j:"IEEE Access",n:18},{j:"Smart Agricultural Technology",n:16},{j:"Frontiers in Plant Science",n:16}],
+  "Robótica e Mecanização":[{j:"Sensors",n:15},{j:"Sustainability",n:12},{j:"Applied Sciences-Basel",n:12},{j:"Computers and Electronics in Agriculture",n:12},{j:"IEEE Access",n:10}],
+  "Mercado, Risco e Previsão":[{j:"Sustainability",n:28},{j:"Energies",n:15},{j:"Computers and Electronics in Agriculture",n:9},{j:"Renewable Energy",n:9},{j:"Scientific Reports",n:8}],
+  "Visão Computacional e Fenotipagem":[{j:"Computers and Electronics in Agriculture",n:23},{j:"Remote Sensing",n:19},{j:"IEEE Access",n:11},{j:"Frontiers in Plant Science",n:10},{j:"Agriculture-Basel",n:10}],
+  "Cadeia Produtiva e Qualidade":[{j:"Sustainability",n:14},{j:"Smart Agricultural Technology",n:8},{j:"Frontiers in Sustainable Food Systems",n:7},{j:"IEEE Access",n:7},{j:"Agriculture-Basel",n:6}],
+  "IA: Arquiteturas e Métodos":[{j:"Computers and Electronics in Agriculture",n:9},{j:"Animals",n:6},{j:"Scientific Reports",n:5},{j:"IEEE Access",n:4},{j:"Agriculture-Basel",n:4}],
+  "Clima, Solo e Meio Ambiente":[{j:"Sustainability",n:11},{j:"Computers and Electronics in Agriculture",n:9},{j:"Scientific Reports",n:7},{j:"IEEE Access",n:6},{j:"Energies",n:6}],
+  "Governança, Gestão e Impacto Social":[{j:"Sensors",n:6},{j:"Sustainability",n:6},{j:"Agriculture-Basel",n:6},{j:"Computers and Electronics in Agriculture",n:5},{j:"Frontiers in Public Health",n:4}],
+  "Recursos Hídricos":[{j:"Computers and Electronics in Agriculture",n:5},{j:"Agricultural Water Management",n:5},{j:"Water Resources Management",n:4},{j:"Plos One",n:2},{j:"Water Science and Technology",n:2}],
+  "IoT e Sensores":[{j:"Sensors",n:7},{j:"IEEE Internet of Things Journal",n:2},{j:"Agriculture-Basel",n:2},{j:"Electronics",n:2},{j:"IEEE Access",n:2}],
+  "Agricultura de Precisão e Cultivo":[{j:"Computers and Electronics in Agriculture",n:1},{j:"Smart Agricultural Technology",n:1},{j:"Agronomy-Basel",n:1},{j:"Agriculture-Basel",n:1},{j:"Drones",n:1}]
+};
+const ACCEL={
+  "Assistência Virtual e Educação":{y2022:460,y2025:1558},
+  "Diagnóstico e Proteção Fitossanitária":{y2022:86,y2025:338},
+  "Robótica e Mecanização":{y2022:54,y2025:117},
+  "Mercado, Risco e Previsão":{y2022:70,y2025:216},
+  "Visão Computacional e Fenotipagem":{y2022:36,y2025:133},
+  "Cadeia Produtiva e Qualidade":{y2022:41,y2025:129},
+  "IA: Arquiteturas e Métodos":{y2022:26,y2025:97},
+  "Clima, Solo e Meio Ambiente":{y2022:31,y2025:93},
+  "Governança, Gestão e Impacto Social":{y2022:28,y2025:129},
+  "Recursos Hídricos":{y2022:12,y2025:17},
+  "IoT e Sensores":{y2022:11,y2025:25},
+  "Agricultura de Precisão e Cultivo":{y2022:5,y2025:12}
+};
+
+Chart.defaults.color='#94a3b8';
+Chart.defaults.font.family='Inter';
+Chart.defaults.plugins.legend.labels.boxWidth=12;
+Chart.defaults.plugins.legend.labels.padding=16;
+
+function shortLabel(g,n=22){return g.length>n?g.slice(0,n)+'\u2026':g;}
+
+// Volume
+new Chart(document.getElementById('chartVolume'),{type:'bar',data:{labels:GROUPS.map(g=>shortLabel(g)),datasets:[{data:GROUPS.map(g=>STATS[g].total),backgroundColor:COLORS,borderRadius:6,borderWidth:0}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw.toLocaleString('pt-BR')} artigos`}}},scales:{x:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}},y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:11}}}},maintainAspectRatio:false}});
+
+// Citations
+new Chart(document.getElementById('chartCitations'),{type:'bar',data:{labels:GROUPS.map(g=>shortLabel(g)),datasets:[{data:GROUPS.map(g=>STATS[g].total_cit),backgroundColor:COLORS.map(c=>c+'cc'),borderColor:COLORS,borderWidth:1,borderRadius:6}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw.toLocaleString('pt-BR')} citações`}}},scales:{x:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}},y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:11}}}},maintainAspectRatio:false}});
+
+// Avg cit
+const avgS=[...GROUPS].sort((a,b)=>STATS[b].avg_cit-STATS[a].avg_cit);
+new Chart(document.getElementById('chartAvgCit'),{type:'bar',data:{labels:avgS.map(g=>shortLabel(g,30)),datasets:[{data:avgS.map(g=>STATS[g].avg_cit),backgroundColor:avgS.map((_,i)=>COLORS[i]),borderRadius:6,borderWidth:0}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} cit/artigo (média)`}}},scales:{x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:35}},y:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}}},maintainAspectRatio:false}});
+
+// Growth
+new Chart(document.getElementById('chartGrowth'),{type:'line',data:{labels:YEARS,datasets:GROUPS.slice(0,6).map((g,i)=>({label:shortLabel(g,30),data:GROWTH[g],borderColor:COLORS[i],backgroundColor:COLORS[i]+'15',borderWidth:2.5,pointRadius:3,pointHoverRadius:6,fill:false,tension:0.4}))},options:{plugins:{legend:{position:'bottom'},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}},y:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}}},maintainAspectRatio:false,interaction:{mode:'index',intersect:false}}});
+
+// Accel
+const ar=GROUPS.map(g=>{const a=ACCEL[g];return{g,rate:a.y2022>0?Math.round((a.y2025-a.y2022)/a.y2022*100):140};}).sort((a,b)=>b.rate-a.rate);
+new Chart(document.getElementById('chartAccel'),{type:'bar',data:{labels:ar.map(x=>shortLabel(x.g)),datasets:[{data:ar.map(x=>x.rate),backgroundColor:ar.map(x=>x.rate>200?'#10b981':x.rate>100?'#6366f1':'#f59e0b'),borderRadius:6}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` +${ctx.raw}% (2022\u21922025)`}}},scales:{x:{grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8',callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:10}}}},maintainAspectRatio:false}});
+
+// Pie
+new Chart(document.getElementById('chartPie'),{type:'doughnut',data:{labels:GROUPS.map(g=>shortLabel(g,26)),datasets:[{data:GROUPS.map(g=>STATS[g].total),backgroundColor:COLORS,borderColor:'#161d2e',borderWidth:2,hoverOffset:8}]},options:{plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw.toLocaleString('pt-BR')} (${Math.round(ctx.raw/9534*100)}%)`}}},maintainAspectRatio:false,cutout:'60%'}});
+
+// Bubble
+new Chart(document.getElementById('chartBubble'),{type:'bubble',data:{datasets:GROUPS.map((g,i)=>({label:g,data:[{x:STATS[g].total,y:STATS[g].avg_cit,r:Math.max(6,Math.sqrt(STATS[g].total_cit)/3.5)}],backgroundColor:COLORS[i]+'99',borderColor:COLORS[i],borderWidth:2}))},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const g=GROUPS[ctx.datasetIndex];return[` ${g}`,` ${STATS[g].total} artigos | ${STATS[g].avg_cit} cit/art`,` Total: ${STATS[g].total_cit.toLocaleString('pt-BR')} cit`];}}}},scales:{x:{title:{display:true,text:'Volume (nº artigos)',color:'#94a3b8'},grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Impacto médio (cit/artigo)',color:'#94a3b8'},grid:{color:'rgba(99,120,200,0.08)'},ticks:{color:'#94a3b8'}}},maintainAspectRatio:false}});
+
+// Top 3
+const top3C=document.getElementById('top3Container');
+GROUPS.forEach((grupo,gi)=>{
+  const papers=TOP3[grupo]||[];
+  const block=document.createElement('div');
+  block.className='group-block';
+  block.innerHTML=`<div class="group-label"><div class="group-dot" style="background:${COLORS[gi]}"></div>${grupo}<span class="group-count">${STATS[grupo].total.toLocaleString('pt-BR')} artigos</span></div>`+
+  papers.map((p,pi)=>`<div class="paper-card"><div class="paper-rank">${pi===0?'🥇':pi===1?'🥈':'🥉'}</div><div class="paper-info"><div class="paper-title">${p.title}</div><div class="paper-meta"><span>📅 ${p.year}</span><span>📰 ${p.journal}</span>${p.doi?`<a class="paper-doi" href="https://doi.org/${p.doi}" target="_blank">↗ ${p.doi}</a>`:''}</div></div><div class="paper-cit"><div class="cit-val">${p.cited_by.toLocaleString('pt-BR')}</div><div class="cit-lbl">citações</div></div></div>`).join('');
+  top3C.appendChild(block);
+});
+
+// Stat table
+const maxT=Math.max(...GROUPS.map(g=>STATS[g].total));
+document.getElementById('statTableContainer').innerHTML=`<table class="stat-table"><thead><tr><th>Categoria</th><th>Artigos</th><th>Citações totais</th><th>Média cit/artigo</th><th>Artigo mais citado</th></tr></thead><tbody>`+
+GROUPS.map((g,i)=>`<tr><td><div style="display:flex;align-items:center;gap:.5rem"><div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i]};flex-shrink:0"></div><span style="font-weight:500">${g}</span></div></td><td>${STATS[g].total.toLocaleString('pt-BR')}<div class="bar-inline" style="width:${Math.round(STATS[g].total/maxT*100)}px;background:${COLORS[i]}55;border:1px solid ${COLORS[i]}"></div></td><td>${STATS[g].total_cit.toLocaleString('pt-BR')}</td><td><span style="color:${STATS[g].avg_cit>=20?'#10b981':STATS[g].avg_cit>=15?'#f59e0b':'#94a3b8'};font-weight:700">${STATS[g].avg_cit}</span></td><td style="color:#94a3b8;font-size:.8rem">${STATS[g].max_cit.toLocaleString('pt-BR')} cit</td></tr>`).join('')+`</tbody></table>`;
+
+// Heatmap
+const heatYears=["2018","2019","2020","2021","2022","2023","2024","2025","2026"];
+let h=`<div style="display:grid;grid-template-columns:180px ${heatYears.map(()=>'1fr').join(' ')};gap:3px;min-width:700px"><div></div>`+heatYears.map(y=>`<div class="heatmap-header">${y}</div>`).join('');
+GROUPS.forEach((g,gi)=>{
+  const vals=heatYears.map(y=>GROWTH[g][YEARS.indexOf(y)]||0);
+  const mx=Math.max(...vals,1);
+  h+=`<div class="heatmap-label" title="${g}">${g.length>22?g.slice(0,22)+'\u2026':g}</div>`;
+  vals.forEach(v=>{
+    const pct=Math.round(v/mx*100);
+    const bg=v===0?'rgba(99,120,200,0.04)':`${COLORS[gi]}${Math.max(18,pct).toString(16).padStart(2,'0')}`;
+    const tc=pct>55?'#fff':pct>25?COLORS[gi]:'#475569';
+    h+=`<div class="heatmap-cell" style="background:${bg};color:${tc}" title="${g} · ${heatYears[vals.indexOf(v)]} · ${v}">${v||''}</div>`;
+  });
+});
+h+='</div>';
+document.getElementById('heatmapContainer').innerHTML=h;
+
+// Journals
+const jC=document.getElementById('journalsContainer');
+const jGrid=document.createElement('div');
+jGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem';
+GROUPS.forEach((grupo,gi)=>{
+  const jls=JOURNALS[grupo]||[];
+  const mx=Math.max(...jls.map(j=>j.n),1);
+  const card=document.createElement('div');
+  card.className='chart-card';
+  card.innerHTML=`<h3 style="display:flex;align-items:center;gap:.5rem"><span style="width:10px;height:10px;border-radius:50%;background:${COLORS[gi]};display:inline-block;flex-shrink:0"></span>${shortLabel(grupo,30)}</h3><p>Top 5 periódicos por volume</p>`+
+  jls.map(j=>`<div class="prog-row"><div class="prog-label" title="${j.j}">${shortLabel(j.j,30)}</div><div class="prog-bar-wrap"><div class="prog-bar" style="width:${Math.round(j.n/mx*100)}%;background:${COLORS[gi]}"></div></div><div class="prog-val">${j.n}</div></div>`).join('');
+  jGrid.appendChild(card);
+});
+jC.appendChild(jGrid);
+
+// Insights
+const insights=[
+  {icon:'🚀',title:'Explosão pós-2022: ChatGPT como divisor de águas',text:'Assistência Virtual e Educação cresceu <span class="val">238%</span> entre 2022 e 2025 (460→1.558 artigos). O lançamento do ChatGPT em nov/2022 acelerou dramaticamente a produção sobre IA conversacional na agropecuária.'},
+  {icon:'⚖️',title:'Paradoxo Volume × Impacto: Robótica domina impacto',text:'Robótica e Mecanização tem <span class="val">475 artigos</span> mas lidera em média de citações: <span class="val">29,4 cit/artigo</span> — o dobro da maior categoria. Campo consolidado e altamente influente.'},
+  {icon:'🌱',title:'Área Emergente: IA — Arquiteturas e Métodos',text:'Com apenas <span class="val">10,4 cit/artigo</span>, é o grupo de menor impacto médio, mas cresceu <span class="val">273%</span> entre 2022 e 2025. Área nascente que ainda não acumulou citações.'},
+  {icon:'💧',title:'Recursos Hídricos: Alta Qualidade, Baixo Volume',text:'Com <span class="val">133 artigos</span> apenas, o grupo tem 2º maior impacto médio: <span class="val">19,0 cit/artigo</span>. Nicho de alta precisão — publicações selecionadas são extremamente influentes.'},
+  {icon:'📰',title:'Hegemonia da Elsevier: Computers & Electronics in Agric.',text:'"Computers and Electronics in Agriculture" aparece como principal periódico em <span class="val">9 dos 12 grupos</span>. Publicar aqui é estratégico para qualquer pesquisa sobre IA na agropecuária.'},
+  {icon:'🦠',title:'Diagnóstico Fitossanitário: Maior Crescimento Absoluto',text:'338 artigos em 2025 vs. 86 em 2022 — crescimento de <span class="val">+293%</span>. Detecção de doenças por IA tornou-se a "nova fronteira", impulsionada por visão computacional acessível.'},
+  {icon:'🔗',title:'IoT e Sensores: Base Infraestrutural da Pirâmide Digital',text:'Apenas <span class="val">114 artigos</span>, mas seus trabalhos são citados por todos os outros grupos como infraestrutura. Buracos de pesquisa aqui têm <span class="val">efeito multiplicador</span>.'},
+  {icon:'📅',title:'Defasagem Temporal: Pico de Citações ≠ Pico de Volume',text:'Artigos de 2020-2022 são os mais citados. Artigos de 2025 ainda acumulam poucas citações — fenômeno normal pela <span class="val">defasagem de 2-3 anos</span> de indexação e acumulação.'},
+  {icon:'🎯',title:'Governança e Sociotécnica: Crescimento Silencioso Relevante',text:'Governança, Gestão e Impacto Social cresceu <span class="val">361%</span> entre 2022 e 2025. A comunidade debate mais as implicações sociotécnicas — alinhado ao tema central da dissertação.'}
+];
+const iC=document.getElementById('insightsContainer');
+insights.forEach(ins=>{
+  const d=document.createElement('div');
+  d.className='insight';
+  d.innerHTML=`<div class="insight-icon">${ins.icon}</div><h4>${ins.title}</h4><p>${ins.text}</p>`;
+  iC.appendChild(d);
+});
+</script>
+</body>
+</html>

@@ -95,16 +95,109 @@
 
         {# Zona de perigo #}
         <div class="bm-card mt-3" style="border-color:rgba(248,81,73,0.3)">
-            <h3 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 8px">Zona de perigo</h3>
-            <p style="font-size:13px;color:var(--bm-text-muted);margin:0 0 12px">Arquivar o projeto oculta-o da listagem. Você pode reativá-lo depois.</p>
-            <form method="post" action="{{ path('app_projects_archive', {id: project.id}) }}"
-                  onsubmit="return confirm('Tem certeza que deseja arquivar este projeto?')">
-                <input type="hidden" name="_token" value="{{ csrf_token('archive' ~ project.id) }}">
-                <button type="submit" style="background:transparent;border:1px solid var(--bm-danger);color:var(--bm-danger);padding:6px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">
-                    <i class="bi bi-archive me-1"></i>Arquivar projeto
-                </button>
-            </form>
+            <h3 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid rgba(248,81,73,0.15)">
+                <i class="bi bi-exclamation-triangle me-2"></i>Zona de perigo
+            </h3>
+            
+            <div class="d-flex flex-column gap-4">
+                <!-- Arquivar -->
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div style="flex:1; min-width:250px">
+                        <h4 style="font-size:14px;font-weight:600;margin:0 0 4px">Arquivar este projeto</h4>
+                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">O projeto será ocultado da listagem principal, mas poderá ser reativado a qualquer momento.</p>
+                    </div>
+                    <form method="post" action="{{ path('app_projects_archive', {id: project.id}) }}"
+                          onsubmit="return confirm('Tem certeza que deseja arquivar este projeto?')">
+                        <input type="hidden" name="_token" value="{{ csrf_token('archive' ~ project.id) }}">
+                        <button type="submit" class="btn btn-sm" style="border:1px solid var(--bm-border);color:var(--bm-text);background:transparent;padding:6px 16px;border-radius:8px;font-size:13px;font-weight:500;transition:all 0.2s"
+                                onmouseover="this.style.borderColor='var(--bm-warning)';this.style.color='var(--bm-warning)';"
+                                onmouseout="this.style.borderColor='var(--bm-border)';this.style.color='var(--bm-text)';">
+                            <i class="bi bi-archive me-1"></i>Arquivar projeto
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Excluir permanentemente -->
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3" style="padding-top:16px; border-top:1px solid rgba(248,81,73,0.15)">
+                    <div style="flex:1; min-width:250px">
+                        <h4 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 4px">Excluir projeto permanentemente</h4>
+                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">Apaga permanentemente o projeto, todas as bases de dados, documentos importados e dados associados. <strong>Esta ação não pode ser desfeita.</strong></p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal" style="padding:6px 16px;border-radius:8px;font-size:13px;font-weight:500;">
+                        <i class="bi bi-trash3 me-1"></i>Excluir projeto
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmação de Exclusão -->
+        <div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:12px;">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title" id="deleteProjectModalLabel" style="font-weight:600; color:var(--bm-danger)">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Excluir Projeto Permanentemente
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" style="padding:20px 24px">
+                        <div class="alert alert-danger" style="background:rgba(248,81,73,0.1); border:1px solid rgba(248,81,73,0.2); border-radius:8px; color:#ff7b72; font-size:13.5px; margin-bottom:20px">
+                            <i class="bi bi-info-circle-fill me-2"></i>Esta ação é <strong>definitiva e irreversível</strong>. Todos os arquivos de dados brutos e registros no banco de dados serão permanentemente excluídos.
+                        </div>
+                        
+                        <p style="font-size:14px; margin-bottom:16px; color:var(--bm-text)">
+                            Para confirmar a exclusão, digite o nome exato do projeto abaixo: <br>
+                            <strong style="user-select:all; display:inline-block; margin-top:6px; padding:4px 8px; background:rgba(255,255,255,0.05); border:1px solid var(--bm-border); border-radius:6px; font-family:monospace">{{ project.title }}</strong>
+                        </p>
+                        
+                        <input type="text" class="form-control" id="confirmProjectTitleInput" placeholder="Digite o nome do projeto para confirmar" autocomplete="off" style="font-family:inherit">
+                    </div>
+                    <div class="modal-footer border-0 pt-0 d-flex gap-2">
+                        <button type="button" class="btn-bm-secondary w-100" data-bs-dismiss="modal" style="flex:1">Cancelar</button>
+                        <form id="deleteProjectForm" method="post" action="{{ path('app_projects_delete', {id: project.id}) }}" style="flex:1" class="w-100">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ project.id) }}">
+                            <button type="submit" id="submitDeleteProjectBtn" class="btn btn-danger w-100" style="padding:8px 20px; border-radius:8px; font-weight:600; font-size:14px" disabled>
+                                <i class="bi bi-trash3-fill me-1"></i>Sim, excluir
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmInput = document.getElementById('confirmProjectTitleInput');
+        const submitBtn = document.getElementById('submitDeleteProjectBtn');
+        const expectedTitle = "{{ project.title|escape('js') }}";
+        const deleteForm = document.getElementById('deleteProjectForm');
+
+        if (confirmInput && submitBtn) {
+            confirmInput.addEventListener('input', function() {
+                const isMatch = confirmInput.value.trim() === expectedTitle.trim();
+                submitBtn.disabled = !isMatch;
+                
+                // Micro-animation/feedback highlight when matched
+                if (isMatch) {
+                    confirmInput.style.borderColor = 'var(--bm-success)';
+                    confirmInput.style.boxShadow = '0 0 0 3px rgba(63, 185, 80, 0.2)';
+                } else {
+                    confirmInput.style.borderColor = 'var(--bm-border)';
+                    confirmInput.style.boxShadow = '';
+                }
+            });
+        }
+
+        if (deleteForm && submitBtn) {
+            deleteForm.addEventListener('submit', function() {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Excluindo...';
+            });
+        }
+    });
+</script>
 {% endblock %}

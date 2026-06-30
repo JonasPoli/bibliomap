@@ -108,43 +108,180 @@
 
 <!-- Table -->
 <div class="bm-card">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produtividade</h5>
-        <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar autor…" style="width:220px" oninput="filterTable()">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h5 class="card-title mb-0" style="font-weight:700">
+            {% if app.request.query.get('q') %}
+                Resultado da busca: <span class="text-accent">"{{ app.request.query.get('q') }}"</span>
+            {% else %}
+                Tabela de Produtividade
+            {% endif %}
+        </h5>
+        
+        <form method="get" action="{{ path('app_report_authors', {id: project.id}) }}" class="d-flex gap-2 align-items-center">
+            <div class="input-group input-group-sm">
+                <input type="text" name="q" value="{{ app.request.query.get('q') }}" class="form-control" placeholder="Buscar autor no banco..." style="max-width:220px" autocomplete="off">
+                <button type="submit" class="btn btn-bm-primary" style="border-radius:0 8px 8px 0 !important; background:var(--bm-accent); font-weight:600; padding:6px 14px">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+            {% if app.request.query.get('q') %}
+                <a href="{{ path('app_report_authors', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="text-decoration:none; white-space:nowrap; padding:6px 12px">
+                    Limpar
+                </a>
+            {% endif %}
+        </form>
     </div>
     <div class="table-responsive" style="max-height:440px;overflow-y:auto">
         <table class="table table-hover align-middle border-bm mb-0" id="authors-table" style="font-size:13px">
             <thead class="sticky-top bg-bm-card border-bottom border-bm">
                 <tr>
-                    <th style="color:var(--bm-text-muted);font-weight:600">#</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600">Autor</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center" title="H-index dentro do corpus">H-index</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center" title="G-index dentro do corpus">G-index</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Período</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;user-select:none">#</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortTable(1, 'string')">
+                        Autor <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(2, 'number')">
+                        Artigos <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(3, 'number')">
+                        Citações <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(4, 'number')">
+                        Média Cit. <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" title="H-index dentro do corpus" onclick="sortTable(5, 'number')">
+                        H-index <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" title="G-index dentro do corpus" onclick="sortTable(6, 'number')">
+                        G-index <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortTable(7, 'string')">
+                        Período <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    </th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações</th>
                 </tr>
             </thead>
             <tbody class="border-0">
-                {% for auth in list %}
-                <tr class="author-row" data-name="{{ auth.name|lower }}">
-                    <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
-                    <td style="font-weight:600;color:var(--bm-text)">{{ auth.name }}</td>
-                    <td style="text-align:right;font-weight:700" class="text-accent">{{ auth.doc_count }}</td>
-                    <td style="text-align:right">{{ auth.citation_count }}</td>
-                    <td style="text-align:right;color:var(--bm-text-muted)">{{ auth.avg_citations }}</td>
-                    <td style="text-align:center">
-                        <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:11px;font-weight:700;min-width:28px">{{ auth.h_index }}</span>
-                    </td>
-                    <td style="text-align:center">
-                        <span class="badge rounded-pill" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:11px;font-weight:700;min-width:28px">{{ auth.g_index }}</span>
-                    </td>
-                    <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ auth.first_year }}–{{ auth.last_year }}</td>
-                </tr>
-                {% endfor %}
+                {% if list is empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <i class="bi bi-person-x d-block fs-3 mb-2" style="color:var(--bm-text-muted)"></i>
+                            Nenhum autor encontrado com o termo pesquisado.
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for auth in list %}
+                    <tr class="author-row" data-name="{{ auth.name|lower }}">
+                        <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
+                        <td style="font-weight:600;color:var(--bm-text)">{{ auth.name }}</td>
+                        <td style="text-align:right;font-weight:700" class="text-accent">{{ auth.doc_count }}</td>
+                        <td style="text-align:right">{{ auth.citation_count }}</td>
+                        <td style="text-align:right;color:var(--bm-text-muted)">{{ auth.avg_citations }}</td>
+                        <td style="text-align:center">
+                            <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:11px;font-weight:700;min-width:28px">{{ auth.h_index }}</span>
+                        </td>
+                        <td style="text-align:center">
+                            <span class="badge rounded-pill" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:11px;font-weight:700;min-width:28px">{{ auth.g_index }}</span>
+                        </td>
+                        <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ auth.first_year }}–{{ auth.last_year }}</td>
+                        <td style="text-align:center">
+                            <button type="button" class="btn btn-sm btn-bm-secondary py-1 px-2 border-bm" 
+                                    onclick="viewAuthorWorks({{ project.id }}, {{ auth.id }}, '{{ auth.name|escape('js') }}')"
+                                    style="font-size:12px;border-radius:6px">
+                                <i class="bi bi-file-earmark-text me-1"></i>Ver trabalhos
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal de Trabalhos do Autor -->
+<div class="modal fade" id="authorWorksModal" tabindex="-1" aria-labelledby="authorWorksModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:12px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="authorWorksModalLabel" style="font-weight:700; color:var(--bm-text)">
+                    <i class="bi bi-file-earmark-text me-2" style="color:var(--bm-accent)"></i>
+                    Trabalhos do Autor: <span id="modalAuthorName" class="text-accent"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding:24px; max-height: 60vh; overflow-y: auto;">
+                <!-- Identificador do que são esses trabalhos -->
+                <div class="mb-3">
+                    <p style="font-size:13.5px; color:var(--bm-text-muted); margin:0">
+                        Abaixo está a lista contendo as publicações documentadas deste autor presentes no corpus deste projeto.
+                    </p>
+                </div>
+                
+                <div id="modalLoadingSpinner" class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                </div>
+
+                <div id="modalContentTable" class="table-responsive" style="display:none">
+                    <table class="table table-hover align-middle border-bm mb-0" style="font-size:12.5px">
+                        <thead>
+                            <tr class="border-bottom border-bm">
+                                <th style="color:var(--bm-text-muted); font-weight:600">Título</th>
+                                <th style="color:var(--bm-text-muted); font-weight:600; text-align:center">Ano</th>
+                                <th style="color:var(--bm-text-muted); font-weight:600; text-align:center">Citações</th>
+                                <th style="color:var(--bm-text-muted); font-weight:600">Tipo</th>
+                                <th style="color:var(--bm-text-muted); font-weight:600">Fonte</th>
+                                <th style="color:var(--bm-text-muted); font-weight:600; text-align:center">Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalAuthorWorksBody" class="border-0">
+                            <!-- JS will populate rows here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="modalNoWorksMessage" class="text-center my-5" style="display:none; color:var(--bm-text-muted)">
+                    <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
+                    Nenhum trabalho encontrado para este autor.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-bm-secondary px-4" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal BibTeX -->
+<div class="modal fade" id="bibtexModal" tabindex="-1" aria-labelledby="bibtexModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-bm-card border-bm text-bm" style="background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:12px;">
+            <div class="modal-header border-bottom border-bm py-3 border-0 pb-0">
+                <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
+                    <i class="bi bi-code-slash me-2 text-accent"></i>
+                    Referência BibTeX para Zotero
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted" style="font-size:13px">
+                    Copie o código BibTeX abaixo e cole no Zotero (usando a opção <em>"Importar do Clipboard / Área de Transferência"</em>).
+                </p>
+                <div style="position:relative">
+                    <pre id="bibtexCode" class="p-3" style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;font-family:monospace;font-size:12.5px;color:var(--bm-text);white-space:pre-wrap;max-height:350px;overflow-y:auto;text-align:left"></pre>
+                    <button type="button" class="btn btn-sm btn-bm-primary" onclick="copyBibtexToClipboard()" style="position:absolute;top:10px;right:10px;background:var(--bm-accent);border:none;font-weight:600;padding:4px 12px;font-size:12px">
+                        <i class="bi bi-clipboard me-1"></i> Copiar
+                    </button>
+                </div>
+                <div id="copySuccessAlert" class="text-success mt-2" style="font-size:12px;display:none;font-weight:600">
+                    <i class="bi bi-check-circle-fill me-1"></i> Copiado com sucesso para a área de transferência!
+                </div>
+            </div>
+            <div class="modal-footer border-top border-bm py-3 border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-bm-secondary px-4" data-bs-dismiss="modal" style="font-size:13px;font-weight:600">Fechar</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -282,14 +419,6 @@ function rebuildLotka() {
     });
 }
 
-function filterTable() {
-    const q = document.getElementById('table-search').value.toLowerCase().trim();
-    document.querySelectorAll('.author-row').forEach(row => {
-        const name = row.dataset.name;
-        row.style.display = (!q || name.includes(q)) ? '' : 'none';
-    });
-}
-
 function exportCSV() {
     const fullList = {{ list|json_encode|raw }};
     let csv = "\uFEFFAuthor;Articles;Citations;Average Citations;H-index;G-index;First Year;Last Year\r\n";
@@ -304,6 +433,309 @@ function exportCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+function viewAuthorWorks(projectId, authorId, authorName) {
+    const modal = new bootstrap.Modal(document.getElementById('authorWorksModal'));
+    
+    // Set author name in header
+    document.getElementById('modalAuthorName').textContent = authorName;
+    
+    // Reset modal state
+    document.getElementById('modalLoadingSpinner').style.display = 'block';
+    document.getElementById('modalContentTable').style.display = 'none';
+    document.getElementById('modalNoWorksMessage').style.display = 'none';
+    document.getElementById('modalAuthorWorksBody').innerHTML = '';
+    
+    modal.show();
+    
+    // Fetch via AJAX
+    const url = `/projects/${projectId}/reports/authors/${authorId}/documents`;
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar os trabalhos.');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+            
+            if (!data.documents || data.documents.length === 0) {
+                document.getElementById('modalNoWorksMessage').style.display = 'block';
+                return;
+            }
+            
+            const tbody = document.getElementById('modalAuthorWorksBody');
+            data.documents.forEach(doc => {
+                const tr = document.createElement('tr');
+                
+                // Title td
+                const tdTitle = document.createElement('td');
+                tdTitle.style.fontWeight = '600';
+                tdTitle.style.color = 'var(--bm-text)';
+                const docTitle = (doc.title || 'Sem título').replace(/[:\/]/g, '');
+                const docYear = doc.year || '—';
+                const docAuthors = doc.author_names || authorName;
+                const formattedTitle = `${docAuthors} - ${docYear} - ${docTitle}`;
+                tdTitle.title = formattedTitle;
+                tdTitle.textContent = formattedTitle + ' ';
+                
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'btn btn-sm btn-link p-0 text-muted ms-1';
+                copyBtn.style.verticalAlign = 'middle';
+                copyBtn.style.textDecoration = 'none';
+                copyBtn.title = 'Copiar nome reduzido (máx 250 caracteres)';
+                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+                copyBtn.onclick = function() {
+                    const cleanTitle = docTitle;
+                    const cleanYear = String(docYear);
+                    const cleanAuthors = String(docAuthors);
+                    const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
+                    let reducedAuthors = cleanAuthors;
+                    if (cleanAuthors.length > maxAuthorsLen) {
+                        reducedAuthors = cleanAuthors.slice(0, Math.max(0, maxAuthorsLen));
+                    }
+                    const textToCopy = `${reducedAuthors} - ${cleanYear} - ${cleanTitle}`;
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        const icon = copyBtn.querySelector('i');
+                        if (icon) {
+                            icon.className = 'bi bi-check2 text-success';
+                            setTimeout(() => {
+                                icon.className = 'bi bi-clipboard';
+                            }, 1500);
+                        }
+                    });
+                };
+                tdTitle.appendChild(copyBtn);
+                
+                tr.appendChild(tdTitle);
+                
+                // Year td
+                const tdYear = document.createElement('td');
+                tdYear.style.textAlign = 'center';
+                tdYear.textContent = doc.year || '—';
+                tr.appendChild(tdYear);
+                
+                // Citations td
+                const tdCit = document.createElement('td');
+                tdCit.style.textAlign = 'center';
+                tdCit.style.fontWeight = '700';
+                tdCit.className = 'text-accent';
+                tdCit.textContent = doc.cited_by !== null ? doc.cited_by : 0;
+                tr.appendChild(tdCit);
+                
+                // Document type td
+                const tdType = document.createElement('td');
+                tdType.style.color = 'var(--bm-text-muted)';
+                tdType.textContent = doc.document_type || '—';
+                tr.appendChild(tdType);
+                
+                // Source title td
+                const tdSource = document.createElement('td');
+                tdSource.style.maxWidth = '150px';
+                tdSource.style.overflow = 'hidden';
+                tdSource.style.textOverflow = 'ellipsis';
+                tdSource.style.whiteSpace = 'nowrap';
+                tdSource.style.color = 'var(--bm-text-muted)';
+                tdSource.title = doc.source_title || '—';
+                tdSource.textContent = doc.source_title || '—';
+                tr.appendChild(tdSource);
+                
+                // Link td
+                const tdLink = document.createElement('td');
+                tdLink.style.textAlign = 'center';
+                tdLink.style.whiteSpace = 'nowrap';
+                
+                let hasLink = false;
+                if (doc.doi) {
+                    const a = document.createElement('a');
+                    a.href = `https://doi.org/${doc.doi}`;
+                    a.target = '_blank';
+                    a.style.color = 'var(--bm-accent)';
+                    a.style.textDecoration = 'none';
+                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> DOI';
+                    tdLink.appendChild(a);
+
+                    const aSci = document.createElement('a');
+                    aSci.href = `https://sci-hub.box/${doc.doi}`;
+                    aSci.target = '_blank';
+                    aSci.style.color = 'var(--bm-accent)';
+                    aSci.style.textDecoration = 'none';
+                    aSci.style.marginLeft = '8px';
+                    aSci.title = 'Sci-Hub';
+                    aSci.innerHTML = '<i class="bi bi-key"></i> Sci-Hub';
+                    tdLink.appendChild(aSci);
+
+                    hasLink = true;
+                } else if (doc.url) {
+                    const a = document.createElement('a');
+                    a.href = doc.url;
+                    a.target = '_blank';
+                    a.style.color = 'var(--bm-accent)';
+                    a.style.textDecoration = 'none';
+                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> URL';
+                    tdLink.appendChild(a);
+                    hasLink = true;
+                }
+
+                const btnBib = document.createElement('button');
+                btnBib.type = 'button';
+                btnBib.className = 'btn btn-sm btn-outline-secondary py-0 px-2' + (hasLink ? ' ms-2' : '');
+                btnBib.style.fontSize = '11.5px';
+                btnBib.style.borderRadius = '4px';
+                btnBib.innerHTML = '<i class="bi bi-journal-code"></i> BibTeX';
+                btnBib.onclick = (e) => {
+                    e.preventDefault();
+                    showBibtex(doc, docAuthors);
+                };
+                tdLink.appendChild(btnBib);
+
+                tr.appendChild(tdLink);
+                
+                tbody.appendChild(tr);
+            });
+            
+            document.getElementById('modalContentTable').style.display = 'block';
+        })
+        .catch(err => {
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+            document.getElementById('modalNoWorksMessage').textContent = 'Erro: ' + err.message;
+            document.getElementById('modalNoWorksMessage').style.display = 'block';
+        });
+}
+
+let currentSortColumn = -1;
+let sortAscending = true;
+
+function sortTable(columnIndex, type) {
+    const table = document.getElementById('authors-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('.author-row'));
+    if (rows.length === 0) return;
+    
+    if (currentSortColumn === columnIndex) {
+        sortAscending = !sortAscending;
+    } else {
+        currentSortColumn = columnIndex;
+        sortAscending = true;
+    }
+
+    // Update header icons
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, idx) => {
+        const icon = th.querySelector('.sort-icon');
+        if (icon) {
+            if (idx === columnIndex) {
+                icon.className = sortAscending ? 'bi bi-caret-up-fill sort-icon ms-1' : 'bi bi-caret-down-fill sort-icon ms-1';
+                icon.style.color = 'var(--bm-accent)';
+                icon.style.opacity = '1';
+            } else {
+                icon.className = 'bi bi-arrow-down-up sort-icon ms-1';
+                icon.style.color = 'var(--bm-text-muted)';
+                icon.style.opacity = '0.3';
+            }
+        }
+    });
+
+    // Sort rows
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[columnIndex].textContent.trim();
+        const cellB = rowB.cells[columnIndex].textContent.trim();
+
+        if (type === 'number') {
+            const numA = parseFloat(cellA.replace(/[^\d.-]/g, '')) || 0;
+            const numB = parseFloat(cellB.replace(/[^\d.-]/g, '')) || 0;
+            return sortAscending ? numA - numB : numB - numA;
+        } else {
+            return sortAscending 
+                ? cellA.localeCompare(cellB, 'pt-BR', { sensitivity: 'base' })
+                : cellB.localeCompare(cellA, 'pt-BR', { sensitivity: 'base' });
+        }
+    });
+
+    // Re-append sorted rows & update rank indices
+    tbody.innerHTML = '';
+    rows.forEach((row, index) => {
+        row.cells[0].textContent = index + 1;
+        tbody.appendChild(row);
+    });
+}
+
+let currentBibtexText = '';
+
+function showBibtex(doc, authorsStr) {
+    let firstAuthor = 'Unknown';
+    if (authorsStr && authorsStr !== 'Autor desconhecido') {
+        const parts = authorsStr.split(';');
+        if (parts.length > 0) {
+            const first = parts[0].trim();
+            const commaIndex = first.indexOf(',');
+            if (commaIndex !== -1) {
+                firstAuthor = first.substring(0, commaIndex).trim().replace(/[^a-zA-Z]/g, '');
+            } else {
+                firstAuthor = first.replace(/[^a-zA-Z]/g, '');
+            }
+        }
+    }
+    const year = doc.year || '0000';
+    const citeKey = `${firstAuthor.toLowerCase()}${year}`;
+    
+    let bib = `@article{${citeKey},\n`;
+    bib += `  author = {${authorsStr.replace(/;/g, ' and')}},\n`;
+    bib += `  title = {${doc.title || 'Sem título'}},\n`;
+    if (doc.source_title) {
+        bib += `  journal = {${doc.source_title}},\n`;
+    }
+    bib += `  year = {${year}},\n`;
+    if (doc.volume) {
+        bib += `  volume = {${doc.volume}},\n`;
+    }
+    if (doc.issue) {
+        bib += `  number = {${doc.issue}},\n`;
+    }
+    if (doc.page_start || doc.page_end) {
+        const start = doc.page_start || '';
+        const end = doc.page_end || '';
+        bib += `  pages = {${start}${start && end ? '--' : ''}${end}},\n`;
+    }
+    if (doc.doi) {
+        bib += `  doi = {${doc.doi}},\n`;
+    }
+    if (doc.url) {
+        bib += `  url = {${doc.url}},\n`;
+    }
+    if (doc.publisher) {
+        bib += `  publisher = {${doc.publisher}},\n`;
+    }
+    if (doc.issn) {
+        bib += `  issn = {${doc.issn}},\n`;
+    }
+    if (doc.isbn) {
+        bib += `  isbn = {${doc.isbn}},\n`;
+    }
+    if (doc.abstract_text) {
+        bib += `  abstract = {${doc.abstract_text}},\n`;
+    }
+    bib += `}`;
+    
+    currentBibtexText = bib;
+    document.getElementById('bibtexCode').textContent = bib;
+    document.getElementById('copySuccessAlert').style.display = 'none';
+    
+    const modal = new bootstrap.Modal(document.getElementById('bibtexModal'));
+    modal.show();
+}
+
+function copyBibtexToClipboard() {
+    navigator.clipboard.writeText(currentBibtexText).then(() => {
+        const alert = document.getElementById('copySuccessAlert');
+        alert.style.display = 'block';
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 3000);
+    });
 }
 
 rebuildChart();

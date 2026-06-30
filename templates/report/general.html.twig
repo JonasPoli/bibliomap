@@ -293,6 +293,9 @@
                             {{ doc.title|slice(0,70) }}{{ doc.title|length > 70 ? '…' : '' }}
                             <i class="bi bi-box-arrow-up-right" style="font-size:10px;color:var(--bm-text-muted);margin-left:3px"></i>
                         </a>
+                        <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="ms-1" style="color:var(--bm-text-muted);text-decoration:none" title="Sci-Hub">
+                            <i class="bi bi-key" style="font-size:11px"></i>
+                        </a>
                         {% else %}
                         <span title="{{ doc.title }}">{{ doc.title|slice(0,70) }}{{ doc.title|length > 70 ? '…' : '' }}</span>
                         {% endif %}

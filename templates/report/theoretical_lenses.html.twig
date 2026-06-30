@@ -175,6 +175,11 @@
                                                             <a href="{{ doc_link }}" target="_blank" style="color:var(--bm-text); text-decoration:none; transition: color 0.15s ease-in-out;" onmouseover="this.style.color='var(--bm-accent)'" onmouseout="this.style.color='var(--bm-text)'">
                                                                 {{ doc.title }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9.5px; opacity:0.65;"></i>
                                                             </a>
+                                                            {% if doc.doi is defined and doc.doi is not empty %}
+                                                                <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="ms-1" style="color:var(--bm-text-muted);text-decoration:none" title="Sci-Hub">
+                                                                    <i class="bi bi-key" style="font-size:11px"></i>
+                                                                </a>
+                                                            {% endif %}
                                                         </div>
                                                         <div style="font-size:11px;color:var(--bm-text-muted)">
                                                             <span>{{ doc.authors }}</span>
@@ -214,6 +219,11 @@
                                                             <a href="{{ doc_link }}" target="_blank" style="color:var(--bm-text); text-decoration:none; transition: color 0.15s ease-in-out;" onmouseover="this.style.color='var(--bm-accent)'" onmouseout="this.style.color='var(--bm-text)'">
                                                                 {{ doc.title }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9.5px; opacity:0.65;"></i>
                                                             </a>
+                                                            {% if doc.doi is defined and doc.doi is not empty %}
+                                                                <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="ms-1" style="color:var(--bm-text-muted);text-decoration:none" title="Sci-Hub">
+                                                                    <i class="bi bi-key" style="font-size:11px"></i>
+                                                                </a>
+                                                            {% endif %}
                                                         </div>
                                                         <div style="font-size:11px;color:var(--bm-text-muted)">
                                                             <span>{{ doc.authors }}</span>

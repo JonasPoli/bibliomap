@@ -1,0 +1,723 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Relatório de Classificação — {{ project.title }}{% endblock %}
+{% block meta_description %}Análise bibliométrica por grupos de classificação do projeto {{ project.title }}.{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Layout extras ─────────────────────────────────── */
+.report-hero {
+    background: linear-gradient(135deg, var(--bm-bg) 0%, color-mix(in srgb, var(--bm-accent) 8%, var(--bm-bg)) 100%);
+    border-bottom: 1px solid var(--bm-border);
+    padding: 2rem 2rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+.report-hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 50% at 50% 0%, color-mix(in srgb, var(--bm-accent) 10%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero-kpis { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 1.25rem; }
+.hero-kpi  { text-align: center; }
+.hero-kpi .val {
+    font-size: 1.8rem; font-weight: 800;
+    background: var(--bm-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-kpi .lbl { font-size: .72rem; color: var(--bm-text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+
+/* ── Section headers ───────────────────────────────── */
+.section-title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; }
+.section-sub   { font-size: .82rem; color: var(--bm-text-muted); margin-bottom: 1.25rem; }
+
+/* ── Inline bm-card override ───────────────────────── */
+.chart-wrap { position: relative; }
+
+
+/* ── Top 3 ─────────────────────────────────────────── */
+.group-block    { margin-bottom: 1.25rem; }
+.group-bar      { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: .92rem; padding-bottom: .5rem; border-bottom: 1px solid var(--bm-border); margin-bottom: .6rem; }
+.group-dot      { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.group-cnt      { margin-left: auto; font-size: .72rem; font-weight: 400; color: var(--bm-text-muted); }
+.paper-row      { display: flex; gap: .75rem; align-items: flex-start; background: color-mix(in srgb, var(--bm-accent) 4%, var(--bm-card-bg)); border: 1px solid var(--bm-border); border-radius: 8px; padding: .75rem 1rem; margin-bottom: .45rem; transition: border-color .15s; }
+.paper-row:hover{ border-color: color-mix(in srgb, var(--bm-accent) 50%, transparent); }
+.paper-medal    { font-size: 1.25rem; min-width: 1.75rem; text-align: center; line-height: 1; }
+.paper-body     { flex: 1; min-width: 0; }
+.paper-title    { font-size: .84rem; font-weight: 600; line-height: 1.35; margin-bottom: .25rem; }
+.paper-meta     { display: flex; flex-wrap: wrap; gap: .4rem; font-size: .7rem; color: var(--bm-text-muted); }
+.paper-doi      { font-family: 'JetBrains Mono', monospace; font-size: .66rem; color: var(--bm-accent); text-decoration: none; }
+.paper-doi:hover{ text-decoration: underline; }
+.cit-badge      { display: flex; flex-direction: column; align-items: center; background: color-mix(in srgb, var(--bm-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--bm-accent) 25%, transparent); border-radius: 7px; padding: .4rem .65rem; min-width: 54px; }
+.cit-val        { font-size: 1rem; font-weight: 800; color: var(--bm-accent); }
+.cit-lbl        { font-size: .58rem; color: var(--bm-text-muted); text-align: center; }
+
+/* ── Stat table ────────────────────────────────────── */
+.stat-tbl       { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.stat-tbl th    { text-align: left; color: var(--bm-text-muted); font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: .6rem .9rem; border-bottom: 1px solid var(--bm-border); }
+.stat-tbl td    { padding: .6rem .9rem; border-bottom: 1px solid color-mix(in srgb, var(--bm-border) 50%, transparent); }
+.stat-tbl tr:last-child td { border-bottom: none; }
+.stat-tbl tr:hover td { background: color-mix(in srgb, var(--bm-accent) 4%, transparent); }
+.bar-i          { height: 5px; border-radius: 3px; display: inline-block; margin-left: .4rem; vertical-align: middle; }
+
+/* ── Heatmap ───────────────────────────────────────── */
+.hm-cell   { border-radius: 4px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: .62rem; font-weight: 600; transition: transform .12s; cursor: default; }
+.hm-cell:hover { transform: scale(1.12); z-index: 1; }
+.hm-hdr    { font-size: .68rem; color: var(--bm-text-muted); font-weight: 600; text-align: center; }
+.hm-lbl    { font-size: .7rem; color: var(--bm-text-muted); display: flex; align-items: center; padding-right: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Journals ──────────────────────────────────────── */
+.prog-row  { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; font-size: .8rem; }
+.prog-lbl  { min-width: 180px; color: var(--bm-text); font-weight: 500; }
+.prog-wrap { flex: 1; background: var(--bm-border); border-radius: 3px; height: 7px; overflow: hidden; }
+.prog-bar  { height: 100%; border-radius: 3px; }
+.prog-val  { min-width: 40px; text-align: right; color: var(--bm-text-muted); font-size: .75rem; }
+
+/* ── Insight cards ─────────────────────────────────── */
+.insight   { background: color-mix(in srgb, var(--bm-accent) 5%, var(--bm-card-bg)); border: 1px solid color-mix(in srgb, var(--bm-accent) 20%, transparent); border-radius: 10px; padding: 1rem 1.25rem; }
+.ins-icon  { font-size: 1.4rem; margin-bottom: .4rem; }
+.ins-title { font-size: .9rem; font-weight: 700; margin-bottom: .3rem; }
+.ins-text  { font-size: .78rem; color: var(--bm-text-muted); line-height: 1.55; }
+.ins-hl    { color: var(--bm-accent); font-weight: 700; }
+
+@media print {
+    .bm-sidebar, .bm-topbar, .no-print { display: none !important; }
+    .bm-main { margin-left: 0 !important; margin-top: 0 !important; padding: 0 !important; }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Relatório de Classificação</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-bm-secondary no-print" onclick="window.print()" style="padding:6px 14px;font-size:13px">
+    <i class="bi bi-printer me-1"></i> Imprimir / PDF
+</button>
+{% endblock %}
+
+{% block body %}
+
+{# ══════════════════════════════════════════════════
+   DATA BRIDGE — pass PHP data to JavaScript once
+   ══════════════════════════════════════════════════ #}
+<script id="reportPayload" type="application/json">{{ data|json_encode|raw }}</script>
+
+{% if data.groups is empty %}
+<div class="bm-main" style="padding:3rem;text-align:center">
+    <i class="bi bi-grid-3x3-gap" style="font-size:3rem;color:var(--bm-text-muted)"></i>
+    <h3 style="margin-top:1rem">Nenhum grupo de classificação encontrado</h3>
+    <p style="color:var(--bm-text-muted)">Este projeto ainda não possui grupos do tipo <em>normal</em> com documentos classificados.</p>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-primary" style="margin-top:1rem;display:inline-flex;align-items:center;gap:.4rem">
+        <i class="bi bi-arrow-left"></i> Voltar ao projeto
+    </a>
+</div>
+{% else %}
+
+{# ── HERO ────────────────────────────────────────────────────────── #}
+<div class="report-hero mb-4" style="margin-left: -20px; margin-right: -20px; margin-top: -20px; padding: 2rem 2rem 1.5rem;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+        <div>
+            <div style="font-size:.72rem;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">
+                <i class="bi bi-grid-3x3-gap me-1"></i>Relatório de Classificação
+            </div>
+            <h1 style="font-size:1.5rem;font-weight:800;margin:0">{{ project.title }}</h1>
+            <p style="color:var(--bm-text-muted);margin:.35rem 0 0;font-size:.88rem">
+                Análise bibliométrica dos grupos de classificação temática
+            </p>
+        </div>
+    </div>
+    <div class="hero-kpis">
+        <div class="hero-kpi">
+            <div class="val">{{ data.kpis.total_classified|number_format(0,',','.') }}</div>
+            <div class="lbl">Artigos classificados</div>
+        </div>
+        <div class="hero-kpi">
+            <div class="val">{{ data.kpis.total_groups }}</div>
+            <div class="lbl">Grupos temáticos</div>
+        </div>
+        <div class="hero-kpi">
+            <div class="val">{{ data.kpis.total_cit|number_format(0,',','.') }}</div>
+            <div class="lbl">Citações acumuladas</div>
+        </div>
+        <div class="hero-kpi">
+            <div class="val">{{ data.kpis.year_min }}–{{ data.kpis.year_max }}</div>
+            <div class="lbl">Período analisado</div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid p-0">
+
+    {# ── SEÇÃO 1: Distribuição ────────────────────────────────────── #}
+    <div id="dist" style="margin-bottom:2rem">
+        <div class="section-title"><span>📦</span> Distribuição por Categoria Temática</div>
+        <div class="section-sub">Volume de publicações e impacto de citações por grupo</div>
+        <div class="row g-3">
+            <div class="col-12 col-xl-6">
+                <div class="bm-card h-100">
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Volume por Categoria</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Total de artigos por grupo</div>
+                    <div class="chart-wrap" style="height:320px"><canvas id="chartVolume"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <div class="bm-card h-100">
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Citações por Categoria</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Soma total de citações — proxy de impacto científico</div>
+                    <div class="chart-wrap" style="height:320px"><canvas id="chartCitations"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="bm-card" style="margin-top:1rem">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Média de Citações por Artigo</div>
+            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Índice de impacto por unidade — identifica categorias de maior influência relativa</div>
+            <div class="chart-wrap" style="height:200px"><canvas id="chartAvgCit"></canvas></div>
+        </div>
+    </div>
+
+    {# ── SEÇÃO 2: Top 3 ───────────────────────────────────────────── #}
+    <div id="top3" style="margin-bottom:2rem">
+        <div class="section-title"><span>🏆</span> Top 3 Artigos Mais Citados por Categoria</div>
+        <div class="section-sub">Os trabalhos mais influentes em cada grupo — referências essenciais para a revisão da literatura</div>
+        <div id="top3Container"></div>
+    </div>
+
+    {# ── SEÇÃO 3: Crescimento ─────────────────────────────────────── #}
+    <div id="crescimento" style="margin-bottom:2rem">
+        <div class="section-title"><span>📈</span> Evolução Temporal da Produção</div>
+        <div class="section-sub">Tendência de crescimento anual — identifica áreas emergentes vs. consolidadas</div>
+        <div class="bm-card">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Produção Científica Anual por Grupo</div>
+            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Número de publicações por ano (top 6 grupos em volume)</div>
+            <div class="chart-wrap" style="height:380px"><canvas id="chartGrowth"></canvas></div>
+        </div>
+        <div class="row g-3" style="margin-top:0.5rem">
+            <div class="col-12 col-xl-6">
+                <div class="bm-card h-100">
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Taxa de Crescimento Recente</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Crescimento relativo entre antepenúltimo e último ano completo com dados</div>
+                    <div class="chart-wrap" style="height:300px"><canvas id="chartAccel"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <div class="bm-card h-100">
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Concentração Temática do Corpus</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Distribuição proporcional dos artigos classificados</div>
+                    <div class="chart-wrap" style="height:300px"><canvas id="chartPie"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── SEÇÃO 4: Heatmap ─────────────────────────────────────────── #}
+    <div id="heatmap" style="margin-bottom:2rem">
+        <div class="section-title"><span>🔥</span> Heatmap: Produção × Ano × Grupo</div>
+        <div class="section-sub">Intensidade de publicação — revela padrões temporais e ondas de interesse científico</div>
+        <div class="bm-card">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Mapa de Calor — Publicações por Grupo e Ano</div>
+            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:.75rem">Intensidade relativa ao máximo de cada grupo (cor mais intensa = pico daquele grupo)</div>
+            <div id="heatmapContainer" style="overflow-x:auto"></div>
+        </div>
+    </div>
+
+    {# ── SEÇÃO 5: Impacto ─────────────────────────────────────────── #}
+    <div id="impacto" style="margin-bottom:2rem">
+        <div class="section-title"><span>⚡</span> Análise Multidimensional de Impacto</div>
+        <div class="section-sub">Comparação entre volume, citações totais, média e artigo mais citado por grupo</div>
+        <div class="bm-card">
+            <div id="statTableContainer" style="overflow-x:auto"></div>
+        </div>
+    </div>
+
+    {# ── SEÇÃO 6: Periódicos ──────────────────────────────────────── #}
+    <div id="periodicos" style="margin-bottom:2rem">
+        <div class="section-title"><span>📰</span> Principais Periódicos por Categoria</div>
+        <div class="section-sub">Top 5 periódicos mais prolíficos — mapa dos veículos de publicação mais relevantes por tema</div>
+        <div id="journalsContainer"></div>
+    </div>
+
+    {# ── SEÇÃO 7: Insights ────────────────────────────────────────── #}
+    <div id="insights" style="margin-bottom:2rem">
+        <div class="section-title"><span>💡</span> Insights Estratégicos Detectados</div>
+        <div class="section-sub">Padrões relevantes calculados automaticamente a partir dos dados deste projeto</div>
+        <div id="insightsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem"></div>
+    </div>
+
+    {# ── SEÇÃO 8: Maturidade ──────────────────────────────────────── #}
+    <div id="maturidade" style="margin-bottom:2rem">
+        <div class="section-title"><span>🔍</span> Mapa de Maturidade</div>
+        <div class="section-sub">Volume × impacto médio × citações totais — quadrante sup. dir. = área consolidada e influente</div>
+        <div class="bm-card">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Análise de Maturidade por Categoria</div>
+            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Eixo X: nº artigos | Eixo Y: média cit/artigo | Tamanho da bolha: total de citações</div>
+            <div class="chart-wrap" style="height:380px"><canvas id="chartBubble"></canvas></div>
+        </div>
+    </div>
+
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+'use strict';
+
+const payload = JSON.parse(document.getElementById('reportPayload').textContent);
+if (!payload || !payload.groups || payload.groups.length === 0) return;
+
+// ── Build arrays from PHP data ──────────────────────────────────────────
+const PALETTE = [
+    '#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6',
+    '#ec4899','#14b8a6','#f97316','#84cc16','#a78bfa','#fb923c',
+    '#38bdf8','#4ade80','#fcd34d','#f87171'
+];
+
+const groups   = payload.groups; // [{id, name, color, icon, position, total}, …]
+const stats    = payload.stats;  // {groupId: {total, total_cit, avg_cit, max_cit}}
+const top3     = payload.top3;   // {groupId: [{title, year, source_title, cited_by, doi}, …]}
+const growth   = payload.growth; // {groupId: {year: n, …}}
+const journals = payload.journals;// {groupId: [{name, n}, …]}
+const years    = payload.years;  // [2010, 2011, …]
+
+// Assign colors: use group.color if present, else palette
+const groupColors = groups.map((g, i) =>
+    g.color && g.color !== '#000000' && g.color !== '' ? g.color : PALETTE[i % PALETTE.length]
+);
+
+function shortLabel(s, n = 24) { return s.length > n ? s.slice(0, n) + '\u2026' : s; }
+function fmt(n) { return (n||0).toLocaleString('pt-BR'); }
+
+// ── Chart defaults ──────────────────────────────────────────────────────
+Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--bm-text-muted').trim() || '#8b949e';
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.plugins.legend.labels.boxWidth  = 12;
+Chart.defaults.plugins.legend.labels.padding   = 14;
+
+const gridColor = 'rgba(48,54,61,0.6)';
+
+// ── 1. Volume bar ───────────────────────────────────────────────────────
+new Chart(document.getElementById('chartVolume'), {
+    type: 'bar',
+    data: {
+        labels: groups.map(g => shortLabel(g.name)),
+        datasets: [{
+            data: groups.map(g => (stats[g.id] || {}).total || 0),
+            backgroundColor: groupColors,
+            borderRadius: 5, borderWidth: 0
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.raw)} artigos` } } },
+        scales: {
+            x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
+            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 11 } } }
+        },
+        maintainAspectRatio: false
+    }
+});
+
+// ── 2. Citations bar ────────────────────────────────────────────────────
+new Chart(document.getElementById('chartCitations'), {
+    type: 'bar',
+    data: {
+        labels: groups.map(g => shortLabel(g.name)),
+        datasets: [{
+            data: groups.map(g => (stats[g.id] || {}).total_cit || 0),
+            backgroundColor: groupColors.map(c => c + 'cc'),
+            borderColor: groupColors, borderWidth: 1,
+            borderRadius: 5
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.raw)} citações` } } },
+        scales: {
+            x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
+            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 11 } } }
+        },
+        maintainAspectRatio: false
+    }
+});
+
+// ── 3. Avg citations bar (sorted) ───────────────────────────────────────
+const avgSorted = [...groups].sort((a, b) => ((stats[b.id] || {}).avg_cit || 0) - ((stats[a.id] || {}).avg_cit || 0));
+new Chart(document.getElementById('chartAvgCit'), {
+    type: 'bar',
+    data: {
+        labels: avgSorted.map(g => shortLabel(g.name, 28)),
+        datasets: [{
+            data: avgSorted.map(g => (stats[g.id] || {}).avg_cit || 0),
+            backgroundColor: avgSorted.map((g, i) => groupColors[groups.indexOf(g)]),
+            borderRadius: 5, borderWidth: 0
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw} cit/artigo (média)` } } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: Chart.defaults.color, font: { size: 10 }, maxRotation: 35 } },
+            y: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } }
+        },
+        maintainAspectRatio: false
+    }
+});
+
+// ── 4. Growth line (top 6 by volume) ───────────────────────────────────
+const topByVolume = [...groups].sort((a, b) => ((stats[b.id] || {}).total || 0) - ((stats[a.id] || {}).total || 0)).slice(0, 6);
+new Chart(document.getElementById('chartGrowth'), {
+    type: 'line',
+    data: {
+        labels: years,
+        datasets: topByVolume.map(g => {
+            const ci = groups.indexOf(g);
+            return {
+                label: shortLabel(g.name, 30),
+                data: years.map(y => (growth[g.id] || {})[y] || 0),
+                borderColor: groupColors[ci],
+                backgroundColor: groupColors[ci] + '15',
+                borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6,
+                fill: false, tension: 0.4
+            };
+        })
+    },
+    options: {
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
+        scales: {
+            x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
+            y: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } }
+        },
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false }
+    }
+});
+
+// ── 5. Acceleration bar ─────────────────────────────────────────────────
+// Use penultimate and last year with any data
+const yearsWithData = years.filter(y => groups.some(g => (growth[g.id] || {})[y]));
+const yPrev = yearsWithData.length >= 4 ? yearsWithData[yearsWithData.length - 4] : yearsWithData[0];
+const yLast = yearsWithData.length >= 2 ? yearsWithData[yearsWithData.length - 2] : yearsWithData[yearsWithData.length - 1];
+const accelData = groups.map(g => {
+    const prev = (growth[g.id] || {})[yPrev] || 0;
+    const last = (growth[g.id] || {})[yLast] || 0;
+    return { g, rate: prev > 0 ? Math.round((last - prev) / prev * 100) : (last > 0 ? 200 : 0) };
+}).sort((a, b) => b.rate - a.rate);
+
+new Chart(document.getElementById('chartAccel'), {
+    type: 'bar',
+    data: {
+        labels: accelData.map(x => shortLabel(x.g.name)),
+        datasets: [{
+            data: accelData.map(x => x.rate),
+            backgroundColor: accelData.map(x => x.rate > 150 ? '#10b981' : x.rate > 50 ? '#6366f1' : '#f59e0b'),
+            borderRadius: 5
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` +${ctx.raw}% (${yPrev}\u2192${yLast})` } } },
+        scales: {
+            x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color, callback: v => v + '%' } },
+            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 10 } } }
+        },
+        maintainAspectRatio: false
+    }
+});
+
+// ── 6. Doughnut ─────────────────────────────────────────────────────────
+const totalAll = groups.reduce((s, g) => s + ((stats[g.id] || {}).total || 0), 0);
+new Chart(document.getElementById('chartPie'), {
+    type: 'doughnut',
+    data: {
+        labels: groups.map(g => shortLabel(g.name, 26)),
+        datasets: [{
+            data: groups.map(g => (stats[g.id] || {}).total || 0),
+            backgroundColor: groupColors,
+            borderColor: '#161b22', borderWidth: 2, hoverOffset: 8
+        }]
+    },
+    options: {
+        plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)} (${totalAll ? Math.round(ctx.raw / totalAll * 100) : 0}%)` } }
+        },
+        maintainAspectRatio: false, cutout: '60%'
+    }
+});
+
+// ── 7. Bubble chart ─────────────────────────────────────────────────────
+new Chart(document.getElementById('chartBubble'), {
+    type: 'bubble',
+    data: {
+        datasets: groups.map((g, i) => {
+            const s = stats[g.id] || {};
+            return {
+                label: g.name,
+                data: [{ x: s.total || 0, y: s.avg_cit || 0, r: Math.max(5, Math.sqrt(s.total_cit || 0) / 3.5) }],
+                backgroundColor: groupColors[i] + '99',
+                borderColor: groupColors[i], borderWidth: 2
+            };
+        })
+    },
+    options: {
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => {
+                const g = groups[ctx.datasetIndex];
+                const s = stats[g.id] || {};
+                return [` ${g.name}`, ` ${fmt(s.total)} art. | ${s.avg_cit} cit/art`, ` Total: ${fmt(s.total_cit)} cit`];
+            }}}
+        },
+        scales: {
+            x: { title: { display: true, text: 'Volume (nº artigos)', color: Chart.defaults.color }, grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
+            y: { title: { display: true, text: 'Impacto médio (cit/artigo)', color: Chart.defaults.color }, grid: { color: gridColor }, ticks: { color: Chart.defaults.color } }
+        },
+        maintainAspectRatio: false
+    }
+});
+
+// ── 8. Top 3 papers DOM ─────────────────────────────────────────────────
+const top3C = document.getElementById('top3Container');
+groups.forEach((g, gi) => {
+    const papers = top3[g.id] || [];
+    if (papers.length === 0) return;
+    const block = document.createElement('div');
+    block.className = 'group-block';
+    const s = stats[g.id] || {};
+    block.innerHTML =
+        `<div class="group-bar">
+            <div class="group-dot" style="background:${groupColors[gi]}"></div>
+            ${g.name}
+            <span class="group-cnt">${fmt(s.total)} artigos</span>
+         </div>` +
+        papers.map((p, pi) =>
+            `<div class="paper-row flex-column align-items-stretch gap-2 mb-3">
+                <div class="d-flex align-items-start gap-3 w-100">
+                    <div class="paper-medal">${pi === 0 ? '🥇' : pi === 1 ? '🥈' : '🥉'}</div>
+                    <div class="paper-body" style="flex: 1; min-width: 0;">
+                        <div class="paper-title" style="font-size: 14px; font-weight: 700; color: #e6edf3;">${p.title || '(sem título)'}</div>
+                        <div style="font-size: 12.5px; color: #8b949e; margin-top: 6px;">
+                            <strong style="color: #e6edf3">Autores:</strong> ${p.authors}
+                        </div>
+                        <div class="paper-meta mt-2" style="display: flex; flex-wrap: wrap; gap: 0.8rem; font-size: 11.5px; color: var(--bm-text-muted);">
+                            <span><i class="bi bi-calendar3 me-1"></i>${p.year || '—'}</span>
+                            <span><i class="bi bi-journal-text me-1"></i>${p.source_title || '—'}</span>
+                            ${p.doi ? `<a class="paper-doi" href="https://doi.org/${p.doi}" target="_blank" rel="noopener"><i class="bi bi-link-45deg me-1"></i>${p.doi}</a>` : ''}
+                        </div>
+                        
+                        ${p.keywords ? `
+                        <div style="font-size: 11.5px; margin-top: 8px; color: var(--bm-text-muted);">
+                            <strong style="color: #e6edf3; display: block; margin-bottom: 4px;">Palavras-chave:</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                ${p.keywords.split('; ').map(k => `<span class="badge" style="background: rgba(79,142,247,0.08); color: var(--bm-accent); border: 1px solid rgba(79,142,247,0.18); font-weight: 500; font-size: 10px; padding: 3px 6px;">${k}</span>`).join('')}
+                            </div>
+                        </div>` : ''}
+
+                        ${p.abstract ? `
+                        <details style="margin-top: 10px; font-size: 12.5px; color: var(--bm-text-muted); border-top: 1px dashed var(--bm-border); padding-top: 8px;">
+                            <summary style="cursor: pointer; user-select: none; color: var(--bm-accent); font-weight: 600; font-size: 12px; outline: none; list-style: none;">
+                                <i class="bi bi-chevron-right me-1" style="font-size: 9px;"></i><i class="bi bi-file-text me-1"></i>Ver Resumo (Abstract)
+                            </summary>
+                            <p style="margin-top: 8px; line-height: 1.6; font-style: italic; color: #8b949e; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 6px; border-left: 2px solid var(--bm-border);">${p.abstract}</p>
+                        </details>` : ''}
+                    </div>
+                    <div class="cit-badge ms-auto" style="flex-shrink: 0;">
+                        <div class="cit-val">${fmt(p.cited_by)}</div>
+                        <div class="cit-lbl">citações</div>
+                    </div>
+                </div>
+            </div>`
+        ).join('');
+    top3C.appendChild(block);
+});
+
+
+// ── 9. Impact table ─────────────────────────────────────────────────────
+const maxTotal = Math.max(...groups.map(g => (stats[g.id] || {}).total || 0), 1);
+const avgCitThreshold1 = 20, avgCitThreshold2 = 12;
+document.getElementById('statTableContainer').innerHTML =
+    `<table class="stat-tbl">
+        <thead><tr>
+            <th>Categoria</th><th>Artigos</th><th>Citações totais</th>
+            <th>Média cit/artigo</th><th>Artigo mais citado</th>
+        </tr></thead>
+        <tbody>` +
+    groups.map((g, i) => {
+        const s = stats[g.id] || {};
+        const w = Math.round((s.total || 0) / maxTotal * 100);
+        const avgColor = (s.avg_cit || 0) >= avgCitThreshold1 ? '#10b981' : (s.avg_cit || 0) >= avgCitThreshold2 ? '#f59e0b' : Chart.defaults.color;
+        return `<tr>
+            <td><div style="display:flex;align-items:center;gap:.5rem">
+                <div style="width:9px;height:9px;border-radius:50%;background:${groupColors[i]};flex-shrink:0"></div>
+                <span style="font-weight:500">${g.name}</span>
+            </div></td>
+            <td>${fmt(s.total)}<div class="bar-i" style="width:${w}px;background:${groupColors[i]}55;border:1px solid ${groupColors[i]}"></div></td>
+            <td>${fmt(s.total_cit)}</td>
+            <td><span style="color:${avgColor};font-weight:700">${s.avg_cit || 0}</span></td>
+            <td style="color:${Chart.defaults.color};font-size:.78rem">${fmt(s.max_cit)} cit</td>
+        </tr>`;
+    }).join('') +
+    `</tbody></table>`;
+
+// ── 10. Heatmap ─────────────────────────────────────────────────────────
+const heatYears = years.length > 12 ? years.slice(-12) : years;
+const hC = document.getElementById('heatmapContainer');
+let hHtml = `<div style="display:grid;grid-template-columns:180px ${heatYears.map(() => '1fr').join(' ')};gap:3px;min-width:600px">`;
+hHtml += `<div></div>` + heatYears.map(y => `<div class="hm-hdr">${y}</div>`).join('');
+groups.forEach((g, gi) => {
+    const vals = heatYears.map(y => (growth[g.id] || {})[y] || 0);
+    const mx = Math.max(...vals, 1);
+    hHtml += `<div class="hm-lbl" title="${g.name}">${g.name.length > 22 ? g.name.slice(0, 22) + '\u2026' : g.name}</div>`;
+    vals.forEach(v => {
+        const pct = Math.round(v / mx * 100);
+        const bg = v === 0 ? 'rgba(48,54,61,0.3)' : `${groupColors[gi]}${Math.max(18, pct).toString(16).padStart(2, '0')}`;
+        const tc = pct > 55 ? '#fff' : pct > 25 ? groupColors[gi] : Chart.defaults.color;
+        hHtml += `<div class="hm-cell" style="background:${bg};color:${tc}" title="${g.name} · ${heatYears[vals.indexOf(v)]} · ${v} art.">${v || ''}</div>`;
+    });
+});
+hHtml += '</div>';
+hC.innerHTML = hHtml;
+
+// ── 11. Journals ─────────────────────────────────────────────────────────
+const jC = document.getElementById('journalsContainer');
+const jGrid = document.createElement('div');
+jGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem';
+groups.forEach((g, gi) => {
+    const jls = journals[g.id] || [];
+    if (jls.length === 0) return;
+    const mx = Math.max(...jls.map(j => j.n), 1);
+    const card = document.createElement('div');
+    card.className = 'rc';
+    card.innerHTML =
+        `<div style="display:flex;align-items:center;gap:.5rem;font-weight:600;font-size:.88rem;margin-bottom:.2rem">
+            <span style="width:9px;height:9px;border-radius:50%;background:${groupColors[gi]};display:inline-block;flex-shrink:0"></span>
+            ${g.name.length > 30 ? g.name.slice(0, 30) + '\u2026' : g.name}
+         </div>
+         <div style="font-size:.72rem;color:var(--bm-text-muted);margin-bottom:.75rem">Top 5 periódicos por volume</div>` +
+        jls.map(j =>
+            `<div class="prog-row">
+                <div class="prog-lbl" title="${j.name}">${j.name.length > 28 ? j.name.slice(0, 28) + '\u2026' : j.name}</div>
+                <div class="prog-wrap"><div class="prog-bar" style="width:${Math.round(j.n / mx * 100)}%;background:${groupColors[gi]}"></div></div>
+                <div class="prog-val">${j.n}</div>
+            </div>`
+        ).join('');
+    jGrid.appendChild(card);
+});
+jC.appendChild(jGrid);
+
+// ── 12. Dynamic insights ─────────────────────────────────────────────────
+function buildInsights() {
+    const ins = [];
+
+    // Highest avg citation group
+    const byAvg = [...groups].sort((a, b) => ((stats[b.id] || {}).avg_cit || 0) - ((stats[a.id] || {}).avg_cit || 0));
+    if (byAvg.length >= 2) {
+        const top = byAvg[0], topS = stats[top.id] || {};
+        const bot = byAvg[byAvg.length - 1], botS = stats[bot.id] || {};
+        ins.push({
+            icon: '⚖️',
+            title: `Paradoxo Volume × Impacto`,
+            text: `<span class="ins-hl">${top.name}</span> lidera em impacto médio com <span class="ins-hl">${topS.avg_cit} cit/artigo</span>, enquanto <span class="ins-hl">${bot.name}</span> tem apenas ${botS.avg_cit}. Maior volume ≠ maior influência.`
+        });
+    }
+
+    // Fastest growing group
+    if (accelData.length > 0 && accelData[0].rate > 0) {
+        const top = accelData[0];
+        ins.push({
+            icon: '🚀',
+            title: `Maior Crescimento Recente`,
+            text: `<span class="ins-hl">${top.g.name}</span> teve crescimento de <span class="ins-hl">+${top.rate}%</span> entre ${yPrev} e ${yLast}, sendo a área que mais acelerou neste período.`
+        });
+    }
+
+    // Concentration alert
+    if (totalAll > 0) {
+        const dominant = [...groups].sort((a, b) => ((stats[b.id] || {}).total || 0) - ((stats[a.id] || {}).total || 0))[0];
+        const domPct = Math.round(((stats[dominant.id] || {}).total || 0) / totalAll * 100);
+        if (domPct > 40) {
+            ins.push({
+                icon: '📊',
+                title: `Concentração Temática`,
+                text: `<span class="ins-hl">${dominant.name}</span> representa <span class="ins-hl">${domPct}%</span> dos artigos classificados. Considere se esta concentração reflete o campo ou um viés de busca.`
+            });
+        }
+    }
+
+    // Most cited article total
+    const byMaxCit = [...groups].sort((a, b) => ((stats[b.id] || {}).max_cit || 0) - ((stats[a.id] || {}).max_cit || 0));
+    if (byMaxCit.length > 0) {
+        const g = byMaxCit[0], s = stats[g.id] || {};
+        const papers = top3[g.id] || [];
+        const topPaper = papers[0];
+        if (topPaper) {
+            ins.push({
+                icon: '🏅',
+                title: `Artigo Mais Influente do Corpus`,
+                text: `Em <span class="ins-hl">${g.name}</span>: "${topPaper.title.length > 80 ? topPaper.title.slice(0, 80) + '…' : topPaper.title}" (${topPaper.year}) com <span class="ins-hl">${fmt(topPaper.cited_by)} citações</span>.`
+            });
+        }
+    }
+
+    // Small but high-impact
+    const smallGroups = groups.filter(g => ((stats[g.id] || {}).total || 0) < totalAll * 0.05 && ((stats[g.id] || {}).avg_cit || 0) > 12);
+    if (smallGroups.length > 0) {
+        const g = smallGroups[0], s = stats[g.id] || {};
+        ins.push({
+            icon: '💎',
+            title: `Nicho de Alta Qualidade`,
+            text: `<span class="ins-hl">${g.name}</span> tem apenas <span class="ins-hl">${fmt(s.total)} artigos</span> (${Math.round((s.total || 0) / totalAll * 100)}% do corpus), mas impacto médio de <span class="ins-hl">${s.avg_cit} cit/artigo</span>. Área seleta e influente.`
+        });
+    }
+
+    // Most journals diversity (proxy: top journal share)
+    const highJournalShare = groups.filter(g => {
+        const jls = journals[g.id] || [];
+        if (!jls.length) return false;
+        const s = stats[g.id] || {};
+        return s.total > 20 && (jls[0].n / (s.total || 1)) < 0.10;
+    });
+    if (highJournalShare.length > 0) {
+        const g = highJournalShare[0];
+        ins.push({
+            icon: '🌐',
+            title: `Maior Diversidade de Periódicos`,
+            text: `<span class="ins-hl">${g.name}</span> apresenta a maior diversidade de periódicos — nenhum veículo concentra mais de 10% da produção do grupo. Campo plural e interdisciplinar.`
+        });
+    }
+
+    // Citation lag note
+    const currentYear = new Date().getFullYear();
+    const recentYears = years.filter(y => y >= currentYear - 2);
+    if (recentYears.length > 0) {
+        ins.push({
+            icon: '📅',
+            title: `Defasagem de Citações (Citation Lag)`,
+            text: `Artigos dos últimos 2 anos (${recentYears.join(', ')}) ainda acumulam poucas citações — fenômeno normal. Comparar impacto entre períodos requer <span class="ins-hl">normalização temporal</span>.`
+        });
+    }
+
+    return ins;
+}
+
+const insightsData = buildInsights();
+const iGrid = document.getElementById('insightsGrid');
+insightsData.forEach(ins => {
+    const d = document.createElement('div');
+    d.className = 'insight';
+    d.innerHTML = `<div class="ins-icon">${ins.icon}</div><div class="ins-title">${ins.title}</div><div class="ins-text">${ins.text}</div>`;
+    iGrid.appendChild(d);
+});
+
+})();
+</script>
+{% endblock %}
