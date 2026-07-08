@@ -21,10 +21,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 #[AsCommand(
-    name: 'app:geography:apply-corrections',
-    description: 'Apply countries, states, institutions, and organizations audit corrections',
+    name: 'app:geography:apply-corrections-v6',
+    description: 'Apply countries, states, institutions, and organizations audit corrections (Phase 3 / V6)',
 )]
-class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
+class ApplyGeographyAndInstitutionCorrectionsV6Command extends Command
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -41,7 +41,7 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $basePath = $this->kernel->getProjectDir() . '/docs/ajustes';
 
-        $io->title('Applying Geography and Institution Corrections');
+        $io->title('Applying Geography and Institution Corrections (Phase 3 / V6)');
 
         // 1. Preload maps
         $io->text('Preloading database maps...');
@@ -109,10 +109,14 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         $batchSize = 200;
         $i = 0;
 
-        // Paths definitions
-        $path06 = $basePath . '/06_instituicoes_correcoes_alta_confianca.csv';
-        $path07 = $basePath . '/07_organizacoes_para_cadastrar.csv';
-        $path08 = $basePath . '/08_unidades_para_cadastrar.csv';
+        // Path definitions
+        $path02 = $basePath . '/02_instituicoes_correcao_alta_confianca.csv';
+        $path03 = $basePath . '/03_organizacoes_nao_devem_entrar_em_instituicoes.csv';
+        $path04 = $basePath . '/04_unidades_hospitais_departamentos.csv';
+        $path05 = $basePath . '/05_nomes_errados_corrigir_e_variations.csv';
+        $path07 = $basePath . '/07_variations_para_importar.csv';
+        $path09 = $basePath . '/09_paises_reais_para_cadastrar.csv';
+        $path10 = $basePath . '/10_localidades_eua_nao_sao_paises.csv';
 
         // ─────────────────────────────────────────────────────────────────────
         // PREPROCESSING: Prune all to-be-removed institutions (Units and Orgs)
@@ -120,33 +124,39 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         $io->section('Preprocessing: Pruning sub-units and organizations from institutions table...');
         
         $toPrune = [];
-        if (file_exists($path07)) {
-            $reader = Reader::createFromPath($path07, 'r');
+        if (file_exists($path03)) {
+            $reader = Reader::createFromPath($path03, 'r');
             $reader->setHeaderOffset(0);
             foreach ($reader->getRecords() as $record) {
-                $orig = trim($record['nome_variacao_original'] ?? '');
+                $orig = trim($record['nome_no_sistema'] ?? '');
                 if ($orig !== '') $toPrune[] = $orig;
             }
         }
-        if (file_exists($path08)) {
-            $reader = Reader::createFromPath($path08, 'r');
+        if (file_exists($path04)) {
+            $reader = Reader::createFromPath($path04, 'r');
             $reader->setHeaderOffset(0);
             foreach ($reader->getRecords() as $record) {
-                $orig = trim($record['nome_variacao_original'] ?? '');
+                $orig = trim($record['nome_no_sistema'] ?? '');
                 if ($orig !== '') $toPrune[] = $orig;
             }
         }
-        if (file_exists($path06)) {
-            $reader = Reader::createFromPath($path06, 'r');
-            $reader->setHeaderOffset(0);
-            foreach ($reader->getRecords() as $record) {
-                $orig = trim($record['nome_variacao_original'] ?? '');
-                $action = trim($record['acao_recomendada'] ?? '');
-                if ($orig !== '' && ($action === 'mover_para_organizacoes' || $action === 'mover_para_unidades')) {
-                    $toPrune[] = $orig;
+        
+        // Check files 02 and 05 for action = mover_para_organizacoes or mover_para_unidades
+        $checkDeletions = function(string $path) use (&$toPrune) {
+            if (file_exists($path)) {
+                $reader = Reader::createFromPath($path, 'r');
+                $reader->setHeaderOffset(0);
+                foreach ($reader->getRecords() as $record) {
+                    $orig = trim($record['nome_no_sistema'] ?? '');
+                    $action = trim($record['acao_recomendada'] ?? '');
+                    if ($orig !== '' && ($action === 'mover_para_organizacoes' || $action === 'mover_para_unidades')) {
+                        $toPrune[] = $orig;
+                    }
                 }
             }
-        }
+        };
+        $checkDeletions($path02);
+        $checkDeletions($path05);
 
         $toPrune = array_unique($toPrune);
         $prunedCount = 0;
@@ -167,12 +177,11 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         $io->success("Preprocessing completed. Pruned {$prunedCount} institutions from the main table.");
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 1: USA Locations to Correct (04_localidades_eua_para_corrigir.csv)
+        // PHASE 1: USA Locations to Correct (10_localidades_eua_nao_sao_paises.csv)
         // ─────────────────────────────────────────────────────────────────────
-        $path04 = $basePath . '/04_localidades_eua_para_corrigir.csv';
-        if (file_exists($path04)) {
+        if (file_exists($path10)) {
             $io->section('Phase 1: Correcting USA Locations...');
-            $reader = Reader::createFromPath($path04, 'r');
+            $reader = Reader::createFromPath($path10, 'r');
             $reader->setHeaderOffset(0);
 
             $fixedCount = 0;
@@ -254,12 +263,11 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 2: Add Real Countries (02_paises_para_adicionar.csv)
+        // PHASE 2: Add Real Countries (09_paises_reais_para_cadastrar.csv)
         // ─────────────────────────────────────────────────────────────────────
-        $path02 = $basePath . '/02_paises_para_adicionar.csv';
-        if (file_exists($path02)) {
+        if (file_exists($path09)) {
             $io->section('Phase 2: Adding Real Countries...');
-            $reader = Reader::createFromPath($path02, 'r');
+            $reader = Reader::createFromPath($path09, 'r');
             $reader->setHeaderOffset(0);
 
             $addedCountries = 0;
@@ -319,15 +327,15 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         // HELPER FUNCTION: Apply Institution-focused Row Correction
         // ─────────────────────────────────────────────────────────────────────
         $applyRowCorrection = function(array $record, &$removed, &$merged, &$renamed) use ($conn, &$instMap) {
-            $origName = trim($record['nome_variacao_original'] ?? '');
+            $origName = trim($record['nome_no_sistema'] ?? '');
             if ($origName === '') return;
 
             $normOrig = DocumentEnrichmentService::normalize($origName);
             $action = trim($record['acao_recomendada'] ?? '');
-            $targetName = trim($record['nome_canonico_sugerido'] ?? '');
+            $targetName = trim($record['nome_correto_para_cadastrar'] ?? '');
             $typeSugerido = trim($record['tipo_sugerido'] ?? '');
 
-            // Note: Deletions (mover_para_organizacoes / mover_para_unidades) are handled in the preprocessing step.
+            // Note: Deletions are handled in the preprocessing step.
             if ($action === 'mover_para_organizacoes' || $action === 'mover_para_unidades') {
                 return;
             }
@@ -439,40 +447,78 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
                         $renamed++;
                     }
                 }
+
+                // Add semicolon separated variations as well
+                $resolvedTarget = $instMap[$normTarget] ?? null;
+                if ($resolvedTarget) {
+                    $altVars = explode(';', $record['nome_alternativo_variation'] ?? '');
+                    foreach ($altVars as $altV) {
+                        $altV = trim($altV);
+                        if ($altV === '') continue;
+                        $normAltV = DocumentEnrichmentService::normalize($altV);
+
+                        $exists = false;
+                        foreach ($resolvedTarget->getVariations() as $tv) {
+                            if ($tv->getNormalizedName() === $normAltV) {
+                                $exists = true;
+                                break;
+                            }
+                        }
+                        if (!$exists) {
+                            $v = new InstitutionVariation();
+                            $v->setVariationName($altV);
+                            $v->setNormalizedName($normAltV);
+                            $v->setVariationType('alternative');
+                            $v->setInstitution($resolvedTarget);
+                            $this->em->persist($v);
+                        }
+                    }
+                }
             }
         };
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 3: Apply High Confidence Corrections (06_instituicoes_correcoes_alta_confianca.csv)
+        // PHASE 3: Apply Corrections (02_instituicoes_correcao_alta_confianca.csv and 05_nomes_errados_corrigir_e_variations.csv)
         // ─────────────────────────────────────────────────────────────────────
-        if (file_exists($path06)) {
-            $io->section('Phase 3: Applying High Confidence Institution Corrections...');
-            $reader = Reader::createFromPath($path06, 'r');
-            $reader->setHeaderOffset(0);
+        $applyInstitutionFiles = function(string $path, string $phaseName) use ($reader, $applyRowCorrection, $batchSize, &$i) {
+            if (file_exists($path)) {
+                $this->em->flush();
+                $reader = Reader::createFromPath($path, 'r');
+                $reader->setHeaderOffset(0);
 
-            $removed = 0; $merged = 0; $renamed = 0;
-            foreach ($reader->getRecords() as $record) {
-                $applyRowCorrection($record, $removed, $merged, $renamed);
-                if ((++$i % $batchSize) === 0) {
-                    $this->em->flush();
+                $removed = 0; $merged = 0; $renamed = 0;
+                foreach ($reader->getRecords() as $record) {
+                    $applyRowCorrection($record, $removed, $merged, $renamed);
+                    if ((++$i % $batchSize) === 0) {
+                        $this->em->flush();
+                    }
                 }
+                $this->em->flush();
+                return [$removed, $merged, $renamed];
             }
-            $this->em->flush();
-            $io->success("Completed Phase 3. Removed: {$removed}, Merged: {$merged}, Renamed/Created: {$renamed}");
-        }
+            return [0, 0, 0];
+        };
+
+        $io->section('Phase 3 (Part A): Applying High Confidence Institution Corrections...');
+        [$r1, $m1, $n1] = $applyInstitutionFiles($path02, 'High Confidence');
+        $io->success("Completed High Confidence corrections. Merged: {$m1}, Renamed/Created: {$n1}");
+
+        $io->section('Phase 3 (Part B): Applying Mid/Low Confidence Institution Corrections...');
+        [$r2, $m2, $n2] = $applyInstitutionFiles($path05, 'Mid/Low Confidence');
+        $io->success("Completed Mid/Low Confidence corrections. Merged: {$m2}, Renamed/Created: {$n2}");
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 4: Feed Organizations (07_organizacoes_para_cadastrar.csv)
+        // PHASE 4: Feed Organizations (03_organizacoes_nao_devem_entrar_em_instituicoes.csv)
         // ─────────────────────────────────────────────────────────────────────
-        if (file_exists($path07)) {
+        if (file_exists($path03)) {
             $io->section('Phase 4: Seeding Organizations...');
-            $reader = Reader::createFromPath($path07, 'r');
+            $reader = Reader::createFromPath($path03, 'r');
             $reader->setHeaderOffset(0);
 
             $orgsAdded = 0;
             foreach ($reader->getRecords() as $record) {
-                $orig = trim($record['nome_variacao_original'] ?? '');
-                $canon = trim($record['nome_canonico_sugerido'] ?? '');
+                $orig = trim($record['nome_no_sistema'] ?? '');
+                $canon = trim($record['nome_correto_para_cadastrar'] ?? '');
                 if ($orig === '' || $canon === '') continue;
 
                 // Check if already exists in organizacoes
@@ -497,17 +543,17 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 5: Feed Institution Units (08_unidades_para_cadastrar.csv)
+        // PHASE 5: Feed Institution Units (04_unidades_hospitais_departamentos.csv)
         // ─────────────────────────────────────────────────────────────────────
-        if (file_exists($path08)) {
+        if (file_exists($path04)) {
             $io->section('Phase 5: Seeding Institution Units...');
-            $reader = Reader::createFromPath($path08, 'r');
+            $reader = Reader::createFromPath($path04, 'r');
             $reader->setHeaderOffset(0);
 
             $unitsAdded = 0;
             foreach ($reader->getRecords() as $record) {
-                $orig = trim($record['nome_variacao_original'] ?? '');
-                $canon = trim($record['nome_canonico_sugerido'] ?? '');
+                $orig = trim($record['nome_no_sistema'] ?? '');
+                $canon = trim($record['nome_correto_para_cadastrar'] ?? '');
                 if ($orig === '' || $canon === '') continue;
 
                 $exists = $this->em->getRepository(InstitutionUnit::class)->findOneBy(['originalVariationName' => $orig]);
@@ -538,26 +584,53 @@ class ApplyGeographyAndInstitutionCorrectionsCommand extends Command
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // PHASE 6: Add Extra Institution Variations (09_variacoes_instituicoes_para_adicionar.csv)
+        // PHASE 6: Import Variations (07_variations_para_importar.csv)
         // ─────────────────────────────────────────────────────────────────────
-        $path09 = $basePath . '/09_variacoes_instituicoes_para_adicionar.csv';
-        if (file_exists($path09)) {
-            $io->section('Phase 6: Adding Additional Institution Variations...');
-            $reader = Reader::createFromPath($path09, 'r');
+        if (file_exists($path07)) {
+            $io->section('Phase 6: Importing Variations...');
+            $reader = Reader::createFromPath($path07, 'r');
             $reader->setHeaderOffset(0);
 
-            $removed = 0; $merged = 0; $renamed = 0;
+            $varsAdded = 0;
             foreach ($reader->getRecords() as $record) {
-                $applyRowCorrection($record, $removed, $merged, $renamed);
+                $canonName = trim($record['nome_canonico'] ?? '');
+                $variationName = trim($record['variation'] ?? '');
+                if ($canonName === '' || $variationName === '') continue;
+
+                $normCanon = DocumentEnrichmentService::normalize($canonName);
+                $normVar = DocumentEnrichmentService::normalize($variationName);
+
+                $target = $instMap[$normCanon] ?? null;
+                if ($target) {
+                    $exists = false;
+                    foreach ($target->getVariations() as $tv) {
+                        if ($tv->getNormalizedName() === $normVar) {
+                            $exists = true;
+                            break;
+                        }
+                    }
+                    if (!$exists) {
+                        $v = new InstitutionVariation();
+                        $v->setVariationName($variationName);
+                        $v->setNormalizedName($normVar);
+                        $v->setVariationType('alternative');
+                        $v->setInstitution($target);
+                        $this->em->persist($v);
+
+                        $instMap[$normVar] = $target;
+                        $varsAdded++;
+                    }
+                }
+
                 if ((++$i % $batchSize) === 0) {
                     $this->em->flush();
                 }
             }
             $this->em->flush();
-            $io->success("Completed Phase 6. Removed: {$removed}, Merged: {$merged}, Renamed/Created: {$renamed}");
+            $io->success("Completed Phase 6. Added {$varsAdded} institution variations.");
         }
 
-        $io->success('All geography, country, and institution audit corrections applied successfully!');
+        $io->success('All geography, country, and institution audit corrections applied successfully (Phase 3 / V6)!');
         return Command::SUCCESS;
     }
 

@@ -67,16 +67,28 @@
         {% if report %}
             <!-- KPI Summary -->
             <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <div class="bm-stat-card">
-                        <div class="bm-stat-value text-accent">{{ report.matched_institutions_count }}</div>
-                        <div class="bm-stat-label">Instituições Vinculadas</div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
+                        <div class="bm-stat-value text-accent" style="font-size:24px;font-weight:800">{{ report.matched_institutions_count }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Instituições</div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="bm-stat-card">
-                        <div class="bm-stat-value text-success">{{ report.matched_countries_count }}</div>
-                        <div class="bm-stat-label">Países Vinculados</div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
+                        <div class="bm-stat-value text-success" style="font-size:24px;font-weight:800">{{ report.matched_countries_count }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Países</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
+                        <div class="bm-stat-value text-info" style="font-size:24px;font-weight:800">{{ report.matched_organizations_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Organizações</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
+                        <div class="bm-stat-value text-warning" style="font-size:24px;font-weight:800">{{ report.matched_units_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Unidades Internas</div>
                     </div>
                 </div>
             </div>
@@ -176,11 +188,12 @@
 
                     <!-- Tab 3: Resolved entities stats -->
                     <div class="tab-pane fade" id="resolved" role="tabpanel">
-                        <div class="row g-3">
+                        <div class="row g-4">
+                            <!-- Institutions -->
                             <div class="col-md-6">
-                                <h6 style="font-weight:700">Instituições Identificadas</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:350px">
-                                    <table class="table table-sm align-middle mb-0" style="font-size:12.5px">
+                                <h6 style="font-weight:700" class="mb-2">🏢 Instituições Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
                                                 <th>Instituição</th>
@@ -204,10 +217,12 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <!-- Countries -->
                             <div class="col-md-6">
-                                <h6 style="font-weight:700">Países Identificados</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:350px">
-                                    <table class="table table-sm align-middle mb-0" style="font-size:12.5px">
+                                <h6 style="font-weight:700" class="mb-2">🌍 Países Identificados</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
                                                 <th>País</th>
@@ -224,6 +239,64 @@
                                                     <tr class="border-bm">
                                                         <td style="font-weight:600">{{ item.name }}</td>
                                                         <td style="text-align:right;font-weight:700" class="text-accent">{{ item.count }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Organizations -->
+                            <div class="col-md-6">
+                                <h6 style="font-weight:700" class="mb-2">💼 Organizações Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12px">
+                                        <thead>
+                                            <tr class="bg-bm-card border-bottom border-bm">
+                                                <th>Organização</th>
+                                                <th style="text-align:right">Artigos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if report.matched_organizations is not defined or report.matched_organizations is empty %}
+                                                <tr>
+                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma organização vinculada ainda.</td>
+                                                </tr>
+                                            {% else %}
+                                                {% for item in report.matched_organizations %}
+                                                    <tr class="border-bm">
+                                                        <td style="font-weight:600">{{ item.name }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-info">{{ item.count }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Units -->
+                            <div class="col-md-6">
+                                <h6 style="font-weight:700" class="mb-2">🔬 Unidades Internas Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12px">
+                                        <thead>
+                                            <tr class="bg-bm-card border-bottom border-bm">
+                                                <th>Unidade Interna</th>
+                                                <th style="text-align:right">Artigos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if report.matched_units is not defined or report.matched_units is empty %}
+                                                <tr>
+                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma unidade interna vinculada ainda.</td>
+                                                </tr>
+                                            {% else %}
+                                                {% for item in report.matched_units %}
+                                                    <tr class="border-bm">
+                                                        <td style="font-weight:600">{{ item.name }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-warning">{{ item.count }}</td>
                                                     </tr>
                                                 {% endfor %}
                                             {% endif %}

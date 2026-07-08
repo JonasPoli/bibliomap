@@ -36,6 +36,23 @@ class DocumentEnrichmentService
         $countriesLookup = $this->loadCountriesLookup($conn);
         $statesLookup = $this->loadStatesLookup($conn);
         $citiesLookup = $this->loadCitiesLookup($conn);
+        $organizationsLookup = $this->loadOrganizationsLookup($conn);
+        $unitsLookup = $this->loadUnitsLookup($conn);
+
+        // Build institutions lookup by ID for parent lookups
+        $institutionsLookupById = [];
+        $instsRows = $conn->fetchAllAssociative('SELECT id, country_id, state_id, city_id FROM instituicoes_ensino WHERE status = 1');
+        foreach ($instsRows as $row) {
+            $institutionsLookupById[(int)$row['id']] = [
+                'country_id' => $row['country_id'] !== null ? (int)$row['country_id'] : null,
+                'state_id' => $row['state_id'] !== null ? (int)$row['state_id'] : null,
+                'city_id' => $row['city_id'] !== null ? (int)$row['city_id'] : null,
+            ];
+        }
+
+        // Target USA country
+        $usaCountryId = $conn->fetchOne("SELECT id FROM paises WHERE iso_code = 'USA' OR sigla = 'US' LIMIT 1");
+        $usaCountryId = $usaCountryId !== false ? (int)$usaCountryId : null;
 
         // 3. Load all documents for the project
         $docs = $conn->fetchAllAssociative(
@@ -47,12 +64,16 @@ class DocumentEnrichmentService
         $processedDocs = 0;
         $matchedInstitutionsCount = 0;
         $matchedCountriesCount = 0;
+        $matchedOrganizationsCount = 0;
+        $matchedUnitsCount = 0;
 
         $unresolvedInstitutions = [];
         $unresolvedCountries = [];
 
         $resolvedInstitutions = [];
         $resolvedCountries = [];
+        $resolvedOrganizations = [];
+        $resolvedUnits = [];
 
         // Batch link buffers
         $instLinks = [];
@@ -79,6 +100,8 @@ class DocumentEnrichmentService
                 if ($rawInst === '') continue;
 
                 $norm = self::normalize($rawInst);
+
+                // 1. Check main institutions
                 if (isset($institutionsLookup[$norm])) {
                     $instData = $institutionsLookup[$norm];
                     $instId = $instData['id'];
@@ -91,11 +114,9 @@ class DocumentEnrichmentService
                             'link_type' => 'author_affiliation'
                         ];
 
-                        // Keep track of resolved insts
                         $resolvedInstitutions[$instId] = ($resolvedInstitutions[$instId] ?? 0) + 1;
                     }
 
-                    // Auto-bind geography from institution
                     if ($instData['country_id'] !== null) {
                         $cId = (int)$instData['country_id'];
                         $boundCountryIds[$cId] = true;
@@ -110,6 +131,45 @@ class DocumentEnrichmentService
                     }
 
                     $matchedInstitutionsCount++;
+
+                // 2. Check Organizations
+                } elseif (isset($organizationsLookup[$norm])) {
+                    $orgData = $organizationsLookup[$norm];
+                    $orgId = $orgData['id'];
+                    $resolvedOrganizations[$orgId] = ($resolvedOrganizations[$orgId] ?? 0) + 1;
+                    $matchedOrganizationsCount++;
+
+                // 3. Check Institution Units
+                } elseif (isset($unitsLookup[$norm])) {
+                    $unitData = $unitsLookup[$norm];
+                    $unitId = $unitData['id'];
+                    $resolvedUnits[$unitId] = ($resolvedUnits[$unitId] ?? 0) + 1;
+                    $matchedUnitsCount++;
+
+                    // If unit has parent, link document to the parent institution!
+                    if ($unitData['parent_institution_id'] !== null) {
+                        $parentInstId = $unitData['parent_institution_id'];
+                        if (!isset($boundInstIds[$parentInstId]) && isset($institutionsLookupById[$parentInstId])) {
+                            $boundInstIds[$parentInstId] = true;
+                            $instLinks[] = [
+                                'document_id' => $docId,
+                                'institution_id' => $parentInstId,
+                                'link_type' => 'author_affiliation'
+                            ];
+                            $resolvedInstitutions[$parentInstId] = ($resolvedInstitutions[$parentInstId] ?? 0) + 1;
+
+                            $parentData = $institutionsLookupById[$parentInstId];
+                            if ($parentData['country_id'] !== null) {
+                                $boundCountryIds[(int)$parentData['country_id']] = true;
+                            }
+                            if ($parentData['state_id'] !== null) {
+                                $boundStateIds[(int)$parentData['state_id']] = true;
+                            }
+                            if ($parentData['city_id'] !== null) {
+                                $boundCityIds[(int)$parentData['city_id']] = true;
+                            }
+                        }
+                    }
                 } else {
                     $unresolvedInstitutions[$rawInst] = ($unresolvedInstitutions[$rawInst] ?? 0) + 1;
                 }
@@ -120,16 +180,38 @@ class DocumentEnrichmentService
                 $rawCountry = trim($rawCountry);
                 if ($rawCountry === '') continue;
 
+                // Check US location pattern
+                $usLoc = $this->parseUsLocationToken($rawCountry);
+                if ($usLoc !== null) {
+                    if ($usaCountryId !== null) {
+                        $boundCountryIds[$usaCountryId] = true;
+                        $stateKey = $usaCountryId . '_' . self::normalize($usLoc['state']);
+                        if (isset($statesLookup[$stateKey])) {
+                            $boundStateIds[$statesLookup[$stateKey]['id']] = true;
+                        } else {
+                            $conn->insert('estados', [
+                                'country_id' => $usaCountryId,
+                                'official_name' => $usLoc['state'],
+                                'sigla' => $usLoc['state'],
+                                'status' => 1,
+                            ]);
+                            $newStateId = (int)$conn->lastInsertId();
+                            $statesLookup[$stateKey] = ['id' => $newStateId, 'country_id' => $usaCountryId];
+                            $boundStateIds[$newStateId] = true;
+                        }
+                    }
+                    $matchedCountriesCount++;
+                    continue;
+                }
+
                 $norm = self::normalize($rawCountry);
                 if (isset($countriesLookup[$norm])) {
                     $cId = (int)$countriesLookup[$norm];
                     $boundCountryIds[$cId] = true;
                     $matchedCountriesCount++;
-                    
-                    // Keep track of resolved countries
+
                     $resolvedCountries[$cId] = ($resolvedCountries[$cId] ?? 0) + 1;
                 } else {
-                    // Try to see if it matches a state or city variation, which could yield country
                     if (isset($statesLookup[$norm])) {
                         $stateData = $statesLookup[$norm];
                         $boundStateIds[$stateData['id']] = true;
@@ -164,7 +246,7 @@ class DocumentEnrichmentService
 
             $processedDocs++;
 
-            // Flush batches to avoid huge memory profiles
+            // Flush batches
             if (count($instLinks) >= self::BATCH_SIZE) {
                 $this->flushLinks('documento_instituicoes', $instLinks, $conn);
                 $instLinks = [];
@@ -189,14 +271,14 @@ class DocumentEnrichmentService
         if ($stateLinks) $this->flushLinks('documento_estados', $stateLinks, $conn);
         if ($cityLinks) $this->flushLinks('documento_cidades', $cityLinks, $conn);
 
-        // Sort unresolved items by occurrence count DESC
+        // Sort unresolved
         arsort($unresolvedInstitutions);
         arsort($unresolvedCountries);
 
         $executionTime = round(microtime(true) - $startTime, 2);
         $this->logger->info("Geographical enrichment completed in {$executionTime}s. Processed {$processedDocs} documents.");
 
-        // Get matched objects names
+        // Form lists
         $matchedInstitutionsList = [];
         if (!empty($resolvedInstitutions)) {
             $instIds = array_keys($resolvedInstitutions);
@@ -231,16 +313,54 @@ class DocumentEnrichmentService
             usort($matchedCountriesList, fn($a, $b) => $b['count'] <=> $a['count']);
         }
 
+        $matchedOrganizationsList = [];
+        if (!empty($resolvedOrganizations)) {
+            $orgIds = array_keys($resolvedOrganizations);
+            $orgRows = $conn->fetchAllAssociative(
+                'SELECT id, canonical_name, type FROM organizacoes WHERE id IN (' . implode(',', $orgIds) . ')'
+            );
+            foreach ($orgRows as $row) {
+                $id = (int)$row['id'];
+                $matchedOrganizationsList[] = [
+                    'id' => $id,
+                    'name' => $row['canonical_name'] . ($row['type'] ? " ({$row['type']})" : ''),
+                    'count' => $resolvedOrganizations[$id]
+                ];
+            }
+            usort($matchedOrganizationsList, fn($a, $b) => $b['count'] <=> $a['count']);
+        }
+
+        $matchedUnitsList = [];
+        if (!empty($resolvedUnits)) {
+            $unitIds = array_keys($resolvedUnits);
+            $unitRows = $conn->fetchAllAssociative(
+                'SELECT id, canonical_name, type FROM instituicao_unidades WHERE id IN (' . implode(',', $unitIds) . ')'
+            );
+            foreach ($unitRows as $row) {
+                $id = (int)$row['id'];
+                $matchedUnitsList[] = [
+                    'id' => $id,
+                    'name' => $row['canonical_name'] . ($row['type'] ? " ({$row['type']})" : ''),
+                    'count' => $resolvedUnits[$id]
+                ];
+            }
+            usort($matchedUnitsList, fn($a, $b) => $b['count'] <=> $a['count']);
+        }
+
         return [
             'total_docs' => $totalDocs,
             'processed_docs' => $processedDocs,
             'matched_institutions_count' => $matchedInstitutionsCount,
             'matched_countries_count' => $matchedCountriesCount,
+            'matched_organizations_count' => $matchedOrganizationsCount,
+            'matched_units_count' => $matchedUnitsCount,
             'execution_time' => $executionTime,
             'unresolved_institutions' => $unresolvedInstitutions,
             'unresolved_countries' => $unresolvedCountries,
             'matched_institutions' => $matchedInstitutionsList,
             'matched_countries' => $matchedCountriesList,
+            'matched_organizations' => $matchedOrganizationsList,
+            'matched_units' => $matchedUnitsList,
         ];
     }
 
@@ -391,6 +511,7 @@ class DocumentEnrichmentService
             $lookup[self::normalize($row['official_name'])] = $data;
             if ($row['sigla'] !== null && trim($row['sigla']) !== '') {
                 $lookup[self::normalize($row['sigla'])] = $data;
+                $lookup[(int)$row['country_id'] . '_' . self::normalize($row['sigla'])] = $data;
             }
         }
 
@@ -443,5 +564,53 @@ class DocumentEnrichmentService
         }
 
         return $lookup;
+    }
+
+    private function loadOrganizationsLookup(Connection $conn): array
+    {
+        $lookup = [];
+        $orgs = $conn->fetchAllAssociative('SELECT id, canonical_name, original_variation_name, type FROM organizacoes');
+        foreach ($orgs as $row) {
+            $id = (int)$row['id'];
+            $data = [
+                'id' => $id,
+                'canonical_name' => $row['canonical_name'],
+                'type' => $row['type'],
+            ];
+            $lookup[self::normalize($row['canonical_name'])] = $data;
+            $lookup[self::normalize($row['original_variation_name'])] = $data;
+        }
+        return $lookup;
+    }
+
+    private function loadUnitsLookup(Connection $conn): array
+    {
+        $lookup = [];
+        $units = $conn->fetchAllAssociative('SELECT id, canonical_name, original_variation_name, type, parent_institution_id FROM instituicao_unidades');
+        foreach ($units as $row) {
+            $id = (int)$row['id'];
+            $data = [
+                'id' => $id,
+                'canonical_name' => $row['canonical_name'],
+                'type' => $row['type'],
+                'parent_institution_id' => $row['parent_institution_id'] !== null ? (int)$row['parent_institution_id'] : null,
+            ];
+            $lookup[self::normalize($row['canonical_name'])] = $data;
+            $lookup[self::normalize($row['original_variation_name'])] = $data;
+        }
+        return $lookup;
+    }
+
+    private function parseUsLocationToken(string $raw): ?array
+    {
+        $raw = trim($raw);
+        if (!preg_match('/^(?<state>[A-Z]{2})(?:\s+(?<zip>\d{5}(?:-\d{4})?))?\s*(?:USA)?$/i', $raw, $m)) {
+            return null;
+        }
+        return [
+            'country' => 'USA',
+            'state' => strtoupper($m['state']),
+            'postal_code' => $m['zip'] ?? null,
+        ];
     }
 }

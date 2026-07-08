@@ -1,0 +1,90 @@
+﻿raw_institution_name,occurrences,acao,tipo_sugerido,nome_canonico_sugerido,observacao
+Sustainable AgriFoodtech Innovat & Res SAFIR,14,Revisão manual,provável centro/projeto/organização de pesquisa,Sustainable AgriFoodtech Innovation & Research (SAFIR),"Não encontrei correspondência pública confiável pelo nome abreviado; manter em revisão manual. Como aparece 14 vezes, pode ser cadastrado provisoriamente como organização/instituto com esse nome canônico e a variação bruta."
+Embrapa Digital Agr,8,Adicionar variação,unidade de pesquisa,Embrapa Agricultura Digital,"Unidade da Embrapa em Campinas/SP. Adicionar variação ao cadastro canônico da unidade, não criar universidade."
+Embrapa Agr Digital,4,Adicionar variação,unidade de pesquisa,Embrapa Agricultura Digital,Mesma correção de Embrapa Digital Agr.
+Baker Heart & Diabet Inst,3,Cadastrar instituição/organização,instituto de pesquisa médica,Baker Heart and Diabetes Institute,"Melbourne, Victoria, Austrália; site: https://baker.edu.au. Não é universidade."
+Ctr Energy & Environm Sustainabil,3,Revisão manual,centro/laboratório,Center/Centre for Energy and Environmental Sustainability,Nome muito genérico; falta instituição-mãe. Não cadastrar sem validar a afiliação completa.
+Univ Fed Rio de Janeiro,3,Adicionar variação,universidade,Universidade Federal do Rio de Janeiro,Já existe como UFRJ no cadastro. Adicionar exatamente essa variação se ainda estiver faltando.
+EMBRAPA,2,Adicionar variação,instituto/empresa pública de pesquisa,Empresa Brasileira de Pesquisa Agropecuária,Já existe cadastro de Embrapa. Adicionar EMBRAPA como variação direta do cadastro canônico da empresa pública.
+Natl Inst Ind Engn NITIE,2,Atualizar/Adicionar variação,instituição de ensino superior,Indian Institute of Management Mumbai,"Antigo National Institute of Industrial Engineering (NITIE), atual IIM Mumbai. Adicionar variação e, se o cadastro estiver só como NITIE, corrigir/mesclar."
+Int Ctr Agr Res Dry Areas ICARDA,2,Adicionar variação,instituto internacional de pesquisa,International Center for Agricultural Research in the Dry Areas,"ICARDA. Deve ser instituto de pesquisa/organização internacional, não universidade."
+UNSW Canberra,2,Adicionar variação/unidade,campus/unidade,University of New South Wales,Campus Canberra da UNSW. Pode ser variação da UNSW ou unidade interna vinculada.
+State Grid Qinghai Elect Power Co,2,Cadastrar organização,empresa estatal de energia,State Grid Qinghai Electric Power Company,Empresa/companhia de energia; não cadastrar como universidade.
+Daegu Gyeongbuk Inst Sci & Technol DGIST,2,Atualizar/Adicionar variação,universidade/instituto de ciência e tecnologia,Daegu Gyeongbuk Institute of Science and Technology,"DGIST, Daegu, Coreia do Sul. Corrigir grafia duplicada existente e adicionar variação."
+Embrapa,2,Adicionar variação,instituto/empresa pública de pesquisa,Empresa Brasileira de Pesquisa Agropecuária,Mesma regra de EMBRAPA.
+Guys & St Thomas NHS Fdn Trust,2,Cadastrar organização,hospital/NHS trust,Guy's and St Thomas' NHS Foundation Trust,"London, Reino Unido. Organização hospitalar, não universidade."
+Inst Nacl Invest Agr INIA,1,Revisão manual,instituto nacional de pesquisa agropecuária,Instituto Nacional de Investigación Agropecuaria (INIA),INIA é ambíguo entre países. Validar país na afiliação completa antes de cadastrar.
+SEIDOR Consulting SL,1,Cadastrar organização,empresa privada/consultoria,SEIDOR Consulting S.L.,Espanha; empresa de consultoria/tecnologia. Não cadastrar como instituição acadêmica.
+North Bristol NHS Trust,1,Cadastrar organização,hospital/NHS trust,North Bristol NHS Trust,"Bristol, Reino Unido. Organização hospitalar."
+Ajna Consulting,1,Cadastrar organização/revisão,consultoria,Ajna Consulting,Nome comercial; cadastrar em organizações somente se a afiliação completa confirmar país/site.
+Rosengren Epidemiol Consulting,1,Cadastrar organização/revisão,consultoria epidemiológica,Rosengren Epidemiology Consulting,Consultoria; não universidade. Validar país/site.
+Natl Remote Sensing Ctr NRSC,1,Adicionar variação,centro governamental de pesquisa,National Remote Sensing Centre,"NRSC, centro da ISRO, Hyderabad, Índia. Adicionar variação."
+Shanghai Key Lab Mech Energy Engn,1,Cadastrar unidade/revisão,laboratório,Shanghai Key Laboratory of Mechanics in Energy Engineering,"Provável laboratório chinês; precisa instituição-mãe na afiliação completa. Cadastrar como unidade, não instituição principal."
+Geisinger Orthopaed & Sports Med,1,Cadastrar organização/unidade,hospital/clínica,Geisinger Orthopaedics and Sports Medicine,"Unidade/serviço do sistema Geisinger, EUA. Pode ser organização/unidade vinculada a Geisinger."
+Essex Partnership NHS Fdn Trust,1,Cadastrar organização,hospital/NHS trust,Essex Partnership University NHS Foundation Trust,"Reino Unido. Hospital trust; não universidade, apesar de conter University no nome oficial."
+Acacia Consulting,1,Cadastrar organização/revisão,consultoria,Acacia Consulting,Consultoria. Validar país/site.
+Agr Res & Rural Extens Co Santa Catarina CEPAF EPA,1,Cadastrar organização + unidade,empresa pública de pesquisa/extensão,Epagri - Empresa de Pesquisa Agropecuária e Extensão Rural de Santa Catarina,CEPAF/Epagri. Cadastrar Epagri como organização/instituto e CEPAF como unidade se necessário.
+Amer Heart Assoc Int,1,Cadastrar organização,associação científica/saúde,American Heart Association,AHA. Organização científica e de saúde dos EUA.
+Shahid Gangalal Natl Heart Ctr,1,Cadastrar organização,hospital/centro cardíaco,Shahid Gangalal National Heart Centre,"Kathmandu, Nepal. Centro/hospital cardíaco."
+Interact Technol Inst ITI LARSyS & ARDITI,1,Cadastrar instituição/unidade,instituto de pesquisa,Interactive Technologies Institute (ITI / LARSyS),Portugal/Madeira. Vínculo com LARSyS e ARDITI; cadastrar como instituto/unidade de pesquisa.
+AbbVie,1,Cadastrar organização,empresa privada farmacêutica,AbbVie Inc.,Empresa farmacêutica; não universidade.
+Power Nutr,1,Revisão manual,empresa/organização,Power Nutr / Power Nutrition,Nome incompleto. Validar pela afiliação completa.
+Natl Renewable Energy Lab,1,Cadastrar organização/instituto,laboratório nacional de pesquisa,National Renewable Energy Laboratory,"NREL, laboratório nacional dos EUA em Golden/Colorado."
+30 Xueyuan Rd,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+12127 Old Oaks Dr,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+Inst Fed Educ Ciencia & Tecnol Ceara IFCE,1,Atualizar/Adicionar variação,instituto federal,"Instituto Federal de Educação, Ciência e Tecnologia do Ceará","IFCE, Ceará/Brasil. No cadastro há IFCE genérico; corrigir dados e adicionar variação."
+Univ Fed Pelotas UFEPL,1,Adicionar variação,universidade,Universidade Federal de Pelotas,UFPel. UFEPL parece erro de sigla; adicionar como variação para capturar o erro.
+Energy Consulting Mali,1,Cadastrar organização/revisão,consultoria,Energy Consulting Mali,Consultoria/empresa; validar dados antes.
+CIRAD CATIE,1,Separar em duas instituições,institutos de pesquisa,CIRAD + CATIE,O valor junta duas instituições. Melhor corrigir parser/importação ou cadastrar variação composta apontando para ambos se o sistema permitir.
+1180 Ctr Dr,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+Retina Care Int,1,Cadastrar organização/revisão,saúde/oftalmologia,Retina Care International,Organização/serviço de saúde; validar país/site.
+Yunnan Key Lab Rural Energy Engn,1,Cadastrar unidade/revisão,laboratório,Yunnan Key Laboratory of Rural Energy Engineering,Laboratório chinês; precisa instituição-mãe pela afiliação completa.
+Rooney Heart Inst,1,Cadastrar organização/revisão,centro/instituto cardíaco,Rooney Heart Institute,Centro/instituto de saúde; validar instituição-mãe e país.
+Natl Sch Elect & Telecommun Sfax,1,Cadastrar instituição/unidade,escola de engenharia,National School of Electronics and Telecommunications of Sfax,Tunísia; ligada à University of Sfax. Cadastrar como instituição ou unidade vinculada.
+Chinese Acad Sci SKL MCCS,1,Adicionar variação/unidade,laboratório/unidade de pesquisa,Chinese Academy of Sciences,"SKL MCCS é laboratório/unidade da CAS; adicionar variação/unidade, não criar instituição principal nova."
+Mass Gen Brigham,1,Cadastrar organização,sistema hospitalar/pesquisa médica,Mass General Brigham,"Boston, EUA. Sistema hospitalar e de pesquisa; não universidade."
+Stat Scope Consulting,1,Cadastrar organização/revisão,consultoria estatística,Stat Scope Consulting,Consultoria; validar site/país.
+Singapore Natl Heart Ctr Singapore,1,Cadastrar organização,hospital/centro cardíaco,National Heart Centre Singapore,Singapura. Hospital/centro nacional de cardiologia.
+Programa Posgrad Ciencias Engn Ambiental EESC USP,1,Cadastrar unidade,programa de pós-graduação,Programa de Pós-Graduação em Ciências da Engenharia Ambiental - EESC USP,Unidade/programa da Escola de Engenharia de São Carlos da USP.
+CRHEA EESC USP,1,Cadastrar unidade,centro de pesquisa,Centro de Recursos Hídricos e Estudos Ambientais - EESC USP,Unidade da EESC/USP.
+State Grid Wuhan Elect Power Co,1,Cadastrar organização,empresa estatal de energia,State Grid Wuhan Electric Power Company,Empresa/companhia de energia; não universidade.
+Abbvie,1,Cadastrar organização,empresa privada farmacêutica,AbbVie Inc.,Mesma correção de AbbVie; normalizar caixa.
+Xiangyang Elect Power Supply Co,1,Cadastrar organização,empresa de energia,Xiangyang Electric Power Supply Company,Empresa/companhia de energia; não universidade.
+Inst Tecnol Quim & Biol ITQB NOVA,1,Cadastrar instituição/unidade,instituto de pesquisa universitário,Instituto de Tecnologia Química e Biológica António Xavier - ITQB NOVA,"Oeiras, Portugal; unidade da Universidade NOVA de Lisboa."
+Crocombe Spectroscop Consulting,1,Cadastrar organização/revisão,consultoria técnica,Crocombe Spectroscopic Consulting,Consultoria; não universidade.
+ACER Consulting,1,Cadastrar organização/revisão,consultoria,ACER Consulting,Nome comercial; validar país/site.
+State Key Lab Intelligent Agr Power Equipment,1,Cadastrar unidade/revisão,laboratório estadual/chave,State Key Laboratory of Intelligent Agricultural Power Equipment,Laboratório chinês; identificar instituição-mãe na afiliação completa.
+Hydropower Engn Geol Reconnaissance Consulting & P,1,Cadastrar organização/revisão,consultoria/engenharia,Hydropower Engineering Geological Reconnaissance Consulting & Planning,Nome truncado; validar nome completo antes de cadastrar.
+Univ Fed Rio De Janeiro,1,Adicionar variação,universidade,Universidade Federal do Rio de Janeiro,Mesmo caso de UFRJ; diferença apenas de caixa.
+Anant Bajaj Retina Inst,1,Cadastrar organização/instituto,instituto oftalmológico,Anant Bajaj Retina Institute,Índia. Instituto/serviço de retina; não universidade.
+Cent & North West London NHS Fdn Trust,1,Cadastrar organização,hospital/NHS trust,Central and North West London NHS Foundation Trust,Reino Unido. NHS foundation trust.
+Nat Resources Consulting Engineers,1,Cadastrar organização/revisão,consultoria/engenharia,Natural Resources Consulting Engineers,Consultoria/empresa; não universidade.
+FarmB Digital Agr PC,1,Cadastrar organização/revisão,empresa/agritech,FarmB Digital Agriculture PC,Empresa/agritech; validar país/site.
+Programa Pos graduacao Biotecnol & Bioproc UFRJ,1,Cadastrar unidade,programa de pós-graduação,Programa de Pós-Graduação em Biotecnologia e Bioprocessos - UFRJ,Programa/unidade vinculada à UFRJ.
+JM Farber Global Food Safety Consulting,1,Cadastrar organização,consultoria em segurança de alimentos,J. M. Farber Global Food Safety Consulting,Consultoria; não universidade.
+Knewfutures Consulting,1,Cadastrar organização/revisão,consultoria,KnewFutures Consulting,Consultoria; validar país/site.
+Agr Informat Inst CAAS,1,Cadastrar unidade/adicionar variação,instituto de pesquisa,"Agricultural Information Institute, Chinese Academy of Agricultural Sciences",Unidade/instituto da CAAS; adicionar variação e vincular à CAAS se possível.
+Samsung Elect,1,Cadastrar organização,empresa privada,Samsung Electronics,Coreia do Sul. Empresa; não universidade.
+Medway NHS Fdn Trust,1,Cadastrar organização,hospital/NHS trust,Medway NHS Foundation Trust,Reino Unido. Hospital trust.
+Inst Natl Rech Agr Alimentat & Environm INRAE,1,Adicionar variação,instituto nacional de pesquisa,"Institut national de recherche pour l’agriculture, l’alimentation et l’environnement","INRAE, França. Já existe; adicionar variação."
+Agr Informat Inst Chinese Acad Agr Sci,1,Cadastrar unidade/adicionar variação,instituto de pesquisa,"Agricultural Information Institute, Chinese Academy of Agricultural Sciences",Mesmo caso de CAAS Agricultural Information Institute.
+SciWest Consulting,1,Cadastrar organização/revisão,consultoria,SciWest Consulting,Consultoria; validar país/site.
+5510 Nathan Shock Dr,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+State Grid Tianjin Elect Power Co,1,Cadastrar organização,empresa estatal de energia,State Grid Tianjin Electric Power Company,Empresa/companhia de energia.
+State Grid Hebei Elect Power Co,1,Cadastrar organização,empresa estatal de energia,State Grid Hebei Electric Power Company,Empresa/companhia de energia.
+Borgess Heart Inst,1,Cadastrar organização,hospital/instituto cardíaco,Borgess Heart Institute,EUA; unidade de saúde/cardiologia.
+N Ohio Heart Ctr,1,Cadastrar organização,centro cardíaco/clínica,North Ohio Heart Center,EUA; serviço/centro de cardiologia.
+State Environm Protect Key Lab Synerget Control &,1,Cadastrar unidade/revisão,laboratório estadual/chave,State Environmental Protection Key Laboratory of Synergistic Control and Joint Remediation,"Nome truncado; laboratório/unidade, precisa instituição-mãe."
+Agr Res Stn ARS,1,Revisão manual,estação/serviço de pesquisa agrícola,Agricultural Research Station / Agricultural Research Service,Pode se referir a estação de pesquisa ou USDA ARS. Validar afiliação completa.
+SINTEF Energy Res,1,Cadastrar instituição/unidade,instituto de pesquisa,SINTEF Energy Research,Noruega; unidade/instituto do grupo SINTEF.
+Sustainable Energy Catapult Ctr,1,Revisão manual,centro/organização de energia,Sustainable Energy Catapult Centre,Nome possivelmente truncado. Validar se é Energy Systems Catapult ou outro centro.
+Agstat Consulting,1,Cadastrar organização,consultoria estatística/agro,AgStat Consulting,Consultoria; não universidade.
+Conflict Management Consulting,1,Cadastrar organização,consultoria,Conflict Management Consulting,Consultoria; não universidade.
+Shandong Engn Res Ctr Environm Protect & Remediat,1,Cadastrar unidade/revisão,centro de engenharia/pesquisa,Shandong Engineering Research Center for Environmental Protection and Remediation,Nome truncado; precisa instituição-mãe.
+S&F Pro Consulting,1,Cadastrar organização/revisão,consultoria,S&F Pro Consulting,Consultoria; validar país/site.
+118 Parr St,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+1280 Montgomery Blvd,1,Não cadastrar,endereço,-,"É endereço/logradouro, não instituição."
+Natl Secretariat Reduct Teenage Pregnancy,1,Cadastrar organização governamental,órgão público/secretaria,National Secretariat for the Reduction of Teenage Pregnancy,Órgão/secretaria pública; não universidade.
+Agr Res Serv ARS,1,Cadastrar organização/instituto,agência pública de pesquisa,Agricultural Research Service (USDA ARS),"Serviço de Pesquisa Agrícola do USDA, EUA."
+Univ Fed Campina UFCG,1,Adicionar variação,universidade,Universidade Federal de Campina Grande,UFCG. Já existe; adicionar variação.
+Chrysalis Consulting,1,Cadastrar organização/revisão,consultoria,Chrysalis Consulting,Consultoria; validar país/site.

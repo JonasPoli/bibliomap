@@ -48,15 +48,45 @@
     </div>
 </div>
 
-<!-- World Map -->
-<div class="bm-card mb-4">
-    <div class="d-flex align-items-center gap-2 mb-2">
-        <h5 class="mb-0" style="font-weight:700">Mapa Mundial de Produção</h5>
-        <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Intensidade por Documentos</span>
+<!-- Tooltip shared by both maps -->
+<div id="map-tooltip" style="display:none;position:fixed;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 12px;font-size:13px;pointer-events:none;z-index:9999;color:var(--bm-text);min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
+
+<!-- Maps Row -->
+<div class="row g-4 mb-4">
+    <!-- World Map 1 (Original) -->
+    <div class="col-12">
+        <div class="bm-card d-flex flex-column" style="min-height:480px">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0" style="font-weight:700">Mapa de Intensidade (Original)</h5>
+                    <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Linear</span>
+                </div>
+            </div>
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Cor proporcional à quantidade de documentos do país (escala linear azul)</p>
+            <div id="world-map" class="flex-grow-1" style="width:100%;height:380px;border-radius:8px;overflow:hidden;min-height:380px"></div>
+        </div>
     </div>
-    <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Cor proporcional ao número de documentos por país</p>
-    <div id="world-map" style="width:100%;height:380px;border-radius:8px;overflow:hidden"></div>
-    <div id="map-tooltip" style="display:none;position:fixed;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 12px;font-size:13px;pointer-events:none;z-index:9999;color:var(--bm-text);min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
+
+    <!-- World Map 2 (Classified) -->
+    <div class="col-12">
+        <div class="bm-card d-flex flex-column" style="min-height:500px">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0" style="font-weight:700">Mapa de Calor (Escala de 100+ Níveis)</h5>
+                    <span class="badge rounded-pill" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:10px;font-weight:600">Logarítmico (100+ Tons)</span>
+                </div>
+            </div>
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Escala contínua logarítmica destacando a variação de produção (Amarelo ➔ Verde ➔ Roxo)</p>
+            <div id="world-map-classified" class="flex-grow-1 mb-2" style="width:100%;height:380px;border-radius:8px;overflow:hidden;min-height:380px"></div>
+            
+            <!-- Legend -->
+            <div class="d-flex align-items-center gap-3 justify-content-center mt-2 flex-wrap">
+                <span style="font-size:11px;color:var(--bm-text-muted);font-weight:600">Poucos Artigos (1)</span>
+                <div style="width: 300px; height: 12px; background: linear-gradient(to right, #facc15, #10b981, #8b5cf6); border-radius: 4px; border: 1px solid var(--bm-border)"></div>
+                <span style="font-size:11px;color:var(--bm-text-muted);font-weight:600">Mais Produtivo (<span class="max-docs-label"></span>)</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Charts Row -->
@@ -131,8 +161,95 @@ const allList  = {{ list|json_encode|raw }};
 let chartInstance = null;
 
 // Build a lookup: country name → doc_count
+const ptToEnMap = {
+    'brasil': ['brazil'],
+    'estados unidos': ['united states', 'united states of america'],
+    'reino unido': ['united kingdom'],
+    'alemanha': ['germany'],
+    'frança': ['france'],
+    'itália': ['italy'],
+    'espanha': ['spain'],
+    'japão': ['japan'],
+    'china': ['china'],
+    'índia': ['india'],
+    'canadá': ['canada'],
+    'austrália': ['australia'],
+    'suécia': ['sweden'],
+    'suíça': ['switzerland'],
+    'países baixos': ['netherlands'],
+    'bélgica': ['belgium'],
+    'áfrica do sul': ['south africa'],
+    'coreia do sul': ['south korea', 'korea'],
+    'méxico': ['mexico'],
+    'argentina': ['argentina'],
+    'chile': ['chile'],
+    'colômbia': ['colombia'],
+    'portugal': ['portugal'],
+    'irlanda': ['ireland'],
+    'noruega': ['norway'],
+    'finlândia': ['finland'],
+    'dinamarca': ['denmark'],
+    'áustria': ['austria'],
+    'nova zelândia': ['new zealand'],
+    'turquia': ['turkey'],
+    'grécia': ['greece'],
+    'rússia': ['russia', 'russian federation'],
+    'polônia': ['poland'],
+    'egito': ['egypt'],
+    'singapura': ['singapore'],
+    'israel': ['israel'],
+    'arábia saudita': ['saudi arabia'],
+    'irã': ['iran', 'islamic republic of iran'],
+    'ucrânia': ['ukraine'],
+    'marrocos': ['morocco'],
+    'tailândia': ['thailand'],
+    'vietnã': ['vietnam'],
+    'malásia': ['malaysia'],
+    'indonésia': ['indonesia'],
+    'peru': ['peru'],
+    'equador': ['ecuador'],
+    'venezuela': ['venezuela'],
+    'uruguai': ['uruguay'],
+    'bolívia': ['bolivia'],
+    'paraguai': ['paraguay'],
+    'panamá': ['panama'],
+    'cuba': ['cuba'],
+    'filipinas': ['philippines'],
+    'quênia': ['kenya'],
+    'nigéria': ['nigeria'],
+    'gana': ['ghana'],
+    'tunísia': ['tunisia'],
+    'argélia': ['algeria'],
+    'senegal': ['senegal'],
+    'camarões': ['cameroon'],
+    'moçambique': ['mozambique'],
+    'angola': ['angola'],
+    'hungria': ['hungary'],
+    'romênia': ['romania'],
+    'bulgária': ['bulgaria'],
+    'croácia': ['croatia'],
+    'eslovênia': ['slovenia'],
+    'eslováquia': ['slovakia'],
+    'república checa': ['czechia', 'czech republic'],
+    'tchequia': ['czechia', 'czech republic'],
+    'estônia': ['estonia'],
+    'letônia': ['latvia'],
+    'lituânia': ['lithuania'],
+    'chipre': ['cyprus'],
+    'islândia': ['iceland'],
+    'luxemburgo': ['luxembourg'],
+};
+
 const countryDocs = {};
-allList.forEach(c => { countryDocs[c.country.toLowerCase()] = c.doc_count; });
+allList.forEach(c => {
+    const ptName = c.country.toLowerCase().trim();
+    countryDocs[ptName] = c.doc_count;
+    if (ptToEnMap[ptName]) {
+        ptToEnMap[ptName].forEach(enName => {
+            countryDocs[enName] = c.doc_count;
+        });
+    }
+});
 const maxDocs = allList.length > 0 ? allList[0].doc_count : 1;
 
 function isThemeLight() {
@@ -149,8 +266,10 @@ function getColors() {
 }
 
 // ── Leaflet choropleth ────────────────────────────────────────────────────────
-let leafletMap = null;
-let geoLayer   = null;
+let leafletMap    = null;
+let geoLayer      = null;
+let classifiedMap = null;
+let geoLayerClass = null;
 
 function getDocCount(feature) {
     const name = (feature.properties.name || '').toLowerCase();
@@ -169,13 +288,55 @@ function choroColor(count) {
     return `rgba(79, 142, 247, ${alpha})`;
 }
 
+function interpolateColor(color1, color2, factor) {
+    const r1 = parseInt(color1.substring(1, 3), 16);
+    const g1 = parseInt(color1.substring(3, 5), 16);
+    const b1 = parseInt(color1.substring(5, 7), 16);
+
+    const r2 = parseInt(color2.substring(1, 3), 16);
+    const g2 = parseInt(color2.substring(3, 5), 16);
+    const b2 = parseInt(color2.substring(5, 7), 16);
+
+    const r = Math.round(r1 + factor * (r2 - r1));
+    const g = Math.round(g1 + factor * (g2 - g1));
+    const b = Math.round(b1 + factor * (b2 - b1));
+
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function choroColorClassified(count) {
+    if (count === 0) return isThemeLight() ? '#e8ecf0' : '#21262d';
+    
+    // Logarithmic scale for smooth 100+ color levels transition
+    const factor = count > 1 ? Math.log(count) / Math.log(maxDocs) : 0;
+    
+    // Gradient: Yellow (#facc15) -> Green (#10b981) -> Purple (#8b5cf6)
+    if (factor < 0.5) {
+        return interpolateColor('#facc15', '#10b981', factor * 2);
+    } else {
+        return interpolateColor('#10b981', '#8b5cf6', (factor - 0.5) * 2);
+    }
+}
+
 function buildMap() {
     if (leafletMap) {
         leafletMap.remove();
         leafletMap = null;
     }
+    if (classifiedMap) {
+        classifiedMap.remove();
+        classifiedMap = null;
+    }
 
     leafletMap = L.map('world-map', {
+        center: [20, 0],
+        zoom: 2,
+        zoomSnap: 0.5,
+        zoomControl: true,
+        attributionControl: false,
+    });
+
+    classifiedMap = L.map('world-map-classified', {
         center: [20, 0],
         zoom: 2,
         zoomSnap: 0.5,
@@ -188,12 +349,14 @@ function buildMap() {
         : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
 
     L.tileLayer(tileUrl, { maxZoom: 6 }).addTo(leafletMap);
+    L.tileLayer(tileUrl, { maxZoom: 6 }).addTo(classifiedMap);
 
     const tooltip = document.getElementById('map-tooltip');
 
     fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
         .then(r => r.json())
         .then(geo => {
+            // Original Map
             geoLayer = L.geoJSON(geo, {
                 style: feature => {
                     const count = getDocCount(feature);
@@ -205,30 +368,61 @@ function buildMap() {
                     };
                 },
                 onEachFeature: (feature, layer) => {
-                    const name  = feature.properties.name || '?';
-                    const count = getDocCount(feature);
-                    const info  = allList.find(c => c.country.toLowerCase() === name.toLowerCase());
-
-                    layer.on('mousemove', e => {
-                        tooltip.style.display  = 'block';
-                        tooltip.style.left     = (e.originalEvent.clientX + 14) + 'px';
-                        tooltip.style.top      = (e.originalEvent.clientY - 10) + 'px';
-                        if (count > 0 && info) {
-                            tooltip.innerHTML = `<strong>${name}</strong><br>
-                                <span style="color:var(--bm-accent)">📄 ${info.doc_count} documentos</span><br>
-                                <span style="color:var(--bm-text-muted)">🔖 ${info.citation_count} citações &nbsp;·&nbsp; ø ${info.avg_citations}</span>`;
-                        } else {
-                            tooltip.innerHTML = `<strong>${name}</strong><br><span style="color:var(--bm-text-muted)">Sem dados no corpus</span>`;
-                        }
-                    });
-                    layer.on('mouseout', () => { tooltip.style.display = 'none'; });
+                    setupTooltip(feature, layer, tooltip);
                 }
             }).addTo(leafletMap);
+
+            // Classified Map
+            geoLayerClass = L.geoJSON(geo, {
+                style: feature => {
+                    const count = getDocCount(feature);
+                    return {
+                        fillColor: choroColorClassified(count),
+                        weight: 0.5,
+                        color: isThemeLight() ? '#c8d1db' : '#30363d',
+                        fillOpacity: count > 0 ? 0.85 : 0.3,
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    setupTooltip(feature, layer, tooltip);
+                }
+            }).addTo(classifiedMap);
         })
         .catch(() => {
             document.getElementById('world-map').innerHTML =
-                '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--bm-text-muted);font-size:13px"><i class="bi bi-exclamation-circle me-2"></i> Mapa não disponível (sem conexão ou falha ao carregar GeoJSON)</div>';
+                '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--bm-text-muted);font-size:13px"><i class="bi bi-exclamation-circle me-2"></i> Mapa não disponível</div>';
+            document.getElementById('world-map-classified').innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--bm-text-muted);font-size:13px"><i class="bi bi-exclamation-circle me-2"></i> Mapa não disponível</div>';
         });
+}
+
+function setupTooltip(feature, layer, tooltip) {
+    const name  = (feature.properties.name || '?').toLowerCase();
+    const admin = (feature.properties.admin || '?').toLowerCase();
+    const count = getDocCount(feature);
+
+    const info  = allList.find(c => {
+        const pt = c.country.toLowerCase().trim();
+        if (pt === name || pt === admin) return true;
+        if (ptToEnMap[pt]) {
+            return ptToEnMap[pt].includes(name) || ptToEnMap[pt].includes(admin);
+        }
+        return false;
+    });
+
+    layer.on('mousemove', e => {
+        tooltip.style.display  = 'block';
+        tooltip.style.left     = (e.originalEvent.clientX + 14) + 'px';
+        tooltip.style.top      = (e.originalEvent.clientY - 10) + 'px';
+        if (count > 0 && info) {
+            tooltip.innerHTML = `<strong>${info.country}</strong><br>
+                <span style="color:var(--bm-accent)">📄 ${info.doc_count} documentos</span><br>
+                <span style="color:var(--bm-text-muted)">🔖 ${info.citation_count} citações &nbsp;·&nbsp; ø ${info.avg_citations}</span>`;
+        } else {
+            tooltip.innerHTML = `<strong>${feature.properties.name || '?'}</strong><br><span style="color:var(--bm-text-muted)">Sem dados no corpus</span>`;
+        }
+    });
+    layer.on('mouseout', () => { tooltip.style.display = 'none'; });
 }
 
 window.addEventListener('bm-theme-changed', () => {
@@ -312,6 +506,7 @@ function exportCSV() {
     document.body.removeChild(link);
 }
 
+document.querySelectorAll('.max-docs-label').forEach(el => el.textContent = maxDocs);
 rebuildChart();
 buildMap();
 </script>

@@ -221,19 +221,47 @@ class ScopusCsvImporter implements BibliographicImporterInterface
 
     private function extractCountries(string $affiliationText): array
     {
-        // Extract last segment after comma in each affiliation (usually the country)
         $countries = [];
         $affiliations = explode(';', $affiliationText);
+
         foreach ($affiliations as $aff) {
             $parts = array_map('trim', explode(',', $aff));
-            if (count($parts) > 0) {
-                $last = end($parts);
-                if ($last && strlen($last) > 2) {
-                    $countries[] = $last;
-                }
+
+            if (count($parts) === 0) {
+                continue;
+            }
+
+            $last = end($parts);
+
+            if (!$last || strlen($last) <= 2) {
+                continue;
+            }
+
+            $country = $this->normalizeCountryFromAffiliationLastSegment($last);
+
+            if ($country !== null) {
+                $countries[] = $country;
             }
         }
-        return array_unique(array_filter($countries));
+
+        return array_values(array_unique(array_filter($countries)));
+    }
+
+    private function normalizeCountryFromAffiliationLastSegment(string $value): ?string
+    {
+        $value = trim($value);
+
+        // Ex.: FL 32611 USA, CA 95616 USA, TX 77843 USA
+        if (preg_match('/^[A-Z]{2}\s+\d{5}(?:-\d{4})?\s+(USA|US|U\.S\.A\.)$/i', $value)) {
+            return 'USA';
+        }
+
+        // Variação comum do Scopus para China
+        if (preg_match('/^Peoples R China$/i', $value)) {
+            return 'China';
+        }
+
+        return $value;
     }
 
     private function extractInstitutions(string $affiliationText): array
