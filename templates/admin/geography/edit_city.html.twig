@@ -1,0 +1,136 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Cidade — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_geography_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Geografia</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Editar Cidade</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil text-accent me-2"></i>Editar Cidade: {{ city.officialName }}
+    </h1>
+    <p class="bm-page-subtitle">Modifique as informações gerais e variações para esta cidade.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Form -->
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_geography_city_edit', {id: city.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_city_' ~ city.id) }}">
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Nome da Cidade *</label>
+                        <input type="text" name="officialName" class="form-control" placeholder="Ex: São Carlos" value="{{ city.officialName }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Código IBGE / Oficial</label>
+                        <input type="text" name="officialCode" class="form-control" placeholder="Ex: 3548906" value="{{ city.officialCode }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">País *</label>
+                        <select name="countryId" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            {% for c in countries %}
+                                <option value="{{ c.id }}" {% if city.country.id == c.id %}selected{% endif %}>{{ c.commonName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Estado *</label>
+                        <select name="stateId" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            {% for s in states %}
+                                <option value="{{ s.id }}" {% if city.state and city.state.id == s.id %}selected{% endif %}>{{ s.officialName }} ({{ s.sigla }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if city.isStatus() %}checked{% endif %}>
+                            <label class="form-check-label" for="status">Cidade Ativa</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variations Input -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Edição em Massa das Variações</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita da cidade (uma por linha).
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="São Carlos&#10;Sao Carlos&#10;S. Carlos">{{ variationsText }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_geography_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Variations List and Merge Card -->
+    <div class="col-lg-4">
+        <!-- Variations List -->
+        <div class="bm-card mb-4">
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Variações registradas para esta cidade. Você pode desmembrar qualquer uma para torná-la uma cidade independente.
+            </p>
+            {% set hasAlternatives = false %}
+            <div class="list-group list-group-flush border-bm rounded">
+                {% for v in city.variations %}
+                    {% if v.variationType == 'alternative' %}
+                        {% set hasAlternatives = true %}
+                        <div class="list-group-item bg-bm-card border-bm d-flex justify-content-between align-items-center py-2" style="font-size:13px;color:var(--bm-text)">
+                            <span class="font-monospace text-accent">{{ v.variationName }}</span>
+                            <form action="{{ path('app_admin_geography_city_variation_separate', {id: v.id}) }}" method="POST" style="display:inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('separate_var_' ~ v.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em uma nova cidade independente?');">
+                                    Desmembrar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% if not hasAlternatives %}
+                <div class="text-center py-3 text-muted-bm" style="font-size:12.5px">Nenhuma variação alternativa cadastrada.</div>
+            {% endif %}
+        </div>
+
+        <!-- Merge Card -->
+        <div class="bm-card">
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Cidade</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Transfira todos os artigos vinculados e variações para a cidade selecionada abaixo, excluindo este registro permanentemente.
+            </p>
+            <form action="{{ path('app_admin_geography_city_merge', {id: city.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir esta cidade? A ação não poderá ser desfeita.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('merge_city_' ~ city.id) }}">
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:12px">Cidade de Destino</label>
+                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
+                        <option value="">Selecione...</option>
+                        {% for other in other_cities %}
+                            <option value="{{ other.id }}">{{ other.officialName }} ({% if other.state %}{{ other.state.sigla }}{% else %}{{ other.country.commonName }}{% endif %})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

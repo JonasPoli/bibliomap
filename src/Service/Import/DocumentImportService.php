@@ -30,6 +30,7 @@ class DocumentImportService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly DocumentEnrichmentService $enrichmentService,
     ) {}
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -189,6 +190,13 @@ class DocumentImportService
 
         if ($skipsBatch) {
             $this->flushSkipsBatch($skipsBatch);
+        }
+
+        // Run automated geographical and institutional enrichment after import
+        try {
+            $this->enrichmentService->enrichProject($projectId);
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to run geographical enrichment after import: ' . $e->getMessage());
         }
 
         return $stats;

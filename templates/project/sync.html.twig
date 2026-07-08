@@ -1,0 +1,260 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sincronização Geográfica e Institucional — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Sincronização</span>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-arrow-repeat text-accent me-2"></i>
+        Sincronização Geográfica e Institucional
+    </h1>
+    <p class="bm-page-subtitle">Reconcilie dados brutos de filiações com os registros oficiais de países, estados, cidades e instituições.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Sidebar Control Card -->
+    <div class="col-lg-4">
+        <div class="bm-card mb-4">
+            <h5 style="font-weight:700" class="mb-3">Ações de Sincronismo</h5>
+            <p style="font-size:13px;color:var(--bm-text-muted)">
+                Esta ação remove todos os vínculos geográficos e institucionais temporários do projeto e refaz a busca com base nas tabelas oficiais cadastradas pelo Super Admin.
+            </p>
+            <div class="p-3 mb-3 border-bm bg-bm-card rounded-3" style="font-size:12.5px">
+                <div class="d-flex justify-between mb-2">
+                    <span class="text-muted-bm">Documentos no Projeto:</span>
+                    <strong class="ms-auto">{{ doc_count }}</strong>
+                </div>
+                <div class="d-flex justify-between mb-2">
+                    <span class="text-muted-bm">Último Sincronismo:</span>
+                    <strong class="ms-auto text-accent">
+                        {% if report %}
+                            Concluído ({{ report.execution_time }}s)
+                        {% else %}
+                            Nunca executado
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+            
+            <form action="{{ path('app_project_sync_geography_run', {id: project.id}) }}" method="POST" onsubmit="showLoading()">
+                <input type="hidden" name="_token" value="{{ csrf_token('sync_geo_' ~ project.id) }}">
+                <button type="submit" class="btn-bm-primary w-100" id="btn-sync">
+                    <i class="bi bi-play-fill me-1"></i> Executar Sincronismo
+                </button>
+            </form>
+        </div>
+
+        <div class="bm-card" id="loading-card" style="display:none">
+            <div class="text-center py-3">
+                <div class="spinner-border text-accent mb-2" role="status"></div>
+                <div style="font-size:13.5px;font-weight:600">Reconciliando registros...</div>
+                <div style="font-size:11.5px;color:var(--bm-text-muted)">Aguarde enquanto os dados são mapeados na base.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats & Unresolved Reports -->
+    <div class="col-lg-8">
+        {% if report %}
+            <!-- KPI Summary -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="bm-stat-card">
+                        <div class="bm-stat-value text-accent">{{ report.matched_institutions_count }}</div>
+                        <div class="bm-stat-label">Instituições Vinculadas</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bm-stat-card">
+                        <div class="bm-stat-value text-success">{{ report.matched_countries_count }}</div>
+                        <div class="bm-stat-label">Países Vinculados</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs Container -->
+            <div class="bm-card">
+                <ul class="nav nav-tabs border-bm mb-3" id="sync-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active text-accent" id="unresolved-inst-tab" data-bs-toggle="tab" data-bs-target="#unresolved-inst" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                            🏢 Inst. Não Encontradas ({{ report.unresolved_institutions|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-accent" id="unresolved-countries-tab" data-bs-toggle="tab" data-bs-target="#unresolved-countries" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                            🌍 Países Não Encontrados ({{ report.unresolved_countries|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-accent" id="resolved-tab" data-bs-toggle="tab" data-bs-target="#resolved" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                            ✓ Resolvidos
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="sync-tabs-content">
+                    <!-- Tab 1: Unresolved Institutions -->
+                    <div class="tab-pane fade show active" id="unresolved-inst" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12.5px">
+                                <i class="bi bi-info-circle"></i> Os nomes abaixo foram encontrados nos metadados dos artigos, mas não correspondem a nenhuma instituição cadastrada ou variação de nome. Adicione variações correspondentes nas instituições para resolver esses casos.
+                            </div>
+                            <a href="{{ path('app_project_sync_geography_export_unmatched', {id: project.id, type: 'institutions'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                                <i class="bi bi-download me-1"></i> Exportar CSV
+                            </a>
+                        </div>
+                        <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+                                <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                    <tr>
+                                        <th style="color:var(--bm-text-muted)">Nome da Variação no Arquivo</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if report.unresolved_institutions is empty %}
+                                        <tr>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Nenhuma instituição não resolvida!</td>
+                                        </tr>
+                                    {% else %}
+                                        {% for name, count in report.unresolved_institutions %}
+                                            <tr class="border-bm">
+                                                <td class="font-monospace text-accent">{{ name }}</td>
+                                                <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Unresolved Countries -->
+                    <div class="tab-pane fade" id="unresolved-countries" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12.5px">
+                                <i class="bi bi-info-circle"></i> Registre variações nos países (Super Admin) para ligar estes nomes ao país correto.
+                            </div>
+                            <a href="{{ path('app_project_sync_geography_export_unmatched', {id: project.id, type: 'countries'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                                <i class="bi bi-download me-1"></i> Exportar CSV
+                            </a>
+                        </div>
+                        <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+                                <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                    <tr>
+                                        <th style="color:var(--bm-text-muted)">País Encontrado no Arquivo</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if report.unresolved_countries is empty %}
+                                        <tr>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todos os países foram resolvidos!</td>
+                                        </tr>
+                                    {% else %}
+                                        {% for name, count in report.unresolved_countries %}
+                                            <tr class="border-bm">
+                                                <td class="font-monospace text-accent">{{ name }}</td>
+                                                <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Resolved entities stats -->
+                    <div class="tab-pane fade" id="resolved" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h6 style="font-weight:700">Instituições Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:350px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12.5px">
+                                        <thead>
+                                            <tr class="bg-bm-card border-bottom border-bm">
+                                                <th>Instituição</th>
+                                                <th style="text-align:right">Artigos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if report.matched_institutions is empty %}
+                                                <tr>
+                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma instituição vinculada ainda.</td>
+                                                </tr>
+                                            {% else %}
+                                                {% for item in report.matched_institutions %}
+                                                    <tr class="border-bm">
+                                                        <td style="font-weight:600">{{ item.name }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-accent">{{ item.count }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 style="font-weight:700">Países Identificados</h6>
+                                <div class="table-responsive border-bm rounded-3" style="max-height:350px">
+                                    <table class="table table-sm align-middle mb-0" style="font-size:12.5px">
+                                        <thead>
+                                            <tr class="bg-bm-card border-bottom border-bm">
+                                                <th>País</th>
+                                                <th style="text-align:right">Artigos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if report.matched_countries is empty %}
+                                                <tr>
+                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhum país vinculado ainda.</td>
+                                                </tr>
+                                            {% else %}
+                                                {% for item in report.matched_countries %}
+                                                    <tr class="border-bm">
+                                                        <td style="font-weight:600">{{ item.name }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-accent">{{ item.count }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- No Sync Yet Card -->
+            <div class="bm-card text-center py-5">
+                <i class="bi bi-cloud-arrow-up text-accent mb-3" style="font-size:48px"></i>
+                <h4 style="font-weight:700">Nenhum sincronismo executado</h4>
+                <p class="text-muted-bm mx-auto" style="max-width:460px;font-size:13.5px">
+                    Os metadados geográficos e de filiação dos artigos importados ainda não foram reconciliados com o banco de dados oficial. Clique em **Executar Sincronismo** para realizar os mapeamentos.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function showLoading() {
+    document.getElementById('btn-sync').disabled = true;
+    document.getElementById('btn-sync').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Executando...';
+    document.getElementById('loading-card').style.display = 'block';
+}
+</script>
+{% endblock %}

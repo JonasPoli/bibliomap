@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nova Cidade — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_geography_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Geografia</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Nova Cidade</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-plus-circle text-accent me-2"></i>Cadastrar Cidade
+    </h1>
+    <p class="bm-page-subtitle">Adicione uma nova cidade vinculada a um país e estado.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_geography_city_new') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('new_city') }}">
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Nome da Cidade *</label>
+                        <input type="text" name="officialName" class="form-control" placeholder="Ex: São Carlos" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Código IBGE / Oficial</label>
+                        <input type="text" name="officialCode" class="form-control" placeholder="Ex: 3548906">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">País *</label>
+                        <select name="countryId" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            {% for c in countries %}
+                                <option value="{{ c.id }}">{{ c.commonName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Estado *</label>
+                        <select name="stateId" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            {% for s in states %}
+                                <option value="{{ s.id }}">{{ s.officialName }} ({{ s.sigla }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" checked>
+                            <label class="form-check-label" for="status">Cidade Ativa</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variations Input -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Variações de Escrita</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita da cidade (uma por linha).
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="São Carlos&#10;Sao Carlos&#10;S. Carlos"></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_geography_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Cidade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

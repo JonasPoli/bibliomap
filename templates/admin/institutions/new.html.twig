@@ -1,0 +1,148 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nova Instituição — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_institutions_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Instituições</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Nova</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-plus-circle text-accent me-2"></i>Nova Instituição de Ensino
+    </h1>
+    <p class="bm-page-subtitle">Cadastre uma nova instituição para reconciliar com os artigos importados.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_institutions_new') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('new_institution') }}">
+
+                <div class="row g-3 mb-4">
+                    <!-- Official Name -->
+                    <div class="col-12">
+                        <label class="form-label">Nome Oficial Completo *</label>
+                        <input type="text" name="officialName" class="form-control" placeholder="Ex: Universidade de São Paulo" required>
+                    </div>
+
+                    <!-- Short Name -->
+                    <div class="col-md-6">
+                        <label class="form-label">Nome Curto / Popular</label>
+                        <input type="text" name="shortName" class="form-control" placeholder="Ex: USP - São Paulo">
+                    </div>
+
+                    <!-- Sigla -->
+                    <div class="col-md-6">
+                        <label class="form-label">Sigla Oficial</label>
+                        <input type="text" name="sigla" class="form-control" placeholder="Ex: USP">
+                    </div>
+
+                    <!-- Type of Institution -->
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Instituição</label>
+                        <select name="institutionType" class="form-select">
+                            <option value="Universidade">Universidade</option>
+                            <option value="Faculdade">Faculdade</option>
+                            <option value="Centro Universitário">Centro Universitário</option>
+                            <option value="Instituto Federal">Instituto Federal</option>
+                            <option value="Escola Técnica">Escola Técnica</option>
+                            <option value="Instituto de Pesquisa">Instituto de Pesquisa</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+
+                    <!-- Natureza -->
+                    <div class="col-md-6">
+                        <label class="form-label">Natureza</label>
+                        <select name="natureza" class="form-select">
+                            <option value="Pública">Pública</option>
+                            <option value="Privada">Privada</option>
+                            <option value="Comunitária">Comunitária</option>
+                            <option value="Confessional">Confessional</option>
+                            <option value="Federal">Federal</option>
+                            <option value="Estadual">Estadual</option>
+                            <option value="Municipal">Municipal</option>
+                        </select>
+                    </div>
+
+                    <!-- Location Selects -->
+                    <div class="col-md-4">
+                        <label class="form-label">País</label>
+                        <select name="countryId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for c in countries %}
+                                <option value="{{ c.id }}">{{ c.commonName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Estado (Se aplicável)</label>
+                        <select name="stateId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for s in states %}
+                                <option value="{{ s.id }}">{{ s.officialName }} ({{ s.sigla }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Cidade (Se aplicável)</label>
+                        <select name="cityId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for ct in cities %}
+                                <option value="{{ ct.id }}">{{ ct.officialName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Web & Contact -->
+                    <div class="col-md-6">
+                        <label class="form-label">Site Oficial</label>
+                        <input type="url" name="officialWebsite" class="form-control" placeholder="https://exemplo.edu.br">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">E-mail Institucional</label>
+                        <input type="email" name="institutionalEmail" class="form-control" placeholder="contato@exemplo.edu.br">
+                    </div>
+
+                    <!-- Status -->
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" checked>
+                            <label class="form-check-label" for="status">Instituição Ativa</label>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="col-12">
+                        <label class="form-label">Observações</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Informações adicionais..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Variations Input -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Variações de Escrita</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita da instituição (uma por linha). O sistema usará esta lista para vincular os artigos automaticamente.
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="USP&#10;Univ. de São Paulo&#10;Universidade São Paulo&#10;University of Sao Paulo"></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_institutions_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Instituição</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

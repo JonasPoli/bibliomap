@@ -314,34 +314,26 @@ class ReportService
     public function getCountriesReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
-            'SELECT countries, COALESCE(cited_by, 0) AS cited_by
-             FROM document
-             WHERE project_id = ? AND countries IS NOT NULL',
+            'SELECT c.common_name AS country, COUNT(dp.document_id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+             FROM documento_paises dp
+             JOIN paises c ON dp.country_id = c.id
+             JOIN document d ON dp.document_id = d.id
+             WHERE d.project_id = ?
+             GROUP BY c.id, c.common_name
+             ORDER BY doc_count DESC',
             [$projectId]
         );
 
         $countryCounts = [];
         foreach ($rows as $row) {
-            $countries = json_decode($row['countries'], true);
-            if (is_array($countries)) {
-                foreach ($countries as $c) {
-                    $c = trim($c);
-                    if ($c === '') continue;
-                    if (!isset($countryCounts[$c])) {
-                        $countryCounts[$c] = ['country' => $c, 'doc_count' => 0, 'citation_count' => 0];
-                    }
-                    $countryCounts[$c]['doc_count']++;
-                    $countryCounts[$c]['citation_count'] += (int)$row['cited_by'];
-                }
-            }
+            $c = $row['country'];
+            $countryCounts[] = [
+                'country' => $c,
+                'doc_count' => (int)$row['doc_count'],
+                'citation_count' => (int)$row['citation_count'],
+                'avg_citations' => $row['doc_count'] > 0 ? round($row['citation_count'] / $row['doc_count'], 1) : 0
+            ];
         }
-
-        foreach ($countryCounts as &$cc) {
-            $cc['avg_citations'] = $cc['doc_count'] > 0 ? round($cc['citation_count'] / $cc['doc_count'], 1) : 0;
-        }
-        unset($cc);
-
-        usort($countryCounts, fn($a, $b) => $b['doc_count'] <=> $a['doc_count']);
 
         $totalCountries = count($countryCounts);
         $topCountry     = $totalCountries > 0 ? $countryCounts[0]['country']   : 'N/A';

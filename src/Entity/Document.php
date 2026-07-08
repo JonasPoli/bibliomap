@@ -123,10 +123,33 @@ class Document
     #[ORM\OneToMany(targetEntity: DocumentKeyword::class, mappedBy: 'document', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $documentKeywords;
 
+    /** @var Collection<int, DocumentInstitution> */
+    #[ORM\OneToMany(targetEntity: DocumentInstitution::class, mappedBy: 'document', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $documentInstitutions;
+
+    /** @var Collection<int, Country> */
+    #[ORM\ManyToMany(targetEntity: Country::class)]
+    #[ORM\JoinTable(name: 'documento_paises')]
+    private Collection $countriesMapped;
+
+    /** @var Collection<int, State> */
+    #[ORM\ManyToMany(targetEntity: State::class)]
+    #[ORM\JoinTable(name: 'documento_estados')]
+    private Collection $statesMapped;
+
+    /** @var Collection<int, City> */
+    #[ORM\ManyToMany(targetEntity: City::class)]
+    #[ORM\JoinTable(name: 'documento_cidades')]
+    private Collection $citiesMapped;
+
     public function __construct()
     {
         $this->documentAuthors = new ArrayCollection();
         $this->documentKeywords = new ArrayCollection();
+        $this->documentInstitutions = new ArrayCollection();
+        $this->countriesMapped = new ArrayCollection();
+        $this->statesMapped = new ArrayCollection();
+        $this->citiesMapped = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
     }
 
@@ -254,5 +277,68 @@ class Document
             }
         }
         return implode('; ', $names);
+    }
+
+    /** @return Collection<int, DocumentInstitution> */
+    public function getDocumentInstitutions(): Collection { return $this->documentInstitutions; }
+
+    public function addDocumentInstitution(DocumentInstitution $di): static
+    {
+        if (!$this->documentInstitutions->contains($di)) {
+            $this->documentInstitutions->add($di);
+            $di->setDocument($this);
+        }
+        return $this;
+    }
+
+    /** @return Collection<int, Country> */
+    public function getCountriesMapped(): Collection { return $this->countriesMapped; }
+
+    public function addCountryMapped(Country $country): static
+    {
+        if (!$this->countriesMapped->contains($country)) {
+            $this->countriesMapped->add($country);
+        }
+        return $this;
+    }
+
+    public function removeCountryMapped(Country $country): static
+    {
+        $this->countriesMapped->removeElement($country);
+        return $this;
+    }
+
+    /** @return Collection<int, State> */
+    public function getStatesMapped(): Collection { return $this->statesMapped; }
+
+    public function addStateMapped(State $state): static
+    {
+        if (!$this->statesMapped->contains($state)) {
+            $this->statesMapped->add($state);
+        }
+        return $this;
+    }
+
+    public function removeStateMapped(State $state): static
+    {
+        $this->statesMapped->removeElement($state);
+        return $this;
+    }
+
+    /** @return Collection<int, City> */
+    public function getCitiesMapped(): Collection { return $this->citiesMapped; }
+
+    public function addCityMapped(City $city): static
+    {
+        if (!$this->citiesMapped->contains($city)) {
+            $this->citiesMapped->add($city);
+        }
+        return $this;
+    }
+
+    public function removeCityMapped(City $city): static
+    {
+        $this->citiesMapped->removeElement($city);
+        return $this;
     }
 }

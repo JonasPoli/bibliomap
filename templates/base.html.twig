@@ -256,6 +256,10 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_normalize' %}active{% endif %}">
                     <i class="bi bi-magic"></i> Normalização
                 </a>
+                <a href="{{ path('app_project_sync_geography', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_project_sync_geography' %}active{% endif %}">
+                    <i class="bi bi-arrow-repeat"></i> Sinc. Geográfica
+                </a>
                 <div class="bm-nav-section" style="margin-top:8px">Análises</div>
                 <a href="{{ path('app_report_annual_production', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_annual_production' %}active{% endif %}">
@@ -292,6 +296,10 @@
                 <a href="{{ path('app_report_institutions', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_institutions' %}active{% endif %}">
                     <i class="bi bi-building"></i> Instituições
+                </a>
+                <a href="{{ path('app_report_geography', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_geography' %}active{% endif %}">
+                    <i class="bi bi-geo-alt"></i> Relat. Geográfico
                 </a>
                 <div class="bm-nav-section" style="margin-top:8px">Redes e Mapas</div>
                 <a href="{{ path('app_networks_index', {id: project.id}) }}"
@@ -362,6 +370,16 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin_theoretical_lenses' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">
                     <i class="bi bi-mortarboard" style="font-size:13px"></i> Lentes Te&oacute;ricas
+                </a>
+                <a href="{{ path('app_admin_institutions_index') }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin_institutions' %}active{% endif %}"
+                   style="padding-left:32px;font-size:12.5px">
+                    <i class="bi bi-building" style="font-size:13px"></i> Institui&ccedil;&otilde;es
+                </a>
+                <a href="{{ path('app_admin_geography_index') }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin_geography' %}active{% endif %}"
+                   style="padding-left:32px;font-size:12.5px">
+                    <i class="bi bi-globe" style="font-size:13px"></i> Geografia
                 </a>
                 <a href="{{ path('app_admin_settings') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_admin_settings' %}active{% endif %}"

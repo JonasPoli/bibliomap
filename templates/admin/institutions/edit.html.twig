@@ -1,0 +1,200 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Instituição — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_institutions_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Instituições</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Editar</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil text-accent me-2"></i>Editar: {{ institution.officialName }}
+    </h1>
+    <p class="bm-page-subtitle">Modifique os dados e adicione variações de escrita para esta instituição.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_institutions_edit', {id: institution.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_institution_' ~ institution.id) }}">
+
+                <div class="row g-3 mb-4">
+                    <!-- Official Name -->
+                    <div class="col-12">
+                        <label class="form-label">Nome Oficial Completo *</label>
+                        <input type="text" name="officialName" class="form-control" placeholder="Ex: Universidade de São Paulo" value="{{ institution.officialName }}" required>
+                    </div>
+
+                    <!-- Short Name -->
+                    <div class="col-md-6">
+                        <label class="form-label">Nome Curto / Popular</label>
+                        <input type="text" name="shortName" class="form-control" placeholder="Ex: USP - São Paulo" value="{{ institution.shortName }}">
+                    </div>
+
+                    <!-- Sigla -->
+                    <div class="col-md-6">
+                        <label class="form-label">Sigla Oficial</label>
+                        <input type="text" name="sigla" class="form-control" placeholder="Ex: USP" value="{{ institution.sigla }}">
+                    </div>
+
+                    <!-- Type of Institution -->
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Instituição</label>
+                        <select name="institutionType" class="form-select">
+                            <option value="Universidade" {% if institution.institutionType == 'Universidade' %}selected{% endif %}>Universidade</option>
+                            <option value="Faculdade" {% if institution.institutionType == 'Faculdade' %}selected{% endif %}>Faculdade</option>
+                            <option value="Centro Universitário" {% if institution.institutionType == 'Centro Universitário' %}selected{% endif %}>Centro Universitário</option>
+                            <option value="Instituto Federal" {% if institution.institutionType == 'Instituto Federal' %}selected{% endif %}>Instituto Federal</option>
+                            <option value="Escola Técnica" {% if institution.institutionType == 'Escola Técnica' %}selected{% endif %}>Escola Técnica</option>
+                            <option value="Instituto de Pesquisa" {% if institution.institutionType == 'Instituto de Pesquisa' %}selected{% endif %}>Instituto de Pesquisa</option>
+                            <option value="Outro" {% if institution.institutionType == 'Outro' %}selected{% endif %}>Outro</option>
+                        </select>
+                    </div>
+
+                    <!-- Natureza -->
+                    <div class="col-md-6">
+                        <label class="form-label">Natureza</label>
+                        <select name="natureza" class="form-select">
+                            <option value="Pública" {% if institution.natureza == 'Pública' %}selected{% endif %}>Pública</option>
+                            <option value="Privada" {% if institution.natureza == 'Privada' %}selected{% endif %}>Privada</option>
+                            <option value="Comunitária" {% if institution.natureza == 'Comunitária' %}selected{% endif %}>Comunitária</option>
+                            <option value="Confessional" {% if institution.natureza == 'Confessional' %}selected{% endif %}>Confessional</option>
+                            <option value="Federal" {% if institution.natureza == 'Federal' %}selected{% endif %}>Federal</option>
+                            <option value="Estadual" {% if institution.natureza == 'Estadual' %}selected{% endif %}>Estadual</option>
+                            <option value="Municipal" {% if institution.natureza == 'Municipal' %}selected{% endif %}>Municipal</option>
+                        </select>
+                    </div>
+
+                    <!-- Location Selects -->
+                    <div class="col-md-4">
+                        <label class="form-label">País</label>
+                        <select name="countryId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for c in countries %}
+                                <option value="{{ c.id }}" {% if institution.country and institution.country.id == c.id %}selected{% endif %}>{{ c.commonName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Estado (Se aplicável)</label>
+                        <select name="stateId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for s in states %}
+                                <option value="{{ s.id }}" {% if institution.state and institution.state.id == s.id %}selected{% endif %}>{{ s.officialName }} ({{ s.sigla }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Cidade (Se aplicável)</label>
+                        <select name="cityId" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for ct in cities %}
+                                <option value="{{ ct.id }}" {% if institution.city and institution.city.id == ct.id %}selected{% endif %}>{{ ct.officialName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Web & Contact -->
+                    <div class="col-md-6">
+                        <label class="form-label">Site Oficial</label>
+                        <input type="url" name="officialWebsite" class="form-control" placeholder="https://exemplo.edu.br" value="{{ institution.officialWebsite }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">E-mail Institucional</label>
+                        <input type="email" name="institutionalEmail" class="form-control" placeholder="contato@exemplo.edu.br" value="{{ institution.institutionalEmail }}">
+                    </div>
+
+                    <!-- Status -->
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if institution.isStatus() %}checked{% endif %}>
+                            <label class="form-check-label" for="status">Instituição Ativa</label>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="col-12">
+                        <label class="form-label">Observações</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Informações adicionais...">{{ institution.notes }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Variations Textarea (Bulk edit) -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Edição em Massa das Variações</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita da instituição (uma por linha). O sistema usará esta lista para vincular os artigos automaticamente.
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="USP&#10;Univ. de São Paulo&#10;Universidade São Paulo&#10;University of Sao Paulo">{{ variationsText }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_institutions_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Variation list with separate trigger & Merge Record Card -->
+    <div class="col-lg-4">
+        <!-- Variations List -->
+        <div class="bm-card mb-4">
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Variações registradas para esta instituição. Você pode desmembrar qualquer uma para torná-la uma instituição independente.
+            </p>
+            {% set hasAlternatives = false %}
+            <div class="list-group list-group-flush border-bm rounded">
+                {% for v in institution.variations %}
+                    {% if v.variationType == 'alternative' %}
+                        {% set hasAlternatives = true %}
+                        <div class="list-group-item bg-bm-card border-bm d-flex justify-content-between align-items-center py-2" style="font-size:13px;color:var(--bm-text)">
+                            <span class="font-monospace text-accent">{{ v.variationName }}</span>
+                            <form action="{{ path('app_admin_institutions_variation_separate', {id: v.id}) }}" method="POST" style="display:inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('separate_var_' ~ v.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em uma nova instituição independente?');">
+                                    Desmembrar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% if not hasAlternatives %}
+                <div class="text-center py-3 text-muted-bm" style="font-size:12.5px">Nenhuma variação alternativa cadastrada.</div>
+            {% endif %}
+        </div>
+
+        <!-- Merge Card -->
+        <div class="bm-card">
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Instituição</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Transfira todos os artigos vinculados e variações para a instituição selecionada abaixo, excluindo este registro permanentemente.
+            </p>
+            <form action="{{ path('app_admin_institutions_merge', {id: institution.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir esta instituição? A ação não poderá ser desfeita.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('merge_institution_' ~ institution.id) }}">
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:12px">Instituição de Destino</label>
+                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
+                        <option value="">Selecione...</option>
+                        {% for other in other_institutions %}
+                            <option value="{{ other.id }}">{{ other.officialName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

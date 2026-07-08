@@ -714,7 +714,7 @@ class ReportController extends AbstractController
                 // 1. Direct match (Title/Abstract)
                 $directMatched = false;
                 foreach ($terms as $term) {
-                    if (str_contains($textLower, $term)) {
+                    if ($this->matchTerm($textLower, $term)) {
                         $directMatched = true;
                         break;
                     }
@@ -738,7 +738,7 @@ class ReportController extends AbstractController
                 $refMatched = false;
                 if (!empty($citations)) {
                     foreach ($citations as $cit) {
-                        if (str_contains($allRefsText, $cit)) {
+                        if ($this->matchTerm($allRefsText, $cit)) {
                             $refMatched = true;
                             break;
                         }
@@ -747,7 +747,7 @@ class ReportController extends AbstractController
                 
                 if (!$refMatched) {
                     foreach ($terms as $term) {
-                        if (str_contains($allRefsText, $term)) {
+                        if ($this->matchTerm($allRefsText, $term)) {
                             $refMatched = true;
                             break;
                         }
@@ -850,5 +850,12 @@ class ReportController extends AbstractController
         }
         return $project;
     }
-}
 
+    private function matchTerm(string $text, string $term): bool
+    {
+        $termEscaped = preg_quote($term, '/');
+        // Match exact word boundary, supporting accented characters and hyphens
+        $pattern = '/(?<=^|[^a-zA-Z0-9áéíóúâêôçãõà\-])' . $termEscaped . '(?=$|[^a-zA-Z0-9áéíóúâêôçãõà\-])/iu';
+        return (bool) preg_match($pattern, $text);
+    }
+}

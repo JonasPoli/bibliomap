@@ -1,0 +1,413 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Indicadores Geográficos e Institucionais — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_projects_show', {id: project.id}) }}" style="color:var(--bm-text-muted);text-decoration:none">{{ project.title|slice(0,30) }}</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Geografia & Instituições</span>
+{% endblock %}
+
+{% block body %}
+<!-- Page Header -->
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-geo-alt-fill text-accent me-2"></i>
+        Relatório Geográfico e Institucional
+    </h1>
+    <p class="bm-page-subtitle">Indicadores estatísticos de produção científica por continentes, regiões, estados, cidades e perfis institucionais.</p>
+</div>
+
+<!-- Filter Header -->
+<div class="bm-card mb-4 py-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div style="font-size:14px;font-weight:600">
+            <i class="bi bi-funnel me-1"></i> Filtrar Relatório por País
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <select id="filter-country" class="form-select form-select-sm" style="width:240px;font-size:13px">
+                <option value="">Todos os países</option>
+                {% for c in all_countries %}
+                    <option value="{{ c.id }}" {% if selected_country_id == c.id %}selected{% endif %}>{{ c.common_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Callout if Mapping is Low -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bm-stat-card">
+            <div class="bm-stat-value text-accent">
+                {% if total_docs > 0 %}
+                    {{ ((mapped_docs / total_docs) * 100)|round(1) }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </div>
+            <div class="bm-stat-label">Taxa de Cobertura Geográfica</div>
+            <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
+                {{ mapped_docs }} de {{ total_docs }} artigos vinculados
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8 d-flex align-items-center">
+        <div class="bm-card w-100 py-3 d-flex align-items-center justify-content-between">
+            <div style="font-size:13.5px">
+                <i class="bi bi-lightbulb-fill text-warning me-2"></i>
+                Caso a taxa de cobertura esteja baixa, você pode cadastrar novas variações ou instituições e rodar o sincronismo de novo.
+            </div>
+            <a href="{{ path('app_project_sync_geography', {id: project.id}) }}" class="btn btn-sm btn-bm-primary" style="text-decoration:none">
+                <i class="bi-arrow-repeat me-1"></i> Ir para Sincronismo
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if mapped_docs == 0 %}
+    <div class="bm-card text-center py-5">
+        <i class="bi bi-exclamation-triangle text-warning mb-3" style="font-size:48px"></i>
+        <h4 style="font-weight:700">Nenhum artigo reconciliado ainda</h4>
+        <p class="text-muted-bm mx-auto mb-4" style="max-width:500px;font-size:13.5px">
+            Parece que o sincronismo geográfico não foi rodado para este projeto ou nenhuma variação foi encontrada. Vá para a página de sincronismo para associar os dados.
+        </p>
+        <a href="{{ path('app_project_sync_geography', {id: project.id}) }}" class="btn-bm-primary btn" style="text-decoration:none">
+            Executar Sincronismo Geográfico
+        </a>
+    </div>
+{% else %}
+    <!-- Row 1: Continents & Regions -->
+    <div class="row g-4 mb-4">
+        <!-- Continents -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Produção por Continente</h5>
+                <div style="position:relative;height:260px" class="d-flex align-items-center justify-content-center">
+                    <canvas id="chart-continents"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regions -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Produção por Região (Brasil)</h5>
+                {% if regions is empty %}
+                    <div class="text-center py-5 text-muted-bm">Nenhum dado de região disponível.</div>
+                {% else %}
+                    <div style="position:relative;height:260px">
+                        <canvas id="chart-regions"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: States & Cities -->
+    <div class="row g-4 mb-4">
+        <!-- States (Top 15) -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Top 15 Estados / Províncias</h5>
+                {% if states is empty %}
+                    <div class="text-center py-5 text-muted-bm">Nenhum estado mapeado.</div>
+                {% else %}
+                    <div style="position:relative;height:320px">
+                        <canvas id="chart-states"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Cities (Top 15) -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Top 15 Cidades</h5>
+                {% if cities is empty %}
+                    <div class="text-center py-5 text-muted-bm">Nenhuma cidade mapeada.</div>
+                {% else %}
+                    <div style="position:relative;height:320px">
+                        <canvas id="chart-cities"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Institution Profiles (Nature & Type) -->
+    <div class="row g-4 mb-4">
+        <!-- Nature -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Natureza das Instituições</h5>
+                {% if nature is empty %}
+                    <div class="text-center py-5 text-muted-bm">Sem dados institucionais de natureza.</div>
+                {% else %}
+                    <div style="position:relative;height:260px" class="d-flex align-items-center justify-content-center">
+                        <canvas id="chart-nature"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Types -->
+        <div class="col-xl-6">
+            <div class="bm-card h-100">
+                <h5 style="font-weight:700" class="mb-3">Tipos de Instituições Acadêmicas</h5>
+                {% if types is empty %}
+                    <div class="text-center py-5 text-muted-bm">Sem dados de tipos de instituições.</div>
+                {% else %}
+                    <div style="position:relative;height:260px" class="d-flex align-items-center justify-content-center">
+                        <canvas id="chart-types"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Statistics Table -->
+    <div class="bm-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 style="font-weight:700" class="m-0">Estatísticas Detalhadas por Cidade</h5>
+            <a href="{{ path('app_report_geography_cities_export', {id: project.id}) }}" class="btn btn-sm btn-outline-success">
+                <i class="bi bi-download me-1"></i> Exportar Cidades (CSV)
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13.5px">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th>Cidade</th>
+                        <th>Estado / País</th>
+                        <th style="text-align:right">Artigos Mapeados</th>
+                        <th style="text-align:right">Citações Recebidas</th>
+                        <th style="text-align:right">Média de Citações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cities %}
+                        <tr class="border-bm">
+                            <td style="font-weight:600">{{ c.label }}</td>
+                            <td>
+                                {{ c.state_sigla ? c.state_sigla ~ ' · ' : '' }}{{ c.country }}
+                            </td>
+                            <td style="text-align:right;font-weight:700" class="text-accent">{{ c.doc_count }}</td>
+                            <td style="text-align:right">{{ c.citation_count }}</td>
+                            <td style="text-align:right;color:var(--bm-text-muted)">
+                                {% if c.doc_count > 0 %}
+                                    {{ (c.citation_count / c.doc_count)|round(1) }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+{% if mapped_docs > 0 %}
+function isThemeLight() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'light';
+}
+function getColors() {
+    const light = isThemeLight();
+    return {
+        grid: light ? 'rgba(208,215,222,0.8)' : 'rgba(48,54,61,0.8)',
+        text: light ? '#57606a' : '#8b949e',
+        palette: ['#4f8ef7', '#a855f7', '#3fb950', '#d29922', '#f85149', '#0969da', '#e91e63', '#a1a1aa'],
+        accent: '#4f8ef7'
+    };
+}
+
+let charts = {};
+
+function buildCharts() {
+    // Destroy previous charts
+    Object.keys(charts).forEach(key => {
+        if (charts[key]) charts[key].destroy();
+    });
+
+    const configColors = getColors();
+    Chart.defaults.color = configColors.text;
+    Chart.defaults.borderColor = configColors.grid;
+
+    // 1. Continents Chart
+    const continentsData = {{ continents|json_encode|raw }};
+    if (document.getElementById('chart-continents')) {
+        charts.continents = new Chart(document.getElementById('chart-continents'), {
+            type: 'doughnut',
+            data: {
+                labels: continentsData.map(c => c.label),
+                datasets: [{
+                    data: continentsData.map(c => c.doc_count),
+                    backgroundColor: configColors.palette,
+                    borderWidth: 1,
+                    borderColor: isThemeLight() ? '#fff' : '#1c2128'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+
+    // 2. Regions Chart
+    const regionsData = {{ regions|json_encode|raw }};
+    if (document.getElementById('chart-regions') && regionsData.length > 0) {
+        charts.regions = new Chart(document.getElementById('chart-regions'), {
+            type: 'bar',
+            data: {
+                labels: regionsData.map(r => r.label),
+                datasets: [{
+                    label: 'Documentos',
+                    data: regionsData.map(r => r.doc_count),
+                    backgroundColor: '#a855f7',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { drawTicks: false } }
+                }
+            }
+        });
+    }
+
+    // 3. States Chart
+    const statesData = {{ states|json_encode|raw }};
+    if (document.getElementById('chart-states') && statesData.length > 0) {
+        charts.states = new Chart(document.getElementById('chart-states'), {
+            type: 'bar',
+            data: {
+                labels: statesData.map(s => s.label + (s.sigla ? ' (' + s.sigla + ')' : '')),
+                datasets: [{
+                    label: 'Documentos',
+                    data: statesData.map(s => s.doc_count),
+                    backgroundColor: '#3fb950',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { drawTicks: false } }
+                }
+            }
+        });
+    }
+
+    // 4. Cities Chart
+    const citiesData = {{ cities|json_encode|raw }};
+    if (document.getElementById('chart-cities') && citiesData.length > 0) {
+        charts.cities = new Chart(document.getElementById('chart-cities'), {
+            type: 'bar',
+            data: {
+                labels: citiesData.map(ct => ct.label + (ct.state_sigla ? ' - ' + ct.state_sigla : '')),
+                datasets: [{
+                    label: 'Documentos',
+                    data: citiesData.map(ct => ct.doc_count),
+                    backgroundColor: '#4f8ef7',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { drawTicks: false } }
+                }
+            }
+        });
+    }
+
+    // 5. Nature Chart
+    const natureData = {{ nature|json_encode|raw }};
+    if (document.getElementById('chart-nature') && natureData.length > 0) {
+        charts.nature = new Chart(document.getElementById('chart-nature'), {
+            type: 'pie',
+            data: {
+                labels: natureData.map(n => n.label),
+                datasets: [{
+                    data: natureData.map(n => n.doc_count),
+                    backgroundColor: configColors.palette.slice(2),
+                    borderWidth: 1,
+                    borderColor: isThemeLight() ? '#fff' : '#1c2128'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+
+    // 6. Types Chart
+    const typesData = {{ types|json_encode|raw }};
+    if (document.getElementById('chart-types') && typesData.length > 0) {
+        charts.types = new Chart(document.getElementById('chart-types'), {
+            type: 'doughnut',
+            data: {
+                labels: typesData.map(t => t.label),
+                datasets: [{
+                    data: typesData.map(t => t.doc_count),
+                    backgroundColor: configColors.palette.slice(4),
+                    borderWidth: 1,
+                    borderColor: isThemeLight() ? '#fff' : '#1c2128'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+}
+
+// Rebuild on load and theme change
+document.addEventListener('DOMContentLoaded', buildCharts);
+window.addEventListener('bm-theme-changed', buildCharts);
+
+const filterSel = document.getElementById('filter-country');
+if (filterSel) {
+    filterSel.addEventListener('change', function() {
+        const val = this.value;
+        const url = new URL(window.location.href);
+        if (val) {
+            url.searchParams.set('countryId', val);
+        } else {
+            url.searchParams.delete('countryId');
+        }
+        window.location.href = url.toString();
+    });
+}
+{% endif %}
+</script>
+{% endblock %}
