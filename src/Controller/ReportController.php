@@ -385,10 +385,22 @@ class ReportController extends AbstractController
     {
         $project = $this->getProject($id);
         $data = $this->reportService->getCountriesReport($project->getId());
+        
+        $continents = $this->conn->fetchAllAssociative(
+            'SELECT co.continente AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+             FROM document d
+             JOIN documento_paises dp ON dp.document_id = d.id
+             JOIN paises co ON co.id = dp.country_id
+             WHERE d.project_id = ? AND co.continente IS NOT NULL
+             GROUP BY co.continente ORDER BY doc_count DESC',
+            [$project->getId()]
+        );
+
         return $this->render('report/countries.html.twig', [
-            'project' => $project,
-            'list'    => $data['list'],
-            'kpis'    => $data['kpis'],
+            'project'    => $project,
+            'list'       => $data['list'],
+            'kpis'       => $data['kpis'],
+            'continents' => $continents,
         ]);
     }
 

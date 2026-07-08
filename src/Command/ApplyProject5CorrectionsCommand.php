@@ -3,9 +3,6 @@
 namespace App\Command;
 
 use App\Entity\Institution;
-use App\Entity\InstitutionVariation;
-use App\Entity\Organization;
-use App\Entity\InstitutionUnit;
 use App\Service\Import\DocumentEnrichmentService;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Reader;
@@ -18,7 +15,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 
 #[AsCommand(
     name: 'app:geography:apply-corrections-p5',
-    description: 'Apply Project 5 unresolved institutions corrections from CSV',
+    description: 'Apply updated Project 5 unresolved institutions corrections from CSV',
 )]
 class ApplyProject5CorrectionsCommand extends Command
 {
@@ -33,10 +30,10 @@ class ApplyProject5CorrectionsCommand extends Command
     {
         ini_set('memory_limit', '1024M');
         $io = new SymfonyStyle($input, $output);
-        $io->title("Applying Project 5 Unresolved Institutions Corrections");
+        $io->title("Applying Updated Project 5 Unresolved Institutions Corrections");
 
         $basePath = $this->kernel->getProjectDir() . '/docs/ajustes';
-        $csvPath = $basePath . '/tabela_cadastro_instituicoes_nao_encontradas_projeto_5.csv';
+        $csvPath = $basePath . '/recomendacoes_instituicoes_nao_encontradas_projeto_5_atualizado.csv';
 
         if (!file_exists($csvPath)) {
             $io->error("CSV file not found at: {$csvPath}");
@@ -53,62 +50,101 @@ class ApplyProject5CorrectionsCommand extends Command
         $unitsAdded = 0;
 
         foreach ($reader as $row) {
-            $raw = trim($row['raw_institution_name'] ?? '');
+            $raw = trim($row['raw'] ?? '');
             $acao = trim($row['acao'] ?? '');
-            $tipo = trim($row['tipo_sugerido'] ?? '');
-            $canonical = trim($row['nome_canonico_sugerido'] ?? '');
+            $tabela = trim($row['tabela'] ?? '');
+            $canonical = trim($row['canonical'] ?? '');
+            $tipo = trim($row['tipo'] ?? '');
+            $paisName = trim($row['pais'] ?? '');
+            $parentName = trim($row['parent'] ?? '');
+            $confianca = trim($row['confianca'] ?? 'High');
             $obs = trim($row['observacao'] ?? '');
 
             if ($raw === '') continue;
 
             $normRaw = DocumentEnrichmentService::normalize($raw);
 
-            // 1. Add Variation
-            if (strpos($acao, 'Adicionar variação') !== false || strpos($acao, 'Atualizar/Adicionar variação') !== false) {
-                $inst = $this->em->getRepository(Institution::class)->findOneBy(['officialName' => $canonical]);
-                if (!$inst && $canonical !== '') {
-                    $inst = $this->em->getRepository(Institution::class)->findOneBy(['shortName' => $canonical]);
-                }
+            // Skip blacklist or ambiguous items
+            if ($acao === 'NAO_CADASTRAR_BLACKLIST' || $acao === 'REVISAR_PAIS_DO_DOCUMENTO') {
+                $io->note("Skipping blacklisted or ambiguous item: '{$raw}'");
+                continue;
+            }
 
-                if ($inst) {
-                    $exists = $conn->fetchOne(
-                        'SELECT id FROM instituicao_variacoes_nome WHERE institution_id = ? AND normalized_name = ?',
-                        [$inst->getId(), $normRaw]
-                    );
-
-                    if (!$exists) {
-                        $conn->insert('instituicao_variacoes_nome', [
-                            'institution_id' => $inst->getId(),
-                            'variation_name' => $raw,
-                            'variation_type' => 'scopus_abbreviation',
-                            'normalized_name' => $normRaw,
-                            'status' => 1,
+            // 1. Cadastrar Unidade Interna
+            if ($acao === 'CADASTRAR_UNIDADE' || $acao === 'CADASTRAR_UNIDADE_E_ORG_SEPARADA') {
+                // If it is composite, we register ITI/LARSyS unit and ARDITI organization
+                if ($raw === 'Interact Technol Inst ITI LARSyS & ARDITI') {
+                    // Check organization ARDITI
+                    $orgExists = $conn->fetchOne('SELECT id FROM organizacoes WHERE original_variation_name = ?', ['ARDITI']);
+                    if (!$orgExists) {
+                        $conn->insert('organizacoes', [
+                            'original_variation_name' => 'ARDITI',
+                            'canonical_name' => 'Agência Regional para o Desenvolvimento da Investigação, Tecnologia e Inovação',
+                            'type' => 'Agência pública de pesquisa e inovação',
+                            'confidence' => 'High',
+                            'observation' => 'Entidade mencionada junto ao ITI/LARSyS.'
                         ]);
-                        $variationsAdded++;
+                        $organizationsAdded++;
                     }
-                } else {
-                    $io->warning("Target institution not found for: '{$canonical}'. Creating new Institution.");
-                    $inst = new Institution();
-                    $inst->setOfficialName($canonical);
-                    $inst->setShortName($canonical);
-                    $inst->setStatus(1);
-                    $this->em->persist($inst);
-                    $this->em->flush();
-
-                    $conn->insert('instituicao_variacoes_nome', [
-                        'institution_id' => $inst->getId(),
-                        'variation_name' => $raw,
-                        'variation_type' => 'scopus_abbreviation',
-                        'normalized_name' => $normRaw,
-                        'status' => 1,
-                    ]);
-                    $variationsAdded++;
                 }
 
-            // 2. Cadastrar Organização
-            } elseif (strpos($acao, 'Cadastrar organização') !== false || strpos($acao, 'Cadastrar órgão') !== false || strpos($acao, 'Cadastrar instituição/organização') !== false || strpos($acao, 'Separar em duas') !== false) {
-                if ($canonical === '-') $canonical = $raw;
+                // Check unit exists
+                $unitExists = $conn->fetchOne(
+                    'SELECT id FROM instituicao_unidades WHERE original_variation_name = ? OR canonical_name = ?',
+                    [$raw, $canonical]
+                );
 
+                if (!$unitExists) {
+                    $parentId = null;
+                    if ($parentName !== 'N/A' && $parentName !== 'Indefinido' && $parentName !== '') {
+                        // Find parent
+                        $parentId = $conn->fetchOne(
+                            'SELECT id FROM instituicoes_ensino WHERE official_name = ? OR sigla = ?',
+                            [$parentName, $parentName]
+                        );
+                        
+                        // If parent not found and country is specified, create it!
+                        if (!$parentId) {
+                            $countryId = null;
+                            if ($paisName !== '' && $paisName !== 'Indefinido') {
+                                $countryId = $conn->fetchOne(
+                                    'SELECT id FROM paises WHERE common_name = ? OR official_name = ?',
+                                    [$paisName, $paisName]
+                                );
+                            }
+                            $countryId = $countryId !== false ? (int)$countryId : null;
+
+                            $io->warning("Parent institution '{$parentName}' not found. Creating it under country: '{$paisName}'.");
+                            $conn->insert('instituicoes_ensino', [
+                                'official_name' => $parentName,
+                                'short_name' => $parentName,
+                                'institution_type' => 'Universidade',
+                                'natureza' => 'Pública',
+                                'country_id' => $countryId,
+                                'status' => 1,
+                                'created_at' => date('Y-m-d H:i:s'),
+                                'updated_at' => date('Y-m-d H:i:s'),
+                            ]);
+                            $parentId = (int)$conn->lastInsertId();
+                        } else {
+                            $parentId = (int)$parentId;
+                        }
+                    }
+
+                    $conn->insert('instituicao_unidades', [
+                        'original_variation_name' => $raw,
+                        'canonical_name' => $canonical,
+                        'type' => $tipo,
+                        'confidence' => $confianca === 'baixa' ? 'Low' : 'High',
+                        'observation' => $obs,
+                        'parent_institution_id' => $parentId,
+                    ]);
+                    $unitsAdded++;
+                }
+
+            // 2. Cadastrar como Organização
+            } else {
+                // Check if already exists in organizacoes
                 $exists = $conn->fetchOne(
                     'SELECT id FROM organizacoes WHERE original_variation_name = ? OR canonical_name = ?',
                     [$raw, $canonical]
@@ -119,59 +155,16 @@ class ApplyProject5CorrectionsCommand extends Command
                         'original_variation_name' => $raw,
                         'canonical_name' => $canonical,
                         'type' => $tipo,
-                        'confidence' => 'High',
+                        'confidence' => $confianca === 'baixa' ? 'Low' : 'High',
                         'observation' => $obs,
                     ]);
                     $organizationsAdded++;
-                }
-
-            // 3. Cadastrar Unidade Interna
-            } elseif (strpos($acao, 'Cadastrar unidade') !== false) {
-                $exists = $conn->fetchOne(
-                    'SELECT id FROM instituicao_unidades WHERE original_variation_name = ? OR canonical_name = ?',
-                    [$raw, $canonical]
-                );
-
-                if (!$exists) {
-                    $parentName = null;
-                    if (strpos($raw, 'USP') !== false || strpos($canonical, 'USP') !== false) {
-                        $parentName = 'Universidade de São Paulo';
-                    } elseif (strpos($raw, 'UFRJ') !== false || strpos($canonical, 'UFRJ') !== false) {
-                        $parentName = 'Universidade Federal do Rio de Janeiro';
-                    } elseif (strpos($raw, 'CAAS') !== false || strpos($canonical, 'CAAS') !== false) {
-                        $parentName = 'Chinese Academy of Agricultural Sciences';
-                    } elseif (strpos($raw, 'CAS') !== false || strpos($canonical, 'Chinese Academy of Sciences') !== false) {
-                        $parentName = 'Chinese Academy of Sciences';
-                    } elseif (strpos($raw, 'NOVA') !== false || strpos($canonical, 'NOVA') !== false) {
-                        $parentName = 'Universidade NOVA de Lisboa';
-                    } elseif (strpos($raw, 'Sfax') !== false || strpos($canonical, 'Sfax') !== false) {
-                        $parentName = 'University of Sfax';
-                    } elseif (strpos($raw, 'UNSW') !== false || strpos($canonical, 'New South Wales') !== false) {
-                        $parentName = 'University of New South Wales';
-                    }
-
-                    $parentId = null;
-                    if ($parentName !== null) {
-                        $parentId = $conn->fetchOne('SELECT id FROM instituicoes_ensino WHERE official_name = ?', [$parentName]);
-                        $parentId = $parentId !== false ? (int)$parentId : null;
-                    }
-
-                    $conn->insert('instituicao_unidades', [
-                        'original_variation_name' => $raw,
-                        'canonical_name' => $canonical,
-                        'type' => $tipo,
-                        'confidence' => 'High',
-                        'observation' => $obs,
-                        'parent_institution_id' => $parentId,
-                    ]);
-                    $unitsAdded++;
                 }
             }
         }
 
         $io->success([
-            "Corrections applied successfully!",
-            "Variations Added: {$variationsAdded}",
+            "Updated Project 5 corrections applied successfully!",
             "Organizations Added: {$organizationsAdded}",
             "Units Added: {$unitsAdded}"
         ]);

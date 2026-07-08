@@ -48,6 +48,52 @@
     </div>
 </div>
 
+<!-- Continents Analysis Section -->
+<div class="bm-card mb-4">
+    <h5 style="font-weight:700" class="mb-3">
+        <i class="bi bi-pie-chart-fill text-accent me-2"></i>
+        Produção Científica por Continente
+    </h5>
+    <div class="row g-4 align-items-center">
+        <!-- Chart & Table -->
+        <div class="col-lg-6">
+            <div class="row align-items-center">
+                <div class="col-sm-6">
+                    <div style="position:relative;height:240px">
+                        <canvas id="chart-continents"></canvas>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="table-responsive border-bm rounded-3" style="max-height:240px">
+                        <table class="table table-sm table-hover align-middle mb-0" style="font-size:12.5px">
+                            <thead class="bg-bm-card border-bottom border-bm text-muted-bm">
+                                <tr>
+                                    <th>Continente</th>
+                                    <th style="text-align:right">Artigos</th>
+                                    <th style="text-align:right">Citações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in continents %}
+                                    <tr class="border-bm">
+                                        <td style="font-weight:600">{{ c.label }}</td>
+                                        <td style="text-align:right;font-weight:700" class="text-accent">{{ c.doc_count }}</td>
+                                        <td style="text-align:right">{{ c.citation_count }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Continent Map -->
+        <div class="col-lg-6">
+            <div id="continents-map" style="width:100%;height:250px;border-radius:8px;border:1px solid var(--bm-border)"></div>
+        </div>
+    </div>
+</div>
+
 <!-- Tooltip shared by both maps -->
 <div id="map-tooltip" style="display:none;position:fixed;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 12px;font-size:13px;pointer-events:none;z-index:9999;color:var(--bm-text);min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
 
@@ -158,7 +204,9 @@
 <script>
 const listData = {{ list|slice(0, 10)|json_encode|raw }};
 const allList  = {{ list|json_encode|raw }};
+const continentsList = {{ continents|json_encode|raw }};
 let chartInstance = null;
+let chartContinents = null;
 
 // Build a lookup: country name → doc_count
 const ptToEnMap = {
@@ -427,7 +475,9 @@ function setupTooltip(feature, layer, tooltip) {
 
 window.addEventListener('bm-theme-changed', () => {
     rebuildChart();
+    rebuildContinentsChart();
     buildMap();
+    buildContinentsMap();
 });
 
 function rebuildChart() {
@@ -483,6 +533,136 @@ function rebuildChart() {
     });
 }
 
+function rebuildContinentsChart() {
+    if (chartContinents) chartContinents.destroy();
+    const ctx = document.getElementById('chart-continents');
+    if (!ctx) return;
+
+    const cl = getColors();
+    const palette = ['#8b5cf6', '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#ec4899', '#6b7280'];
+    chartContinents = new Chart(ctx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: continentsList.map(c => c.label),
+            datasets: [{
+                data: continentsList.map(c => c.doc_count),
+                backgroundColor: palette,
+                borderWidth: 1,
+                borderColor: isThemeLight() ? '#fff' : '#1c2128'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+let continentsMap = null;
+let geoLayerContinents = null;
+
+function buildContinentsMap() {
+    if (continentsMap) {
+        continentsMap.remove();
+        continentsMap = null;
+    }
+
+    const container = document.getElementById('continents-map');
+    if (!container) return;
+
+    continentsMap = L.map('continents-map', {
+        center: [15, 0],
+        zoom: 1,
+        minZoom: 1,
+        maxZoom: 6,
+        zoomControl: false,
+        attributionControl: false
+    });
+
+    const isLight = isThemeLight();
+    const tileUrl = isLight 
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, { maxZoom: 18 }).addTo(continentsMap);
+
+    const continentDocs = {};
+    continentsList.forEach(c => {
+        if (c.label) {
+            continentDocs[c.label.toLowerCase()] = c.doc_count;
+        }
+    });
+
+    const countryToContinent = {};
+    allList.forEach(c => {
+        if (c.country && c.continent) {
+            countryToContinent[c.country.toLowerCase()] = c.continent.toLowerCase();
+        }
+    });
+
+    Object.keys(ptToEnMap).forEach(ptName => {
+        const enNames = ptToEnMap[ptName];
+        if (countryToContinent[ptName]) {
+            const cont = countryToContinent[ptName];
+            enNames.forEach(enName => {
+                countryToContinent[enName] = cont;
+            });
+        }
+    });
+
+    const continentColors = {
+        'américa do sul': '#8b5cf6',
+        'américa do norte': '#3b82f6',
+        'europa': '#ef4444',
+        'ásia': '#10b981',
+        'oceania': '#f59e0b',
+        'áfrica': '#ec4899',
+    };
+
+    const tooltip = document.getElementById('map-tooltip');
+
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+        .then(res => res.json())
+        .then(geo => {
+            geoLayerContinents = L.geoJSON(geo, {
+                style: feature => {
+                    const name = (feature.properties.name || '').toLowerCase();
+                    const admin = (feature.properties.admin || '').toLowerCase();
+                    const cont = countryToContinent[name] || countryToContinent[admin] || '';
+                    const color = continentColors[cont] || (isLight ? '#e8ecf0' : '#21262d');
+                    return {
+                        fillColor: color,
+                        weight: 0.5,
+                        color: isLight ? '#c8d1db' : '#30363d',
+                        fillOpacity: cont ? 0.65 : 0.15
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.on('mousemove', e => {
+                        tooltip.style.display  = 'block';
+                        tooltip.style.left     = (e.originalEvent.clientX + 14) + 'px';
+                        tooltip.style.top      = (e.originalEvent.clientY - 10) + 'px';
+                        const name = (feature.properties.name || '').toLowerCase();
+                        const admin = (feature.properties.admin || '').toLowerCase();
+                        const cont = countryToContinent[name] || countryToContinent[admin] || '';
+                        if (cont) {
+                            const contDisplay = cont.charAt(0).toUpperCase() + cont.slice(1);
+                            const docs = continentDocs[cont] || 0;
+                            tooltip.innerHTML = `<strong>${contDisplay}</strong><br>
+                                <span style="color:var(--bm-accent)">📄 ${docs} documentos</span>`;
+                        } else {
+                            tooltip.innerHTML = `<strong>${feature.properties.name || '?'}</strong><br><span style="color:var(--bm-text-muted)">Sem dados de continente</span>`;
+                        }
+                    });
+                    layer.on('mouseout', () => { tooltip.style.display = 'none'; });
+                }
+            }).addTo(continentsMap);
+        });
+}
+
 function filterTable() {
     const q = document.getElementById('table-search').value.toLowerCase().trim();
     document.querySelectorAll('.country-row').forEach(row => {
@@ -508,6 +688,8 @@ function exportCSV() {
 
 document.querySelectorAll('.max-docs-label').forEach(el => el.textContent = maxDocs);
 rebuildChart();
+rebuildContinentsChart();
 buildMap();
+buildContinentsMap();
 </script>
 {% endblock %}

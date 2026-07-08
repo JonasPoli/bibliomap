@@ -99,6 +99,13 @@ class DocumentEnrichmentService
                 $rawInst = trim($rawInst);
                 if ($rawInst === '') continue;
 
+                // Skip addresses & noises
+                if (preg_match('/^\d+\s+[A-Za-z0-9 .\-]+\s+(Rd|Road|Dr|Drive|St|Street|Ave|Avenue|Blvd|Boulevard|Ln|Lane|Way)$/i', $rawInst) ||
+                    preg_match('/^\d+\s+[A-Za-z0-9 .\-]+$/i', $rawInst) ||
+                    in_array(strtolower($rawInst), ['30 xueyuan rd', '12127 old oaks dr', '1180 ctr dr', '5510 nathan shock dr', '118 parr st', '1280 montgomery blvd'])) {
+                    continue;
+                }
+
                 $norm = self::normalize($rawInst);
 
                 // 1. Check main institutions

@@ -10,6 +10,15 @@
     <span class="current">Geografia & Instituições</span>
 {% endblock %}
 
+{% block stylesheets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+    #regions-map, #cities-map { background: transparent; }
+    #regions-map .leaflet-tile, #cities-map .leaflet-tile { filter: none; }
+    [data-bs-theme="dark"] #regions-map, [data-bs-theme="dark"] #cities-map { filter: brightness(0.85) saturate(1.2); }
+</style>
+{% endblock %}
+
 {% block body %}
 <!-- Page Header -->
 <div class="bm-page-header">
@@ -79,9 +88,9 @@
         </a>
     </div>
 {% else %}
-    <!-- Row 1: Continents & Regions -->
+    <!-- Row 1: Continents & Regions Charts -->
     <div class="row g-4 mb-4">
-        <!-- Continents -->
+        <!-- Continents Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
                 <h5 style="font-weight:700" class="mb-3">Produção por Continente</h5>
@@ -91,7 +100,7 @@
             </div>
         </div>
 
-        <!-- Regions -->
+        <!-- Regions Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
                 <h5 style="font-weight:700" class="mb-3">Produção por Região (Brasil)</h5>
@@ -106,9 +115,21 @@
         </div>
     </div>
 
-    <!-- Row 2: States & Cities -->
+    <!-- Brazil Regions Map Card -->
+    {% if regions is not empty %}
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="bm-card">
+                    <h5 style="font-weight:700" class="mb-3">Mapa de Produção por Região (Brasil)</h5>
+                    <div id="regions-map" style="width:100%;height:400px;border-radius:8px;border:1px solid var(--bm-border)"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Row 2: States & Cities Charts -->
     <div class="row g-4 mb-4">
-        <!-- States (Top 15) -->
+        <!-- States Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
                 <h5 style="font-weight:700" class="mb-3">Top 15 Estados / Províncias</h5>
@@ -122,7 +143,7 @@
             </div>
         </div>
 
-        <!-- Cities (Top 15) -->
+        <!-- Cities Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
                 <h5 style="font-weight:700" class="mb-3">Top 15 Cidades</h5>
@@ -136,6 +157,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Cities Map Card -->
+    {% if cities is not empty %}
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="bm-card">
+                    <h5 style="font-weight:700" class="mb-3">Mapa de Cidades Mapeadas</h5>
+                    <div id="cities-map" style="width:100%;height:450px;border-radius:8px;border:1px solid var(--bm-border)"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 
     <!-- Row 3: Institution Profiles (Nature & Type) -->
     <div class="row g-4 mb-4">
@@ -214,6 +247,7 @@
 
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 {% if mapped_docs > 0 %}
 function isThemeLight() {
@@ -230,6 +264,128 @@ function getColors() {
 }
 
 let charts = {};
+let regionsMap = null;
+let citiesMap = null;
+let geoLayerRegions = null;
+
+const ufRegionMap = {
+    'AC': 'Norte', 'AP': 'Norte', 'AM': 'Norte', 'PA': 'Norte', 'RO': 'Norte', 'RR': 'Norte', 'TO': 'Norte',
+    'AL': 'Nordeste', 'BA': 'Nordeste', 'CE': 'Nordeste', 'MA': 'Nordeste', 'PB': 'Nordeste', 'PE': 'Nordeste', 'PI': 'Nordeste', 'RN': 'Nordeste', 'SE': 'Nordeste',
+    'DF': 'Centro-Oeste', 'GO': 'Centro-Oeste', 'MT': 'Centro-Oeste', 'MS': 'Centro-Oeste',
+    'ES': 'Sudeste', 'MG': 'Sudeste', 'RJ': 'Sudeste', 'SP': 'Sudeste',
+    'PR': 'Sul', 'RS': 'Sul', 'SC': 'Sul'
+};
+
+const regionColors = {
+    'Sudeste': '#8b5cf6',
+    'Sul': '#3b82f6',
+    'Nordeste': '#ef4444',
+    'Centro-Oeste': '#f59e0b',
+    'Norte': '#10b981'
+};
+
+const cityCoords = {
+    'são paulo': [-23.5505, -46.6333],
+    'sao paulo': [-23.5505, -46.6333],
+    'rio de janeiro': [-22.9068, -43.1729],
+    'campinas': [-22.9099, -47.0626],
+    'porto alegre': [-30.0346, -51.2177],
+    'curitiba': [-25.4284, -49.2733],
+    'belo horizonte': [-19.9191, -43.9378],
+    'recife': [-8.0543, -34.8813],
+    'fortaleza': [-3.7319, -38.5267],
+    'salvador': [-12.9777, -38.5016],
+    'brasília': [-15.7942, -47.8822],
+    'brasilia': [-15.7942, -47.8822],
+    'manaus': [-3.1190, -60.0217],
+    'belém': [-1.4550, -48.4902],
+    'belem': [-1.4550, -48.4902],
+    'florianópolis': [-27.5954, -48.5480],
+    'florianopolis': [-27.5954, -48.5480],
+    'goiânia': [-16.6869, -49.2648],
+    'goiania': [-16.6869, -49.2648],
+    'vitoria': [-20.3155, -40.3128],
+    'vitória': [-20.3155, -40.3128],
+    'são luís': [-2.5307, -44.3068],
+    'sao luis': [-2.5307, -44.3068],
+    'natal': [-5.7945, -35.2110],
+    'joão pessoa': [-7.1195, -34.8450],
+    'joao pessoa': [-7.1195, -34.8450],
+    'maceió': [-9.6658, -35.7350],
+    'maceio': [-9.6658, -35.7350],
+    'aracaju': [-10.9472, -37.0731],
+    'teresina': [-5.0920, -42.8038],
+    'campo grande': [-20.4697, -54.6201],
+    'cuiabá': [-15.6010, -56.0974],
+    'cuiaba': [-15.6010, -56.0974],
+    'palmas': [-10.1674, -48.3317],
+    'porto velho': [-8.7612, -63.9039],
+    'boa vista': [2.8197, -60.6733],
+    'macapá': [0.0347, -51.0694],
+    'macapa': [0.0347, -51.0694],
+    'rio branco': [-9.9754, -67.8080],
+    'araraquara': [-21.7944, -48.1756],
+    'são carlos': [-22.0089, -47.8908],
+    'sao carlos': [-22.0089, -47.8908],
+    'ribeirão preto': [-21.1704, -47.8103],
+    'ribeirao preto': [-21.1704, -47.8103],
+    'são josé dos campos': [-23.2237, -45.9009],
+    'sao jose dos campos': [-23.2237, -45.9009],
+    'são josé do rio preto': [-20.8113, -49.3792],
+    'sao jose do rio preto': [-20.8113, -49.3792],
+    'sorocaba': [-23.5015, -47.4526],
+    'piracicaba': [-22.7386, -47.6475],
+    'londrina': [-23.3045, -51.1696],
+    'maringá': [-23.4206, -51.9331],
+    'maringa': [-23.4206, -51.9331],
+    'pelotas': [-31.7654, -52.3376],
+    'santa maria': [-29.6842, -53.8069],
+    'caxias do sul': [-29.1678, -51.1794],
+    'joinville': [-26.3044, -48.8464],
+    'blumenau': [-26.9194, -49.0661],
+    'uberlândia': [-18.9186, -48.2772],
+    'uberlandia': [-18.9186, -48.2772],
+    'juiz de fora': [-21.7620, -43.3503],
+    'viçosa': [-20.7546, -42.8815],
+    'vicosa': [-20.7546, -42.8815],
+    'niterói': [-22.8858, -43.1153],
+    'niteroi': [-22.8858, -43.1153],
+    'lages': [-27.8162, -50.3260],
+    'chapecó': [-27.1009, -52.6152],
+    'chapeco': [-27.1009, -52.6152],
+    'ilhéus': [-14.7935, -39.0463],
+    'ilheus': [-14.7935, -39.0463],
+    'itabuna': [-14.7915, -39.2818],
+    'feira de santana': [-12.2733, -38.9556],
+    'vitória da conquista': [-14.8661, -40.8394],
+    'vitoria da conquista': [-14.8661, -40.8394],
+    'sobral': [-3.6853, -40.3475],
+    'juazeiro do norte': [-7.2185, -39.3155],
+    'mossoró': [-5.1880, -37.3441],
+    'mossoro': [-5.1880, -37.3441],
+    'campina grande': [-7.2248, -35.8772],
+    'petrolina': [-9.3986, -40.5008],
+    'juazeiro': [-9.4120, -40.5030],
+    'caruaru': [-8.2886, -35.9764],
+    'imperatriz': [-5.5264, -47.4786],
+    'caxias': [-4.8617, -43.3562],
+    'dourados': [-22.2239, -54.8064],
+    'rondonópolis': [-16.4708, -54.6356],
+    'rondonopolis': [-16.4708, -54.6356],
+    'sinop': [-11.8608, -55.5095],
+    'rio grande': [-32.0350, -52.0986],
+    'passo fundo': [-28.2584, -52.4089],
+    'santa cruz do sul': [-29.7181, -52.4283],
+    'são leopoldo': [-29.7610, -51.1472],
+    'sao leopoldo': [-29.7610, -51.1472],
+    'canoas': [-29.9190, -51.1799],
+    'novo hamburgo': [-29.6842, -51.1350],
+    'ponta grossa': [-25.0950, -50.1619],
+    'cascavel': [-24.9578, -53.4597],
+    'foz do iguaçu': [-25.5478, -54.5881],
+    'foz do iguacu': [-25.5478, -54.5881],
+    'guarapuava': [-25.3951, -51.4622],
+};
 
 function buildCharts() {
     // Destroy previous charts
@@ -391,9 +547,140 @@ function buildCharts() {
     }
 }
 
+function buildMaps() {
+    if (document.getElementById('regions-map')) {
+        if (regionsMap) regionsMap.remove();
+        
+        regionsMap = L.map('regions-map', {
+            center: [-14.235, -51.9253],
+            zoom: 4,
+            zoomSnap: 0.5,
+            zoomControl: true,
+            attributionControl: false
+        });
+
+        const isLight = isThemeLight();
+        const tileUrl = isLight 
+            ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
+
+        L.tileLayer(tileUrl, { maxZoom: 10 }).addTo(regionsMap);
+
+        const regionDocs = {};
+        regionsData.forEach(r => {
+            regionDocs[r.label] = r.doc_count;
+        });
+
+        const maxRegionDocs = regionsData.reduce((max, r) => Math.max(max, r.doc_count), 1);
+        const tooltip = document.getElementById('map-tooltip') || createTooltip();
+
+        fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson')
+            .then(res => res.json())
+            .then(geo => {
+                geoLayerRegions = L.geoJSON(geo, {
+                    style: feature => {
+                        const sigla = (feature.properties.sigla || '').toUpperCase();
+                        const region = ufRegionMap[sigla] || '';
+                        const count = regionDocs[region] || 0;
+                        const color = regionColors[region] || (isLight ? '#e8ecf0' : '#21262d');
+                        const fillOpacity = count > 0 ? 0.3 + 0.6 * (count / maxRegionDocs) : 0.15;
+                        return {
+                            fillColor: color,
+                            weight: 1,
+                            color: isLight ? '#fff' : '#30363d',
+                            fillOpacity: fillOpacity
+                        };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        layer.on('mousemove', e => {
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+                            tooltip.style.top = (e.originalEvent.clientY - 10) + 'px';
+                            const sigla = (feature.properties.sigla || '').toUpperCase();
+                            const region = ufRegionMap[sigla] || '';
+                            const count = regionDocs[region] || 0;
+                            if (region) {
+                                tooltip.innerHTML = `<strong>Região ${region}</strong> (${sigla})<br>
+                                    <span style="color:var(--bm-accent)">📄 ${count} documentos na região</span><br>
+                                    <span style="color:var(--bm-text-muted)">Estado: ${feature.properties.name || sigla}</span>`;
+                            } else {
+                                tooltip.innerHTML = `<strong>${feature.properties.name || sigla}</strong><br><span style="color:var(--bm-text-muted)">Sem dados de região</span>`;
+                            }
+                        });
+                        layer.on('mouseout', () => { tooltip.style.display = 'none'; });
+                    }
+                }).addTo(regionsMap);
+            });
+    }
+
+    if (document.getElementById('cities-map')) {
+        if (citiesMap) citiesMap.remove();
+
+        citiesMap = L.map('cities-map', {
+            center: [-14.235, -51.9253],
+            zoom: 4,
+            zoomSnap: 0.5,
+            zoomControl: true,
+            attributionControl: false
+        });
+
+        const isLight = isThemeLight();
+        const tileUrl = isLight 
+            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+        L.tileLayer(tileUrl, { maxZoom: 12 }).addTo(citiesMap);
+
+        const maxCityDocs = citiesData.reduce((max, c) => Math.max(max, c.doc_count), 1);
+        const tooltip = document.getElementById('map-tooltip') || createTooltip();
+
+        citiesData.forEach(c => {
+            const normCity = c.label.toLowerCase().trim();
+            const coords = cityCoords[normCity];
+            if (coords) {
+                const radius = Math.max(6, Math.min(25, 4 + (c.doc_count / maxCityDocs) * 16));
+                const marker = L.circleMarker(coords, {
+                    radius: radius,
+                    fillColor: '#4f8ef7',
+                    color: '#1d4ed8',
+                    weight: 1.5,
+                    fillOpacity: 0.75
+                }).addTo(citiesMap);
+
+                marker.on('mousemove', e => {
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+                    tooltip.style.top = (e.originalEvent.clientY - 10) + 'px';
+                    tooltip.innerHTML = `<strong>${c.label}</strong> (${c.state_sigla || ''})<br>
+                        <span style="color:var(--bm-accent)">📄 ${c.doc_count} artigos</span><br>
+                        <span style="color:var(--bm-text-muted)">🔖 ${c.citation_count} citações</span>`;
+                });
+                marker.on('mouseout', () => { tooltip.style.display = 'none'; });
+            }
+        });
+    }
+}
+
+function createTooltip() {
+    let tooltip = document.getElementById('map-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'map-tooltip';
+        tooltip.style.cssText = 'display:none;position:fixed;background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 12px;font-size:13px;pointer-events:none;z-index:9999;color:var(--bm-text);min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+        document.body.appendChild(tooltip);
+    }
+    return tooltip;
+}
+
 // Rebuild on load and theme change
-document.addEventListener('DOMContentLoaded', buildCharts);
-window.addEventListener('bm-theme-changed', buildCharts);
+document.addEventListener('DOMContentLoaded', () => {
+    buildCharts();
+    buildMaps();
+});
+window.addEventListener('bm-theme-changed', () => {
+    buildCharts();
+    buildMaps();
+});
 
 const filterSel = document.getElementById('filter-country');
 if (filterSel) {

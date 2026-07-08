@@ -314,12 +314,12 @@ class ReportService
     public function getCountriesReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
-            'SELECT c.common_name AS country, COUNT(dp.document_id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+            'SELECT c.common_name AS country, c.continente, COUNT(dp.document_id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
              FROM documento_paises dp
              JOIN paises c ON dp.country_id = c.id
              JOIN document d ON dp.document_id = d.id
              WHERE d.project_id = ?
-             GROUP BY c.id, c.common_name
+             GROUP BY c.id, c.common_name, c.continente
              ORDER BY doc_count DESC',
             [$projectId]
         );
@@ -329,6 +329,7 @@ class ReportService
             $c = $row['country'];
             $countryCounts[] = [
                 'country' => $c,
+                'continent' => $row['continente'],
                 'doc_count' => (int)$row['doc_count'],
                 'citation_count' => (int)$row['citation_count'],
                 'avg_citations' => $row['doc_count'] > 0 ? round($row['citation_count'] / $row['doc_count'], 1) : 0
