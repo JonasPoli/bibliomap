@@ -416,12 +416,14 @@ function drawGraph() {
     const edgeScale = parseFloat(document.getElementById('param-edge-scale').value);
 
     // Map raw server nodes to vis network format
-    const maxDocCount = Math.max(...graphData.nodes.map(n => n.doc_count), 1);
+    const maxDegree = Math.max(...graphData.nodes.map(n => n.degree), 1);
+    const minNodeSize = 8;
+    const maxNodeSize = 45;
     const mappedNodes = graphData.nodes.map(n => {
         const clusterColor = PALETTE[n.cluster % PALETTE.length];
         
-        // Size nodes relative to log frequency to avoid huge bubbles
-        const relativeSize = 6 + Math.log2(n.doc_count + 1) * 7 * nodeScale;
+        // Size nodes relative to connections (degree) proportionally
+        const relativeSize = (minNodeSize + (n.degree / maxDegree) * (maxNodeSize - minNodeSize)) * nodeScale;
 
         return {
             id: n.id,
@@ -528,10 +530,12 @@ function applyScale() {
     const edgeScale = parseFloat(document.getElementById('param-edge-scale').value);
 
     // Update nodes sizes
-    const maxDocCount = Math.max(...graphData.nodes.map(n => n.doc_count), 1);
+    const maxDegree = Math.max(...graphData.nodes.map(n => n.degree), 1);
+    const minNodeSize = 8;
+    const maxNodeSize = 45;
     nodesDS.forEach(n => {
-        const docCount = graphData.nodes.find(gn => gn.id === n.id)?.doc_count || 1;
-        const relativeSize = 6 + Math.log2(docCount + 1) * 7 * nodeScale;
+        const degree = graphData.nodes.find(gn => gn.id === n.id)?.degree || 0;
+        const relativeSize = (minNodeSize + (degree / maxDegree) * (maxNodeSize - minNodeSize)) * nodeScale;
         nodesDS.update({ id: n.id, size: relativeSize });
     });
 

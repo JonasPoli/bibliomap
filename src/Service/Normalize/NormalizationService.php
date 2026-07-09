@@ -25,31 +25,26 @@ class NormalizationService
         $authors = $conn->fetchAllAssociative('
             SELECT 
                 a.id, 
-                a.name, 
-                a.surname, 
-                a.initials,
+                a.preferred_name AS name, 
+                a.normalized_name, 
                 COUNT(da.document_id) AS doc_count
-            FROM author a
-            JOIN document_author da ON a.id = da.author_id
+            FROM author_identity a
+            JOIN document_author da ON a.id = da.author_identity_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
-            GROUP BY a.id, a.name, a.surname, a.initials
+            GROUP BY a.id, a.preferred_name, a.normalized_name
             HAVING doc_count > 0
-            ORDER BY a.name ASC
+            ORDER BY a.preferred_name ASC
         ', [$projectId]);
 
         $groups = [];
         foreach ($authors as $auth) {
             $name = $auth['name'];
-            $surname = strtolower(trim($auth['surname'] ?? ''));
             
-            // Generate a grouping key: e.g., first 3 letters of surname + first letter of first initial
-            $firstLetter = '';
-            if ($auth['initials']) {
-                $firstLetter = strtolower(substr(trim($auth['initials']), 0, 1));
-            } elseif (str_contains($name, ' ')) {
-                $firstLetter = strtolower(substr(trim(explode(' ', $name)[0]), 0, 1));
-            }
+            // Extract pseudo-surname and first letter of first name by splitting the name
+            $parts = array_filter(explode(' ', trim($name)));
+            $surname = strtolower(end($parts) ?: '');
+            $firstLetter = strtolower(substr(reset($parts) ?: '', 0, 1));
 
             $key = substr($surname, 0, 4) . '|' . $firstLetter;
             $groups[$key][] = $auth;
@@ -100,7 +95,7 @@ class NormalizationService
         try {
             // Find all documents of the discarded author
             $docAuthors = $conn->fetchAllAssociative(
-                'SELECT document_id, position, original_name FROM document_author WHERE author_id = ?',
+                'SELECT document_id, position, original_name FROM document_author WHERE author_identity_id = ?',
                 [$discardId]
             );
 
@@ -109,27 +104,73 @@ class NormalizationService
 
                 // Check if the kept author is already associated with this document
                 $exists = $conn->fetchOne(
-                    'SELECT id FROM document_author WHERE document_id = ? AND author_id = ?',
+                    'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ?',
                     [$docId, $keepId]
                 );
 
                 if ($exists) {
                     // Both exist on the same document: delete the discarded one's link
                     $conn->executeStatement(
-                        'DELETE FROM document_author WHERE document_id = ? AND author_id = ?',
+                        'DELETE FROM document_author WHERE document_id = ? AND author_identity_id = ?',
                         [$docId, $discardId]
                     );
                 } else {
                     // Update discarded link to kept author
                     $conn->executeStatement(
-                        'UPDATE document_author SET author_id = ? WHERE document_id = ? AND author_id = ?',
+                        'UPDATE document_author SET author_identity_id = ? WHERE document_id = ? AND author_identity_id = ?',
                         [$keepId, $docId, $discardId]
                     );
                 }
             }
 
+            // Create variation for the kept author with the name of the discarded author
+            $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
+            if ($discardName) {
+                $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardName);
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+                    [$keepId, $norm]
+                );
+                $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+                if (!$existsVar) {
+                    $conn->insert('author_name_variant', [
+                        'author_identity_id' => $keepId,
+                        'original_name'      => $discardName,
+                        'display_name'       => $discardName,
+                        'normalized_name'    => $norm,
+                        'source'             => 'alternative',
+                        'confidence'         => 1.0,
+                        'created_at'         => $now,
+                        'updated_at'         => $now,
+                    ]);
+                }
+            }
+
+            // Move variations of the discarded author to point to the kept author
+            $discardVars = $conn->fetchAllAssociative(
+                'SELECT id, original_name AS variation_name, normalized_name FROM author_name_variant WHERE author_identity_id = ?',
+                [$discardId]
+            );
+            foreach ($discardVars as $v) {
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+                    [$keepId, $v['normalized_name']]
+                );
+                if (!$existsVar) {
+                    $conn->executeStatement(
+                        'UPDATE author_name_variant SET author_identity_id = ? WHERE id = ?',
+                        [$keepId, $v['id']]
+                    );
+                } else {
+                    $conn->executeStatement(
+                        'DELETE FROM author_name_variant WHERE id = ?',
+                        [$v['id']]
+                    );
+                }
+            }
+
             // Finally, delete the discarded author
-            $conn->executeStatement('DELETE FROM author WHERE id = ?', [$discardId]);
+            $conn->executeStatement('DELETE FROM author_identity WHERE id = ?', [$discardId]);
 
             $conn->commit();
         } catch (\Throwable $e) {
@@ -148,7 +189,7 @@ class NormalizationService
         $conn->beginTransaction();
 
         try {
-            // Resolve transitive chains (same logic as mergeKeywordsBatch)
+            // Resolve transitive chains
             $discardToKeep = [];
             foreach ($pairs as $pair) {
                 $k = (int)($pair['keepId']    ?? 0);
@@ -191,7 +232,7 @@ class NormalizationService
 
                 $seen[$discardId] = true;
 
-                $exists = $conn->fetchOne('SELECT COUNT(*) FROM author WHERE id = ?', [$discardId]);
+                $exists = $conn->fetchOne('SELECT COUNT(*) FROM author_identity WHERE id = ?', [$discardId]);
                 if (!$exists) {
                     continue;
                 }
@@ -199,23 +240,69 @@ class NormalizationService
                 // 1. Remove conflicting document_author rows
                 $conn->executeStatement(
                     'DELETE FROM document_author
-                     WHERE author_id = ?
+                     WHERE author_identity_id = ?
                        AND document_id IN (
                            SELECT document_id FROM (
-                               SELECT document_id FROM document_author WHERE author_id = ?
+                               SELECT document_id FROM document_author WHERE author_identity_id = ?
                            ) AS _tmp
                        )',
-                    [$discardId, $keepId]
-                );
+                     [$discardId, $keepId]
+                 );
 
                 // 2. Remap remaining rows
                 $conn->executeStatement(
-                    'UPDATE document_author SET author_id = ? WHERE author_id = ?',
+                    'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ?',
                     [$keepId, $discardId]
                 );
 
+                // Fetch discard name and migrate to variation
+                $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
+                $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+                if ($discardName) {
+                    $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardName);
+                    $existsVar = $conn->fetchOne(
+                        'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+                        [$keepId, $norm]
+                    );
+                    if (!$existsVar) {
+                        $conn->insert('author_name_variant', [
+                            'author_identity_id' => $keepId,
+                            'original_name'      => $discardName,
+                            'display_name'       => $discardName,
+                            'normalized_name'    => $norm,
+                            'source'             => 'alternative',
+                            'confidence'         => 1.0,
+                            'created_at'         => $now,
+                            'updated_at'         => $now,
+                        ]);
+                    }
+                }
+
+                // Move variations of the discarded author to point to the kept author
+                $discardVars = $conn->fetchAllAssociative(
+                    'SELECT id, original_name AS variation_name, normalized_name FROM author_name_variant WHERE author_identity_id = ?',
+                    [$discardId]
+                );
+                foreach ($discardVars as $v) {
+                    $existsVar = $conn->fetchOne(
+                        'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+                        [$keepId, $v['normalized_name']]
+                    );
+                    if (!$existsVar) {
+                        $conn->executeStatement(
+                            'UPDATE author_name_variant SET author_identity_id = ? WHERE id = ?',
+                            [$keepId, $v['id']]
+                        );
+                    } else {
+                        $conn->executeStatement(
+                            'DELETE FROM author_name_variant WHERE id = ?',
+                            [$v['id']]
+                        );
+                    }
+                }
+
                 // 3. Delete the discarded author record
-                $conn->executeStatement('DELETE FROM author WHERE id = ?', [$discardId]);
+                $conn->executeStatement('DELETE FROM author_identity WHERE id = ?', [$discardId]);
 
                 $merged++;
             }
@@ -238,20 +325,22 @@ class NormalizationService
     {
         $conn = $this->em->getConnection();
 
+        $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
+
         // Fetch keywords in the project (only the selected type)
         $keywords = $conn->fetchAllAssociative('
             SELECT
                 k.id,
-                k.term,
+                k.keyword_display AS term,
                 COUNT(dk.document_id) AS doc_count
             FROM keyword k
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.type = ?
-            GROUP BY k.id, k.term
+            WHERE d.project_id = ? AND k.keyword_type = ?
+            GROUP BY k.id, k.keyword_display
             HAVING doc_count > 0
-            ORDER BY k.term ASC
-        ', [$projectId, $type]);
+            ORDER BY k.keyword_display ASC
+        ', [$projectId, $mappedType]);
 
         // Group keywords by first 4 letters for efficient O(n) grouping
         $groups = [];
@@ -304,35 +393,41 @@ class NormalizationService
 
     /**
      * Find keywords that exist as BOTH author-type AND indexed-type with the same (or very similar) term.
-     * e.g. "Artificial intelligence" (author, 5518) vs "Artificial Intelligence" (indexed, 4178)
-     * @param string $type Which type is currently selected — returned as the 'keep' candidate.
+     * @param string $currentType Which type is currently selected — returned as the 'keep' candidate.
      */
     public function findCrossTypeKeywords(int $projectId, string $currentType = 'author'): array
     {
         $conn      = $this->em->getConnection();
         $otherType = $currentType === 'author' ? 'indexed' : 'author';
 
+        $mappedCurrentType = $currentType === 'author' ? 'author_keyword' : ($currentType === 'indexed' ? 'indexed_keyword' : $currentType);
+        $mappedOtherType   = $otherType === 'author' ? 'author_keyword' : ($otherType === 'indexed' ? 'indexed_keyword' : $otherType);
+
         $current = $conn->fetchAllAssociative(
-            'SELECT k.id, k.term, k.type, COUNT(dk.document_id) AS doc_count
+            'SELECT k.id, k.keyword_display AS term,
+                    CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' ELSE k.keyword_type END AS type,
+                    COUNT(dk.document_id) AS doc_count
              FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND k.type = ?
-             GROUP BY k.id, k.term, k.type
+             WHERE d.project_id = ? AND k.keyword_type = ?
+             GROUP BY k.id, k.keyword_display, k.keyword_type
              HAVING doc_count > 0
              ORDER BY doc_count DESC',
-            [$projectId, $currentType]
+            [$projectId, $mappedCurrentType]
         );
 
         $other = $conn->fetchAllAssociative(
-            'SELECT k.id, k.term, k.type, COUNT(dk.document_id) AS doc_count
+            'SELECT k.id, k.keyword_display AS term,
+                    CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' ELSE k.keyword_type END AS type,
+                    COUNT(dk.document_id) AS doc_count
              FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND k.type = ?
-             GROUP BY k.id, k.term, k.type
+             WHERE d.project_id = ? AND k.keyword_type = ?
+             GROUP BY k.id, k.keyword_display, k.keyword_type
              HAVING doc_count > 0',
-            [$projectId, $otherType]
+            [$projectId, $mappedOtherType]
         );
 
         // Index other-type by normalized term
@@ -347,8 +442,6 @@ class NormalizationService
             $normalized = strtolower(trim($kw['term']));
             if (isset($otherByTerm[$normalized])) {
                 foreach ($otherByTerm[$normalized] as $match) {
-                    // Prefer to keep the current type (user is viewing it)
-                    // but keep whichever has more occurrences
                     $keep    = $kw['doc_count'] >= $match['doc_count'] ? $kw : $match;
                     $discard = $keep['id'] === $kw['id'] ? $match : $kw;
 
@@ -377,21 +470,24 @@ class NormalizationService
         $params = [$projectId];
 
         if ($type !== '') {
-            $where   .= ' AND k.type = ?';
-            $params[] = $type;
+            $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
+            $where   .= ' AND k.keyword_type = ?';
+            $params[] = $mappedType;
         }
         if ($search !== '') {
-            $where   .= ' AND k.term LIKE ?';
+            $where   .= ' AND k.keyword_display LIKE ?';
             $params[] = '%' . $search . '%';
         }
 
         return $conn->fetchAllAssociative(
-            "SELECT k.id, k.term, k.type, COUNT(dk.document_id) AS doc_count
+            "SELECT k.id, k.keyword_display AS term,
+                    CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' ELSE k.keyword_type END AS type,
+                    COUNT(dk.document_id) AS doc_count
              FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id
              WHERE {$where}
-             GROUP BY k.id, k.term, k.type
+             GROUP BY k.id, k.keyword_display, k.keyword_type
              HAVING doc_count > 0
              ORDER BY doc_count DESC
              LIMIT {$limit}",
@@ -434,6 +530,48 @@ class NormalizationService
                 }
             }
 
+            // Create variation for the kept keyword with the term of the discarded keyword
+            $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
+            if ($discardTerm) {
+                $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardTerm);
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
+                    [$keepId, $norm]
+                );
+                if (!$existsVar) {
+                    $conn->insert('palavra_chave_variacoes_nome', [
+                        'keyword_id' => $keepId,
+                        'variation_name' => $discardTerm,
+                        'normalized_name' => $norm,
+                        'variation_type' => 'alternative',
+                        'status' => 1
+                    ]);
+                }
+            }
+
+            // Move variations of the discarded keyword to point to the kept keyword
+            $discardVars = $conn->fetchAllAssociative(
+                'SELECT id, variation_name, normalized_name, variation_type FROM palavra_chave_variacoes_nome WHERE keyword_id = ?',
+                [$discardId]
+            );
+            foreach ($discardVars as $v) {
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
+                    [$keepId, $v['normalized_name']]
+                );
+                if (!$existsVar) {
+                    $conn->executeStatement(
+                        'UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE id = ?',
+                        [$keepId, $v['id']]
+                    );
+                } else {
+                    $conn->executeStatement(
+                        'DELETE FROM palavra_chave_variacoes_nome WHERE id = ?',
+                        [$v['id']]
+                    );
+                }
+            }
+
             $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$discardId]);
 
             $conn->commit();
@@ -445,11 +583,6 @@ class NormalizationService
 
     /**
      * Batch merge keywords — all pairs in one transaction, 2 SQL statements per pair.
-     *
-     * Handles chained pairs: if pairs include (keep=A, discard=B) AND (keep=B, discard=C),
-     * the chain is resolved to (keep=A, discard=B) + (keep=A, discard=C) before processing,
-     * preventing the foreign-key violation that would occur when C tries to reference
-     * the already-deleted keyword B.
      */
     public function mergeKeywordsBatch(array $pairs): int
     {
@@ -458,7 +591,6 @@ class NormalizationService
         $conn->beginTransaction();
 
         try {
-            // ── Step 1: build a discard → keep map and resolve transitive chains ──
             $discardToKeep = [];
             foreach ($pairs as $pair) {
                 $k = (int)($pair['keepId']    ?? 0);
@@ -468,7 +600,6 @@ class NormalizationService
                 }
             }
 
-            // Resolve transitive chains: A→B, B→C becomes A→C, B→C
             $changed = true;
             while ($changed) {
                 $changed = false;
@@ -481,8 +612,7 @@ class NormalizationService
                 unset($k);
             }
 
-            // ── Step 2: process each pair using the fully-resolved keepId ──────
-            $seen = []; // prevent processing the same discardId twice
+            $seen = [];
 
             foreach ($pairs as $pair) {
                 $rawKeepId = (int)($pair['keepId']    ?? 0);
@@ -492,25 +622,23 @@ class NormalizationService
                     continue;
                 }
                 if (isset($seen[$discardId])) {
-                    continue; // already handled by chain resolution
+                    continue;
                 }
 
-                // Use the resolved keepId (follows the full chain to the final canonical term)
                 $keepId = $discardToKeep[$rawKeepId] ?? $rawKeepId;
 
                 if ($keepId === $discardId) {
-                    continue; // would create a self-loop
+                    continue;
                 }
 
                 $seen[$discardId] = true;
 
-                // Skip if discard keyword was already removed by an earlier iteration
                 $exists = $conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE id = ?', [$discardId]);
                 if (!$exists) {
                     continue;
                 }
 
-                // 1. Remove conflicting rows (docs that already have keepId)
+                // 1. Remove conflicting rows
                 $conn->executeStatement(
                     'DELETE FROM document_keyword
                      WHERE keyword_id = ?
@@ -527,6 +655,48 @@ class NormalizationService
                     'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?',
                     [$keepId, $discardId]
                 );
+
+                // Fetch discard term and migrate to variation
+                $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
+                if ($discardTerm) {
+                    $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardTerm);
+                    $existsVar = $conn->fetchOne(
+                        'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
+                        [$keepId, $norm]
+                    );
+                    if (!$existsVar) {
+                        $conn->insert('palavra_chave_variacoes_nome', [
+                            'keyword_id' => $keepId,
+                            'variation_name' => $discardTerm,
+                            'normalized_name' => $norm,
+                            'variation_type' => 'alternative',
+                            'status' => 1
+                        ]);
+                    }
+                }
+
+                // Move variations of the discarded keyword to point to the kept keyword
+                $discardVars = $conn->fetchAllAssociative(
+                    'SELECT id, variation_name, normalized_name, variation_type FROM palavra_chave_variacoes_nome WHERE keyword_id = ?',
+                    [$discardId]
+                );
+                foreach ($discardVars as $v) {
+                    $existsVar = $conn->fetchOne(
+                        'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
+                        [$keepId, $v['normalized_name']]
+                    );
+                    if (!$existsVar) {
+                        $conn->executeStatement(
+                            'UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE id = ?',
+                            [$keepId, $v['id']]
+                        );
+                    } else {
+                        $conn->executeStatement(
+                            'DELETE FROM palavra_chave_variacoes_nome WHERE id = ?',
+                            [$v['id']]
+                        );
+                    }
+                }
 
                 // 3. Delete the now-orphaned keyword record
                 $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$discardId]);
@@ -547,7 +717,6 @@ class NormalizationService
 
     /**
      * Find potential duplicate documents.
-     * Heuristic: group by year, then compare titles within each year!
      */
     public function findPotentialDuplicates(int $projectId, float $minSimilarity = 0.85): array
     {
@@ -582,7 +751,6 @@ class NormalizationService
                     $d1 = $group[$i];
                     $d2 = $group[$j];
 
-                    // Quick length check to avoid expensive similarity computation
                     $len1 = strlen($d1['title']);
                     $len2 = strlen($d2['title']);
                     if (abs($len1 - $len2) > max($len1, $len2) * (1 - $minSimilarity)) {
@@ -591,7 +759,6 @@ class NormalizationService
 
                     $sim = $this->calculateSimilarity($d1['title'], $d2['title']);
                     if ($sim >= $minSimilarity) {
-                        // Keep the one with DOI or with more citations or abstract (simplified here by citations/EID)
                         $keep = ($d1['doi'] && !$d2['doi']) || ($d1['cited_by'] >= $d2['cited_by']) ? $d1 : $d2;
                         $discard = $keep['id'] === $d1['id'] ? $d2 : $d1;
 
@@ -649,20 +816,20 @@ class NormalizationService
 
             // 3. Move document authors
             $discardAuthors = $conn->fetchAllAssociative(
-                'SELECT author_id, position, original_name FROM document_author WHERE document_id = ?',
+                'SELECT author_identity_id, position, original_name FROM document_author WHERE document_id = ?',
                 [$discardId]
             );
             foreach ($discardAuthors as $da) {
                 $exists = $conn->fetchOne(
-                    'SELECT id FROM document_author WHERE document_id = ? AND author_id = ?',
-                    [$keepId, $da['author_id']]
+                    'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ?',
+                    [$keepId, $da['author_identity_id']]
                 );
                 if (!$exists) {
                     $conn->insert('document_author', [
-                        'document_id'   => $keepId,
-                        'author_id'     => $da['author_id'],
-                        'position'      => $da['position'],
-                        'original_name' => $da['original_name'],
+                        'document_id'        => $keepId,
+                        'author_identity_id' => $da['author_identity_id'],
+                        'position'           => $da['position'],
+                        'original_name'      => $da['original_name'],
                     ]);
                 }
             }
@@ -706,19 +873,16 @@ class NormalizationService
 
         if ($s1 === $s2) return 1.0;
 
-        // Strip non-alphanumeric for clean phonetic comparison
         $clean1 = preg_replace('/[^a-z0-9 ]/', '', $s1);
         $clean2 = preg_replace('/[^a-z0-9 ]/', '', $s2);
         if ($clean1 === $clean2) return 0.98;
 
-        // Levenshtein-based similarity score
         $len1 = strlen($s1);
         $len2 = strlen($s2);
         $maxLen = max($len1, $len2);
 
         if ($maxLen === 0) return 1.0;
 
-        // Fallback to similar_text for longer strings where levenshtein limits are reached (>255)
         if ($maxLen > 255) {
             similar_text($s1, $s2, $percent);
             return $percent / 100;

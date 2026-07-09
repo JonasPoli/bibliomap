@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Correspondências de Vocabulário — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}">Administração</a>
+    <span class="mx-2 text-muted">/</span>
+    <a href="{{ path('app_admin_thesaurus_index') }}">Tesauros</a>
+    <span class="mx-2 text-muted">/</span>
+    <span class="current">Monitoramento de Correspondências</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h1 class="bm-page-title"><i class="bi bi-shield-fill-exclamation me-2"></i>Correspondências e Vinculações</h1>
+        <p class="bm-page-subtitle">Verifique os links gerados automaticamente entre os dados do projeto e os conceitos do Tesauro.</p>
+    </div>
+    <a href="{{ path('app_admin_thesaurus_index') }}" class="btn btn-bm-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Voltar
+    </a>
+</div>
+
+<div class="bm-card">
+    <h5 class="mb-4 text-white"><i class="bi bi-link-45deg me-2"></i>Status dos Vínculos</h5>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Valor Original</th>
+                    <th>Conceito Vinculado</th>
+                    <th>Confiança</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if matches is empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">Nenhum log de correspondência gerado até o momento.</td>
+                    </tr>
+                {% else %}
+                    {% for match in matches %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary text-dark text-uppercase" style="font-size:10px">{{ match.entityType }}</span>
+                            </td>
+                            <td><span class="text-white fw-bold">{{ match.originalValue }}</span></td>
+                            <td>
+                                {% if match.concept %}
+                                    <span class="text-info"><i class="bi bi-bookmark-star-fill me-1"></i>{{ match.concept.preferredLabel }}</span>
+                                {% else %}
+                                    <span class="text-danger"><i class="bi bi-bookmark-x me-1"></i>Nenhum</span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ match.confidence }}</code></td>
+                            <td>
+                                <span class="badge {% if match.status == 'automatic' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                    {{ match.status }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

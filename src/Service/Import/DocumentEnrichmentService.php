@@ -278,12 +278,203 @@ class DocumentEnrichmentService
         if ($stateLinks) $this->flushLinks('documento_estados', $stateLinks, $conn);
         if ($cityLinks) $this->flushLinks('documento_cidades', $cityLinks, $conn);
 
+        // ── 4. Re-map Authors ──────────────────────────────────────────
+        $rawNames = $conn->fetchFirstColumn(
+            'SELECT DISTINCT da.original_name 
+             FROM document_author da
+             JOIN document d ON da.document_id = d.id
+             WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name != ""',
+            [$projectId]
+        );
+        $normalizedNames = [];
+        foreach ($rawNames as $name) {
+            $normalizedNames[] = self::normalize($name);
+        }
+        $normalizedNames = array_unique(array_filter($normalizedNames));
+
+        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
+        $docAuthors = $conn->fetchAllAssociative(
+            'SELECT da.id, da.document_id, da.author_identity_id, da.original_name 
+             FROM document_author da
+             JOIN document d ON da.document_id = d.id
+             WHERE d.project_id = ?',
+            [$projectId]
+        );
+
+        foreach ($docAuthors as $da) {
+            if (!$da['original_name']) continue;
+            $norm = self::normalize($da['original_name']);
+            if (isset($authorsLookup[$norm])) {
+                $targetAuthorId = $authorsLookup[$norm];
+                if ($targetAuthorId !== (int)$da['author_identity_id']) {
+                    // Check if duplicate exists on document
+                    $isDuplicate = $conn->fetchOne(
+                        'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
+                        [$da['document_id'], $targetAuthorId, $da['id']]
+                    );
+                    if ($isDuplicate) {
+                        $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
+                    } else {
+                        $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
+                    }
+                }
+            }
+        }
+
+        // ── 5. Re-map Keywords ─────────────────────────────────────────
+        $rawTerms = $conn->fetchFirstColumn(
+            'SELECT DISTINCT dk.original_term 
+             FROM document_keyword dk
+             JOIN document d ON dk.document_id = d.id
+             WHERE d.project_id = ? AND dk.original_term IS NOT NULL AND dk.original_term != ""',
+            [$projectId]
+        );
+        $normalizedTerms = [];
+        foreach ($rawTerms as $term) {
+            $normalizedTerms[] = self::normalize($term);
+        }
+        $normalizedTerms = array_unique(array_filter($normalizedTerms));
+
+        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
+        $docKeywords = $conn->fetchAllAssociative(
+            'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
+             FROM document_keyword dk
+             JOIN document d ON dk.document_id = d.id
+             JOIN keyword k ON dk.keyword_id = k.id
+             WHERE d.project_id = ?',
+            [$projectId]
+        );
+
+        foreach ($docKeywords as $dk) {
+            if (!$dk['original_term']) continue;
+            $norm = self::normalize($dk['original_term']);
+            $key = $norm . '|' . $dk['type'];
+            if (isset($keywordsLookup[$key])) {
+                $targetKeywordId = $keywordsLookup[$key];
+                if ($targetKeywordId !== (int)$dk['keyword_id']) {
+                    // Check duplicate
+                    $isDuplicate = $conn->fetchOne(
+                        'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
+                        [$dk['document_id'], $targetKeywordId, $dk['id']]
+                    );
+                    if ($isDuplicate) {
+                        $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
+                    } else {
+                        $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
+                    }
+                }
+            }
+        }
+
         // Sort unresolved
         arsort($unresolvedInstitutions);
         arsort($unresolvedCountries);
 
+        // ── 6. Compute unresolved and resolved stats for Authors & Keywords ──
+        $unresolvedAuthorsCount = (int)$conn->fetchOne('
+            SELECT COUNT(DISTINCT a.preferred_name)
+            FROM document_author da
+            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ? AND a.status = 0
+        ', [$projectId]);
+
+        $unresolvedAuthors = [];
+        $rawUnresolvedAuthors = $conn->fetchAllAssociative('
+            SELECT a.preferred_name AS name, COUNT(da.document_id) AS count
+            FROM document_author da
+            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ? AND a.status = 0
+            GROUP BY a.preferred_name
+            ORDER BY count DESC
+            LIMIT 100
+        ', [$projectId]);
+        foreach ($rawUnresolvedAuthors as $row) {
+            $unresolvedAuthors[$row['name']] = (int)$row['count'];
+        }
+
+        $unresolvedKeywordsCount = (int)$conn->fetchOne('
+            SELECT COUNT(DISTINCT k.keyword_display)
+            FROM document_keyword dk
+            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ? AND k.status = 0
+        ', [$projectId]);
+
+        $unresolvedKeywords = [];
+        $rawUnresolvedKeywords = $conn->fetchAllAssociative('
+            SELECT k.keyword_display AS term, COUNT(dk.document_id) AS count
+            FROM document_keyword dk
+            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ? AND k.status = 0
+            GROUP BY k.keyword_display
+            ORDER BY count DESC
+            LIMIT 100
+        ', [$projectId]);
+        foreach ($rawUnresolvedKeywords as $row) {
+            $unresolvedKeywords[$row['term']] = (int)$row['count'];
+        }
+
+        $matchedAuthorsCount = (int)$conn->fetchOne('
+            SELECT COUNT(da.document_id)
+            FROM document_author da
+            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ? AND a.status = 1
+        ', [$projectId]);
+
+        $matchedAuthorsList = [];
+        $rawMatchedAuthors = $conn->fetchAllAssociative('
+            SELECT a.id, a.preferred_name AS name, COUNT(da.document_id) AS count
+            FROM document_author da
+            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ? AND a.status = 1
+            GROUP BY a.id, a.preferred_name
+            ORDER BY count DESC
+            LIMIT 100
+        ', [$projectId]);
+        foreach ($rawMatchedAuthors as $row) {
+            $id = (int)$row['id'];
+            $matchedAuthorsList[] = [
+                'id' => $id,
+                'name' => $row['name'],
+                'count' => (int)$row['count']
+            ];
+        }
+
+        $matchedKeywordsCount = (int)$conn->fetchOne('
+            SELECT COUNT(dk.document_id)
+            FROM document_keyword dk
+            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ? AND k.status = 1
+        ', [$projectId]);
+
+        $matchedKeywordsList = [];
+        $rawMatchedKeywords = $conn->fetchAllAssociative('
+            SELECT k.id, k.keyword_display AS term, k.keyword_type AS type, COUNT(dk.document_id) AS count
+            FROM document_keyword dk
+            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ? AND k.status = 1
+            GROUP BY k.id, k.keyword_display, k.keyword_type
+            ORDER BY count DESC
+            LIMIT 100
+        ', [$projectId]);
+        foreach ($rawMatchedKeywords as $row) {
+            $id = (int)$row['id'];
+            $matchedKeywordsList[] = [
+                'id' => $id,
+                'name' => $row['term'] . ' (' . ($row['type'] === 'author_keyword' ? 'Autor' : 'Indexada') . ')',
+                'count' => (int)$row['count']
+            ];
+        }
+
         $executionTime = round(microtime(true) - $startTime, 2);
-        $this->logger->info("Geographical enrichment completed in {$executionTime}s. Processed {$processedDocs} documents.");
+        $this->logger->info("Geographical and entity enrichment completed in {$executionTime}s. Processed {$processedDocs} documents.");
 
         // Form lists
         $matchedInstitutionsList = [];
@@ -361,13 +552,21 @@ class DocumentEnrichmentService
             'matched_countries_count' => $matchedCountriesCount,
             'matched_organizations_count' => $matchedOrganizationsCount,
             'matched_units_count' => $matchedUnitsCount,
+            'matched_authors_count' => $matchedAuthorsCount,
+            'matched_keywords_count' => $matchedKeywordsCount,
+            'unresolved_authors_count' => $unresolvedAuthorsCount,
+            'unresolved_keywords_count' => $unresolvedKeywordsCount,
             'execution_time' => $executionTime,
             'unresolved_institutions' => $unresolvedInstitutions,
             'unresolved_countries' => $unresolvedCountries,
+            'unresolved_authors' => $unresolvedAuthors,
+            'unresolved_keywords' => $unresolvedKeywords,
             'matched_institutions' => $matchedInstitutionsList,
             'matched_countries' => $matchedCountriesList,
             'matched_organizations' => $matchedOrganizationsList,
             'matched_units' => $matchedUnitsList,
+            'matched_authors' => $matchedAuthorsList,
+            'matched_keywords' => $matchedKeywordsList,
         ];
     }
 
@@ -415,18 +614,7 @@ class DocumentEnrichmentService
      */
     public static function normalize(string $name): string
     {
-        $text = mb_strtolower(trim($name), 'UTF-8');
-        if (function_exists('transliterator_transliterate')) {
-            $trans = \Transliterator::create('Any-Latin; Latin-ASCII');
-            if ($trans) {
-                $text = $trans->transliterate($text);
-            }
-        } else {
-            $text = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text) ?: $text;
-        }
-        $text = preg_replace('/[^a-z0-9\s.\-]/u', '', $text);
-        $text = preg_replace('/\s+/', ' ', $text);
-        return trim($text);
+        return StringNormalizer::normalizeString($name, true);
     }
 
     private function loadInstitutionsLookup(Connection $conn): array
@@ -619,5 +807,75 @@ class DocumentEnrichmentService
             'state' => strtoupper($m['state']),
             'postal_code' => $m['zip'] ?? null,
         ];
+    }
+
+    private function loadAuthorsLookup(Connection $conn, array $normalizedNames): array
+    {
+        $lookup = [];
+        if (empty($normalizedNames)) {
+            return $lookup;
+        }
+
+        $chunks = array_chunk($normalizedNames, 500);
+        foreach ($chunks as $chunk) {
+            $quoted = array_map(fn($val) => $conn->quote($val), $chunk);
+            $inList = implode(',', $quoted);
+
+            // 1. Get author identities
+            $authors = $conn->fetchAllAssociative("SELECT id, normalized_name FROM author_identity WHERE normalized_name IN ($inList)");
+            foreach ($authors as $row) {
+                $id = (int)$row['id'];
+                $lookup[$row['normalized_name']] = $id;
+            }
+
+            // 2. Variations
+            $vars = $conn->fetchAllAssociative("SELECT v.normalized_name, v.author_identity_id FROM author_name_variant v WHERE v.normalized_name IN ($inList)");
+            foreach ($vars as $row) {
+                $lookup[$row['normalized_name']] = (int)$row['author_identity_id'];
+            }
+        }
+
+        return $lookup;
+    }
+
+    private function loadKeywordsLookup(Connection $conn, array $normalizedTerms): array
+    {
+        $lookup = [];
+        if (empty($normalizedTerms)) {
+            return $lookup;
+        }
+
+        $chunks = array_chunk($normalizedTerms, 500);
+        foreach ($chunks as $chunk) {
+            $quoted = array_map(fn($val) => $conn->quote($val), $chunk);
+            $inList = implode(',', $quoted);
+
+            // 1. Get official keywords (point to concept_id if exists)
+            $keywords = $conn->fetchAllAssociative("
+                SELECT id, keyword_normalized, keyword_type, keyword_concept_id 
+                FROM keyword 
+                WHERE status = 1 AND keyword_normalized IN ($inList)
+            ");
+            foreach ($keywords as $row) {
+                $conceptId = $row['keyword_concept_id'] ? (int)$row['keyword_concept_id'] : (int)$row['id'];
+                $key = $row['keyword_normalized'] . '|' . $row['keyword_type'];
+                $lookup[$key] = $conceptId;
+            }
+
+            // 2. Variations
+            $vars = $conn->fetchAllAssociative(
+                "SELECT v.normalized_name, v.keyword_id, k.keyword_type, k.keyword_concept_id 
+                 FROM palavra_chave_variacoes_nome v 
+                 JOIN keyword k ON k.id = v.keyword_id
+                 WHERE v.status = 1 AND k.status = 1 AND v.normalized_name IN ($inList)"
+            );
+            foreach ($vars as $row) {
+                $conceptId = $row['keyword_concept_id'] ? (int)$row['keyword_concept_id'] : (int)$row['keyword_id'];
+                $key = $row['normalized_name'] . '|' . $row['keyword_type'];
+                $lookup[$key] = $conceptId;
+            }
+        }
+
+        return $lookup;
     }
 }

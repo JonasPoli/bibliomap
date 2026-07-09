@@ -87,7 +87,7 @@
                                 <td>{{ c.isoCode ?? '—' }}</td>
                                 <td><span class="badge bg-secondary">{{ c.continente ?? '—' }}</span></td>
                                 <td>
-                                    <span class="badge rounded-pill bg-dark border-bm" style="color:var(--bm-text-muted)">
+                                    <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
                                         {{ c.variations|length }} variações
                                     </span>
                                 </td>
@@ -145,14 +145,14 @@
                                 <td>{{ s.country.commonName }}</td>
                                 <td>
                                     {% if s.region %}
-                                        <span class="badge bg-dark border-bm" style="color:var(--bm-accent)">{{ s.region.name }}</span>
+                                        <span class="badge" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-accent)">{{ s.region.name }}</span>
                                     {% else %}
                                         <span class="text-muted-bm">—</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ s.officialCode ?? '—' }}</td>
                                 <td>
-                                    <span class="badge rounded-pill bg-dark border-bm" style="color:var(--bm-text-muted)">
+                                    <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
                                         {{ s.variations|length }} variações
                                     </span>
                                 </td>
@@ -215,7 +215,7 @@
                                 <td>{{ ct.country.commonName }}</td>
                                 <td>{{ ct.officialCode ?? '—' }}</td>
                                 <td>
-                                    <span class="badge rounded-pill bg-dark border-bm" style="color:var(--bm-text-muted)">
+                                    <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
                                         {{ ct.variations|length }} variações
                                     </span>
                                 </td>

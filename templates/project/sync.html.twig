@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sincronização Geográfica e Institucional — {{ project.title }}{% endblock %}
+{% block title %}Sincronização de Dados e Metadados — {{ project.title }}{% endblock %}
 
 {% block breadcrumb %}
     <a href="{{ path('app_projects_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Projetos</a>
@@ -15,9 +15,9 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-arrow-repeat text-accent me-2"></i>
-        Sincronização Geográfica e Institucional
+        Sincronização de Dados e Metadados
     </h1>
-    <p class="bm-page-subtitle">Reconcilie dados brutos de filiações com os registros oficiais de países, estados, cidades e instituições.</p>
+    <p class="bm-page-subtitle">Reconcilie filiações, países, autores e palavras-chave brutos com os registros cadastrados na plataforma.</p>
 </div>
 
 <div class="row g-4">
@@ -26,7 +26,7 @@
         <div class="bm-card mb-4">
             <h5 style="font-weight:700" class="mb-3">Ações de Sincronismo</h5>
             <p style="font-size:13px;color:var(--bm-text-muted)">
-                Esta ação remove todos os vínculos geográficos e institucionais temporários do projeto e refaz a busca com base nas tabelas oficiais cadastradas pelo Super Admin.
+                Esta ação mapeia automaticamente todos os vínculos de instituições, países, autores e palavras-chave do projeto usando as regras e variações cadastradas.
             </p>
             <div class="p-3 mb-3 border-bm bg-bm-card rounded-3" style="font-size:12.5px">
                 <div class="d-flex justify-between mb-2">
@@ -45,8 +45,8 @@
                 </div>
             </div>
             
-            <form action="{{ path('app_project_sync_geography_run', {id: project.id}) }}" method="POST" onsubmit="showLoading()">
-                <input type="hidden" name="_token" value="{{ csrf_token('sync_geo_' ~ project.id) }}">
+            <form action="{{ path('app_project_sync_run', {id: project.id}) }}" method="POST" onsubmit="showLoading()">
+                <input type="hidden" name="_token" value="{{ csrf_token('sync_data_' ~ project.id) }}">
                 <button type="submit" class="btn-bm-primary w-100" id="btn-sync">
                     <i class="bi bi-play-fill me-1"></i> Executar Sincronismo
                 </button>
@@ -56,39 +56,51 @@
         <div class="bm-card" id="loading-card" style="display:none">
             <div class="text-center py-3">
                 <div class="spinner-border text-accent mb-2" role="status"></div>
-                <div style="font-size:13.5px;font-weight:600">Reconciliando registros...</div>
-                <div style="font-size:11.5px;color:var(--bm-text-muted)">Aguarde enquanto os dados são mapeados na base.</div>
+                <div style="font-size:13.5px;font-weight:600">Sincronizando dados...</div>
+                <div style="font-size:11.5px;color:var(--bm-text-muted)">Aguarde enquanto as entidades são vinculadas na base.</div>
             </div>
         </div>
     </div>
 
-    <!-- Stats & Unresolved Reports -->
+    <!-- Stats & Reports -->
     <div class="col-lg-8">
         {% if report %}
-            <!-- KPI Summary -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-3 col-sm-6">
-                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
-                        <div class="bm-stat-value text-accent" style="font-size:24px;font-weight:800">{{ report.matched_institutions_count }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Instituições</div>
+            <!-- KPI Summary Cards -->
+            <div class="row g-2 mb-4">
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value text-accent" style="font-size:19px;font-weight:800">{{ report.matched_institutions_count }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Inst.</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
-                        <div class="bm-stat-value text-success" style="font-size:24px;font-weight:800">{{ report.matched_countries_count }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Países</div>
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value text-success" style="font-size:19px;font-weight:800">{{ report.matched_countries_count }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Países</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
-                        <div class="bm-stat-value text-info" style="font-size:24px;font-weight:800">{{ report.matched_organizations_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Organizações</div>
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value text-info" style="font-size:19px;font-weight:800">{{ report.matched_organizations_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Org.</div>
                     </div>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <div class="bm-stat-card text-center p-3 border-bm rounded-3">
-                        <div class="bm-stat-value text-warning" style="font-size:24px;font-weight:800">{{ report.matched_units_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:11.5px">Unidades Internas</div>
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value text-warning" style="font-size:19px;font-weight:800">{{ report.matched_units_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Unidades</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value" style="font-size:19px;font-weight:800;color:var(--bm-text)">{{ report.matched_authors_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Autores</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-6">
+                    <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
+                        <div class="bm-stat-value text-danger" style="font-size:19px;font-weight:800">{{ report.matched_keywords_count|default(0) }}</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">P. Chave</div>
                     </div>
                 </div>
             </div>
@@ -97,17 +109,27 @@
             <div class="bm-card">
                 <ul class="nav nav-tabs border-bm mb-3" id="sync-tabs" role="tablist">
                     <li class="nav-item">
-                        <button class="nav-link active text-accent" id="unresolved-inst-tab" data-bs-toggle="tab" data-bs-target="#unresolved-inst" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
-                            🏢 Inst. Não Encontradas ({{ report.unresolved_institutions|length }})
+                        <button class="nav-link active text-accent" id="unresolved-inst-tab" data-bs-toggle="tab" data-bs-target="#unresolved-inst" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
+                            🏢 Inst. ({{ report.unresolved_institutions|length }})
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link text-accent" id="unresolved-countries-tab" data-bs-toggle="tab" data-bs-target="#unresolved-countries" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
-                            🌍 Países Não Encontrados ({{ report.unresolved_countries|length }})
+                        <button class="nav-link text-accent" id="unresolved-countries-tab" data-bs-toggle="tab" data-bs-target="#unresolved-countries" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
+                            🌍 Países ({{ report.unresolved_countries|length }})
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link text-accent" id="resolved-tab" data-bs-toggle="tab" data-bs-target="#resolved" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                        <button class="nav-link text-accent" id="unresolved-authors-tab" data-bs-toggle="tab" data-bs-target="#unresolved-authors" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
+                            👥 Autores ({{ report.unresolved_authors_count|default(report.unresolved_authors|length) }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-accent" id="unresolved-keywords-tab" data-bs-toggle="tab" data-bs-target="#unresolved-keywords" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
+                            🔑 P. Chaves ({{ report.unresolved_keywords_count|default(report.unresolved_keywords|length) }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-accent" id="resolved-tab" data-bs-toggle="tab" data-bs-target="#resolved" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
                             ✓ Resolvidos
                         </button>
                     </li>
@@ -117,10 +139,10 @@
                     <!-- Tab 1: Unresolved Institutions -->
                     <div class="tab-pane fade show active" id="unresolved-inst" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12.5px">
-                                <i class="bi bi-info-circle"></i> Os nomes abaixo foram encontrados nos metadados dos artigos, mas não correspondem a nenhuma instituição cadastrada ou variação de nome. Adicione variações correspondentes nas instituições para resolver esses casos.
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
+                                <i class="bi bi-info-circle"></i> Filiações não mapeadas. Vincule novas variações no painel de instituições.
                             </div>
-                            <a href="{{ path('app_project_sync_geography_export_unmatched', {id: project.id, type: 'institutions'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                            <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'institutions'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
                         </div>
@@ -128,14 +150,14 @@
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
                                 <thead class="sticky-top bg-bm-card border-bottom border-bm">
                                     <tr>
-                                        <th style="color:var(--bm-text-muted)">Nome da Variação no Arquivo</th>
+                                        <th style="color:var(--bm-text-muted)">Nome da Variação no Artigo</th>
                                         <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% if report.unresolved_institutions is empty %}
                                         <tr>
-                                            <td colspan="2" class="text-center py-4 text-muted-bm">Nenhuma instituição não resolvida!</td>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Nenhuma instituição pendente!</td>
                                         </tr>
                                     {% else %}
                                         {% for name, count in report.unresolved_institutions %}
@@ -153,10 +175,10 @@
                     <!-- Tab 2: Unresolved Countries -->
                     <div class="tab-pane fade" id="unresolved-countries" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12.5px">
-                                <i class="bi bi-info-circle"></i> Registre variações nos países (Super Admin) para ligar estes nomes ao país correto.
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
+                                <i class="bi bi-info-circle"></i> Países não mapeados. Vincule variações na tela geográfica dos países.
                             </div>
-                            <a href="{{ path('app_project_sync_geography_export_unmatched', {id: project.id, type: 'countries'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                            <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'countries'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
                         </div>
@@ -164,14 +186,14 @@
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
                                 <thead class="sticky-top bg-bm-card border-bottom border-bm">
                                     <tr>
-                                        <th style="color:var(--bm-text-muted)">País Encontrado no Arquivo</th>
+                                        <th style="color:var(--bm-text-muted)">Nome do País no Artigo</th>
                                         <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% if report.unresolved_countries is empty %}
                                         <tr>
-                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todos os países foram resolvidos!</td>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todos os países mapeados!</td>
                                         </tr>
                                     {% else %}
                                         {% for name, count in report.unresolved_countries %}
@@ -186,24 +208,96 @@
                         </div>
                     </div>
 
-                    <!-- Tab 3: Resolved entities stats -->
+                    <!-- Tab 3: Unresolved Authors -->
+                    <div class="tab-pane fade" id="unresolved-authors" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
+                                <i class="bi bi-info-circle"></i> Autores pendentes de normalização. Vincule variações na área de Autores do Admin.
+                            </div>
+                            <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'authors'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                                <i class="bi bi-download me-1"></i> Exportar CSV
+                            </a>
+                        </div>
+                        <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+                                <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                    <tr>
+                                        <th style="color:var(--bm-text-muted)">Nome do Autor no Artigo</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if report.unresolved_authors is empty %}
+                                        <tr>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todos os autores resolvidos!</td>
+                                        </tr>
+                                    {% else %}
+                                        {% for name, count in report.unresolved_authors %}
+                                            <tr class="border-bm">
+                                                <td class="font-monospace text-accent">{{ name }}</td>
+                                                <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Unresolved Keywords -->
+                    <div class="tab-pane fade" id="unresolved-keywords" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
+                                <i class="bi bi-info-circle"></i> Palavras-chave pendentes de mapeamento. Vincule variações na área de Palavras-chave do Admin.
+                            </div>
+                            <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'keywords'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                                <i class="bi bi-download me-1"></i> Exportar CSV
+                            </a>
+                        </div>
+                        <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+                                <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                    <tr>
+                                        <th style="color:var(--bm-text-muted)">Palavra-chave no Artigo</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if report.unresolved_keywords is empty %}
+                                        <tr>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todas as palavras-chave mapeadas!</td>
+                                        </tr>
+                                    {% else %}
+                                        {% for term, count in report.unresolved_keywords %}
+                                            <tr class="border-bm">
+                                                <td class="font-monospace text-accent">{{ term }}</td>
+                                                <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Resolved Stats -->
                     <div class="tab-pane fade" id="resolved" role="tabpanel">
                         <div class="row g-4">
                             <!-- Institutions -->
                             <div class="col-md-6">
-                                <h6 style="font-weight:700" class="mb-2">🏢 Instituições Identificadas</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                <h6 style="font-weight:700" class="mb-2">🏢 Inst. Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3 mb-3" style="max-height:220px">
                                     <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
-                                                <th>Instituição</th>
+                                                <th>Nome</th>
                                                 <th style="text-align:right">Artigos</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% if report.matched_institutions is empty %}
                                                 <tr>
-                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma instituição vinculada ainda.</td>
+                                                    <td colspan="2" class="text-center py-2 text-muted-bm">Nenhuma.</td>
                                                 </tr>
                                             {% else %}
                                                 {% for item in report.matched_institutions %}
@@ -221,7 +315,7 @@
                             <!-- Countries -->
                             <div class="col-md-6">
                                 <h6 style="font-weight:700" class="mb-2">🌍 Países Identificados</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                <div class="table-responsive border-bm rounded-3 mb-3" style="max-height:220px">
                                     <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
@@ -232,7 +326,7 @@
                                         <tbody>
                                             {% if report.matched_countries is empty %}
                                                 <tr>
-                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhum país vinculado ainda.</td>
+                                                    <td colspan="2" class="text-center py-2 text-muted-bm">Nenhum.</td>
                                                 </tr>
                                             {% else %}
                                                 {% for item in report.matched_countries %}
@@ -247,27 +341,27 @@
                                 </div>
                             </div>
 
-                            <!-- Organizations -->
+                            <!-- Authors -->
                             <div class="col-md-6">
-                                <h6 style="font-weight:700" class="mb-2">💼 Organizações Identificadas</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                <h6 style="font-weight:700" class="mb-2">👥 Autores Identificados</h6>
+                                <div class="table-responsive border-bm rounded-3 mb-3" style="max-height:220px">
                                     <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
-                                                <th>Organização</th>
+                                                <th>Autor</th>
                                                 <th style="text-align:right">Artigos</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% if report.matched_organizations is not defined or report.matched_organizations is empty %}
+                                            {% if report.matched_authors is not defined or report.matched_authors is empty %}
                                                 <tr>
-                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma organização vinculada ainda.</td>
+                                                    <td colspan="2" class="text-center py-2 text-muted-bm">Nenhum.</td>
                                                 </tr>
                                             {% else %}
-                                                {% for item in report.matched_organizations %}
+                                                {% for item in report.matched_authors %}
                                                     <tr class="border-bm">
                                                         <td style="font-weight:600">{{ item.name }}</td>
-                                                        <td style="text-align:right;font-weight:700" class="text-info">{{ item.count }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-light">{{ item.count }}</td>
                                                     </tr>
                                                 {% endfor %}
                                             {% endif %}
@@ -276,27 +370,27 @@
                                 </div>
                             </div>
 
-                            <!-- Units -->
+                            <!-- Keywords -->
                             <div class="col-md-6">
-                                <h6 style="font-weight:700" class="mb-2">🔬 Unidades Internas Identificadas</h6>
-                                <div class="table-responsive border-bm rounded-3" style="max-height:250px">
+                                <h6 style="font-weight:700" class="mb-2">🔑 Palavras-chave Identificadas</h6>
+                                <div class="table-responsive border-bm rounded-3 mb-3" style="max-height:220px">
                                     <table class="table table-sm align-middle mb-0" style="font-size:12px">
                                         <thead>
                                             <tr class="bg-bm-card border-bottom border-bm">
-                                                <th>Unidade Interna</th>
+                                                <th>Termo</th>
                                                 <th style="text-align:right">Artigos</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% if report.matched_units is not defined or report.matched_units is empty %}
+                                            {% if report.matched_keywords is not defined or report.matched_keywords is empty %}
                                                 <tr>
-                                                    <td colspan="2" class="text-center py-3 text-muted-bm">Nenhuma unidade interna vinculada ainda.</td>
+                                                    <td colspan="2" class="text-center py-2 text-muted-bm">Nenhuma.</td>
                                                 </tr>
                                             {% else %}
-                                                {% for item in report.matched_units %}
+                                                {% for item in report.matched_keywords %}
                                                     <tr class="border-bm">
                                                         <td style="font-weight:600">{{ item.name }}</td>
-                                                        <td style="text-align:right;font-weight:700" class="text-warning">{{ item.count }}</td>
+                                                        <td style="text-align:right;font-weight:700" class="text-danger">{{ item.count }}</td>
                                                     </tr>
                                                 {% endfor %}
                                             {% endif %}
@@ -314,7 +408,7 @@
                 <i class="bi bi-cloud-arrow-up text-accent mb-3" style="font-size:48px"></i>
                 <h4 style="font-weight:700">Nenhum sincronismo executado</h4>
                 <p class="text-muted-bm mx-auto" style="max-width:460px;font-size:13.5px">
-                    Os metadados geográficos e de filiação dos artigos importados ainda não foram reconciliados com o banco de dados oficial. Clique em **Executar Sincronismo** para realizar os mapeamentos.
+                    Os metadados dos artigos ainda não foram reconciliados com a base de dados oficial. Clique em **Executar Sincronismo** para realizar os mapeamentos.
                 </p>
             </div>
         {% endif %}

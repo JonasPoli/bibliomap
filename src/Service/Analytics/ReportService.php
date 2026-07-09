@@ -14,13 +14,13 @@ class ReportService
     {
         // 1. Fetch ALL authors for Lotka distribution & KPIs (always unfiltered)
         $allAuthors = $this->conn->fetchAllAssociative(
-            'SELECT a.id, a.name,
+            'SELECT a.id, a.preferred_name AS name,
                     COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0))   AS citation_count
-             FROM author a
-             JOIN document_author da ON a.id = da.author_id
+             FROM author_identity a
+             JOIN document_author da ON a.id = da.author_identity_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?
-             GROUP BY a.id, a.name',
+             GROUP BY a.id, a.preferred_name',
             [$projectId]
         );
 
@@ -29,21 +29,21 @@ class ReportService
         $params = [$projectId];
         $searchSql = '';
         if ($search !== null && trim($search) !== '') {
-            $searchSql = ' AND a.name LIKE ?';
+            $searchSql = ' AND a.preferred_name LIKE ?';
             $params[] = '%' . trim($search) . '%';
         }
 
         $listAuthors = $this->conn->fetchAllAssociative(
-            'SELECT a.id, a.name,
+            'SELECT a.id, a.preferred_name AS name,
                     COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0))   AS citation_count,
                     ROUND(AVG(COALESCE(d.cited_by, 0)), 1) AS avg_citations,
                     MIN(d.year) AS first_year,
                     MAX(d.year) AS last_year
-             FROM author a
-             JOIN document_author da ON a.id = da.author_id
+             FROM author_identity a
+             JOIN document_author da ON a.id = da.author_identity_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?' . $searchSql . '
-             GROUP BY a.id, a.name
+             GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC, citation_count DESC',
             $params
         );
@@ -61,11 +61,11 @@ class ReportService
             $placeholders = implode(',', $authorIds);
             
             $citRows = $this->conn->fetchAllAssociative(
-                "SELECT da.author_id, COALESCE(d.cited_by, 0) AS cited_by
+                "SELECT da.author_identity_id AS author_id, COALESCE(d.cited_by, 0) AS cited_by
                  FROM document d
                  JOIN document_author da ON da.document_id = d.id
-                 WHERE d.project_id = ? AND da.author_id IN ($placeholders)
-                 ORDER BY da.author_id, d.cited_by DESC",
+                 WHERE d.project_id = ? AND da.author_identity_id IN ($placeholders)
+                 ORDER BY da.author_identity_id, d.cited_by DESC",
                 [$projectId]
             );
 
@@ -141,80 +141,75 @@ class ReportService
         return $h;
     }
 
-    /** G-index: largest g such that top g papers collectively have ≥ g² citations */
+    /** G-index: largest g such that the top g papers have cumulatively ≥ g² citations (array must be sorted DESC) */
     private function calcGIndex(array $citationsSortedDesc): int
     {
-        $cumulative = 0;
         $g = 0;
+        $sum = 0;
         foreach ($citationsSortedDesc as $i => $cit) {
-            $cumulative += (int) $cit;
             $rank = $i + 1;
-            if ($cumulative >= $rank * $rank) {
+            $sum += $cit;
+            if ($sum >= ($rank * $rank)) {
                 $g = $rank;
+            } else {
+                break;
             }
         }
         return $g;
     }
 
-    // ── 2. Sources Report ─────────────────────────────────────────────────────
+    // ── 2. Sources Report (Bradford Law) ──────────────────────────────────────
 
     public function getSourcesReport(int $projectId, int $limit = 100): array
     {
-        // NOTE: LIMIT must be inlined as int (DBAL binds ? as string, MySQL rejects string LIMIT)
         $sources = $this->conn->fetchAllAssociative(
-            "SELECT source_title,
-                    COUNT(*) AS doc_count,
+            'SELECT source_title, COUNT(*) AS doc_count,
                     SUM(COALESCE(cited_by, 0)) AS citation_count,
                     ROUND(AVG(COALESCE(cited_by, 0)), 1) AS avg_citations,
-                    MIN(year) AS first_year,
-                    MAX(year) AS last_year
+                    MIN(year) AS first_year, MAX(year) AS last_year
              FROM document
-             WHERE project_id = ? AND source_title IS NOT NULL AND source_title != ''
+             WHERE project_id = ? AND source_title IS NOT NULL AND source_title != \'\'
              GROUP BY source_title
-             ORDER BY doc_count DESC
-             LIMIT {$limit}",
+             ORDER BY doc_count DESC, citation_count DESC',
             [$projectId]
         );
 
-        $totalSources = (int) $this->conn->fetchOne(
-            "SELECT COUNT(DISTINCT source_title) FROM document WHERE project_id = ? AND source_title IS NOT NULL AND source_title != ''",
-            [$projectId]
-        );
+        $bradford = $this->calcBradfordZones($sources);
 
-        $topSource = !empty($sources) ? $sources[0] : null;
-
-        // ── Bradford's Law zones ──────────────────────────────────────────────
-        $totalDocs = array_sum(array_column($sources, 'doc_count'));
-        $bradford  = $this->calcBradfordZones($sources, (int)$totalDocs);
+        $topSourceName = 'N/A';
+        $topSourceDocs = 0;
+        if (!empty($sources)) {
+            $topSourceName = $sources[0]['source_title'];
+            $topSourceDocs = (int)$sources[0]['doc_count'];
+        }
 
         return [
-            'list'     => $sources,
+            'list'     => array_slice($sources, 0, $limit),
             'bradford' => $bradford,
             'kpis'     => [
-                'total_sources'   => $totalSources,
-                'top_source'      => $topSource ? $topSource['source_title'] : 'N/A',
-                'top_source_docs' => $topSource ? (int)$topSource['doc_count'] : 0,
+                'total_sources' => count($sources),
+                'top_source' => $topSourceName,
+                'top_source_docs' => $topSourceDocs,
             ]
         ];
     }
 
-    /**
-     * Bradford's Law: divide journals into 3 zones of ~equal document output.
-     */
-    private function calcBradfordZones(array $sources, int $totalDocs): array
+    private function calcBradfordZones(array $sourcesSortedByDocDesc): array
     {
-        if ($totalDocs === 0 || empty($sources)) {
+        $totalDocs = array_sum(array_column($sourcesSortedByDocDesc, 'doc_count'));
+        if ($totalDocs === 0) {
             return ['zone1' => [], 'zone2' => [], 'zone3' => [], 'target_per_zone' => 0];
         }
 
-        $target   = intdiv($totalDocs, 3);
-        $zone     = 1;
-        $cumul    = 0;
-        $zones    = ['zone1' => [], 'zone2' => [], 'zone3' => []];
+        $target = round($totalDocs / 3);
+        $zones = ['zone1' => [], 'zone2' => [], 'zone3' => []];
         $zoneKeys = ['zone1', 'zone2', 'zone3'];
 
-        foreach ($sources as $s) {
-            if ($zone < 3 && $cumul >= $target * $zone) {
+        $cumul = 0;
+        $zone = 1;
+
+        foreach ($sourcesSortedByDocDesc as $s) {
+            if ($zone < 3 && $cumul >= ($target * $zone)) {
                 $zone++;
             }
             $zones[$zoneKeys[$zone - 1]][] = [
@@ -233,14 +228,14 @@ class ReportService
     {
         $documents = $this->conn->fetchAllAssociative(
             "SELECT d.id, d.title, d.year, d.source_title, d.doi, COALESCE(d.cited_by, 0) AS cited_by,
-                    (SELECT GROUP_CONCAT(a.name ORDER BY da.position ASC SEPARATOR '; ')
-                     FROM author a
-                     JOIN document_author da ON a.id = da.author_id
+                    (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ')
+                     FROM author_identity a
+                     JOIN document_author da ON a.id = da.author_identity_id
                      WHERE da.document_id = d.id) AS authors_str
-             FROM document d
-             WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
-             ORDER BY cited_by DESC
-             LIMIT {$limit}",
+              FROM document d
+              WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
+              ORDER BY cited_by DESC
+              LIMIT {$limit}",
             [$projectId]
         );
 
@@ -272,28 +267,36 @@ class ReportService
         $params = [$projectId];
         $searchSql = '';
         if ($search !== null && trim($search) !== '') {
-            $searchSql = ' AND k.term LIKE ?';
+            $searchSql = ' AND k.keyword_display LIKE ?';
             $params[] = '%' . trim($search) . '%';
         }
 
         $targetLimit = ($search !== null && trim($search) !== '') ? 300 : $limit;
 
         $keywords = $this->conn->fetchAllAssociative(
-            "SELECT k.id, k.term, k.type, COUNT(dk.document_id) AS freq,
+            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
+                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
+                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
+                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    END AS type,
+                    COUNT(DISTINCT dk.document_id) AS freq,
                     MIN(d.year) AS first_year, MAX(d.year) AS last_year
              FROM keyword k
+             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?{$searchSql}
-             GROUP BY k.id, k.term, k.type
+             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
              ORDER BY freq DESC
              LIMIT {$targetLimit}",
             $params
         );
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT CASE WHEN k.type = 'author'  THEN k.id END) AS author_kw_count,
-                    COUNT(DISTINCT CASE WHEN k.type = 'indexed' THEN k.id END) AS indexed_kw_count
+            "SELECT COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword'  THEN COALESCE(k.keyword_concept_id, k.id) END) AS author_kw_count,
+                    COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN COALESCE(k.keyword_concept_id, k.id) END) AS indexed_kw_count
              FROM keyword k
+             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?",
             [$projectId]
@@ -313,39 +316,48 @@ class ReportService
 
     public function getCountriesReport(int $projectId): array
     {
-        $rows = $this->conn->fetchAllAssociative(
-            'SELECT c.common_name AS country, c.continente, COUNT(dp.document_id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM documento_paises dp
-             JOIN paises c ON dp.country_id = c.id
-             JOIN document d ON dp.document_id = d.id
-             WHERE d.project_id = ?
-             GROUP BY c.id, c.common_name, c.continente
-             ORDER BY doc_count DESC',
+        $rows = $this->conn->fetchFirstColumn(
+            'SELECT countries FROM document WHERE project_id = ? AND countries IS NOT NULL',
             [$projectId]
         );
 
-        $countryCounts = [];
-        foreach ($rows as $row) {
-            $c = $row['country'];
-            $countryCounts[] = [
-                'country' => $c,
-                'continent' => $row['continente'],
-                'doc_count' => (int)$row['doc_count'],
-                'citation_count' => (int)$row['citation_count'],
-                'avg_citations' => $row['doc_count'] > 0 ? round($row['citation_count'] / $row['doc_count'], 1) : 0
+        $freqs = [];
+        foreach ($rows as $json) {
+            $arr = json_decode($json, true);
+            if (is_array($arr)) {
+                foreach ($arr as $country) {
+                    $country = trim($country);
+                    if ($country !== '') {
+                        $freqs[$country] = ($freqs[$country] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        arsort($freqs);
+
+        $list = [];
+        foreach ($freqs as $country => $freq) {
+            $list[] = [
+                'country'   => $country,
+                'freq'      => $freq,
+                'doc_count' => $freq,
             ];
         }
 
-        $totalCountries = count($countryCounts);
-        $topCountry     = $totalCountries > 0 ? $countryCounts[0]['country']   : 'N/A';
-        $topCountryDocs = $totalCountries > 0 ? $countryCounts[0]['doc_count'] : 0;
+        $topCountryName = 'N/A';
+        $topCountryDocs = 0;
+        if (!empty($list)) {
+            $topCountryName = $list[0]['country'];
+            $topCountryDocs = (int)$list[0]['freq'];
+        }
 
         return [
-            'list' => $countryCounts,
+            'list' => $list,
             'kpis' => [
-                'total_countries'  => $totalCountries,
-                'top_country'      => $topCountry,
-                'top_country_docs' => $topCountryDocs,
+                'total_countries' => count($freqs),
+                'top_country'     => $topCountryName,
+                'top_country_docs'=> $topCountryDocs,
             ]
         ];
     }
@@ -354,46 +366,48 @@ class ReportService
 
     public function getInstitutionsReport(int $projectId): array
     {
-        $rows = $this->conn->fetchAllAssociative(
-            'SELECT institutions, COALESCE(cited_by, 0) AS cited_by
-             FROM document
-             WHERE project_id = ? AND institutions IS NOT NULL',
+        $rows = $this->conn->fetchFirstColumn(
+            'SELECT institutions FROM document WHERE project_id = ? AND institutions IS NOT NULL',
             [$projectId]
         );
 
-        $instCounts = [];
-        foreach ($rows as $row) {
-            $institutions = json_decode($row['institutions'], true);
-            if (is_array($institutions)) {
-                foreach ($institutions as $inst) {
+        $freqs = [];
+        foreach ($rows as $json) {
+            $arr = json_decode($json, true);
+            if (is_array($arr)) {
+                foreach ($arr as $inst) {
                     $inst = trim($inst);
-                    if ($inst === '') continue;
-                    if (!isset($instCounts[$inst])) {
-                        $instCounts[$inst] = ['institution' => $inst, 'doc_count' => 0, 'citation_count' => 0];
+                    if ($inst !== '') {
+                        $freqs[$inst] = ($freqs[$inst] ?? 0) + 1;
                     }
-                    $instCounts[$inst]['doc_count']++;
-                    $instCounts[$inst]['citation_count'] += (int)$row['cited_by'];
                 }
             }
         }
 
-        foreach ($instCounts as &$ic) {
-            $ic['avg_citations'] = $ic['doc_count'] > 0 ? round($ic['citation_count'] / $ic['doc_count'], 1) : 0;
+        arsort($freqs);
+
+        $list = [];
+        foreach ($freqs as $inst => $freq) {
+            $list[] = [
+                'institution' => $inst,
+                'freq'        => $freq,
+                'doc_count'   => $freq,
+            ];
         }
-        unset($ic);
 
-        usort($instCounts, fn($a, $b) => $b['doc_count'] <=> $a['doc_count']);
-
-        $totalInst   = count($instCounts);
-        $topInst     = $totalInst > 0 ? $instCounts[0]['institution'] : 'N/A';
-        $topInstDocs = $totalInst > 0 ? $instCounts[0]['doc_count']   : 0;
+        $topInstitutionName = 'N/A';
+        $topInstitutionDocs = 0;
+        if (!empty($list)) {
+            $topInstitutionName = $list[0]['institution'];
+            $topInstitutionDocs = (int)$list[0]['freq'];
+        }
 
         return [
-            'list' => array_slice($instCounts, 0, 150),
+            'list' => $list,
             'kpis' => [
-                'total_institutions'   => $totalInst,
-                'top_institution'      => $topInst,
-                'top_institution_docs' => $topInstDocs,
+                'total_institutions' => count($freqs),
+                'top_institution'     => $topInstitutionName,
+                'top_institution_docs'=> $topInstitutionDocs,
             ]
         ];
     }
@@ -416,13 +430,13 @@ class ReportService
         );
 
         $kpis['total_authors'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT da.author_id) FROM document_author da
+            'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
              JOIN document d ON d.id = da.document_id AND d.project_id = ?',
             [$projectId]
         );
 
         $kpis['total_keywords'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT k.id) FROM keyword k
+            'SELECT COUNT(DISTINCT COALESCE(k.keyword_concept_id, k.id)) FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id AND d.project_id = ?',
             [$projectId]
@@ -438,12 +452,12 @@ class ReportService
 
         // Top 5 authors
         $topAuthors = $this->conn->fetchAllAssociative(
-            'SELECT a.name, COUNT(DISTINCT da.document_id) AS doc_count,
+            'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM author a
-             JOIN document_author da ON a.id = da.author_id
+             FROM author_identity a
+             JOIN document_author da ON a.id = da.author_identity_id
              JOIN document d ON d.id = da.document_id AND d.project_id = ?
-             GROUP BY a.id, a.name
+             GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC LIMIT 10',
             [$projectId]
         );
@@ -460,12 +474,18 @@ class ReportService
 
         // Top 5 keywords
         $topKeywords = $this->conn->fetchAllAssociative(
-            'SELECT k.term, k.type, COUNT(dk.document_id) AS freq
+            "SELECT COALESCE(kc.keyword_display, k.keyword_display) AS term,
+                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
+                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
+                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    END AS type,
+                    COUNT(DISTINCT dk.document_id) AS freq
              FROM keyword k
+             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
-             JOIN document d ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY k.id, k.term, k.type
-             ORDER BY freq DESC LIMIT 20',
+             JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
+             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             ORDER BY freq DESC LIMIT 20",
             [$projectId]
         );
 
@@ -473,8 +493,8 @@ class ReportService
         $topDocs = $this->conn->fetchAllAssociative(
             "SELECT d.title, d.year, d.source_title, d.doi,
                     COALESCE(d.cited_by, 0) AS cited_by,
-                    (SELECT GROUP_CONCAT(a.name ORDER BY da2.position ASC SEPARATOR '; ')
-                     FROM author a JOIN document_author da2 ON a.id = da2.author_id
+                    (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da2.position ASC SEPARATOR '; ')
+                     FROM author_identity a JOIN document_author da2 ON a.id = da2.author_identity_id
                      WHERE da2.document_id = d.id) AS authors_str
              FROM document d
              WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
@@ -508,8 +528,8 @@ class ReportService
         if (!empty($filters['author'])) {
             $qb->andWhere('EXISTS (
                 SELECT 1 FROM document_author da
-                JOIN author a ON a.id = da.author_id
-                WHERE da.document_id = d.id AND a.name LIKE :author
+                JOIN author_identity a ON a.id = da.author_identity_id
+                WHERE da.document_id = d.id AND a.preferred_name LIKE :author
             )')
             ->setParameter('author', '%' . trim($filters['author']) . '%');
         }
@@ -518,7 +538,7 @@ class ReportService
             $qb->andWhere('EXISTS (
                 SELECT 1 FROM document_keyword dk
                 JOIN keyword k ON k.id = dk.keyword_id
-                WHERE dk.document_id = d.id AND k.term LIKE :keyword
+                WHERE dk.document_id = d.id AND k.keyword_display LIKE :keyword
             )')
             ->setParameter('keyword', '%' . trim($filters['keyword']) . '%');
         }
@@ -553,9 +573,9 @@ class ReportService
         $placeholders = implode(',', $docIds);
 
         $authorsRows = $this->conn->fetchAllAssociative(
-            "SELECT da.document_id, GROUP_CONCAT(a.name ORDER BY da.position ASC SEPARATOR '; ') AS authors_str
+            "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ') AS authors_str
              FROM document_author da
-             JOIN author a ON a.id = da.author_id
+             JOIN author_identity a ON a.id = da.author_identity_id
              WHERE da.document_id IN ($placeholders)
              GROUP BY da.document_id"
         );
@@ -633,15 +653,16 @@ class ReportService
                     COALESCE(d.cited_by, 0) AS cited_by, COALESCE(d.doi, '') AS doi,
                     COALESCE(d.abstract_text, '') AS abstract,
                     (
-                        SELECT GROUP_CONCAT(a2.name ORDER BY da2.position SEPARATOR '; ')
+                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR '; ')
                         FROM document_author da2
-                        JOIN author a2 ON a2.id = da2.author_id
+                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
                         WHERE da2.document_id = d.id
                     ) AS author_names,
                     (
-                        SELECT GROUP_CONCAT(k2.term ORDER BY k2.term SEPARATOR '; ')
+                        SELECT GROUP_CONCAT(DISTINCT COALESCE(kc2.keyword_display, k2.keyword_display) ORDER BY COALESCE(kc2.keyword_display, k2.keyword_display) SEPARATOR '; ')
                         FROM document_keyword dk2
                         JOIN keyword k2 ON k2.id = dk2.keyword_id
+                        LEFT JOIN keyword kc2 ON k2.keyword_concept_id = kc2.id
                         WHERE dk2.document_id = d.id
                     ) AS keyword_terms
              FROM document_classification dc
@@ -744,4 +765,3 @@ class ReportService
         ];
     }
 }
-

@@ -21,21 +21,22 @@ class ThematicMapService
     public function buildThematicMap(int $projectId, string $kwType = 'author', int $minOccur = 2, int $maxKeywords = 100): array
     {
         $conn = $this->em->getConnection();
+        $mappedType = $kwType === 'author' ? 'author_keyword' : ($kwType === 'indexed' ? 'indexed_keyword' : $kwType);
 
         // ── 1. Fetch top keywords (nodes) ────────────────────────────────────
         $rawNodes = $conn->fetchAllAssociative('
             SELECT
                 k.id,
-                k.term AS label,
+                k.keyword_display AS label,
                 COUNT(dk.document_id) AS doc_count
             FROM keyword k
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.type = ?
-            GROUP BY k.id, k.term
+            WHERE d.project_id = ? AND k.keyword_type = ?
+            GROUP BY k.id, k.keyword_display
             HAVING COUNT(dk.document_id) >= ?
             ORDER BY doc_count DESC
-            LIMIT ' . (int)$maxKeywords, [$projectId, $kwType, $minOccur]);
+            LIMIT ' . (int)$maxKeywords, [$projectId, $mappedType, $minOccur]);
 
         if (empty($rawNodes)) {
             return [

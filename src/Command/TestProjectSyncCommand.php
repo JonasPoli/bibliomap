@@ -11,8 +11,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 #[AsCommand(
-    name: 'app:project:sync-geography-cli',
-    description: 'Sync geography for a project via CLI',
+    name: 'app:project:sync-cli',
+    description: 'Sync all metadata (geography, institutions, authors, keywords) for a project via CLI',
 )]
 class TestProjectSyncCommand extends Command
 {
@@ -29,7 +29,7 @@ class TestProjectSyncCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $projectId = 5;
 
-        $io->title("Syncing geography and institutions for project {$projectId}...");
+        $io->title("Syncing all metadata (geography, institutions, authors, keywords) for project {$projectId}...");
         $report = $this->enrichmentService->enrichProject($projectId);
 
         $cacheFile = $this->kernel->getProjectDir() . '/var/geography_sync_cache/project_' . $projectId . '.json';
@@ -49,8 +49,12 @@ class TestProjectSyncCommand extends Command
                 ['Matched Countries', $report['matched_countries_count']],
                 ['Matched Organizations', $report['matched_organizations_count']],
                 ['Matched Units', $report['matched_units_count']],
+                ['Matched Authors', $report['matched_authors_count'] ?? 0],
+                ['Matched Keywords', $report['matched_keywords_count'] ?? 0],
                 ['Unresolved Institutions', count($report['unresolved_institutions'])],
                 ['Unresolved Countries', count($report['unresolved_countries'])],
+                ['Unresolved Authors', count($report['unresolved_authors'] ?? [])],
+                ['Unresolved Keywords', count($report['unresolved_keywords'] ?? [])],
             ]
         );
 

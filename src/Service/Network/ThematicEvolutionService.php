@@ -16,36 +16,39 @@ class ThematicEvolutionService
     public function buildThematicEvolution(int $projectId, string $kwType = 'author', int $cutoffYear = 2024, int $minOccur = 2, int $maxKeywords = 100): array
     {
         $conn = $this->em->getConnection();
+        $mappedType = $kwType === 'author' ? 'author_keyword' : ($kwType === 'indexed' ? 'indexed_keyword' : $kwType);
 
         // 1. Fetch top keywords for Period 1 (year <= cutoffYear)
         $rawNodesP1 = $conn->fetchAllAssociative('
             SELECT 
-                k.id, 
-                k.term AS label, 
-                COUNT(dk.document_id) AS doc_count
+                COALESCE(k.keyword_concept_id, k.id) AS id, 
+                COALESCE(kc.keyword_display, k.keyword_display) AS label, 
+                COUNT(DISTINCT dk.document_id) AS doc_count
             FROM keyword k
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.type = ? AND d.year <= ?
-            GROUP BY k.id, k.term
-            HAVING COUNT(dk.document_id) >= ?
+            WHERE d.project_id = ? AND k.keyword_type = ? AND d.year <= ?
+            GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
+            HAVING COUNT(DISTINCT dk.document_id) >= ?
             ORDER BY doc_count DESC
-            LIMIT ' . (int)$maxKeywords, [$projectId, $kwType, $cutoffYear, $minOccur]);
+            LIMIT ' . (int)$maxKeywords, [$projectId, $mappedType, $cutoffYear, $minOccur]);
 
         // 2. Fetch top keywords for Period 2 (year > cutoffYear)
         $rawNodesP2 = $conn->fetchAllAssociative('
             SELECT 
-                k.id, 
-                k.term AS label, 
-                COUNT(dk.document_id) AS doc_count
+                COALESCE(k.keyword_concept_id, k.id) AS id, 
+                COALESCE(kc.keyword_display, k.keyword_display) AS label, 
+                COUNT(DISTINCT dk.document_id) AS doc_count
             FROM keyword k
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.type = ? AND d.year > ?
-            GROUP BY k.id, k.term
-            HAVING COUNT(dk.document_id) >= ?
+            WHERE d.project_id = ? AND k.keyword_type = ? AND d.year > ?
+            GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
+            HAVING COUNT(DISTINCT dk.document_id) >= ?
             ORDER BY doc_count DESC
-            LIMIT ' . (int)$maxKeywords, [$projectId, $kwType, $cutoffYear, $minOccur]);
+            LIMIT ' . (int)$maxKeywords, [$projectId, $mappedType, $cutoffYear, $minOccur]);
 
         if (empty($rawNodesP1) || empty($rawNodesP2)) {
             return [
@@ -98,34 +101,52 @@ class ThematicEvolutionService
         // 3. Fetch co-occurrences for P1
         $rawEdgesP1 = $conn->fetchAllAssociative("
             SELECT 
-                dk1.keyword_id AS source, 
-                dk2.keyword_id AS target, 
-                COUNT(dk1.document_id) AS weight
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k1.keyword_concept_id, k1.id) 
+                     ELSE COALESCE(k2.keyword_concept_id, k2.id) 
+                END AS source,
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k2.keyword_concept_id, k2.id) 
+                     ELSE COALESCE(k1.keyword_concept_id, k1.id) 
+                END AS target,
+                COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
-            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk1.keyword_id < dk2.keyword_id
+            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
+            JOIN keyword k1 ON dk1.keyword_id = k1.id
+            JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
             WHERE d.project_id = ? AND d.year <= ?
-              AND dk1.keyword_id IN ($p1Placeholders)
-              AND dk2.keyword_id IN ($p1Placeholders)
-            GROUP BY dk1.keyword_id, dk2.keyword_id
-            HAVING COUNT(dk1.document_id) >= ?
+              AND COALESCE(k1.keyword_concept_id, k1.id) IN ($p1Placeholders)
+              AND COALESCE(k2.keyword_concept_id, k2.id) IN ($p1Placeholders)
+              AND COALESCE(k1.keyword_concept_id, k1.id) != COALESCE(k2.keyword_concept_id, k2.id)
+            GROUP BY source, target
+            HAVING COUNT(DISTINCT dk1.document_id) >= ?
             ORDER BY weight DESC
         ", [$projectId, $cutoffYear, $edgeMinWeightP1]);
 
         // 4. Fetch co-occurrences for P2
         $rawEdgesP2 = $conn->fetchAllAssociative("
             SELECT 
-                dk1.keyword_id AS source, 
-                dk2.keyword_id AS target, 
-                COUNT(dk1.document_id) AS weight
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k1.keyword_concept_id, k1.id) 
+                     ELSE COALESCE(k2.keyword_concept_id, k2.id) 
+                END AS source,
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k2.keyword_concept_id, k2.id) 
+                     ELSE COALESCE(k1.keyword_concept_id, k1.id) 
+                END AS target,
+                COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
-            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk1.keyword_id < dk2.keyword_id
+            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
+            JOIN keyword k1 ON dk1.keyword_id = k1.id
+            JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
             WHERE d.project_id = ? AND d.year > ?
-              AND dk1.keyword_id IN ($p2Placeholders)
-              AND dk2.keyword_id IN ($p2Placeholders)
-            GROUP BY dk1.keyword_id, dk2.keyword_id
-            HAVING COUNT(dk1.document_id) >= ?
+              AND COALESCE(k1.keyword_concept_id, k1.id) IN ($p2Placeholders)
+              AND COALESCE(k2.keyword_concept_id, k2.id) IN ($p2Placeholders)
+              AND COALESCE(k1.keyword_concept_id, k1.id) != COALESCE(k2.keyword_concept_id, k2.id)
+            GROUP BY source, target
+            HAVING COUNT(DISTINCT dk1.document_id) >= ?
             ORDER BY weight DESC
         ", [$projectId, $cutoffYear, $edgeMinWeightP2]);
 

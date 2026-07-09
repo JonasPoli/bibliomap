@@ -1,0 +1,99 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Esquemas de Tesauro — Admin — Plataforma Bibliométrica{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}">Administração</a>
+    <span class="mx-2 text-muted">/</span>
+    <span class="current">Vocabulário Controlado & Tesauro</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title"><i class="bi bi-book me-2"></i>Vocabulário Controlado (Tesauro)</h1>
+    <p class="bm-page-subtitle">Configure termos preferenciais, variantes de busca e exporte/importe esquemas estruturados em CSV.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Schemes Card -->
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <h5 class="mb-4 text-white"><i class="bi bi-diagram-2 me-2"></i>Esquemas de Tesauro Ativos</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nome do Tesauro</th>
+                            <th>Identificador (Slug)</th>
+                            <th>Tipo de Entidade</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for scheme in schemes %}
+                            <tr>
+                                <td>
+                                    <span class="text-white fw-bold">{{ scheme.name }}</span>
+                                </td>
+                                <td><code>{{ scheme.slug }}</code></td>
+                                <td>
+                                    <span class="badge bg-secondary text-dark text-uppercase" style="font-size:10px">{{ scheme.type }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ path('app_admin_thesaurus_scheme_show', {id: scheme.id}) }}" class="btn btn-sm btn-bm-secondary">
+                                        <i class="bi bi-pencil-square me-1"></i>Gerenciar Termos
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export & Actions Card -->
+    <div class="col-lg-4">
+        <div class="bm-card mb-4">
+            <h5 class="mb-3 text-white"><i class="bi bi-arrow-down-up me-2"></i>Importar / Exportar</h5>
+            <p class="text-muted small">Exporte o vocabulário unificado em formato CSV UTF-8 para editar em planilhas ou carregue uma nova base estruturada.</p>
+            
+            <div class="d-grid gap-2 mb-4">
+                <a href="{{ path('app_admin_thesaurus_export') }}" class="btn btn-bm-primary text-center">
+                    <i class="bi bi-download me-2"></i>Exportar CSV
+                </a>
+                <a href="{{ path('app_admin_thesaurus_template') }}" class="btn btn-bm-secondary text-center">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Baixar Modelo (Template)
+                </a>
+            </div>
+
+            <hr class="border-secondary my-4">
+
+            <h6 class="text-white mb-3">Carregar Novo Arquivo</h6>
+            <form action="{{ path('app_admin_thesaurus_import') }}" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label">Arquivo CSV (Separador: Ponto e Vírgula)</label>
+                    <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                </div>
+                <button type="submit" class="btn btn-success w-100 fw-bold">
+                    <i class="bi bi-upload me-2"></i>Importar CSV
+                </button>
+            </form>
+        </div>
+
+        <div class="bm-card">
+            <h5 class="mb-3 text-white"><i class="bi bi-activity me-2"></i>Status e Monitoramento</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted">Correspondências Pendentes</span>
+                <span class="badge {% if pending_matches_count > 0 %}bg-warning text-dark{% else %}bg-success{% endif %} fw-bold" style="font-size:12px">
+                    {{ pending_matches_count }}
+                </span>
+            </div>
+            <p class="text-muted small mb-3">Termos na base de dados importada com baixa confiança de correspondência aguardando validação manual.</p>
+            <a href="{{ path('app_admin_thesaurus_matches') }}" class="btn btn-sm btn-bm-secondary w-100">
+                <i class="bi bi-shield-exclamation me-1"></i>Verificar Correspondências
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

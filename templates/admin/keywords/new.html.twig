@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nova Palavra-chave — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_keywords_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Palavras-chave</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Nova Palavra-chave</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-plus-circle text-accent me-2"></i>Nova Palavra-chave
+    </h1>
+    <p class="bm-page-subtitle">Cadastre uma nova palavra-chave oficial na plataforma.</p>
+</div>
+
+<div class="bm-card col-lg-8">
+    <form method="POST" action="{{ path('app_admin_keywords_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('new_keyword') }}">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-12">
+                <label class="form-label">Termo *</label>
+                <input type="text" name="term" class="form-control" placeholder="Ex: Machine Learning" value="{{ keyword.term }}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Tipo de Palavra-chave</label>
+                <select name="type" class="form-select" required>
+                    <option value="author" {% if keyword.type == 'author' %}selected{% endif %}>Autor (Author Keyword)</option>
+                    <option value="indexed" {% if keyword.type == 'indexed' %}selected{% endif %}>Indexada (Keyword Plus)</option>
+                    <option value="mesh" {% if keyword.type == 'mesh' %}selected{% endif %}>MeSH (Medical Subject Headings)</option>
+                </select>
+            </div>
+
+            <div class="col-md-6 d-flex align-items-center">
+                <div class="form-check form-switch mt-4">
+                    <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if keyword.isStatus() %}checked{% endif %}>
+                    <label class="form-check-label" for="status">Palavra-chave Ativa (Registrada)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variations Textarea -->
+        <div class="mb-4">
+            <h5 class="mb-2" style="font-weight:700">Variações de Termo (Edição em Massa)</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)">
+                Insira variações de escrita deste termo (uma por linha). O sistema usará estas variações para mapear os documentos durante o sincronismo.
+            </p>
+            <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="machine-learning&#10;machine learning algorithm&#10;ml"></textarea>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{{ path('app_admin_keywords_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+            <button type="submit" class="btn-bm-primary">Criar Palavra-chave</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

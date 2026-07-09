@@ -1,0 +1,387 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Fila de Revisão — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Revisão e Deduplicação</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-shield-check text-accent me-2"></i>Fila de Revisão e Deduplicação
+    </h1>
+    <p class="bm-page-subtitle">Revise novos termos e autores importados brutamente, aplicando limpeza, agrupamento de tesauros e desambiguação.</p>
+</div>
+
+<div class="bm-card">
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs border-bm mb-4" id="review-tabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active text-accent" id="authors-tab" data-bs-toggle="tab" data-bs-target="#authors-pane" type="button" role="tab" style="background:transparent;border:none;font-weight:600">
+                👥 Autores Pendentes ({{ total_unresolved_authors }})
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link text-accent" id="keywords-tab" data-bs-toggle="tab" data-bs-target="#keywords-pane" type="button" role="tab" style="background:transparent;border:none;font-weight:600">
+                🔑 Palavras-chave Pendentes ({{ total_unresolved_keywords }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="review-tabs-content">
+        <!-- Tab 1: Unresolved Authors -->
+        <div class="tab-pane fade show active" id="authors-pane" role="tabpanel">
+            {% if unresolved_authors is empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-check2-circle text-success" style="font-size:48px"></i>
+                    <p class="mt-2">Não há autores pendentes de revisão!</p>
+                </div>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover align-middle border-bm">
+                        <thead>
+                            <tr class="text-muted" style="font-size:12px;border-bottom:1px solid var(--bm-border-color)">
+                                <th>Nome Original (CSV)</th>
+                                <th>Nome Preferido (Limpo)</th>
+                                <th>Motivo do Alerta</th>
+                                <th>Sugestão de Agrupamento</th>
+                                <th style="text-align:right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in unresolved_authors %}
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                                    <td>
+                                        <div style="font-weight:600;color:#fff">{{ item.original_names|join(', ') }}</div>
+                                        <small class="text-muted font-monospace" style="font-size:10px">{{ item.normalized_name }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--bm-text);font-size:12px;padding:6px 10px">{{ item.preferred_name }}</span>
+                                    </td>
+                                    <td>
+                                        {% if item.review_reasons %}
+                                            {% set reasons = item.review_reasons|split(',') %}
+                                            {% for reason in reasons %}
+                                                {% if reason == 'single_word_author' %}
+                                                    <span class="badge bg-warning text-dark me-1" title="Autor com apenas uma palavra" style="font-size:10.5px">Uma Palavra</span>
+                                                {% elseif reason == 'contains_number' %}
+                                                    <span class="badge bg-danger text-white me-1" title="Contém números no nome" style="font-size:10.5px">Contém Números</span>
+                                                {% elseif reason == 'looks_like_institution' %}
+                                                    <span class="badge bg-info text-dark me-1" title="Nome com termos institucionais (Univ, Inst, Lab)" style="font-size:10.5px">Parece Instituição</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary text-white me-1" style="font-size:10.5px">{{ reason }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="badge bg-secondary text-white" style="font-size:10.5px">Revisão Manual</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.suggestion %}
+                                            <div class="text-warning" style="font-size:12px">
+                                                <i class="bi bi-lightbulb-fill me-1"></i> Mesclar em <strong>{{ item.suggestion.preferred_name }}</strong>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted" style="font-size:11px">— Nenhuma encontrada</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="text-align:right">
+                                        <div class="d-inline-flex gap-2 align-items-center">
+                                            <!-- Aceitar -->
+                                            <form action="{{ path('app_admin_review_author_accept', {id: item.id}) }}" method="POST" style="display:inline">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('accept_author_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-success py-1 px-2" title="Aceitar como Novo Autor">
+                                                    <i class="bi bi-check-lg me-1"></i> Aceitar
+                                                </button>
+                                            </form>
+
+                                            <!-- Editar -->
+                                            <button class="btn btn-xs btn-outline-info py-1 px-2" data-bs-toggle="modal" data-bs-target="#editAuthorModal{{ item.id }}" title="Editar Nome Preferido">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+
+                                            <!-- Mesclar -->
+                                            <button class="btn btn-xs btn-bm-primary py-1 px-2" data-bs-toggle="modal" data-bs-target="#mergeAuthorModal{{ item.id }}" title="Mesclar e Deduplicar">
+                                                <i class="bi bi-shuffle me-1"></i> Mesclar
+                                            </button>
+
+                                            <!-- Mover para Palavras-chave -->
+                                            <form action="{{ path('app_admin_review_author_move_to_keyword', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Deseja realmente mover este autor para Palavras-chave?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('move_to_keyword_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-warning py-1 px-2" title="Mover para Palavras-chave">
+                                                    <i class="bi bi-tag-fill me-1"></i> Mover p/ KW
+                                                </button>
+                                            </form>
+
+                                            <!-- Mover para Instituição -->
+                                            <form action="{{ path('app_admin_review_author_move_to_institution', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Deseja realmente mover este autor para Instituições?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('move_to_institution_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-info py-1 px-2" title="Mover para Instituição">
+                                                    <i class="bi bi-building-fill me-1"></i> Mover p/ Inst
+                                                </button>
+                                            </form>
+
+                                            <!-- Descartar -->
+                                            <form action="{{ path('app_admin_review_author_discard', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Tem certeza de que deseja descartar este registro?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('discard_author_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-danger py-1 px-2" title="Descartar da Base">
+                                                    <i class="bi bi-trash-fill me-1"></i> Descartar
+                                                </button>
+                                            </form>
+                                        </div>
+
+                                        <!-- Edit Author Modal -->
+                                        <div class="modal fade" id="editAuthorModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-bm text-start" style="background:var(--bm-card-bg)">
+                                                    <div class="modal-header border-bm">
+                                                        <h6 class="modal-title font-weight-bold">Ajustar Nome Preferido</h6>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ path('app_admin_review_author_edit', {id: item.id}) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('edit_author_' ~ item.id) }}">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Nome Preferido (Exibição)</label>
+                                                                <input type="text" name="preferred_name" class="form-control" value="{{ item.preferred_name }}" required autocomplete="off">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-bm">
+                                                            <button type="button" class="btn btn-bm-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Salvar Alterações</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Merge Author Modal -->
+                                        <div class="modal fade" id="mergeAuthorModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-bm text-start" style="background:var(--bm-card-bg)">
+                                                    <div class="modal-header border-bm">
+                                                        <h6 class="modal-title font-weight-bold">Mesclar e Deduplicar Autor</h6>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ path('app_admin_review_author_merge', {id: item.id}) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ item.id) }}">
+                                                            <p style="font-size:12px;color:var(--bm-text-muted)">
+                                                                Esta ação irá mover todas as variações de nome, identificadores (ORCID) e documentos vinculados para o autor de destino selecionado, excluindo este registro permanentemente.
+                                                            </p>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Autor Oficial de Destino (Deduplicação)</label>
+                                                                <select name="target_id" class="form-select" required>
+                                                                    <option value="">-- Selecione o autor oficial --</option>
+                                                                    {% if item.suggestion %}
+                                                                        <option value="{{ item.suggestion.id }}" selected>★ Sugestão: {{ item.suggestion.preferred_name }}</option>
+                                                                    {% endif %}
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Buscar Outro por ID</label>
+                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID do autor de destino..." oninput="this.form.target_id.value = this.value">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-bm">
+                                                            <button type="button" class="btn btn-bm-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Mesclar e Excluir</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 2: Unresolved Keywords -->
+        <div class="tab-pane fade" id="keywords-pane" role="tabpanel">
+            {% if unresolved_keywords is empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-check2-circle text-success" style="font-size:48px"></i>
+                    <p class="mt-2">Não há palavras-chave pendentes de revisão!</p>
+                </div>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover align-middle border-bm">
+                        <thead>
+                            <tr class="text-muted" style="font-size:12px;border-bottom:1px solid var(--bm-border-color)">
+                                <th>Termo Original</th>
+                                <th>Termo Sugerido (Limpo)</th>
+                                <th>Motivo do Alerta</th>
+                                <th>Tipo</th>
+                                <th>Sugestão de Tesauro</th>
+                                <th style="text-align:right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in unresolved_keywords %}
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                                    <td>
+                                        <div style="font-weight:600;color:#fff">{{ item.keyword_original }}</div>
+                                        <small class="text-muted font-monospace" style="font-size:10px">{{ item.keyword_normalized }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--bm-text);font-size:12px;padding:6px 10px">{{ item.keyword_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if item.review_reasons %}
+                                            {% set reasons = item.review_reasons|split(',') %}
+                                            {% for reason in reasons %}
+                                                {% if reason == 'contains_number' %}
+                                                    <span class="badge bg-warning text-dark me-1" title="Contém números" style="font-size:10.5px">Contém Números</span>
+                                                {% elseif reason == 'looks_like_author' %}
+                                                    <span class="badge bg-info text-dark me-1" title="Formato de nome de autor" style="font-size:10.5px">Parece Autor</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary text-white me-1" style="font-size:10.5px">{{ reason }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background:rgba(255,255,255,0.1);color:#aaa;font-size:10px">
+                                            {{ item.keyword_type == 'author_keyword' ? 'Autor' : (item.keyword_type == 'indexed_keyword' ? 'Indexada' : 'MeSH') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if item.suggestion %}
+                                            <div class="text-warning" style="font-size:12px">
+                                                <i class="bi bi-lightbulb-fill me-1"></i> Associar ao conceito: <strong>{{ item.suggestion.keyword_display }}</strong>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted" style="font-size:11px">— Novo conceito</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="text-align:right">
+                                        <div class="d-inline-flex gap-2 align-items-center">
+                                            <!-- Aceitar -->
+                                            <form action="{{ path('app_admin_review_keyword_accept', {id: item.id}) }}" method="POST" style="display:inline">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('accept_keyword_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-success py-1 px-2" title="Aceitar Termo">
+                                                    <i class="bi bi-check-lg me-1"></i> Aceitar
+                                                </button>
+                                            </form>
+
+                                            <!-- Editar -->
+                                            <button class="btn btn-xs btn-outline-info py-1 px-2" data-bs-toggle="modal" data-bs-target="#editKeywordModal{{ item.id }}" title="Editar Termo Display">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+
+                                            <!-- Mesclar -->
+                                            <button class="btn btn-xs btn-bm-primary py-1 px-2" data-bs-toggle="modal" data-bs-target="#mergeKeywordModal{{ item.id }}" title="Mesclar no Tesauro">
+                                                <i class="bi bi-shuffle me-1"></i> Mesclar
+                                            </button>
+
+                                            <!-- Descartar -->
+                                            <form action="{{ path('app_admin_review_keyword_discard', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Tem certeza de que deseja descartar esta palavra-chave?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('discard_keyword_' ~ item.id) }}">
+                                                <button type="submit" class="btn btn-xs btn-outline-danger py-1 px-2" title="Descartar da Base">
+                                                    <i class="bi bi-trash-fill me-1"></i> Descartar
+                                                </button>
+                                            </form>
+                                        </div>
+
+                                        <!-- Edit Keyword Modal -->
+                                        <div class="modal fade" id="editKeywordModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-bm text-start" style="background:var(--bm-card-bg)">
+                                                    <div class="modal-header border-bm">
+                                                        <h6 class="modal-title font-weight-bold">Ajustar Termo Display</h6>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ path('app_admin_review_keyword_edit', {id: item.id}) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('edit_keyword_' ~ item.id) }}">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Termo Preferido (Exibição)</label>
+                                                                <input type="text" name="keyword_display" class="form-control" value="{{ item.keyword_display }}" required autocomplete="off">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-bm">
+                                                            <button type="button" class="btn btn-bm-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Salvar Alterações</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Merge Keyword Modal -->
+                                        <div class="modal fade" id="mergeKeywordModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-bm text-start" style="background:var(--bm-card-bg)">
+                                                    <div class="modal-header border-bm">
+                                                        <h6 class="modal-title font-weight-bold">Mesclar no Tesauro / Conceito</h6>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ path('app_admin_review_keyword_merge', {id: item.id}) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('merge_keyword_' ~ item.id) }}">
+                                                            <p style="font-size:12px;color:var(--bm-text-muted)">
+                                                                Esta ação irá unificar todas as citações e variações deste termo de palavra-chave no conceito de tesauro selecionado.
+                                                            </p>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Conceito Oficial de Destino (Tesauro)</label>
+                                                                <select name="target_id" class="form-select" required>
+                                                                    <option value="">-- Selecione o termo de destino --</option>
+                                                                    {% if item.suggestion %}
+                                                                        <option value="{{ item.suggestion.id }}" selected>★ Sugestão: {{ item.suggestion.keyword_display }}</option>
+                                                                    {% endif %}
+                                                                </select>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Buscar Outro por ID</label>
+                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID do conceito de destino..." oninput="this.form.target_id.value = this.value">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-bm">
+                                                            <button type="button" class="btn btn-bm-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Mesclar Palavras-chave</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.querySelectorAll('input[name="target_id_manual"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const select = this.form.target_id;
+                let opt = select.querySelector('option[value="' + this.value + '"]');
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = this.value;
+                    opt.text = 'ID Manual #' + this.value;
+                    select.appendChild(opt);
+                }
+                select.value = this.value;
+            });
+        });
+    </script>
+{% endblock %}

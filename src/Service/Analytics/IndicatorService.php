@@ -32,18 +32,18 @@ class IndicatorService
     public function topAuthors(int $projectId, int $limit = 20): array
     {
         return $this->conn->fetchAllAssociative(
-            'SELECT a.name, a.normalized_name, t.doc_count, t.total_citations
+            'SELECT a.preferred_name AS name, a.normalized_name, t.doc_count, t.total_citations
              FROM (
-                 SELECT da.author_id,
+                 SELECT da.author_identity_id,
                         COUNT(DISTINCT da.document_id) AS doc_count,
                         SUM(d.cited_by)                AS total_citations
                  FROM document_author da
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
-                 GROUP BY da.author_id
+                 GROUP BY da.author_identity_id
                  ORDER BY doc_count DESC, total_citations DESC
                  LIMIT ' . (int)$limit . '
              ) t
-             JOIN author a ON a.id = t.author_id',
+             JOIN author_identity a ON a.id = t.author_identity_id',
             [$projectId]
         );
     }
@@ -70,21 +70,22 @@ class IndicatorService
 
     public function topKeywords(int $projectId, string $type = 'author', int $limit = 50): array
     {
+        $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
         // NOTE: LIMIT is inlined (not bound) to avoid MySQL < 8 quoting the
         // integer as a string when the parameter array contains mixed types.
         return $this->conn->fetchAllAssociative(
-            'SELECT k.term, k.normalized_term, t.doc_count
+            'SELECT k.keyword_display AS term, k.keyword_normalized AS normalized_term, t.doc_count
              FROM (
-                 SELECT dk.keyword_id, COUNT(DISTINCT dk.document_id) AS doc_count
+                 SELECT COALESCE(k2.keyword_concept_id, k2.id) AS concept_id, COUNT(DISTINCT dk.document_id) AS doc_count
                  FROM document_keyword dk
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
-                 JOIN keyword k2 ON k2.id = dk.keyword_id AND k2.type = ?
-                 GROUP BY dk.keyword_id
+                 JOIN keyword k2 ON k2.id = dk.keyword_id AND k2.keyword_type = ?
+                 GROUP BY COALESCE(k2.keyword_concept_id, k2.id)
                  ORDER BY doc_count DESC
                  LIMIT ' . (int)$limit . '
              ) t
-             JOIN keyword k ON k.id = t.keyword_id',
-            [$projectId, $type]
+             JOIN keyword k ON k.id = t.concept_id',
+            [$projectId, $mappedType]
         );
     }
 
@@ -197,13 +198,14 @@ class IndicatorService
         );
 
         $authorsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT da.author_id) FROM document_author da
+            'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
              JOIN document d ON d.id = da.document_id AND d.project_id = ?',
             [$projectId]
         );
 
         $keywordsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT dk.keyword_id) FROM document_keyword dk
+            'SELECT COUNT(DISTINCT COALESCE(k.keyword_concept_id, k.id)) FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?',
             [$projectId]
         );
@@ -245,7 +247,7 @@ class IndicatorService
         return $this->conn->fetchAllAssociative(
             'SELECT year, AVG(author_count) AS avg_authors_per_doc
              FROM (
-               SELECT d.year, COUNT(da.author_id) AS author_count
+               SELECT d.year, COUNT(da.author_identity_id) AS author_count
                FROM document d
                JOIN document_author da ON da.document_id = d.id
                WHERE d.project_id = ? AND d.year IS NOT NULL

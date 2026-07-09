@@ -21,28 +21,28 @@ class NetworkService
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
                 a.id, 
-                a.name AS label, 
+                a.preferred_name AS label, 
                 COUNT(da.document_id) AS doc_count,
                 SUM(COALESCE(d.cited_by, 0)) AS total_citations
-            FROM author a
-            JOIN document_author da ON a.id = da.author_id
+            FROM author_identity a
+            JOIN document_author da ON a.id = da.author_identity_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
-            GROUP BY a.id, a.name
+            GROUP BY a.id, a.preferred_name
             ORDER BY doc_count DESC
         ', [$projectId]);
 
         // 2. Fetch raw edges
         $rawEdges = $conn->fetchAllAssociative('
             SELECT 
-                da1.author_id AS source, 
-                da2.author_id AS target, 
+                da1.author_identity_id AS source, 
+                da2.author_identity_id AS target, 
                 COUNT(da1.document_id) AS weight
             FROM document_author da1
-            JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.author_id < da2.author_id
+            JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.author_identity_id < da2.author_identity_id
             JOIN document d ON da1.document_id = d.id
             WHERE d.project_id = ?
-            GROUP BY da1.author_id, da2.author_id
+            GROUP BY da1.author_identity_id, da2.author_identity_id
             HAVING weight >= ?
             ORDER BY weight DESC
         ', [$projectId, $minWeight]);
@@ -56,38 +56,47 @@ class NetworkService
     public function keywords(int $projectId, string $type = 'author', int $minWeight = 1, int $maxNodes = 150): array
     {
         $conn = $this->em->getConnection();
+        $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
 
-        // 1. Fetch raw nodes (keywords)
+        // 1. Fetch raw nodes (keywords grouped by concept)
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
-                k.id, 
-                k.term AS label, 
-                COUNT(dk.document_id) AS doc_count,
+                COALESCE(k.keyword_concept_id, k.id) AS id, 
+                COALESCE(kc.keyword_display, k.keyword_display) AS label, 
+                COUNT(DISTINCT dk.document_id) AS doc_count,
                 0 AS total_citations
             FROM keyword k
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.type = ?
-            GROUP BY k.id, k.term
+            WHERE d.project_id = ? AND k.keyword_type = ?
+            GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
             ORDER BY doc_count DESC
-        ', [$projectId, $type]);
+        ', [$projectId, $mappedType]);
 
-        // 2. Fetch raw edges
+        // 2. Fetch raw edges (grouped by source and target concept IDs)
         $rawEdges = $conn->fetchAllAssociative('
             SELECT 
-                dk1.keyword_id AS source, 
-                dk2.keyword_id AS target, 
-                COUNT(dk1.document_id) AS weight
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k1.keyword_concept_id, k1.id) 
+                     ELSE COALESCE(k2.keyword_concept_id, k2.id) 
+                END AS source,
+                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k2.keyword_concept_id, k2.id) 
+                     ELSE COALESCE(k1.keyword_concept_id, k1.id) 
+                END AS target,
+                COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
-            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk1.keyword_id < dk2.keyword_id
+            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
             JOIN document d ON dk1.document_id = d.id
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
-            WHERE d.project_id = ? AND k1.type = ? AND k2.type = ?
-            GROUP BY dk1.keyword_id, dk2.keyword_id
+            WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
+              AND COALESCE(k1.keyword_concept_id, k1.id) != COALESCE(k2.keyword_concept_id, k2.id)
+            GROUP BY source, target
             HAVING weight >= ?
             ORDER BY weight DESC
-        ', [$projectId, $type, $type, $minWeight]);
+        ', [$projectId, $mappedType, $mappedType, $minWeight]);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
     }

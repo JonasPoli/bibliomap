@@ -38,11 +38,18 @@ class ReportController extends AbstractController
         // Top keywords by occurrence (author + indexed, sorted by count DESC)
         // Limit to 300 to keep the page manageable; user can filter via search
         $keywords = $this->conn->fetchAllAssociative(
-            'SELECT k.id, k.term, k.type, COUNT(DISTINCT dk.document_id) AS doc_count
+            'SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
+                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'author_keyword\' THEN \'author\' 
+                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'indexed_keyword\' THEN \'indexed\' 
+                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    END AS type,
+                    COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
+             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             GROUP BY k.id
+             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
@@ -79,7 +86,7 @@ class ReportController extends AbstractController
         // Fetch selected keywords info
         $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
         $selectedKeywords = $this->conn->fetchAllAssociative(
-            "SELECT id, term, type FROM keyword WHERE id IN ($placeholders) ORDER BY term",
+            "SELECT id, keyword_display AS term, keyword_type AS type FROM keyword WHERE id IN ($placeholders) ORDER BY term",
             $selectedIds
         );
 
@@ -117,14 +124,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT k.id, k.term, d.year, COUNT(DISTINCT dk.document_id) AS count
+            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
+                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+                    d.year,
+                    COUNT(DISTINCT dk.document_id) AS count
              FROM keyword k
+             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE k.id IN ($placeholders)
+             WHERE COALESCE(k.keyword_concept_id, k.id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY k.id, k.term, d.year
-             ORDER BY k.term, d.year",
+             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), d.year
+             ORDER BY term, d.year",
             $params
         );
 
@@ -170,14 +181,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT k.id, k.term, d.year, COUNT(DISTINCT dk.document_id) AS count
+            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
+                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+                    d.year,
+                    COUNT(DISTINCT dk.document_id) AS count
              FROM keyword k
+             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE k.id IN ($placeholders)
+             WHERE COALESCE(k.keyword_concept_id, k.id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY k.id, k.term, d.year
-             ORDER BY k.term, d.year",
+             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), d.year
+             ORDER BY term, d.year",
             $params
         );
 
@@ -256,21 +271,21 @@ class ReportController extends AbstractController
             'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
                     d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
                     (
-                        SELECT GROUP_CONCAT(a2.name ORDER BY da2.position SEPARATOR \'; \')
+                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
                         FROM document_author da2
-                        JOIN author a2 ON a2.id = da2.author_id
+                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
                         WHERE da2.document_id = d.id
                     ) AS author_names
              FROM document d
              JOIN document_author da ON d.id = da.document_id
-             WHERE d.project_id = ? AND da.author_id = ?
+             WHERE d.project_id = ? AND da.author_identity_id = ?
              ORDER BY d.year DESC, d.title ASC',
             [$project->getId(), $authorId]
         );
 
         // Fetch author name
         $authorName = $this->conn->fetchOne(
-            'SELECT name FROM author WHERE id = ?',
+            'SELECT preferred_name FROM author_identity WHERE id = ?',
             [$authorId]
         );
 
@@ -328,9 +343,9 @@ class ReportController extends AbstractController
             'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
                     d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
                     (
-                        SELECT GROUP_CONCAT(a2.name ORDER BY da2.position SEPARATOR \'; \')
+                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
                         FROM document_author da2
-                        JOIN author a2 ON a2.id = da2.author_id
+                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
                         WHERE da2.document_id = d.id
                     ) AS author_names
              FROM document d
@@ -631,9 +646,9 @@ class ReportController extends AbstractController
             if (!empty($docIds)) {
                 $placeholders = implode(',', array_fill(0, count($docIds), '?'));
                 $authorRows = $this->conn->fetchAllAssociative(
-                    "SELECT da.document_id, GROUP_CONCAT(a.name ORDER BY da.position SEPARATOR ', ') AS author_names
+                    "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position SEPARATOR ', ') AS author_names
                      FROM document_author da
-                     JOIN author a ON a.id = da.author_id
+                     JOIN author_identity a ON a.id = da.author_identity_id
                      WHERE da.document_id IN ($placeholders)
                      GROUP BY da.document_id",
                     $docIds

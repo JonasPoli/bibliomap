@@ -1,0 +1,120 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Palavra-chave — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_keywords_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Palavras-chave</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Editar Palavra-chave</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil text-accent me-2"></i>Editar Palavra-chave: {{ keyword.term }}
+    </h1>
+    <p class="bm-page-subtitle">Modifique o termo, o tipo e as variações de escrita desta palavra-chave.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Form -->
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_keywords_edit', {id: keyword.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_keyword_' ~ keyword.id) }}">
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="form-label">Termo *</label>
+                        <input type="text" name="term" class="form-control" placeholder="Ex: Machine Learning" value="{{ keyword.term }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Palavra-chave</label>
+                        <select name="type" class="form-select" required>
+                            <option value="author" {% if keyword.type == 'author' %}selected{% endif %}>Autor (Author Keyword)</option>
+                            <option value="indexed" {% if keyword.type == 'indexed' %}selected{% endif %}>Indexada (Keyword Plus)</option>
+                            <option value="mesh" {% if keyword.type == 'mesh' %}selected{% endif %}>MeSH (Medical Subject Headings)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 d-flex align-items-center">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if keyword.isStatus() %}checked{% endif %}>
+                            <label class="form-check-label" for="status">Palavra-chave Ativa (Registrada)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variations Textarea -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Edição em Massa das Variações</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita desta palavra-chave (uma por linha). O sistema usará estas variações para mapear os documentos durante o sincronismo.
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="machine-learning&#10;machine learning algorithm&#10;ml">{{ variationsText }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_keywords_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Variations List & Merge -->
+    <div class="col-lg-4">
+        <!-- Registered Variations -->
+        <div class="bm-card mb-4">
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Variações alternativas registradas. Você pode desmembrar qualquer uma para torná-la uma palavra-chave independente.
+            </p>
+            {% set hasAlternatives = false %}
+            <div class="list-group list-group-flush border-bm rounded">
+                {% for v in keyword.variations %}
+                    {% if v.variationType == 'alternative' %}
+                        {% set hasAlternatives = true %}
+                        <div class="list-group-item bg-bm-card border-bm d-flex justify-content-between align-items-center py-2" style="font-size:13px;color:var(--bm-text)">
+                            <span class="font-monospace text-accent">{{ v.variationName }}</span>
+                            <form action="{{ path('app_admin_keywords_variation_separate', {id: v.id}) }}" method="POST" style="display:inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('separate_var_' ~ v.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em uma nova palavra-chave independente?');">
+                                    Desmembrar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% if not hasAlternatives %}
+                <div class="text-center py-3 text-muted-bm" style="font-size:12.5px">Nenhuma variação alternativa cadastrada.</div>
+            {% endif %}
+        </div>
+
+        <!-- Merge Card -->
+        <div class="bm-card">
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Palavra-chave</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Transfira todos os artigos vinculados e variações para a palavra-chave selecionada abaixo, excluindo este registro permanentemente.
+            </p>
+            <form action="{{ path('app_admin_keywords_merge', {id: keyword.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir esta palavra-chave? A ação não poderá ser desfeita.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('merge_keyword_' ~ keyword.id) }}">
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:12px">Palavra-chave de Destino</label>
+                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
+                        <option value="">Selecione...</option>
+                        {% for other in other_keywords %}
+                            <option value="{{ other.id }}">{{ other.term }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

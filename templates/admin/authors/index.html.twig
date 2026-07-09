@@ -1,23 +1,23 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Gerenciar Instituições — Admin{% endblock %}
+{% block title %}Gerenciar Autores — Admin{% endblock %}
 
 {% block breadcrumb %}
     <span>Admin</span>
     <span style="margin:0 6px;opacity:0.4">/</span>
-    <span class="current">Instituições</span>
+    <span class="current">Autores</span>
 {% endblock %}
 
 {% block topbar_actions %}
 <div class="d-inline-flex gap-2">
-    <a href="{{ path('app_admin_institutions_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
+    <a href="{{ path('app_admin_authors_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-download me-1"></i> Exportar CSV
     </a>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
-    <a href="{{ path('app_admin_institutions_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
-        <i class="bi bi-plus-circle me-1"></i> Nova Instituição
+    <a href="{{ path('app_admin_authors_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
+        <i class="bi bi-plus-circle me-1"></i> Novo Autor
     </a>
 </div>
 {% endblock %}
@@ -25,16 +25,23 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-building text-accent me-2"></i>Gerenciamento de Instituições
+        <i class="bi bi-people text-accent me-2"></i>Gerenciamento de Autores
     </h1>
-    <p class="bm-page-subtitle">Cadastre e padronize universidades, institutos de pesquisa e variações de escrita.</p>
+    <p class="bm-page-subtitle">Gerencie o cadastro de autores oficiais e suas variações de nome.</p>
 </div>
 
-<!-- Search Bar -->
+<!-- Search Bar & Filters -->
 <div class="bm-card mb-4">
-    <form method="GET" action="{{ path('app_admin_institutions_index') }}" class="row g-2">
-        <div class="col-md-10">
-            <input type="text" name="search" class="form-control" placeholder="Buscar por nome oficial, nome curto ou sigla..." value="{{ search }}">
+    <form method="GET" action="{{ path('app_admin_authors_index') }}" class="row g-2">
+        <div class="col-md-7">
+            <input type="text" name="search" class="form-control" placeholder="Buscar por nome, sobrenome ou ORCID..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <select name="status" class="form-select">
+                <option value="all" {% if status == 'all' %}selected{% endif %}>Todos os Status</option>
+                <option value="active" {% if status == 'active' %}selected{% endif %}>Ativos (Registrados)</option>
+                <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inativos (Brutos)</option>
+            </select>
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
@@ -42,75 +49,63 @@
     </form>
 </div>
 
-<!-- Institutions List -->
+<!-- Authors List -->
 <div class="bm-card">
-    {% if institutions is empty %}
+    {% if authors is empty %}
         <div class="text-center py-5 text-muted-bm">
             <i class="bi bi-inbox fs-2 mb-2 d-block"></i>
-            Nenhuma instituição encontrada.
+            Nenhum autor encontrado.
         </div>
     {% else %}
         <div class="table-responsive">
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
-                        <th>Nome Oficial</th>
-                        <th>Sigla</th>
-                        <th>Tipo / Natureza</th>
-                        <th>Localização</th>
+                        <th>Nome</th>
+                        <th>Sobrenome</th>
+                        <th>Iniciais</th>
+                        <th>ORCID</th>
                         <th>Variações</th>
                         <th>Status</th>
                         <th style="width:140px;text-align:right">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for inst in institutions %}
+                    {% for auth in authors %}
                         <tr class="border-bm">
                             <td>
-                                <div style="font-weight:600">{{ inst.officialName }}</div>
-                                {% if inst.shortName %}
-                                    <small class="text-muted-bm">{{ inst.shortName }}</small>
-                                {% endif %}
+                                <div style="font-weight:600">{{ auth.name }}</div>
                             </td>
-                            <td class="font-monospace text-accent">{{ inst.sigla ?? '—' }}</td>
+                            <td>{{ auth.surname ?? '—' }}</td>
+                            <td class="font-monospace text-accent">{{ auth.initials ?? '—' }}</td>
                             <td>
-                                <span class="badge bg-secondary" style="font-size:11px">{{ inst.institutionType ?? 'Universidade' }}</span>
-                                <span class="badge" style="background:rgba(79,142,247,0.12);color:var(--bm-accent);font-size:11px">{{ inst.natureza ?? 'Pública' }}</span>
-                            </td>
-                            <td>
-                                {% if inst.country %}
-                                    <div style="font-size:12.5px">
-                                        <i class="bi bi-globe me-1 text-muted-bm"></i>{{ inst.country.commonName }}
-                                    </div>
-                                    {% if inst.city or inst.state %}
-                                        <small class="text-muted-bm">
-                                            {{ inst.city ? inst.city.officialName : '' }}
-                                            {{ inst.state ? (inst.city ? ', ' : '') ~ inst.state.sigla : '' }}
-                                        </small>
-                                    {% endif %}
+                                {% if auth.orcid %}
+                                    <a href="https://orcid.org/{{ auth.orcid }}" target="_blank" class="text-accent" style="text-decoration:none">
+                                        <i class="bi bi-person-workspace me-1"></i>{{ auth.orcid }}
+                                    </a>
                                 {% else %}
                                     <span class="text-muted-bm">—</span>
                                 {% endif %}
                             </td>
                             <td>
                                 <span class="badge rounded-pill" title="Variações registradas" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                    {{ inst.variations|length }} variações
+                                    {{ auth.variations|length }} variações
                                 </span>
                             </td>
                             <td>
-                                {% if inst.isStatus() %}
-                                    <span class="badge" style="background:rgba(63,185,80,0.15);color:var(--bm-success);font-size:11px">Ativa</span>
+                                {% if auth.isStatus() %}
+                                    <span class="badge" style="background:rgba(63,185,80,0.15);color:var(--bm-success);font-size:11px">Ativo</span>
                                 {% else %}
-                                    <span class="badge" style="background:rgba(248,81,73,0.15);color:var(--bm-danger);font-size:11px">Inativa</span>
+                                    <span class="badge" style="background:rgba(210,153,34,0.15);color:var(--bm-warning);font-size:11px">Pendente / Bruto</span>
                                 {% endif %}
                             </td>
                             <td style="text-align:right">
                                 <div class="d-inline-flex gap-2">
-                                    <a href="{{ path('app_admin_institutions_edit', {id: inst.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" style="font-size:12px" title="Editar">
+                                    <a href="{{ path('app_admin_authors_edit', {id: auth.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" style="font-size:12px" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <form action="{{ path('app_admin_institutions_delete', {id: inst.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente excluir esta instituição?');" style="display:inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_institution_' ~ inst.id) }}">
+                                    <form action="{{ path('app_admin_authors_delete', {id: auth.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente excluir este autor?');" style="display:inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_author_' ~ auth.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" title="Excluir">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -124,20 +119,22 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block body_end %}
 <!-- Import CSV Modal -->
 <div class="modal fade animate__animated animate__fadeIn" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importModalLabel" style="font-weight:700">Importar Instituições via CSV</h5>
+                <h5 class="modal-title" id="importModalLabel" style="font-weight:700">Importar Autores via CSV</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ path('app_admin_institutions_import') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ path('app_admin_authors_import') }}" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
-                    <input type="hidden" name="_token" value="{{ csrf_token('import_institutions') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('import_authors') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione o arquivo CSV formatado com as colunas especificadas. O sistema criará novas instituições ou atualizará as existentes com base no nome oficial para evitar duplicados.
+                        Selecione o arquivo CSV contendo as colunas <code>name</code>, <code>surname</code>, <code>initials</code>, <code>orcid</code>, <code>status</code> e <code>variations</code> (separadas por ponto e vírgula).
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>

@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Novo Autor — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_authors_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Autores</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Novo Autor</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-plus-circle text-accent me-2"></i>Novo Autor
+    </h1>
+    <p class="bm-page-subtitle">Cadastre um novo autor oficial na plataforma.</p>
+</div>
+
+<div class="bm-card col-lg-8">
+    <form method="POST" action="{{ path('app_admin_authors_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('new_author') }}">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-12">
+                <label class="form-label">Nome Completo / Preferido *</label>
+                <input type="text" name="name" class="form-control" placeholder="Ex: Jonas Poli" value="{{ author.name }}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">ORCID</label>
+                <input type="text" name="orcid" class="form-control" placeholder="Ex: 0000-0002-1825-0097" value="{{ author.orcid }}">
+            </div>
+
+            <div class="col-md-6 d-flex align-items-center">
+                <div class="form-check form-switch mt-4">
+                    <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if author.isStatus() %}checked{% endif %}>
+                    <label class="form-check-label" for="status">Autor Ativo (Registrado)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variations Textarea -->
+        <div class="mb-4">
+            <h5 class="mb-2" style="font-weight:700">Variações de Nome (Edição em Massa)</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)">
+                Insira variações de escrita deste autor (uma por linha). O sistema usará estas variações para mapear os documentos durante o sincronismo.
+            </p>
+            <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="Poli J.&#10;Poli, Jonas&#10;Jonas Poli"></textarea>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{{ path('app_admin_authors_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+            <button type="submit" class="btn-bm-primary">Criar Autor</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -4,6 +4,7 @@ namespace App\Service\Import;
 
 use App\DTO\BibliographicRecordDTO;
 use App\Entity\Dataset;
+use App\Service\Import\StringNormalizer;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -26,6 +27,7 @@ class DocumentImportService
     // Keyed caches: normalized → int ID
     private array $authorCache  = [];
     private array $keywordCache = [];
+    private ?TextNormalizer $textNormalizer = null;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -113,7 +115,7 @@ class DocumentImportService
                 foreach ($dto->authorNames as $pos => $rawName) {
                     $name = trim($rawName);
                     if (!$name) continue;
-                    $authorId = $this->resolveAuthorId($name, $now);
+                    $authorId = $this->resolveAuthorId($name, $now, $projectId);
                     if ($authorId) {
                         $authorLinks[] = [
                             'author_id'     => $authorId,
@@ -130,15 +132,25 @@ class DocumentImportService
                     $norm = strtolower(trim($term));
                     if (!$norm || isset($usedKw[$norm])) continue;
                     $usedKw[$norm] = true;
-                    $id = $this->resolveKeywordId($term, 'author');
-                    if ($id) $kwLinks[] = $id;
+                    $id = $this->resolveKeywordId($term, 'author', $now, $projectId);
+                    if ($id) {
+                        $kwLinks[] = [
+                            'keyword_id' => $id,
+                            'original_term' => substr(trim($term), 0, 255),
+                        ];
+                    }
                 }
                 foreach ($dto->indexedKeywords as $term) {
                     $norm = strtolower(trim($term));
                     if (!$norm || isset($usedKw[$norm])) continue;
                     $usedKw[$norm] = true;
-                    $id = $this->resolveKeywordId($term, 'indexed');
-                    if ($id) $kwLinks[] = $id;
+                    $id = $this->resolveKeywordId($term, 'indexed', $now, $projectId);
+                    if ($id) {
+                        $kwLinks[] = [
+                            'keyword_id' => $id,
+                            'original_term' => substr(trim($term), 0, 255),
+                        ];
+                    }
                 }
 
                 $docsBatch[]        = $this->buildDocRow($dto, $projectId, $datasetId, $now, $hash);
@@ -217,14 +229,14 @@ class DocumentImportService
     {
         $conn = $this->conn();
 
-        $authors = $conn->fetchAllAssociative('SELECT id, normalized_name FROM author WHERE normalized_name IS NOT NULL');
+        $authors = $conn->fetchAllAssociative('SELECT id, normalized_name FROM author_identity WHERE normalized_name IS NOT NULL');
         foreach ($authors as $row) {
             $this->authorCache[$row['normalized_name']] = (int) $row['id'];
         }
 
-        $keywords = $conn->fetchAllAssociative('SELECT id, normalized_term, type FROM keyword');
+        $keywords = $conn->fetchAllAssociative('SELECT id, keyword_normalized, keyword_type FROM keyword');
         foreach ($keywords as $row) {
-            $cacheKey = $row['normalized_term'] . '|' . $row['type'];
+            $cacheKey = $row['keyword_normalized'] . '|' . $row['keyword_type'];
             $this->keywordCache[$cacheKey] = (int) $row['id'];
         }
 
@@ -246,52 +258,108 @@ class DocumentImportService
         return $set;
     }
 
-    private function resolveAuthorId(string $name, string $now): int
+    private function textNormalizer(): TextNormalizer
     {
-        $normalized = strtolower(trim($name));
-        $normKey    = substr($normalized, 0, 255);
+        if ($this->textNormalizer === null) {
+            $this->textNormalizer = new TextNormalizer();
+        }
+        return $this->textNormalizer;
+    }
+
+    private function resolveAuthorId(string $name, string $now, int $projectId): ?int
+    {
+        $normalizer = $this->textNormalizer();
+        $res = $normalizer->normalizeAuthor($name);
+
+        if (!$res['valid']) {
+            $this->conn()->insert('import_error', [
+                'project_id'     => $projectId,
+                'entity_type'    => 'author',
+                'original_value' => $name,
+                'reason'         => $res['reason'],
+                'created_at'     => $now,
+            ]);
+            return null;
+        }
+
+        $displayName = $res['display'];
+        $normKey     = substr($res['normalized'], 0, 255);
 
         if (isset($this->authorCache[$normKey])) {
             return $this->authorCache[$normKey];
         }
 
         $conn = $this->conn();
-        $id   = $conn->fetchOne('SELECT id FROM author WHERE normalized_name = ?', [$normKey]);
+        $id   = $conn->fetchOne('SELECT id FROM author_identity WHERE normalized_name = ?', [$normKey]);
+
+        $status = $res['needs_review'] ? 0 : 1;
+        $reasonsStr = !empty($res['review_reasons']) ? implode(',', $res['review_reasons']) : null;
 
         if (!$id) {
-            [$surname, $initials] = $this->parseName($name);
-
-            // Strip non-ASCII from initials to avoid charset errors with
-            // author names like "Ö.", "Ã.", etc. in latin1-adjacent MySQL configs
-            $safeInitials = $initials
-                ? preg_replace('/[^\x00-\x7F.\- ]/u', '', $initials)
-                : null;
-            $safeInitials = $safeInitials !== '' ? $safeInitials : null;
-
             try {
-                $conn->insert('author', [
-                    'name'            => substr(trim($name), 0, 255),
+                $conn->insert('author_identity', [
+                    'preferred_name'  => substr($displayName, 0, 255),
                     'normalized_name' => $normKey,
-                    'surname'         => $surname  ? substr($surname,  0, 150) : null,
-                    'initials'        => $safeInitials ? substr($safeInitials, 0, 20) : null,
+                    'status'          => $status,
+                    'review_reasons'  => $reasonsStr,
                     'created_at'      => $now,
+                    'updated_at'      => $now,
                 ]);
                 $id = (int) $conn->lastInsertId();
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                // Concurrent insert by another process — fetch the existing row
-                $id = (int) $conn->fetchOne('SELECT id FROM author WHERE normalized_name = ?', [$normKey]);
+                // Concurrent insert by another process
+                $id = (int) $conn->fetchOne('SELECT id FROM author_identity WHERE normalized_name = ?', [$normKey]);
             }
+        }
+
+        // Ensure variation entry exists
+        $varExists = $conn->fetchOne(
+            'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+            [$id, $normKey]
+        );
+        if (!$varExists) {
+            $conn->insert('author_name_variant', [
+                'author_identity_id' => $id,
+                'original_name'      => substr(trim($name), 0, 255),
+                'display_name'       => substr($displayName, 0, 255),
+                'normalized_name'    => $normKey,
+                'source'             => 'import',
+                'confidence'         => $res['needs_review'] ? 0.5 : 1.0,
+                'created_at'         => $now,
+                'updated_at'         => $now,
+            ]);
         }
 
         $this->authorCache[$normKey] = (int) $id;
         return (int) $id;
     }
 
-    private function resolveKeywordId(string $term, string $type): int
+    private function resolveKeywordId(string $term, string $type, string $now, int $projectId): ?int
     {
-        $normalized = strtolower(trim($term));
-        $normKey    = substr($normalized, 0, 255);
-        $cacheKey   = $normKey . '|' . $type;
+        $mappedType = $type;
+        if ($type === 'author') {
+            $mappedType = 'author_keyword';
+        } elseif ($type === 'indexed') {
+            $mappedType = 'indexed_keyword';
+        }
+
+        $normalizer = $this->textNormalizer();
+        $res = $normalizer->normalizeKeyword($term);
+
+        if (!$res['valid']) {
+            $this->conn()->insert('import_error', [
+                'project_id'     => $projectId,
+                'entity_type'    => 'keyword',
+                'original_value' => $term,
+                'reason'         => $res['reason'],
+                'created_at'     => $now,
+            ]);
+            return null;
+        }
+
+        $displayName = $res['display'];
+        $normKey     = substr($res['normalized'], 0, 255);
+        $cacheKey    = $normKey . '|' . $mappedType;
 
         if (isset($this->keywordCache[$cacheKey])) {
             return $this->keywordCache[$cacheKey];
@@ -299,23 +367,31 @@ class DocumentImportService
 
         $conn = $this->conn();
         $id   = $conn->fetchOne(
-            'SELECT id FROM keyword WHERE normalized_term = ? AND type = ?',
-            [$normKey, $type]
+            'SELECT id FROM keyword WHERE keyword_normalized = ? AND keyword_type = ?',
+            [$normKey, $mappedType]
         );
+
+        $status = $res['needs_review'] ? 0 : 1;
+        $reasonsStr = !empty($res['review_reasons']) ? implode(',', $res['review_reasons']) : null;
 
         if (!$id) {
             try {
                 $conn->insert('keyword', [
-                    'term'            => substr(trim($term), 0, 255),
-                    'normalized_term' => $normKey,
-                    'type'            => $type,
+                    'keyword_original'   => substr(trim($term), 0, 255),
+                    'keyword_display'    => substr($displayName, 0, 255),
+                    'keyword_normalized' => $normKey,
+                    'keyword_type'       => $mappedType,
+                    'status'             => $status,
+                    'review_reasons'     => $reasonsStr,
                 ]);
                 $id = (int) $conn->lastInsertId();
+                // Point concept to itself
+                $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE id = ?', [$id, $id]);
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                // Concurrent insert — fetch the existing row
+                // Concurrent insert
                 $id = (int) $conn->fetchOne(
-                    'SELECT id FROM keyword WHERE normalized_term = ? AND type = ?',
-                    [$normKey, $type]
+                    'SELECT id FROM keyword WHERE keyword_normalized = ? AND keyword_type = ?',
+                    [$normKey, $mappedType]
                 );
             }
         }
@@ -359,17 +435,18 @@ class DocumentImportService
 
                 foreach ($authorLinks[$i] as $link) {
                     $conn->insert('document_author', [
-                        'document_id'   => $docId,
-                        'author_id'     => $link['author_id'],
-                        'position'      => $link['position'],
-                        'original_name' => $link['original_name'],
+                        'document_id'        => $docId,
+                        'author_identity_id' => $link['author_id'],
+                        'position'           => $link['position'],
+                        'original_name'      => $link['original_name'],
                     ]);
                 }
 
-                foreach ($kwLinks[$i] as $kwId) {
+                foreach ($kwLinks[$i] as $link) {
                     $conn->insert('document_keyword', [
-                        'document_id' => $docId,
-                        'keyword_id'  => $kwId,
+                        'document_id'   => $docId,
+                        'keyword_id'    => $link['keyword_id'],
+                        'original_term' => $link['original_term'],
                     ]);
                 }
 

@@ -54,7 +54,7 @@ class ClassificationEngine
         $conn = $this->em->getConnection();
         $docs = $conn->fetchAllAssociative(
             'SELECT d.id, d.title, d.abstract_text,
-                    GROUP_CONCAT(DISTINCT k.term SEPARATOR " ") AS keywords
+                    GROUP_CONCAT(DISTINCT k.keyword_display SEPARATOR " ") AS keywords
              FROM document d
              LEFT JOIN document_keyword dk ON dk.document_id = d.id
              LEFT JOIN keyword k ON k.id = dk.keyword_id

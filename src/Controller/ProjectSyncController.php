@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/projects/{id}/sync-geography')]
 #[IsGranted('ROLE_USER')]
 class ProjectSyncController extends AbstractController
 {
@@ -20,7 +19,30 @@ class ProjectSyncController extends AbstractController
         private readonly DocumentEnrichmentService $enrichmentService,
     ) {}
 
-    #[Route('', name: 'app_project_sync_geography', methods: ['GET'])]
+    // Legacy Redirects
+    #[Route('/projects/{id}/sync-geography', name: 'app_project_sync_geography', methods: ['GET'])]
+    public function legacyRedirect(int $id): Response
+    {
+        return $this->redirectToRoute('app_project_sync', ['id' => $id]);
+    }
+
+    #[Route('/projects/{id}/sync-geography/run', name: 'app_project_sync_geography_run', methods: ['POST'])]
+    public function legacyRunRedirect(int $id): Response
+    {
+        return $this->redirectToRoute('app_project_sync_run', ['id' => $id]);
+    }
+
+    #[Route('/projects/{id}/sync-geography/export-unmatched', name: 'app_project_sync_geography_export_unmatched', methods: ['GET'])]
+    public function legacyExportRedirect(int $id, Request $request): Response
+    {
+        return $this->redirectToRoute('app_project_sync_export_unmatched', [
+            'id' => $id,
+            'type' => $request->query->get('type')
+        ]);
+    }
+
+    // New Routes
+    #[Route('/projects/{id}/sync', name: 'app_project_sync', methods: ['GET'])]
     public function index(int $id): Response
     {
         $project = $this->getProject($id);
@@ -45,18 +67,18 @@ class ProjectSyncController extends AbstractController
         ]);
     }
 
-    #[Route('/run', name: 'app_project_sync_geography_run', methods: ['POST'])]
+    #[Route('/projects/{id}/sync/run', name: 'app_project_sync_run', methods: ['POST'])]
     public function run(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
 
-        if (!$this->isCsrfTokenValid('sync_geo_' . $project->getId(), $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('sync_data_' . $project->getId(), $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token CSRF inválido.');
-            return $this->redirectToRoute('app_project_sync_geography', ['id' => $id]);
+            return $this->redirectToRoute('app_project_sync', ['id' => $id]);
         }
 
         try {
-            // Run matching/enrichment
+            // Run matching/enrichment for geography, institutions, authors and keywords
             $report = $this->enrichmentService->enrichProject($project->getId());
 
             // Write report to cache file
@@ -67,15 +89,15 @@ class ProjectSyncController extends AbstractController
             }
             file_put_contents($cacheFile, json_encode($report, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
-            $this->addFlash('success', 'Sincronização geográfica e de instituições concluída com sucesso!');
+            $this->addFlash('success', 'Sincronização do projeto concluída com sucesso!');
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Ocorreu um erro durante a sincronização: ' . $e->getMessage());
         }
 
-        return $this->redirectToRoute('app_project_sync_geography', ['id' => $id]);
+        return $this->redirectToRoute('app_project_sync', ['id' => $id]);
     }
 
-    #[Route('/export-unmatched', name: 'app_project_sync_geography_export_unmatched', methods: ['GET'])]
+    #[Route('/projects/{id}/sync/export-unmatched', name: 'app_project_sync_export_unmatched', methods: ['GET'])]
     public function exportUnmatchedCsv(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
@@ -96,6 +118,36 @@ class ProjectSyncController extends AbstractController
                 $csv->insertOne([$name, $count]);
             }
             $filename = 'paises_nao_encontrados_projeto_' . $id . '.csv';
+        } elseif ($type === 'authors') {
+            $csv->insertOne(['raw_author_name', 'occurrences']);
+            $rows = $this->em->getConnection()->fetchAllAssociative('
+                SELECT a.preferred_name AS name, COUNT(da.document_id) AS count
+                FROM document_author da
+                JOIN author_identity a ON da.author_identity_id = a.id
+                JOIN document d ON da.document_id = d.id
+                WHERE d.project_id = ? AND a.status = 0
+                GROUP BY a.preferred_name
+                ORDER BY count DESC
+            ', [$project->getId()]);
+            foreach ($rows as $row) {
+                $csv->insertOne([$row['name'], $row['count']]);
+            }
+            $filename = 'autores_nao_encontrados_projeto_' . $id . '.csv';
+        } elseif ($type === 'keywords') {
+            $csv->insertOne(['raw_keyword_term', 'occurrences']);
+            $rows = $this->em->getConnection()->fetchAllAssociative('
+                SELECT k.keyword_display AS term, COUNT(dk.document_id) AS count
+                FROM document_keyword dk
+                JOIN keyword k ON dk.keyword_id = k.id
+                JOIN document d ON dk.document_id = d.id
+                WHERE d.project_id = ? AND k.status = 0
+                GROUP BY k.keyword_display
+                ORDER BY count DESC
+            ', [$project->getId()]);
+            foreach ($rows as $row) {
+                $csv->insertOne([$row['term'], $row['count']]);
+            }
+            $filename = 'palavras_chave_nao_encontradas_projeto_' . $id . '.csv';
         } else {
             $csv->insertOne(['raw_institution_name', 'occurrences']);
             $unmatched = $report['unresolved_institutions'] ?? [];

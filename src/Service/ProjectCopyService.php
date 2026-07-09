@@ -226,7 +226,7 @@ class ProjectCopyService
 
         // Fetch all document_author rows for old documents
         $rows = $this->dbal->fetchAllAssociative(
-            'SELECT document_id, author_id, position, original_name
+            'SELECT document_id, author_identity_id, position, original_name
              FROM document_author
              WHERE document_id IN (' . implode(',', $oldDocIds) . ')
              ORDER BY document_id, position',
@@ -241,12 +241,12 @@ class ProjectCopyService
             foreach ($chunk as $row) {
                 $values[] = '(?, ?, ?, ?)';
                 $params[] = $docMap[$row['document_id']];
-                $params[] = $row['author_id'];
+                $params[] = $row['author_identity_id'];
                 $params[] = $row['position'];
                 $params[] = $row['original_name'];
             }
             $this->dbal->executeStatement(
-                'INSERT INTO document_author (document_id, author_id, position, original_name) VALUES '
+                'INSERT INTO document_author (document_id, author_identity_id, position, original_name) VALUES '
                 . implode(', ', $values),
                 $params,
             );

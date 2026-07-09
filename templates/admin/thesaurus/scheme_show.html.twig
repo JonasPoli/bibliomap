@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ scheme.name }} — Tesauro — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}">Administração</a>
+    <span class="mx-2 text-muted">/</span>
+    <a href="{{ path('app_admin_thesaurus_index') }}">Tesauros</a>
+    <span class="mx-2 text-muted">/</span>
+    <span class="current">{{ scheme.name }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h1 class="bm-page-title"><i class="bi bi-tag-fill me-2"></i>{{ scheme.name }}</h1>
+        <p class="bm-page-subtitle">Esquema do tipo <code>{{ scheme.type }}</code> contendo conceitos preferidos e termos relacionados.</p>
+    </div>
+    <a href="{{ path('app_admin_thesaurus_index') }}" class="btn btn-bm-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Voltar
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Concepts List -->
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }})</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Conceito Principal</th>
+                            <th>Forma Normalizada</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if concepts is empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Nenhum conceito adicionado a este esquema ainda.</td>
+                            </tr>
+                        {% else %}
+                            {% for concept in concepts %}
+                                <tr>
+                                    <td>
+                                        <span class="text-white fw-bold">{{ concept.preferredLabel }}</span>
+                                    </td>
+                                    <td><code>{{ concept.normalizedLabel }}</code></td>
+                                    <td>
+                                        <span class="badge bg-success-subtle text-success">{{ concept.status }}</span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Concept Form -->
+    <div class="col-lg-4">
+        <div class="bm-card">
+            <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Conceito</h5>
+            <form action="{{ path('app_admin_thesaurus_concept_new', {schemeId: scheme.id}) }}" method="post">
+                <div class="mb-3">
+                    <label class="form-label">Rótulo Preferencial (Nome Oficial)</label>
+                    <input type="text" name="preferredLabel" class="form-control" placeholder="Ex: Artificial Intelligence" required>
+                </div>
+                <button type="submit" class="btn btn-bm-primary w-100 fw-bold">
+                    <i class="bi bi-check-circle me-1"></i>Criar Conceito
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

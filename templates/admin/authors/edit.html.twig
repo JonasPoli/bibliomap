@@ -1,0 +1,116 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Autor — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_authors_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Autores</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Editar Autor</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil text-accent me-2"></i>Editar Autor: {{ author.name }}
+    </h1>
+    <p class="bm-page-subtitle">Modifique as informações gerais, ORCID e variações de escrita deste autor.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Form -->
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <form method="POST" action="{{ path('app_admin_authors_edit', {id: author.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_author_' ~ author.id) }}">
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="form-label">Nome Completo / Preferido *</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: Jonas Poli" value="{{ author.name }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">ORCID</label>
+                        <input type="text" name="orcid" class="form-control" placeholder="Ex: 0000-0002-1825-0097" value="{{ orcid }}">
+                    </div>
+
+                    <div class="col-md-6 d-flex align-items-center">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if author.isStatus() %}checked{% endif %}>
+                            <label class="form-check-label" for="status">Autor Ativo (Registrado)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variations Textarea -->
+                <div class="mb-4">
+                    <h5 class="mb-2" style="font-weight:700">Edição em Massa das Variações</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">
+                        Adicione variações de escrita deste autor (uma por linha). O sistema usará estas variações para mapear os documentos durante o sincronismo.
+                    </p>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="Poli J.&#10;Poli, Jonas&#10;Jonas Poli">{{ variationsText }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_authors_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
+                    <button type="submit" class="btn-bm-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Variations List & Merge -->
+    <div class="col-lg-4">
+        <!-- Registered Variations -->
+        <div class="bm-card mb-4">
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Variações alternativas registradas. Você pode desmembrar qualquer uma para torná-la um autor independente.
+            </p>
+            {% set hasAlternatives = false %}
+            <div class="list-group list-group-flush border-bm rounded">
+                {% for v in author.variations %}
+                    {% if v.source == 'alternative' or v.source == 'import' %}
+                        {% set hasAlternatives = true %}
+                        <div class="list-group-item bg-bm-card border-bm d-flex justify-content-between align-items-center py-2" style="font-size:13px;color:var(--bm-text)">
+                            <span class="font-monospace text-accent">{{ v.originalName }}</span>
+                            <form action="{{ path('app_admin_authors_variation_separate', {id: v.id}) }}" method="POST" style="display:inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('separate_var_' ~ v.id) }}">
+                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em um novo autor independente?');">
+                                    Desmembrar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% if not hasAlternatives %}
+                <div class="text-center py-3 text-muted-bm" style="font-size:12.5px">Nenhuma variação alternativa cadastrada.</div>
+            {% endif %}
+        </div>
+
+        <!-- Merge Card -->
+        <div class="bm-card">
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Autor</h5>
+            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
+                Transfira todos os artigos vinculados e variações para o autor selecionado abaixo, excluindo este registro permanentemente.
+            </p>
+            <form action="{{ path('app_admin_authors_merge', {id: author.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir este autor? A ação não poderá ser desfeita.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ author.id) }}">
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:12px">Autor de Destino</label>
+                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
+                        <option value="">Selecione...</option>
+                        {% for other in other_authors %}
+                            <option value="{{ other.id }}">{{ other.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

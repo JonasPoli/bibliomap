@@ -41,8 +41,13 @@ class ThematicEvolutionController extends AbstractController
             $maxYear = $minYear + 1;
         }
 
-        // Set default cutoff year in the middle of the interval
-        $defaultCutoff = (int)round(($minYear + $maxYear) / 2);
+        // Set default cutoff year to the average year of the documents to avoid skewed intervals
+        $avgYear = (int) $conn->fetchOne('
+            SELECT AVG(year) 
+            FROM document 
+            WHERE project_id = ? AND year IS NOT NULL
+        ', [$project->getId()]);
+        $defaultCutoff = $avgYear ?: (int)round(($minYear + $maxYear) / 2);
 
         return $this->render('network/thematic_evolution.html.twig', [
             'project' => $project,

@@ -37,9 +37,9 @@ class ThreeFieldsService
 
         $authorsByDoc = [];
         $authorRows = $this->conn->fetchAllAssociative(
-            'SELECT da.document_id, a.name
+            'SELECT da.document_id, a.preferred_name AS name
              FROM document_author da
-             JOIN author a ON a.id = da.author_id
+             JOIN author_identity a ON a.id = da.author_identity_id
              JOIN document d ON d.id = da.document_id
              WHERE d.project_id = ?',
             [$projectId]
@@ -50,15 +50,18 @@ class ThreeFieldsService
 
         $kwsByDoc = [];
         $kwRows = $this->conn->fetchAllAssociative(
-            'SELECT dk.document_id, k.term, k.type
+            'SELECT dk.document_id, COALESCE(kc.keyword_display, k.keyword_display) AS term, COALESCE(kc.keyword_type, k.keyword_type) AS type
              FROM document_keyword dk
              JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document d ON d.id = dk.document_id
              WHERE d.project_id = ?',
             [$projectId]
         );
         foreach ($kwRows as $row) {
-            $kwsByDoc[(int)$row['document_id']][$row['type']][] = $row['term'];
+            // Map types from author_keyword/indexed_keyword to author/indexed for compatibility with frontend code expectations
+            $legacyType = str_replace('_keyword', '', $row['type']);
+            $kwsByDoc[(int)$row['document_id']][$legacyType][] = $row['term'];
         }
 
         // 3. Compute Links
@@ -96,10 +99,6 @@ class ThreeFieldsService
         }
 
         // 4. Build ECharts Nodes and Links
-        // Suffixes:
-        // Left: " [L]"
-        // Middle: " [M]"
-        // Right: " [R]"
         $nodes = [];
         $nodeSet = [];
 
@@ -157,11 +156,11 @@ class ThreeFieldsService
     {
         if ($field === 'author') {
             return $this->conn->fetchFirstColumn(
-                'SELECT a.name
-                 FROM author a
-                 JOIN document_author da ON a.id = da.author_id
+                'SELECT a.preferred_name AS name
+                 FROM author_identity a
+                 JOIN document_author da ON a.id = da.author_identity_id
                  JOIN document d         ON d.id = da.document_id AND d.project_id = ?
-                 GROUP BY a.id, a.name
+                 GROUP BY a.id, a.preferred_name
                  ORDER BY COUNT(DISTINCT da.document_id) DESC
                  LIMIT ' . (int)$limit,
                 [$projectId]
@@ -169,18 +168,20 @@ class ThreeFieldsService
         }
 
         if ($field === 'keyword_author' || $field === 'keyword_indexed') {
-            $type = $field === 'keyword_author' ? 'author' : 'indexed';
-            return $this->conn->fetchFirstColumn(
-                'SELECT k.term
+            $type = $field === 'keyword_author' ? 'author_keyword' : 'indexed_keyword';
+            $rows = $this->conn->fetchAllAssociative(
+                'SELECT COALESCE(kc.keyword_display, k.keyword_display) AS term
                  FROM keyword k
+                 LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
                  JOIN document_keyword dk ON k.id = dk.keyword_id
-                 JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-                 WHERE k.type = ?
-                 GROUP BY k.id, k.term
+                 JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                 WHERE k.keyword_type = ?
+                 GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
                  ORDER BY COUNT(DISTINCT dk.document_id) DESC
                  LIMIT ' . (int)$limit,
                 [$projectId, $type]
             );
+            return array_column($rows, 'term');
         }
 
         if ($field === 'source') {
