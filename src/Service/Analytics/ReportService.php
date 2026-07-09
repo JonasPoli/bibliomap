@@ -276,9 +276,9 @@ class ReportService
         $keywords = $this->conn->fetchAllAssociative(
             "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
-                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
-                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' 
+                         WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' 
+                         ELSE k.keyword_type 
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq,
                     MIN(d.year) AS first_year, MAX(d.year) AS last_year
@@ -287,15 +287,15 @@ class ReportService
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?{$searchSql}
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY freq DESC
              LIMIT {$targetLimit}",
             $params
         );
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword'  THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS author_kw_count,
-                    COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS indexed_kw_count
+            "SELECT COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS author_kw_count,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS indexed_kw_count
              FROM keyword k
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
@@ -487,9 +487,9 @@ class ReportService
         // Top 5 keywords
         $topKeywords = $this->conn->fetchAllAssociative(
             "SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
-                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
-                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' 
+                         WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' 
+                         ELSE k.keyword_type 
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq
              FROM keyword k
@@ -497,7 +497,7 @@ class ReportService
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY freq DESC LIMIT 20",
             [$projectId]
         );

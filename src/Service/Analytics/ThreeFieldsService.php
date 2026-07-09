@@ -50,7 +50,7 @@ class ThreeFieldsService
 
         $kwsByDoc = [];
         $kwRows = $this->conn->fetchAllAssociative(
-            'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, COALESCE(kc.keyword_type, k.keyword_type) AS type
+            'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, k.keyword_type AS type
              FROM document_keyword dk
              JOIN keyword k ON k.id = dk.keyword_id
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id

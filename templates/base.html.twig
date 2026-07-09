@@ -289,6 +289,10 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_keywords' %}active{% endif %}">
                     <i class="bi bi-tags"></i> Palavras-chave
                 </a>
+                <a href="{{ path('app_report_glossary', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_glossary' %}active{% endif %}">
+                    <i class="bi bi-book"></i> Glossário de Termos
+                </a>
                 <a href="{{ path('app_report_countries', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_countries' %}active{% endif %}">
                     <i class="bi bi-globe2"></i> Países

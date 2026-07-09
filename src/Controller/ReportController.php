@@ -872,6 +872,90 @@ class ReportController extends AbstractController
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
+    // ── Glossário de Termos ────────────────────────────────────────────────────
+
+    #[Route('/glossary', name: 'app_report_glossary', methods: ['GET'])]
+    public function glossary(int $id, Request $request): Response
+    {
+        $project = $this->getProject($id);
+
+        $search = trim($request->query->get('q', ''));
+        $letter = trim($request->query->get('letter', ''));
+
+        // Get all thesaurus concepts used in this project's keywords
+        $sql = "
+            SELECT 
+                tc.id,
+                tc.preferred_label,
+                tc.normalized_label,
+                COUNT(DISTINCT dk.document_id) AS doc_count,
+                COUNT(DISTINCT k.id) AS variant_count,
+                SUM(COALESCE(d.cited_by, 0)) AS total_citations
+            FROM thesaurus_concept tc
+            JOIN keyword k ON k.thesaurus_concept_id = tc.id
+            JOIN document_keyword dk ON dk.keyword_id = k.id
+            JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+            WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
+        ";
+        $params = [$id];
+
+        if ($search !== '') {
+            $sql .= " AND (tc.preferred_label LIKE ? OR tc.normalized_label LIKE ?)";
+            $params[] = '%' . $search . '%';
+            $params[] = '%' . strtolower($search) . '%';
+        }
+
+        if ($letter !== '') {
+            $sql .= " AND tc.preferred_label LIKE ?";
+            $params[] = $letter . '%';
+        }
+
+        $sql .= " GROUP BY tc.id, tc.preferred_label, tc.normalized_label
+                   ORDER BY tc.preferred_label ASC";
+
+        $concepts = $this->conn->fetchAllAssociative($sql, $params);
+
+        // Get labels for each concept (batch)
+        $conceptIds = array_column($concepts, 'id');
+        $labelsByConceptId = [];
+        if (!empty($conceptIds)) {
+            $placeholders = implode(',', array_fill(0, count($conceptIds), '?'));
+            $labels = $this->conn->fetchAllAssociative(
+                "SELECT concept_id, label, type FROM thesaurus_label WHERE concept_id IN ($placeholders) ORDER BY type ASC, label ASC",
+                $conceptIds
+            );
+            foreach ($labels as $l) {
+                $labelsByConceptId[$l['concept_id']][] = $l;
+            }
+        }
+
+        // Get available letters
+        $letters = $this->conn->fetchFirstColumn(
+            "SELECT DISTINCT UPPER(LEFT(tc.preferred_label, 1)) AS letter
+             FROM thesaurus_concept tc
+             JOIN keyword k ON k.thesaurus_concept_id = tc.id
+             JOIN document_keyword dk ON dk.keyword_id = k.id
+             JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+             ORDER BY letter",
+            [$id]
+        );
+
+        // Stats
+        $totalConcepts = count($concepts);
+        $totalVariants = array_sum(array_column($concepts, 'variant_count'));
+
+        return $this->render('report/glossary.html.twig', [
+            'project' => $project,
+            'concepts' => $concepts,
+            'labelsByConceptId' => $labelsByConceptId,
+            'letters' => $letters,
+            'currentLetter' => $letter,
+            'search' => $search,
+            'totalConcepts' => $totalConcepts,
+            'totalVariants' => $totalVariants,
+        ]);
+    }
+
     private function getProject(int $id): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($id);

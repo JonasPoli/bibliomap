@@ -1,0 +1,137 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Glossário de Termos — {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_projects_show', {id: project.id}) }}">{{ project.title|slice(0, 40) }}{{ project.title|length > 40 ? '…' : '' }}</a>
+    <span class="mx-2 text-muted">/</span>
+    <span class="current">Glossário de Termos</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title"><i class="bi bi-book me-2"></i>Glossário de Termos</h1>
+    <p class="bm-page-subtitle">Vocabulário controlado de palavras-chave utilizado neste projeto. Cada conceito agrupa variações terminológicas encontradas na literatura.</p>
+</div>
+
+{# KPIs #}
+<div class="row g-4 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="bm-card text-center">
+            <div class="bm-stat-value text-accent">{{ totalConcepts }}</div>
+            <div class="bm-stat-label">Conceitos Consolidados</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-card text-center">
+            <div class="bm-stat-value text-info">{{ totalVariants }}</div>
+            <div class="bm-stat-label">Variações Terminológicas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-card text-center">
+            <div class="bm-stat-value text-warning">{{ letters|length }}</div>
+            <div class="bm-stat-label">Letras no Alfabeto</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bm-card text-center">
+            <div class="bm-stat-value text-success">
+                {% if totalConcepts > 0 %}
+                    {{ (totalVariants / totalConcepts)|round(1) }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
+            <div class="bm-stat-label">Média de Variações/Conceito</div>
+        </div>
+    </div>
+</div>
+
+{# Search and Filter #}
+<div class="bm-card mb-4">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+        <form method="get" class="d-flex gap-2 flex-grow-1" style="max-width:400px">
+            {% if currentLetter %}<input type="hidden" name="letter" value="{{ currentLetter }}">{% endif %}
+            <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Buscar conceito..." style="border-radius:8px">
+            <button type="submit" class="btn btn-sm btn-bm-primary"><i class="bi bi-search"></i></button>
+            {% if search %}
+                <a href="{{ path('app_report_glossary', {id: project.id, letter: currentLetter}) }}" class="btn btn-sm btn-bm-secondary"><i class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+        <div class="d-flex flex-wrap gap-1">
+            <a href="{{ path('app_report_glossary', {id: project.id, q: search}) }}" 
+               class="btn btn-sm {% if currentLetter == '' %}btn-bm-primary{% else %}btn-outline-secondary{% endif %}" style="border-radius:6px;min-width:32px">
+                Todos
+            </a>
+            {% for l in letters %}
+                <a href="{{ path('app_report_glossary', {id: project.id, letter: l, q: search}) }}"
+                   class="btn btn-sm {% if currentLetter == l %}btn-bm-primary{% else %}btn-outline-secondary{% endif %}" style="border-radius:6px;min-width:32px">
+                    {{ l }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{# Concepts Grid #}
+{% if concepts is empty %}
+    <div class="bm-card text-center py-5">
+        <i class="bi bi-book" style="font-size:48px;color:var(--bm-text-muted)"></i>
+        <p class="text-muted mt-3 mb-0">
+            {% if search %}
+                Nenhum conceito encontrado para "<strong>{{ search }}</strong>".
+            {% elseif currentLetter %}
+                Nenhum conceito encontrado com a letra "<strong>{{ currentLetter }}</strong>".
+            {% else %}
+                Nenhum conceito do tesauro está associado a palavras-chave deste projeto.<br>
+                <small>Execute o tratamento de palavras-chave para associar keywords ao tesauro.</small>
+            {% endif %}
+        </p>
+    </div>
+{% else %}
+    <div class="row g-3">
+        {% for concept in concepts %}
+        <div class="col-md-6 col-lg-4">
+            <div class="bm-card h-100" style="transition: transform 0.2s, box-shadow 0.2s; cursor:default" 
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" 
+                 onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="text-white mb-0" style="font-weight:700;font-size:15px">
+                        <i class="bi bi-bookmark-fill text-accent me-1" style="font-size:12px"></i>
+                        {{ concept.preferred_label }}
+                    </h6>
+                    <span class="badge bg-dark text-muted" style="font-size:10px" title="Documentos">
+                        <i class="bi bi-file-earmark-text me-1"></i>{{ concept.doc_count }}
+                    </span>
+                </div>
+                
+                {% set labels = labelsByConceptId[concept.id] ?? [] %}
+                {% if labels|length > 1 %}
+                    <div class="mb-2">
+                        <small class="text-muted d-block mb-1" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Variações terminológicas</small>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for label in labels %}
+                                {% if label.label|lower != concept.preferred_label|lower %}
+                                    <span class="badge {% if label.type == 'preferred' %}bg-info text-dark{% else %}bg-secondary text-dark{% endif %}" 
+                                          style="font-size:10px;font-weight:400;border-radius:4px" title="{{ label.type }}">
+                                        {{ label.label }}
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="d-flex gap-3 mt-auto pt-2" style="border-top:1px solid rgba(255,255,255,0.06)">
+                    <small class="text-muted"><i class="bi bi-tags me-1"></i>{{ concept.variant_count }} variante{{ concept.variant_count != 1 ? 's' : '' }}</small>
+                    {% if concept.total_citations > 0 %}
+                        <small class="text-muted"><i class="bi bi-quote me-1"></i>{{ concept.total_citations }} citações</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

@@ -120,7 +120,7 @@
                     </li>
                     <li class="nav-item">
                         <button class="nav-link text-accent" id="unresolved-authors-tab" data-bs-toggle="tab" data-bs-target="#unresolved-authors" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
-                            👥 Autores ({{ report.unresolved_authors_count|default(report.unresolved_authors|length) }})
+                            👥 Autores ({{ report.unresolved_authors_count|default((report.unresolved_authors|default([]))|length) }})
                         </button>
                     </li>
                     <li class="nav-item">
@@ -227,12 +227,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% if report.unresolved_authors is empty %}
+                                    {% if report.unresolved_authors|default([]) is empty %}
                                         <tr>
                                             <td colspan="2" class="text-center py-4 text-muted-bm">Todos os autores resolvidos!</td>
                                         </tr>
                                     {% else %}
-                                        {% for name, count in report.unresolved_authors %}
+                                        {% for name, count in report.unresolved_authors|default([]) %}
                                             <tr class="border-bm">
                                                 <td class="font-monospace text-accent">{{ name }}</td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>

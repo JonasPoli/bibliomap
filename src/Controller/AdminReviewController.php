@@ -64,26 +64,34 @@ class AdminReviewController extends AbstractController
             ];
         }
 
-        // 2. Fetch unresolved keywords
-        $unresolvedKeywordsRaw = $conn->fetchAllAssociative('
-            SELECT id, keyword_original, keyword_display, keyword_normalized, keyword_type, status, review_reasons
-            FROM keyword
-            WHERE status = 0
-            ORDER BY keyword_original ASC
-            LIMIT 100
-        ');
+        // 2. Fetch unresolved keywords (status column may not exist on older DBs)
+        $unresolvedKeywordsRaw = [];
+        try {
+            $unresolvedKeywordsRaw = $conn->fetchAllAssociative('
+                SELECT id, keyword_original, keyword_display, keyword_normalized, keyword_type, status, review_reasons
+                FROM keyword
+                WHERE status = 0
+                ORDER BY keyword_original ASC
+                LIMIT 100
+            ');
+        } catch (\Throwable $e) {
+            // status column doesn't exist yet — skip keyword review
+        }
 
         $unresolvedKeywords = [];
         foreach ($unresolvedKeywordsRaw as $row) {
             $id = (int)$row['id'];
 
             // Find suggestions with status = 1 and same normalized term
-            $suggestion = $conn->fetchAssociative('
-                SELECT id, keyword_display, keyword_type 
-                FROM keyword 
-                WHERE status = 1 AND keyword_normalized = ? AND keyword_type = ?
-                LIMIT 1
-            ', [$row['keyword_normalized'], $row['keyword_type']]);
+            $suggestion = null;
+            try {
+                $suggestion = $conn->fetchAssociative('
+                    SELECT id, keyword_display, keyword_type 
+                    FROM keyword 
+                    WHERE status = 1 AND keyword_normalized = ? AND keyword_type = ?
+                    LIMIT 1
+                ', [$row['keyword_normalized'], $row['keyword_type']]);
+            } catch (\Throwable $e) {}
 
             $unresolvedKeywords[] = [
                 'id' => $id,
@@ -98,7 +106,10 @@ class AdminReviewController extends AbstractController
 
         // Get count of total unresolved items
         $totalUnresolvedAuthors = (int)$conn->fetchOne('SELECT COUNT(id) FROM author_identity WHERE status = 0');
-        $totalUnresolvedKeywords = (int)$conn->fetchOne('SELECT COUNT(id) FROM keyword WHERE status = 0');
+        $totalUnresolvedKeywords = 0;
+        try {
+            $totalUnresolvedKeywords = (int)$conn->fetchOne('SELECT COUNT(id) FROM keyword WHERE status = 0');
+        } catch (\Throwable $e) {}
 
         return $this->render('admin/review/index.html.twig', [
             'unresolved_authors' => $unresolvedAuthors,
