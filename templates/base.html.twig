@@ -361,6 +361,13 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_admin_index' %}active{% endif %}">
                     <i class="bi bi-shield-check"></i> Painel Admin
                 </a>
+                {% if is_granted('ROLE_SUPER_ADMIN') %}
+                    <a href="{{ path('app_super_admin_keyword_treatment_index') }}"
+                       class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_super_admin_keyword_treatment' %}active{% endif %}"
+                       style="padding-left:32px;font-size:12.5px">
+                        <i class="bi bi-magic" style="font-size:13px"></i> Tratamento de Palavras-chave
+                    </a>
+                {% endif %}
                 <a href="{{ path('app_admin_review_index') }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_admin_review' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">

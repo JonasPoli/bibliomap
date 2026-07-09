@@ -76,11 +76,11 @@ class IndicatorService
         return $this->conn->fetchAllAssociative(
             'SELECT k.keyword_display AS term, k.keyword_normalized AS normalized_term, t.doc_count
              FROM (
-                 SELECT COALESCE(k2.keyword_concept_id, k2.id) AS concept_id, COUNT(DISTINCT dk.document_id) AS doc_count
+                 SELECT COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) AS concept_id, COUNT(DISTINCT dk.document_id) AS doc_count
                  FROM document_keyword dk
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                  JOIN keyword k2 ON k2.id = dk.keyword_id AND k2.keyword_type = ?
-                 GROUP BY COALESCE(k2.keyword_concept_id, k2.id)
+                 GROUP BY COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
                  ORDER BY doc_count DESC
                  LIMIT ' . (int)$limit . '
              ) t
@@ -204,7 +204,7 @@ class IndicatorService
         );
 
         $keywordsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT COALESCE(k.keyword_concept_id, k.id)) FROM document_keyword dk
+            'SELECT COUNT(DISTINCT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id)) FROM document_keyword dk
              JOIN keyword k ON k.id = dk.keyword_id
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?',
             [$projectId]

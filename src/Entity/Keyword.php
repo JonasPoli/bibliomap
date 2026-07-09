@@ -9,6 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KeywordRepository::class)]
 #[ORM\Table(name: 'keyword')]
+#[ORM\Index(fields: ['keywordNormalized'], name: 'IDX_kw_normalized')]
+#[ORM\Index(fields: ['keywordType'], name: 'IDX_kw_type')]
 class Keyword
 {
     public const TYPE_AUTHOR = 'author_keyword';
@@ -38,9 +40,19 @@ class Keyword
     #[ORM\Column(name: 'review_reasons', length: 255, nullable: true)]
     private ?string $reviewReasons = null;
 
+    /**
+     * @deprecated Use thesaurusConcept instead. Kept for backward compatibility.
+     */
     #[ORM\ManyToOne(targetEntity: self::class)]
     #[ORM\JoinColumn(name: 'keyword_concept_id', referencedColumnName: 'id', onDelete: 'SET NULL')]
     private ?self $keywordConcept = null;
+
+    /**
+     * Official grouper — links this keyword to its ThesaurusConcept cluster.
+     */
+    #[ORM\ManyToOne(targetEntity: ThesaurusConcept::class)]
+    #[ORM\JoinColumn(name: 'thesaurus_concept_id', referencedColumnName: 'id', onDelete: 'SET NULL', nullable: true)]
+    private ?ThesaurusConcept $thesaurusConcept = null;
 
     /** @var Collection<int, KeywordVariation> */
     #[ORM\OneToMany(targetEntity: KeywordVariation::class, mappedBy: 'keyword', cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -71,8 +83,13 @@ class Keyword
     public function getReviewReasons(): ?string { return $this->reviewReasons; }
     public function setReviewReasons(?string $v): static { $this->reviewReasons = $v; return $this; }
 
+    /** @deprecated Use getThesaurusConcept() */
     public function getKeywordConcept(): ?self { return $this->keywordConcept; }
+    /** @deprecated Use setThesaurusConcept() */
     public function setKeywordConcept(?self $v): static { $this->keywordConcept = $v; return $this; }
+
+    public function getThesaurusConcept(): ?ThesaurusConcept { return $this->thesaurusConcept; }
+    public function setThesaurusConcept(?ThesaurusConcept $v): static { $this->thesaurusConcept = $v; return $this; }
 
     /** @return Collection<int, KeywordVariation> */
     public function getVariations(): Collection { return $this->variations; }
@@ -104,3 +121,4 @@ class Keyword
     public function getNormalizedTerm(): string { return $this->keywordNormalized; }
     public function setNormalizedTerm(string $v): static { $this->keywordNormalized = $v; return $this; }
 }
+

@@ -184,6 +184,7 @@ class ThesaurusController extends AbstractController
             return $this->redirectToRoute('app_admin_thesaurus_index');
         }
 
+        $normalizer = new \App\Service\Import\TextNormalizer();
         $path = $file->getRealPath();
         if (($handle = fopen($path, 'r')) !== false) {
             // Check BOM
@@ -202,6 +203,12 @@ class ThesaurusController extends AbstractController
 
             $conceptCache = [];
             $schemeCache = [];
+            $imported = 0;
+            $skipped = 0;
+            $errors = 0;
+            $lineNum = 1;
+            $conceptsCreated = 0;
+            $labelsCreated = 0;
 
             // Seed schemes if not cached
             $schemes = $this->em->getRepository(ThesaurusScheme::class)->findAll();
@@ -210,15 +217,31 @@ class ThesaurusController extends AbstractController
             }
 
             while (($data = fgetcsv($handle, 1000, ';')) !== false) {
-                if (count($data) < 4) continue;
-                
+                $lineNum++;
+                if (count($data) < 3) {
+                    $errors++;
+                    continue;
+                }
+
                 $schemeSlug = trim($data[0]);
                 $conceptName = trim($data[1]);
                 $labelText = trim($data[2]);
-                $labelType = trim($data[3]);
+                $labelType = isset($data[3]) ? trim($data[3]) : '';
                 $lang = count($data) > 4 ? trim($data[4]) : 'en';
 
-                if ($schemeSlug === '' || $conceptName === '' || $labelText === '') continue;
+                if ($schemeSlug === '' || $conceptName === '' || $labelText === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                // Default type: preferred if label equals concept, else alternative
+                if ($labelType === '' || $labelType === null) {
+                    $labelType = (strtolower($labelText) === strtolower($conceptName)) ? 'preferred' : 'alternative';
+                }
+
+                // Normalize
+                $conceptNorm = $normalizer->normalizeForComparison($conceptName);
+                $labelNorm = $normalizer->normalizeForComparison($labelText);
 
                 // Find/create Scheme
                 if (!isset($schemeCache[$schemeSlug])) {
@@ -233,44 +256,61 @@ class ThesaurusController extends AbstractController
                 $scheme = $schemeCache[$schemeSlug];
 
                 // Find/create Concept
-                $conceptKey = $schemeSlug . '_' . strtolower($conceptName);
+                $conceptKey = $schemeSlug . '_' . $conceptNorm;
                 if (!isset($conceptCache[$conceptKey])) {
                     $concept = $this->em->getRepository(ThesaurusConcept::class)->findOneBy([
                         'scheme' => $scheme,
-                        'normalizedLabel' => strtolower($conceptName)
+                        'normalizedLabel' => $conceptNorm
                     ]);
                     if (!$concept) {
                         $concept = new ThesaurusConcept();
                         $concept->setScheme($scheme);
                         $concept->setPreferredLabel($conceptName);
-                        $concept->setNormalizedLabel(strtolower($conceptName));
+                        $concept->setNormalizedLabel($conceptNorm);
                         $this->em->persist($concept);
                         $this->em->flush();
+                        $conceptsCreated++;
+
+                        // Ensure preferred label exists
+                        $prefLabel = new ThesaurusLabel();
+                        $prefLabel->setConcept($concept);
+                        $prefLabel->setLabel($conceptName);
+                        $prefLabel->setNormalizedLabel($conceptNorm);
+                        $prefLabel->setType('preferred');
+                        $this->em->persist($prefLabel);
+                        $labelsCreated++;
                     }
                     $conceptCache[$conceptKey] = $concept;
                 }
                 $concept = $conceptCache[$conceptKey];
 
-                // Find/create Label
+                // Find/create Label (skip if duplicate)
                 $existingLabel = $this->em->getRepository(ThesaurusLabel::class)->findOneBy([
                     'concept' => $concept,
-                    'normalizedLabel' => strtolower($labelText)
+                    'normalizedLabel' => $labelNorm
                 ]);
                 if (!$existingLabel) {
                     $label = new ThesaurusLabel();
                     $label->setConcept($concept);
                     $label->setLabel($labelText);
-                    $label->setNormalizedLabel(strtolower($labelText));
+                    $label->setNormalizedLabel($labelNorm);
                     $label->setType($labelType);
                     $label->setLanguage($lang);
                     $this->em->persist($label);
+                    $labelsCreated++;
+                    $imported++;
+                } else {
+                    $skipped++;
                 }
             }
 
             fclose($handle);
             $this->em->flush();
 
-            $this->addFlash('success', 'Vocabulário importado e processado com sucesso.');
+            $this->addFlash('success', sprintf(
+                'Importação concluída: %d labels importados, %d concepts criados, %d ignorados, %d erros (de %d linhas).',
+                $imported, $conceptsCreated, $skipped, $errors, $lineNum - 1
+            ));
         } else {
             $this->addFlash('danger', 'Falha ao ler o arquivo CSV.');
         }

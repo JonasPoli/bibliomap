@@ -61,29 +61,30 @@ class NetworkService
         // 1. Fetch raw nodes (keywords grouped by concept)
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
-                COALESCE(k.keyword_concept_id, k.id) AS id, 
-                COALESCE(kc.keyword_display, k.keyword_display) AS label, 
+                COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id, 
+                COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS label, 
                 COUNT(DISTINCT dk.document_id) AS doc_count,
                 0 AS total_citations
             FROM keyword k
+            LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ?
-            GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
+            GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
             ORDER BY doc_count DESC
         ', [$projectId, $mappedType]);
 
         // 2. Fetch raw edges (grouped by source and target concept IDs)
         $rawEdges = $conn->fetchAllAssociative('
             SELECT 
-                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
-                     THEN COALESCE(k1.keyword_concept_id, k1.id) 
-                     ELSE COALESCE(k2.keyword_concept_id, k2.id) 
+                CASE WHEN COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) < COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) 
+                     ELSE COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) 
                 END AS source,
-                CASE WHEN COALESCE(k1.keyword_concept_id, k1.id) < COALESCE(k2.keyword_concept_id, k2.id) 
-                     THEN COALESCE(k2.keyword_concept_id, k2.id) 
-                     ELSE COALESCE(k1.keyword_concept_id, k1.id) 
+                CASE WHEN COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) < COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) 
+                     THEN COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) 
+                     ELSE COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) 
                 END AS target,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
@@ -92,7 +93,7 @@ class NetworkService
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
-              AND COALESCE(k1.keyword_concept_id, k1.id) != COALESCE(k2.keyword_concept_id, k2.id)
+              AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) != COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
             GROUP BY source, target
             HAVING weight >= ?
             ORDER BY weight DESC

@@ -274,8 +274,8 @@ class ReportService
         $targetLimit = ($search !== null && trim($search) !== '') ? 300 : $limit;
 
         $keywords = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
-                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+                    COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
                          WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
                          ELSE COALESCE(kc.keyword_type, k.keyword_type) 
@@ -283,19 +283,21 @@ class ReportService
                     COUNT(DISTINCT dk.document_id) AS freq,
                     MIN(d.year) AS first_year, MAX(d.year) AS last_year
              FROM keyword k
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?{$searchSql}
-             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
              ORDER BY freq DESC
              LIMIT {$targetLimit}",
             $params
         );
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword'  THEN COALESCE(k.keyword_concept_id, k.id) END) AS author_kw_count,
-                    COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN COALESCE(k.keyword_concept_id, k.id) END) AS indexed_kw_count
+            "SELECT COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword'  THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS author_kw_count,
+                    COUNT(DISTINCT CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS indexed_kw_count
              FROM keyword k
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?",
@@ -316,19 +318,21 @@ class ReportService
 
     public function getCountriesReport(int $projectId): array
     {
-        $rows = $this->conn->fetchFirstColumn(
-            'SELECT countries FROM document WHERE project_id = ? AND countries IS NOT NULL',
+        $rows = $this->conn->fetchAllAssociative(
+            'SELECT countries, COALESCE(cited_by, 0) AS cited_by FROM document WHERE project_id = ? AND countries IS NOT NULL',
             [$projectId]
         );
 
         $freqs = [];
-        foreach ($rows as $json) {
-            $arr = json_decode($json, true);
+        $citations = [];
+        foreach ($rows as $row) {
+            $arr = json_decode($row['countries'], true);
             if (is_array($arr)) {
                 foreach ($arr as $country) {
                     $country = trim($country);
                     if ($country !== '') {
                         $freqs[$country] = ($freqs[$country] ?? 0) + 1;
+                        $citations[$country] = ($citations[$country] ?? 0) + (int)$row['cited_by'];
                     }
                 }
             }
@@ -338,10 +342,13 @@ class ReportService
 
         $list = [];
         foreach ($freqs as $country => $freq) {
+            $citCount = $citations[$country] ?? 0;
             $list[] = [
-                'country'   => $country,
-                'freq'      => $freq,
-                'doc_count' => $freq,
+                'country'        => $country,
+                'freq'           => $freq,
+                'doc_count'      => $freq,
+                'citation_count' => $citCount,
+                'avg_citations'  => $freq > 0 ? round($citCount / $freq, 1) : 0,
             ];
         }
 
@@ -366,19 +373,21 @@ class ReportService
 
     public function getInstitutionsReport(int $projectId): array
     {
-        $rows = $this->conn->fetchFirstColumn(
-            'SELECT institutions FROM document WHERE project_id = ? AND institutions IS NOT NULL',
+        $rows = $this->conn->fetchAllAssociative(
+            'SELECT institutions, COALESCE(cited_by, 0) AS cited_by FROM document WHERE project_id = ? AND institutions IS NOT NULL',
             [$projectId]
         );
 
         $freqs = [];
-        foreach ($rows as $json) {
-            $arr = json_decode($json, true);
+        $citations = [];
+        foreach ($rows as $row) {
+            $arr = json_decode($row['institutions'], true);
             if (is_array($arr)) {
                 foreach ($arr as $inst) {
                     $inst = trim($inst);
                     if ($inst !== '') {
                         $freqs[$inst] = ($freqs[$inst] ?? 0) + 1;
+                        $citations[$inst] = ($citations[$inst] ?? 0) + (int)$row['cited_by'];
                     }
                 }
             }
@@ -388,10 +397,13 @@ class ReportService
 
         $list = [];
         foreach ($freqs as $inst => $freq) {
+            $citCount = $citations[$inst] ?? 0;
             $list[] = [
-                'institution' => $inst,
-                'freq'        => $freq,
-                'doc_count'   => $freq,
+                'institution'    => $inst,
+                'freq'           => $freq,
+                'doc_count'      => $freq,
+                'citation_count' => $citCount,
+                'avg_citations'  => $freq > 0 ? round($citCount / $freq, 1) : 0,
             ];
         }
 
@@ -436,7 +448,7 @@ class ReportService
         );
 
         $kpis['total_keywords'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT COALESCE(k.keyword_concept_id, k.id)) FROM keyword k
+            'SELECT COUNT(DISTINCT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id)) FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id AND d.project_id = ?',
             [$projectId]
@@ -474,17 +486,18 @@ class ReportService
 
         // Top 5 keywords
         $topKeywords = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(kc.keyword_display, k.keyword_display) AS term,
+            "SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'author_keyword' THEN 'author' 
                          WHEN COALESCE(kc.keyword_type, k.keyword_type) = 'indexed_keyword' THEN 'indexed' 
                          ELSE COALESCE(kc.keyword_type, k.keyword_type) 
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq
              FROM keyword k
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
              ORDER BY freq DESC LIMIT 20",
             [$projectId]
         );

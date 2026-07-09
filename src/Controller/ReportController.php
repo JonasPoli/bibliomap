@@ -38,18 +38,19 @@ class ReportController extends AbstractController
         // Top keywords by occurrence (author + indexed, sorted by count DESC)
         // Limit to 300 to keep the page manageable; user can filter via search
         $keywords = $this->conn->fetchAllAssociative(
-            'SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
-                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+            'SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+                    COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'author_keyword\' THEN \'author\' 
                          WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'indexed_keyword\' THEN \'indexed\' 
                          ELSE COALESCE(kc.keyword_type, k.keyword_type) 
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
-             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
@@ -124,17 +125,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
-                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+                    COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
              FROM keyword k
-             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE COALESCE(k.keyword_concept_id, k.id) IN ($placeholders)
+             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), d.year
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );
@@ -181,17 +183,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.keyword_concept_id, k.id) AS id,
-                    COALESCE(kc.keyword_display, k.keyword_display) AS term,
+            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+                    COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
              FROM keyword k
-             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE COALESCE(k.keyword_concept_id, k.id) IN ($placeholders)
+             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display), d.year
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );

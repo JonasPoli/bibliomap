@@ -50,10 +50,11 @@ class ThreeFieldsService
 
         $kwsByDoc = [];
         $kwRows = $this->conn->fetchAllAssociative(
-            'SELECT dk.document_id, COALESCE(kc.keyword_display, k.keyword_display) AS term, COALESCE(kc.keyword_type, k.keyword_type) AS type
+            'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, COALESCE(kc.keyword_type, k.keyword_type) AS type
              FROM document_keyword dk
              JOIN keyword k ON k.id = dk.keyword_id
-             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document d ON d.id = dk.document_id
              WHERE d.project_id = ?',
             [$projectId]
@@ -170,13 +171,14 @@ class ThreeFieldsService
         if ($field === 'keyword_author' || $field === 'keyword_indexed') {
             $type = $field === 'keyword_author' ? 'author_keyword' : 'indexed_keyword';
             $rows = $this->conn->fetchAllAssociative(
-                'SELECT COALESCE(kc.keyword_display, k.keyword_display) AS term
+                'SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term
                  FROM keyword k
-                 LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+                 LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
                  JOIN document_keyword dk ON k.id = dk.keyword_id
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                  WHERE k.keyword_type = ?
-                 GROUP BY COALESCE(k.keyword_concept_id, k.id), COALESCE(kc.keyword_display, k.keyword_display)
+                 GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
                  ORDER BY COUNT(DISTINCT dk.document_id) DESC
                  LIMIT ' . (int)$limit,
                 [$projectId, $type]

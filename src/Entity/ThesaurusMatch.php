@@ -20,6 +20,10 @@ class ThesaurusMatch
     #[ORM\Column(name: 'entity_id', type: 'integer', nullable: true)]
     private ?int $entityId = null;
 
+    #[ORM\ManyToOne(targetEntity: Keyword::class)]
+    #[ORM\JoinColumn(name: 'keyword_id', referencedColumnName: 'id', onDelete: 'CASCADE', nullable: true)]
+    private ?Keyword $keyword = null;
+
     #[ORM\Column(name: 'original_value', length: 255)]
     private string $originalValue = '';
 
@@ -33,8 +37,11 @@ class ThesaurusMatch
     #[ORM\Column(type: 'float', options: ['default' => 1.0])]
     private float $confidence = 1.0;
 
+    #[ORM\Column(name: 'match_method', length: 50, nullable: true)]
+    private ?string $matchMethod = null; // exact_label, exact_concept, fuzzy, manual
+
     #[ORM\Column(length: 30, options: ['default' => 'pending'])]
-    private string $status = 'pending'; // automatic, pending, reviewed
+    private string $status = 'pending'; // automatic, pending, reviewed, accepted, rejected
 
     #[ORM\Column(name: 'created_at')]
     private DateTimeImmutable $createdAt;
@@ -56,6 +63,9 @@ class ThesaurusMatch
     public function getEntityId(): ?int { return $this->entityId; }
     public function setEntityId(?int $id): self { $this->entityId = $id; return $this; }
 
+    public function getKeyword(): ?Keyword { return $this->keyword; }
+    public function setKeyword(?Keyword $kw): self { $this->keyword = $kw; return $this; }
+
     public function getOriginalValue(): string { return $this->originalValue; }
     public function setOriginalValue(string $val): self { $this->originalValue = $val; return $this; }
 
@@ -67,6 +77,9 @@ class ThesaurusMatch
 
     public function getConfidence(): float { return $this->confidence; }
     public function setConfidence(float $conf): self { $this->confidence = $conf; return $this; }
+
+    public function getMatchMethod(): ?string { return $this->matchMethod; }
+    public function setMatchMethod(?string $m): self { $this->matchMethod = $m; return $this; }
 
     public function getStatus(): string { return $this->status; }
     public function setStatus(string $status): self { $this->status = $status; return $this; }

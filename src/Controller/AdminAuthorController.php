@@ -63,8 +63,7 @@ class AdminAuthorController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF");
 
-            $csv = \League\Csv\Writer::createFromStream($handle);
-            $csv->insertOne(['name', 'orcid', 'status', 'variations']);
+            fputcsv($handle, ['name', 'orcid', 'status', 'variations'], ';');
 
             // Load variations
             $vars = $conn->fetchAllAssociative('
@@ -99,12 +98,12 @@ class AdminAuthorController extends AbstractController
                 $varNames = $varsByAuthor[$authId] ?? [];
                 $orcid = $orcidByAuthor[$authId] ?? '';
 
-                $csv->insertOne([
+                fputcsv($handle, [
                     $auth['preferred_name'],
                     $orcid,
                     $auth['status'] ? '1' : '0',
                     implode(';', $varNames)
-                ]);
+                ], ';');
             }
             fclose($handle);
         });

@@ -67,14 +67,13 @@ class AdminKeywordController extends AbstractController
 
         $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function() use ($conn) {
             $handle = fopen('php://output', 'w+');
-            fwrite(handle, "\xEF\xBB\xBF");
+            fwrite($handle, "\xEF\xBB\xBF");
 
-            $csv = \League\Csv\Writer::createFromStream($handle);
-            $csv->insertOne(['term', 'type', 'status', 'variations']);
+            fputcsv($handle, ['term', 'type', 'status', 'variations'], ';');
 
             // Load variations
             $vars = $conn->fetchAllAssociative('
-                SELECT keyword_id, original_name 
+                SELECT keyword_id, variation_name AS original_name 
                 FROM palavra_chave_variacoes_nome 
                 WHERE variation_type != "official"
             ');
@@ -93,12 +92,12 @@ class AdminKeywordController extends AbstractController
                 $kwId = (int)$kw['id'];
                 $varNames = $varsByKw[$kwId] ?? [];
 
-                $csv->insertOne([
+                fputcsv($handle, [
                     $kw['keyword_display'] ?? $kw['keyword_original'],
                     $kw['keyword_type'],
                     $kw['status'] ? '1' : '0',
                     implode(';', $varNames)
-                ]);
+                ], ';');
             }
             fclose($handle);
         });
