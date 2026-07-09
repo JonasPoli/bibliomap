@@ -40,9 +40,9 @@ class ReportController extends AbstractController
         $keywords = $this->conn->fetchAllAssociative(
             'SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'author_keyword\' THEN \'author\' 
-                         WHEN COALESCE(kc.keyword_type, k.keyword_type) = \'indexed_keyword\' THEN \'indexed\' 
-                         ELSE COALESCE(kc.keyword_type, k.keyword_type) 
+                    CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' 
+                         WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' 
+                         ELSE k.keyword_type 
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
@@ -50,7 +50,7 @@ class ReportController extends AbstractController
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), COALESCE(kc.keyword_type, k.keyword_type)
+             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
