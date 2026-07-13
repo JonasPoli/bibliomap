@@ -29,9 +29,23 @@ class QualisResolveMissingCommand extends Command
 
         $conn = $this->em->getConnection();
 
-        // 1. Find all distinct ISSNs from documents that don't have qualis_journal_id
-        $io->comment('Searching for unmatched ISSNs in documents database...');
+        // 1. Initial Link step: Match documents with already imported journals (from CAPES PDF or past crawler runs)
+        $io->comment('Linking documents to already existing journals in database...');
+        $sqlLink = '
+            UPDATE document d
+            INNER JOIN qualis_journal q 
+                ON LOWER(REPLACE(REPLACE(d.issn, "-", ""), " ", "")) = q.normalized_issn
+            SET d.qualis_journal_id = q.id, d.qualis = q.qualis
+            WHERE d.qualis_journal_id IS NULL AND d.issn IS NOT NULL AND d.issn != ""
+        ';
         
+        $initialLinked = $conn->executeStatement($sqlLink);
+        if ($initialLinked > 0) {
+            $io->info("Successfully linked {$initialLinked} documents to existing journals in database.");
+        }
+
+        // 2. Find distinct ISSNs that remain unresolved
+        $io->comment('Searching for remaining unresolved ISSNs in documents database...');
         $rows = $conn->fetchAllAssociative('
             SELECT DISTINCT issn 
             FROM document 
@@ -46,15 +60,14 @@ class QualisResolveMissingCommand extends Command
         $issns = [];
         foreach ($rows as $row) {
             $raw = trim($row['issn']);
-            // Clean up basic formatting
             $clean = str_replace([' ', '-'], '', $raw);
-            if (strlen($clean) >= 7) { // ISSNs usually have 8 characters (or 7 + X)
+            if (strlen($clean) >= 7) {
                 $issns[$clean] = $raw;
             }
         }
 
         $total = count($issns);
-        $io->info("Found {$total} distinct unmatched ISSNs to resolve.");
+        $io->info("Found {$total} distinct unresolved ISSNs to crawl from Crossref API.");
 
         $resolved = 0;
         $failed = 0;
@@ -63,7 +76,7 @@ class QualisResolveMissingCommand extends Command
         $io->progressStart($total);
 
         foreach ($issns as $normalizedIssn => $originalIssn) {
-            // Check if another parallel request or run already created it
+            // Check in db (just in case)
             $existing = $this->em->getRepository(QualisJournal::class)->findOneBy(['normalizedIssn' => $normalizedIssn]);
             if ($existing) {
                 $skipped++;
@@ -71,14 +84,13 @@ class QualisResolveMissingCommand extends Command
                 continue;
             }
 
-            // Call Crossref API
+            // Request Crossref API
             $url = 'https://api.crossref.org/journals/' . urlencode($originalIssn);
             
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-            // User-agent requested by Crossref Policy
             curl_setopt($ch, CURLOPT_USERAGENT, 'BiblioMap/1.0 (https://bibliomap.wab.com.br; mailto:admin@wab.com.br)');
             
             $responseBody = curl_exec($ch);
@@ -94,14 +106,15 @@ class QualisResolveMissingCommand extends Command
                     $journal->setTitle($title);
                     $journal->setIssn($originalIssn);
                     $journal->setNormalizedIssn($normalizedIssn);
-                    $journal->setQualis(null); // API does not have Qualis CAPES
+                    $journal->setQualis(null);
 
                     $this->em->persist($journal);
                     $resolved++;
 
-                    // Flush every 20 records to save memory
-                    if ($resolved % 20 === 0) {
+                    // Save and link documents incrementally every 50 records
+                    if ($resolved % 50 === 0) {
                         $this->em->flush();
+                        $conn->executeStatement($sqlLink);
                     }
                 } else {
                     $failed++;
@@ -111,31 +124,18 @@ class QualisResolveMissingCommand extends Command
             }
 
             $io->progressAdvance();
-            // Be polite to API (rate limiting prevention)
-            usleep(200000); // 200ms delay between API calls
+            usleep(200000); // 200ms delay between calls
         }
 
         $this->em->flush();
+        $conn->executeStatement($sqlLink); // Final sync of links
         $io->progressFinish();
-
-        $io->section('Updating documents associations...');
-
-        // 2. Perform bulk update to link documents to the newly resolved journals
-        $sql = '
-            UPDATE document d
-            INNER JOIN qualis_journal q 
-                ON LOWER(REPLACE(REPLACE(d.issn, "-", ""), " ", "")) = q.normalized_issn
-            SET d.qualis_journal_id = q.id, d.qualis = q.qualis
-            WHERE d.qualis_journal_id IS NULL AND d.issn IS NOT NULL AND d.issn != ""
-        ';
-        $affected = $conn->executeStatement($sql);
 
         $io->success([
             'Finished Crossref API resolution!',
-            "Resolved:           {$resolved} journals created",
-            "Failed/Not found:   {$failed}",
-            "Skipped (existing): {$skipped}",
-            "Affected documents: {$affected} rows updated in database"
+            "New journals created: {$resolved}",
+            "Failed/Not found:     {$failed}",
+            "Skipped:              {$skipped}"
         ]);
 
         return Command::SUCCESS;
