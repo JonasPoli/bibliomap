@@ -301,18 +301,33 @@
                                     <tr>
                                         <th style="color:var(--bm-text-muted)">Título / ISSN</th>
                                         <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ação</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% if report.unresolved_journals|default([]) is empty %}
                                         <tr>
-                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todas as revistas mapeadas no Qualis!</td>
+                                            <td colspan="3" class="text-center py-4 text-muted-bm">Todas as revistas mapeadas no Qualis!</td>
                                         </tr>
                                     {% else %}
                                         {% for journal_desc, count in report.unresolved_journals|default([]) %}
+                                            {% set parts = journal_desc|split(' [') %}
+                                            {% set title = parts[0] %}
+                                            {% set issn = parts[1] is defined ? parts[1]|replace({']': ''}) : '' %}
                                             <tr class="border-bm">
-                                                <td class="font-monospace text-accent">{{ journal_desc }}</td>
+                                                <td class="font-monospace text-accent">
+                                                    {{ title }} {% if issn %}<span class="text-muted-bm">[{{ issn }}]</span>{% endif %}
+                                                </td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                                <td style="text-align:right">
+                                                    <a href="{{ path('app_admin_journals_new', {title: title, issn: issn}) }}" 
+                                                       class="btn btn-sm btn-bm-primary py-1 px-2" 
+                                                       style="font-size:11px; text-decoration:none"
+                                                       target="_blank"
+                                                       title="Cadastrar esta revista com o Qualis correspondente">
+                                                        <i class="bi bi-plus-lg me-1"></i> Cadastrar
+                                                    </a>
+                                                </td>
                                             </tr>
                                         {% endfor %}
                                     {% endif %}

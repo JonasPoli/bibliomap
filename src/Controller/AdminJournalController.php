@@ -69,6 +69,10 @@ class AdminJournalController extends AbstractController
     public function new(Request $request): Response
     {
         $journal = new QualisJournal();
+        if ($request->isMethod('GET')) {
+            $journal->setTitle($request->query->getString('title', ''));
+            $journal->setIssn($request->query->getString('issn', ''));
+        }
 
         if ($request->isMethod('POST')) {
             $token = $request->request->get('_token');
