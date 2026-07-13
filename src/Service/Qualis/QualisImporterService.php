@@ -55,8 +55,8 @@ class QualisImporterService
 
         $startTime = microtime(true);
 
-        // Truncate existing data to do a clean reload
-        $this->conn->executeStatement('TRUNCATE TABLE qualis_journal');
+        // Delete existing data to do a clean reload (TRUNCATE is blocked by foreign key constraints)
+        $this->conn->executeStatement('DELETE FROM qualis_journal');
 
         $this->conn->beginTransaction();
         try {
