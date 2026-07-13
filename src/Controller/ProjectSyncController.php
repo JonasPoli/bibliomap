@@ -148,6 +148,19 @@ class ProjectSyncController extends AbstractController
                 $csv->insertOne([$row['term'], $row['count']]);
             }
             $filename = 'palavras_chave_nao_encontradas_projeto_' . $id . '.csv';
+        } elseif ($type === 'journals') {
+            $csv->insertOne(['raw_journal_title', 'issn', 'occurrences']);
+            $rows = $this->em->getConnection()->fetchAllAssociative('
+                SELECT source_title, issn, COUNT(id) AS count
+                FROM document
+                WHERE project_id = ? AND qualis_journal_id IS NULL AND source_title IS NOT NULL AND source_title != ""
+                GROUP BY source_title, issn
+                ORDER BY count DESC
+            ', [$project->getId()]);
+            foreach ($rows as $row) {
+                $csv->insertOne([$row['source_title'], $row['issn'], $row['count']]);
+            }
+            $filename = 'revistas_nao_encontradas_projeto_' . $id . '.csv';
         } else {
             $csv->insertOne(['raw_institution_name', 'occurrences']);
             $unmatched = $report['unresolved_institutions'] ?? [];

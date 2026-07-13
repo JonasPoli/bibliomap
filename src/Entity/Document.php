@@ -111,6 +111,13 @@ class Document
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $references = null;
 
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $qualis = null;
+
+    #[ORM\ManyToOne(targetEntity: QualisJournal::class)]
+    #[ORM\JoinColumn(name: 'qualis_journal_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?QualisJournal $qualisJournal = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -339,6 +346,28 @@ class Document
     public function removeCityMapped(City $city): static
     {
         $this->citiesMapped->removeElement($city);
+        return $this;
+    }
+
+    public function getQualis(): ?string
+    {
+        return $this->qualis;
+    }
+
+    public function setQualis(?string $qualis): self
+    {
+        $this->qualis = $qualis;
+        return $this;
+    }
+
+    public function getQualisJournal(): ?QualisJournal
+    {
+        return $this->qualisJournal;
+    }
+
+    public function setQualisJournal(?QualisJournal $qualisJournal): self
+    {
+        $this->qualisJournal = $qualisJournal;
         return $this;
     }
 }

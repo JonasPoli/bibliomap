@@ -129,6 +129,11 @@
                         </button>
                     </li>
                     <li class="nav-item">
+                        <button class="nav-link text-accent" id="unresolved-journals-tab" data-bs-toggle="tab" data-bs-target="#unresolved-journals" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
+                            📖 Revistas ({{ report.unresolved_journals_count|default(report.unresolved_journals|length) }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
                         <button class="nav-link text-accent" id="resolved-tab" data-bs-toggle="tab" data-bs-target="#resolved" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
                             ✓ Resolvidos
                         </button>
@@ -271,6 +276,42 @@
                                         {% for term, count in report.unresolved_keywords %}
                                             <tr class="border-bm">
                                                 <td class="font-monospace text-accent">{{ term }}</td>
+                                                <td style="text-align:right;font-weight:700">{{ count }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Unresolved Journals -->
+                    <div class="tab-pane fade" id="unresolved-journals" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
+                                <i class="bi bi-info-circle"></i> Periódicos/Revistas que não foram encontrados no banco do Qualis CAPES.
+                            </div>
+                            <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'journals'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
+                                <i class="bi bi-download me-1"></i> Exportar CSV
+                            </a>
+                        </div>
+                        <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                            <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
+                                <thead class="sticky-top bg-bm-card border-bottom border-bm">
+                                    <tr>
+                                        <th style="color:var(--bm-text-muted)">Título / ISSN</th>
+                                        <th style="color:var(--bm-text-muted);text-align:right;width:120px">Ocorrências</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if report.unresolved_journals is empty %}
+                                        <tr>
+                                            <td colspan="2" class="text-center py-4 text-muted-bm">Todas as revistas mapeadas no Qualis!</td>
+                                        </tr>
+                                    {% else %}
+                                        {% for journal_desc, count in report.unresolved_journals %}
+                                            <tr class="border-bm">
+                                                <td class="font-monospace text-accent">{{ journal_desc }}</td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>
                                             </tr>
                                         {% endfor %}

@@ -473,6 +473,27 @@ class DocumentEnrichmentService
             ];
         }
 
+        // Enriquecer Qualis CAPES para os documentos do projeto
+        $this->enrichQualis($projectId, $conn);
+
+        // Obter periódicos/revistas não resolvidos no sincronismo
+        $unresolvedJournals = [];
+        $rawUnresolvedJournals = $conn->fetchAllAssociative('
+            SELECT source_title, issn, COUNT(id) AS count
+            FROM document
+            WHERE project_id = ? AND qualis_journal_id IS NULL AND source_title IS NOT NULL AND source_title != ""
+            GROUP BY source_title, issn
+            ORDER BY count DESC
+            LIMIT 100
+        ', [$projectId]);
+        
+        $unresolvedJournalsCount = 0;
+        foreach ($rawUnresolvedJournals as $row) {
+            $key = $row['source_title'] . ($row['issn'] ? " [{$row['issn']}]" : '');
+            $unresolvedJournals[$key] = (int)$row['count'];
+            $unresolvedJournalsCount += (int)$row['count'];
+        }
+
         $executionTime = round(microtime(true) - $startTime, 2);
         $this->logger->info("Geographical and entity enrichment completed in {$executionTime}s. Processed {$processedDocs} documents.");
 
@@ -556,11 +577,13 @@ class DocumentEnrichmentService
             'matched_keywords_count' => $matchedKeywordsCount,
             'unresolved_authors_count' => $unresolvedAuthorsCount,
             'unresolved_keywords_count' => $unresolvedKeywordsCount,
+            'unresolved_journals_count' => $unresolvedJournalsCount,
             'execution_time' => $executionTime,
             'unresolved_institutions' => $unresolvedInstitutions,
             'unresolved_countries' => $unresolvedCountries,
             'unresolved_authors' => $unresolvedAuthors,
             'unresolved_keywords' => $unresolvedKeywords,
+            'unresolved_journals' => $unresolvedJournals,
             'matched_institutions' => $matchedInstitutionsList,
             'matched_countries' => $matchedCountriesList,
             'matched_organizations' => $matchedOrganizationsList,
@@ -588,6 +611,11 @@ class DocumentEnrichmentService
         );
         $conn->executeStatement(
             "DELETE FROM documento_cidades WHERE document_id IN ($docIdsSelect)",
+            [$projectId]
+        );
+
+        $conn->executeStatement(
+            "UPDATE document SET qualis_journal_id = NULL, qualis = NULL WHERE project_id = ?",
             [$projectId]
         );
     }
@@ -877,5 +905,25 @@ class DocumentEnrichmentService
         }
 
         return $lookup;
+    }
+
+    /**
+     * Enriches project documents with CAPES Qualis classification based on journal ISSN.
+     */
+    private function enrichQualis(int $projectId, Connection $conn): void
+    {
+        $this->logger->info("Enriching Project #{$projectId} documents with CAPES Qualis classifications...");
+
+        // Bulk UPDATE to set the qualis field on documents based on their normalized ISSN matching qualis_journal
+        $sql = '
+            UPDATE document d
+            INNER JOIN qualis_journal q 
+                ON LOWER(REPLACE(REPLACE(d.issn, "-", ""), " ", "")) = q.normalized_issn
+            SET d.qualis = q.qualis, d.qualis_journal_id = q.id
+            WHERE d.project_id = ? AND d.issn IS NOT NULL AND d.issn != ""
+        ';
+
+        $affected = $conn->executeStatement($sql, [$projectId]);
+        $this->logger->info("Qualis enrichment complete. Affected {d.qualis} documents: {$affected}.");
     }
 }

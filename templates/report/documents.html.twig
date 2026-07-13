@@ -73,6 +73,7 @@
                         <tr>
                             <th style="color:var(--bm-text-muted);font-weight:600">Título / Autores</th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Qualis</th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
                             <th style="color:var(--bm-text-muted);font-weight:600">Fonte</th>
                         </tr>
@@ -89,6 +90,31 @@
                                 </div>
                             </td>
                             <td style="text-align:right;font-weight:700" class="text-accent">{{ doc.cited_by }}</td>
+                            <td style="text-align:center">
+                                {% if doc.qualis %}
+                                    {% set qColor = '#8b949e' %}
+                                    {% set qBg = 'rgba(255,255,255,0.05)' %}
+                                    {% if doc.qualis in ['A1', 'A2'] %}
+                                        {% set qColor = '#2ea043' %}
+                                        {% set qBg = 'rgba(56,139,60,0.15)' %}
+                                    {% elseif doc.qualis in ['A3', 'A4'] %}
+                                        {% set qColor = '#58a6ff' %}
+                                        {% set qBg = 'rgba(56,139,253,0.15)' %}
+                                    {% elseif doc.qualis in ['B1', 'B2'] %}
+                                        {% set qColor = '#d29922' %}
+                                        {% set qBg = 'rgba(187,128,9,0.15)' %}
+                                    {% elseif doc.qualis in ['B3', 'B4'] %}
+                                        {% set qColor = '#db6d28' %}
+                                        {% set qBg = 'rgba(219,109,40,0.15)' %}
+                                    {% elseif doc.qualis == 'C' %}
+                                        {% set qColor = '#f85149' %}
+                                        {% set qBg = 'rgba(248,81,73,0.15)' %}
+                                    {% endif %}
+                                    <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:10px;font-weight:700">{{ doc.qualis }}</span>
+                                {% else %}
+                                    <span class="text-muted" style="font-size:11px">—</span>
+                                {% endif %}
+                            </td>
                             <td style="text-align:center">{{ doc.year }}</td>
                             <td style="font-size:11px;color:var(--bm-text-muted)" title="{{ doc.source_title }}">
                                 {{ doc.source_title|slice(0, 25) }}{{ doc.source_title|length > 25 ? '…' : '' }}

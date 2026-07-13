@@ -44,3 +44,7 @@ services:
     App\Service\SiteSettingsService:
         arguments:
             $uploadDir: '%app.upload_dir%'
+
+    App\Service\Qualis\QualisImporterService:
+        arguments:
+            $projectDir: '%kernel.project_dir%'

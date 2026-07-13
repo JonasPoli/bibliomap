@@ -163,7 +163,10 @@ class ReportService
     public function getSourcesReport(int $projectId, int $limit = 100): array
     {
         $sources = $this->conn->fetchAllAssociative(
-            'SELECT source_title, COUNT(*) AS doc_count,
+            'SELECT source_title, 
+                    MAX(issn) AS issn,
+                    MAX(qualis) AS qualis,
+                    COUNT(*) AS doc_count,
                     SUM(COALESCE(cited_by, 0)) AS citation_count,
                     ROUND(AVG(COALESCE(cited_by, 0)), 1) AS avg_citations,
                     MIN(year) AS first_year, MAX(year) AS last_year
@@ -227,7 +230,7 @@ class ReportService
     public function getDocumentsReport(int $projectId, int $limit = 100): array
     {
         $documents = $this->conn->fetchAllAssociative(
-            "SELECT d.id, d.title, d.year, d.source_title, d.doi, COALESCE(d.cited_by, 0) AS cited_by,
+            "SELECT d.id, d.title, d.year, d.source_title, d.doi, d.qualis, COALESCE(d.cited_by, 0) AS cited_by,
                     (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ')
                      FROM author_identity a
                      JOIN document_author da ON a.id = da.author_identity_id
@@ -533,7 +536,7 @@ class ReportService
     public function searchDocuments(int $projectId, array $filters, int $limit = 500): array
     {
         $qb = $this->conn->createQueryBuilder();
-        $qb->select('d.id', 'd.title', 'd.year', 'd.source_title', 'd.doi', 'd.url', 'COALESCE(d.cited_by, 0) AS cited_by', 'd.document_type', 'd.volume', 'd.issue', 'd.page_start', 'd.page_end', 'd.publisher', 'd.issn', 'd.isbn', 'd.abstract_text')
+        $qb->select('d.id', 'd.title', 'd.year', 'd.source_title', 'd.doi', 'd.url', 'COALESCE(d.cited_by, 0) AS cited_by', 'd.document_type', 'd.volume', 'd.issue', 'd.page_start', 'd.page_end', 'd.publisher', 'd.issn', 'd.isbn', 'd.abstract_text', 'd.qualis')
            ->from('document', 'd')
            ->where('d.project_id = :projectId')
            ->setParameter('projectId', $projectId);

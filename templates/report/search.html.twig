@@ -106,6 +106,9 @@
                         <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortSearchTable(5, 'string')">
                             Veículo / Fonte <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                         </th>
+                        <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortSearchTable(6, 'string')">
+                            Qualis <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                        </th>
                         <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Link</th>
                     </tr>
                 </thead>
@@ -126,6 +129,31 @@
                         <td style="text-align:center;font-weight:700" class="text-accent">{{ doc.cited_by }}</td>
                         <td style="color:var(--bm-text-muted)">{{ doc.document_type|default('—') }}</td>
                         <td style="color:var(--bm-text-muted)">{{ doc.source_title|default('—') }}</td>
+                        <td style="text-align:center">
+                            {% if doc.qualis %}
+                                {% set qColor = '#8b949e' %}
+                                {% set qBg = 'rgba(255,255,255,0.05)' %}
+                                {% if doc.qualis in ['A1', 'A2'] %}
+                                    {% set qColor = '#2ea043' %}
+                                    {% set qBg = 'rgba(56,139,60,0.15)' %}
+                                    {% elseif doc.qualis in ['A3', 'A4'] %}
+                                    {% set qColor = '#58a6ff' %}
+                                    {% set qBg = 'rgba(56,139,253,0.15)' %}
+                                    {% elseif doc.qualis in ['B1', 'B2'] %}
+                                    {% set qColor = '#d29922' %}
+                                    {% set qBg = 'rgba(187,128,9,0.15)' %}
+                                    {% elseif doc.qualis in ['B3', 'B4'] %}
+                                    {% set qColor = '#db6d28' %}
+                                    {% set qBg = 'rgba(219,109,40,0.15)' %}
+                                    {% elseif doc.qualis == 'C' %}
+                                    {% set qColor = '#f85149' %}
+                                    {% set qBg = 'rgba(248,81,73,0.15)' %}
+                                {% endif %}
+                                <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:10px;font-weight:700">{{ doc.qualis }}</span>
+                            {% else %}
+                                <span class="text-muted" style="font-size:11px">—</span>
+                            {% endif %}
+                        </td>
                         <td style="text-align:center; white-space:nowrap">
                             {% set has_link = false %}
                             {% if doc.doi %}
