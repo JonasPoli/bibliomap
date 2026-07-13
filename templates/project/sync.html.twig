@@ -125,12 +125,12 @@
                     </li>
                     <li class="nav-item">
                         <button class="nav-link text-accent" id="unresolved-keywords-tab" data-bs-toggle="tab" data-bs-target="#unresolved-keywords" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
-                            🔑 P. Chaves ({{ report.unresolved_keywords_count|default(report.unresolved_keywords|length) }})
+                            🔑 P. Chaves ({{ report.unresolved_keywords_count|default((report.unresolved_keywords|default([]))|length) }})
                         </button>
                     </li>
                     <li class="nav-item">
                         <button class="nav-link text-accent" id="unresolved-journals-tab" data-bs-toggle="tab" data-bs-target="#unresolved-journals" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:12.5px">
-                            📖 Revistas ({{ report.unresolved_journals_count|default(report.unresolved_journals|length) }})
+                            📖 Revistas ({{ report.unresolved_journals_count|default((report.unresolved_journals|default([]))|length) }})
                         </button>
                     </li>
                     <li class="nav-item">
@@ -268,12 +268,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% if report.unresolved_keywords is empty %}
+                                    {% if report.unresolved_keywords|default([]) is empty %}
                                         <tr>
                                             <td colspan="2" class="text-center py-4 text-muted-bm">Todas as palavras-chave mapeadas!</td>
                                         </tr>
                                     {% else %}
-                                        {% for term, count in report.unresolved_keywords %}
+                                        {% for term, count in report.unresolved_keywords|default([]) %}
                                             <tr class="border-bm">
                                                 <td class="font-monospace text-accent">{{ term }}</td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>
@@ -304,12 +304,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% if report.unresolved_journals is empty %}
+                                    {% if report.unresolved_journals|default([]) is empty %}
                                         <tr>
                                             <td colspan="2" class="text-center py-4 text-muted-bm">Todas as revistas mapeadas no Qualis!</td>
                                         </tr>
                                     {% else %}
-                                        {% for journal_desc, count in report.unresolved_journals %}
+                                        {% for journal_desc, count in report.unresolved_journals|default([]) %}
                                             <tr class="border-bm">
                                                 <td class="font-monospace text-accent">{{ journal_desc }}</td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>

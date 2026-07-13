@@ -1,0 +1,185 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gerenciar Revistas e Qualis — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Revistas e Qualis</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<div class="d-inline-flex gap-2">
+    <a href="{{ path('app_admin_journals_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
+        <i class="bi bi-download me-1"></i> Exportar CSV
+    </a>
+    <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
+        <i class="bi bi-upload me-1"></i> Importar CSV
+    </button>
+    <a href="{{ path('app_admin_journals_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
+        <i class="bi bi-plus-circle me-1"></i> Nova Revista
+    </a>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-journal-bookmark text-accent me-2"></i>Gerenciamento de Revistas / Periódicos
+    </h1>
+    <p class="bm-page-subtitle">Gerencie o cadastro de veículos científicos e suas respectivas classificações Qualis CAPES.</p>
+</div>
+
+<!-- Search Bar & Filters -->
+<div class="bm-card mb-4">
+    <form method="GET" action="{{ path('app_admin_journals_index') }}" class="row g-2">
+        <div class="col-md-7">
+            <input type="text" name="search" class="form-control" placeholder="Buscar por título da revista ou ISSN..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <select name="qualis" class="form-select">
+                <option value="all" {% if qualis == 'all' %}selected{% endif %}>Todos os estratos Qualis</option>
+                <option value="A1" {% if qualis == 'A1' %}selected{% endif %}>A1</option>
+                <option value="A2" {% if qualis == 'A2' %}selected{% endif %}>A2</option>
+                <option value="A3" {% if qualis == 'A3' %}selected{% endif %}>A3</option>
+                <option value="A4" {% if qualis == 'A4' %}selected{% endif %}>A4</option>
+                <option value="B1" {% if qualis == 'B1' %}selected{% endif %}>B1</option>
+                <option value="B2" {% if qualis == 'B2' %}selected{% endif %}>B2</option>
+                <option value="B3" {% if qualis == 'B3' %}selected{% endif %}>B3</option>
+                <option value="B4" {% if qualis == 'B4' %}selected{% endif %}>B4</option>
+                <option value="C" {% if qualis == 'C' %}selected{% endif %}>C</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
+        </div>
+    </form>
+</div>
+
+<!-- Journals List -->
+<div class="bm-card mb-4">
+    {% if journals is empty %}
+        <div class="text-center py-5 text-muted-bm">
+            <i class="bi bi-inbox fs-2 mb-2 d-block"></i>
+            Nenhum periódico científico encontrado.
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th>Periódico / Revista</th>
+                        <th>ISSN</th>
+                        <th style="text-align:center">Qualis</th>
+                        <th style="width:140px;text-align:right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for journal in journals %}
+                        <tr class="border-bm">
+                            <td>
+                                <div style="font-weight:600;color:var(--bm-text)">{{ journal.title }}</div>
+                            </td>
+                            <td>
+                                <span class="font-monospace text-accent">{{ journal.issn }}</span>
+                            </td>
+                            <td style="text-align:center">
+                                {% if journal.qualis %}
+                                    {% set qColor = '#8b949e' %}
+                                    {% set qBg = 'rgba(255,255,255,0.05)' %}
+                                    {% if journal.qualis in ['A1', 'A2'] %}
+                                        {% set qColor = '#2ea043' %}
+                                        {% set qBg = 'rgba(56,139,60,0.15)' %}
+                                    {% elseif journal.qualis in ['A3', 'A4'] %}
+                                        {% set qColor = '#58a6ff' %}
+                                        {% set qBg = 'rgba(56,139,253,0.15)' %}
+                                    {% elseif journal.qualis in ['B1', 'B2'] %}
+                                        {% set qColor = '#d29922' %}
+                                        {% set qBg = 'rgba(187,128,9,0.15)' %}
+                                    {% elseif journal.qualis in ['B3', 'B4'] %}
+                                        {% set qColor = '#db6d28' %}
+                                        {% set qBg = 'rgba(219,109,40,0.15)' %}
+                                    {% elseif journal.qualis == 'C' %}
+                                        {% set qColor = '#f85149' %}
+                                        {% set qBg = 'rgba(248,81,73,0.15)' %}
+                                    {% endif %}
+                                    <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:11px;font-weight:700">{{ journal.qualis }}</span>
+                                {% else %}
+                                    <span class="text-muted" style="font-size:11px">—</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right">
+                                <a href="{{ path('app_admin_journals_edit', {id: journal.id}) }}" class="btn btn-sm btn-bm-secondary">
+                                    <i class="bi bi-pencil-square me-1"></i> Editar
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if totalPages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+                <div style="font-size:12.5px;color:var(--bm-text-muted)">
+                    Mostrando {{ journals|length }} periódicos de {{ totalResults }} no total.
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm m-0">
+                        <li class="page-item {% if currentPage == 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ path('app_admin_journals_index', {search: search, qualis: qualis, page: currentPage - 1}) }}">
+                                Anterior
+                            </a>
+                        </li>
+                        <li class="page-item active">
+                            <span class="page-link">Pág. {{ currentPage }} de {{ totalPages }}</span>
+                        </li>
+                        <li class="page-item {% if currentPage == totalPages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ path('app_admin_journals_index', {search: search, qualis: qualis, page: currentPage + 1}) }}">
+                                Próxima
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-bm" style="background:var(--bm-card-bg);backdrop-filter:blur(10px)">
+            <form action="{{ path('app_admin_journals_import') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="_token" value="{{ csrf_token('import_journals') }}">
+                <div class="modal-header border-bottom border-bm">
+                    <h5 class="modal-title" id="importModalLabel" style="font-weight:700">
+                        <i class="bi bi-upload text-accent me-2"></i>Importar Revistas via CSV
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="font-size:13.5px">
+                    <p class="text-muted-bm mb-3">Envie um arquivo CSV contendo os periódicos. As colunas esperadas são:</p>
+                    <div class="bg-black bg-opacity-25 p-3 rounded-3 font-monospace mb-3" style="font-size:12px;border:1px solid var(--bm-border)">
+                        issn;title;qualis<br>
+                        2053-1583;2D Materials;A2<br>
+                        1530-6984;Nano Letters;A1
+                    </div>
+                    <p class="text-muted-bm mb-3">Registros com o mesmo ISSN que já existirem terão seus dados atualizados.</p>
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label" style="font-weight:600">Arquivo CSV (.csv)</label>
+                        <input class="form-control" type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-bm">
+                    <button type="button" class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-bm-primary px-3 py-2">
+                        <i class="bi bi-check-circle me-1"></i> Iniciar Importação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

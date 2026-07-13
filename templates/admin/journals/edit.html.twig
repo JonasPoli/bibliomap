@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Revista — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_journals_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Revistas e Qualis</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Editar Revista</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Revista Científica
+    </h1>
+    <p class="bm-page-subtitle">Altere as informações cadastrais e a classificação Qualis do periódico.</p>
+</div>
+
+<div class="bm-card col-lg-8">
+    <form method="POST" action="{{ path('app_admin_journals_edit', {id: journal.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('journal_edit') }}">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-12">
+                <label class="form-label">Título do Periódico / Revista *</label>
+                <input type="text" name="title" class="form-control" placeholder="Ex: Nature" value="{{ journal.title }}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">ISSN *</label>
+                <input type="text" name="issn" class="form-control" placeholder="Ex: 0028-0836" value="{{ journal.issn }}" required>
+                <small class="text-muted-bm" style="font-size:11px">Pode conter traços ou espaços (ex: 1530-6984).</small>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Estrato Qualis</label>
+                <select name="qualis" class="form-select">
+                    <option value="" {% if journal.qualis is empty %}selected{% endif %}>Nenhum estrato / Nulo</option>
+                    <option value="A1" {% if journal.qualis == 'A1' %}selected{% endif %}>A1</option>
+                    <option value="A2" {% if journal.qualis == 'A2' %}selected{% endif %}>A2</option>
+                    <option value="A3" {% if journal.qualis == 'A3' %}selected{% endif %}>A3</option>
+                    <option value="A4" {% if journal.qualis == 'A4' %}selected{% endif %}>A4</option>
+                    <option value="B1" {% if journal.qualis == 'B1' %}selected{% endif %}>B1</option>
+                    <option value="B2" {% if journal.qualis == 'B2' %}selected{% endif %}>B2</option>
+                    <option value="B3" {% if journal.qualis == 'B3' %}selected{% endif %}>B3</option>
+                    <option value="B4" {% if journal.qualis == 'B4' %}selected{% endif %}>B4</option>
+                    <option value="C" {% if journal.qualis == 'C' %}selected{% endif %}>C</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{{ path('app_admin_journals_index') }}" class="btn btn-bm-secondary" style="text-decoration:none">Cancelar</a>
+            <button type="submit" class="btn btn-bm-primary">Salvar Alterações</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
