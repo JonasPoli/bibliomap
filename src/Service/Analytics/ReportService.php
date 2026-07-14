@@ -234,7 +234,15 @@ class ReportService
                     (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ')
                      FROM author_identity a
                      JOIN document_author da ON a.id = da.author_identity_id
-                     WHERE da.document_id = d.id) AS authors_str
+                     WHERE da.document_id = d.id) AS authors_str,
+                    (SELECT GROUP_CONCAT(p.sigla ORDER BY p.common_name ASC SEPARATOR ',')
+                     FROM paises p
+                     JOIN documento_paises dp ON p.id = dp.country_id
+                     WHERE dp.document_id = d.id) AS country_siglas,
+                    (SELECT GROUP_CONCAT(p.common_name ORDER BY p.common_name ASC SEPARATOR '; ')
+                     FROM paises p
+                     JOIN documento_paises dp ON p.id = dp.country_id
+                     WHERE dp.document_id = d.id) AS country_names
               FROM document d
               WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
               ORDER BY cited_by DESC

@@ -97,8 +97,19 @@
                                         <span style="color:var(--bm-text)">{{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}</span>
                                     {% endif %}
                                 </div>
-                                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:2px" title="{{ doc.authors_str }}">
-                                    {{ doc.authors_str|slice(0, 60) }}{{ doc.authors_str|length > 60 ? '…' : '' }}
+                                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:2px" class="d-flex align-items-center gap-1 flex-wrap">
+                                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis" title="{{ doc.authors_str }}">
+                                        {{ doc.authors_str|slice(0, 60) }}{{ doc.authors_str|length > 60 ? '…' : '' }}
+                                    </span>
+                                    {% if doc.country_siglas %}
+                                        <span class="d-inline-flex gap-1 align-items-center ms-2" title="{{ doc.country_names }}">
+                                            {% for sigla in doc.country_siglas|split(',') %}
+                                                {% if sigla|trim is not empty %}
+                                                    <img src="https://flagcdn.com/16x12/{{ sigla|trim|lower }}.png" width="16" height="12" style="border:1px solid rgba(255,255,255,0.15);border-radius:2px" alt="{{ sigla }}">
+                                                {% endif %}
+                                            {% endfor %}
+                                        </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td style="text-align:right;font-weight:700" class="text-accent">{{ doc.cited_by }}</td>
