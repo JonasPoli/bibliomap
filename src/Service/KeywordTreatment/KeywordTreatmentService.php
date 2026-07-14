@@ -166,6 +166,7 @@ class KeywordTreatmentService
                 if (empty($keywords)) break;
 
                 $assignedInBatch = [];
+                $deletedInBatch = [];
 
                 // === Pass 1: Cleaning & Invalid marking ===
                 if ($options->processInvalids) {
@@ -237,6 +238,7 @@ class KeywordTreatmentService
 
                                     // 5. Delete the duplicate keyword via raw SQL and detach from Doctrine
                                     $kwId = $kw->getId();
+                                    $deletedInBatch[$kwId] = true;
                                     $this->em->detach($kw);
                                     $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$kwId]);
                                 } else {
@@ -258,6 +260,7 @@ class KeywordTreatmentService
                 if ($options->processExact) {
                     $groupedByNorm = [];
                     foreach ($keywords as $kw) {
+                        if (isset($deletedInBatch[$kw->getId()])) continue;
                         if (!$kw->isStatus() || $kw->getKeywordNormalized() === '') continue;
                         $groupedByNorm[$kw->getKeywordNormalized()][] = $kw;
                     }
@@ -317,6 +320,7 @@ class KeywordTreatmentService
                 // === Pass 3: Thesaurus matching ===
                 if ($options->processThesaurus) {
                     foreach ($keywords as $kw) {
+                        if (isset($deletedInBatch[$kw->getId()])) continue;
                         if (!$kw->isStatus() || $kw->getThesaurusConcept() !== null) continue;
 
                         $result = $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore);
@@ -341,6 +345,7 @@ class KeywordTreatmentService
                 // === Pass 4: Fuzzy matching ===
                 if ($options->processFuzzy) {
                     foreach ($keywords as $kw) {
+                        if (isset($deletedInBatch[$kw->getId()])) continue;
                         if (!$kw->isStatus() || $kw->getThesaurusConcept() !== null) continue;
 
                         $result = $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore);
