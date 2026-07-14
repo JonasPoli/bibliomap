@@ -330,32 +330,23 @@ class ReportService
     public function getCountriesReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
-            'SELECT countries, COALESCE(cited_by, 0) AS cited_by FROM document WHERE project_id = ? AND countries IS NOT NULL',
+            'SELECT p.common_name AS country, p.sigla, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+             FROM document d
+             JOIN documento_paises dp ON d.id = dp.document_id
+             JOIN paises p ON p.id = dp.country_id
+             WHERE d.project_id = ?
+             GROUP BY p.id, p.common_name, p.sigla
+             ORDER BY doc_count DESC, citation_count DESC',
             [$projectId]
         );
 
-        $freqs = [];
-        $citations = [];
-        foreach ($rows as $row) {
-            $arr = json_decode($row['countries'], true);
-            if (is_array($arr)) {
-                foreach ($arr as $country) {
-                    $country = trim($country);
-                    if ($country !== '') {
-                        $freqs[$country] = ($freqs[$country] ?? 0) + 1;
-                        $citations[$country] = ($citations[$country] ?? 0) + (int)$row['cited_by'];
-                    }
-                }
-            }
-        }
-
-        arsort($freqs);
-
         $list = [];
-        foreach ($freqs as $country => $freq) {
-            $citCount = $citations[$country] ?? 0;
+        foreach ($rows as $row) {
+            $freq = (int)$row['doc_count'];
+            $citCount = (int)$row['citation_count'];
             $list[] = [
-                'country'        => $country,
+                'country'        => $row['country'],
+                'sigla'          => $row['sigla'],
                 'freq'           => $freq,
                 'doc_count'      => $freq,
                 'citation_count' => $citCount,
@@ -367,13 +358,13 @@ class ReportService
         $topCountryDocs = 0;
         if (!empty($list)) {
             $topCountryName = $list[0]['country'];
-            $topCountryDocs = (int)$list[0]['freq'];
+            $topCountryDocs = $list[0]['freq'];
         }
 
         return [
             'list' => $list,
             'kpis' => [
-                'total_countries' => count($freqs),
+                'total_countries' => count($list),
                 'top_country'     => $topCountryName,
                 'top_country_docs'=> $topCountryDocs,
             ]

@@ -82,7 +82,12 @@
                         {% for c in countries %}
                             <tr class="border-bm">
                                 <td style="font-weight:600">{{ c.officialName }}</td>
-                                <td>{{ c.commonName }}</td>
+                                <td>
+                                    {% if c.sigla %}
+                                        <img src="https://flagcdn.com/16x12/{{ c.sigla|trim|lower }}.png" width="16" height="12" style="border:1px solid rgba(255,255,255,0.15);border-radius:2px;margin-right:6px;vertical-align:middle" alt="{{ c.sigla }}">
+                                    {% endif %}
+                                    {{ c.commonName }}
+                                </td>
                                 <td class="font-monospace text-accent">{{ c.sigla ?? '—' }}</td>
                                 <td>{{ c.isoCode ?? '—' }}</td>
                                 <td><span class="badge bg-secondary">{{ c.continente ?? '—' }}</span></td>
@@ -142,7 +147,12 @@
                             <tr class="border-bm">
                                 <td style="font-weight:600">{{ s.officialName }}</td>
                                 <td class="font-monospace text-accent">{{ s.sigla ?? '—' }}</td>
-                                <td>{{ s.country.commonName }}</td>
+                                <td>
+                                    {% if s.country.sigla %}
+                                        <img src="https://flagcdn.com/16x12/{{ s.country.sigla|trim|lower }}.png" width="16" height="12" style="border:1px solid rgba(255,255,255,0.15);border-radius:2px;margin-right:6px;vertical-align:middle" alt="{{ s.country.sigla }}">
+                                    {% endif %}
+                                    {{ s.country.commonName }}
+                                </td>
                                 <td>
                                     {% if s.region %}
                                         <span class="badge" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-accent)">{{ s.region.name }}</span>
@@ -212,7 +222,12 @@
                                         <span class="text-muted-bm">—</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ ct.country.commonName }}</td>
+                                <td>
+                                    {% if ct.country.sigla %}
+                                        <img src="https://flagcdn.com/16x12/{{ ct.country.sigla|trim|lower }}.png" width="16" height="12" style="border:1px solid rgba(255,255,255,0.15);border-radius:2px;margin-right:6px;vertical-align:middle" alt="{{ ct.country.sigla }}">
+                                    {% endif %}
+                                    {{ ct.country.commonName }}
+                                </td>
                                 <td>{{ ct.officialCode ?? '—' }}</td>
                                 <td>
                                     <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
