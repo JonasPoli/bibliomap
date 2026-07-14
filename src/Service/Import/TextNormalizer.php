@@ -171,11 +171,75 @@ final class TextNormalizer
             ];
         }
 
-        // Rules to check if a keyword requires review (e.g. numerical terms, terms that look like authors, university, etc.)
+        // ── Hard-invalid rules: terms that are definitively garbage ──────────
+
+        // 1. Purely numeric after cleanup (e.g. "3.04", "4 54", "32")
+        $lettersOnly = preg_replace('/[^\p{L}]+/u', '', $normalized);
+        if (mb_strlen($lettersOnly) === 0) {
+            return [
+                'valid' => false,
+                'reason' => 'purely_numeric',
+                'original' => $original,
+                'display' => $display,
+                'normalized' => $normalized,
+            ];
+        }
+
+        // 2. Ratio of letters to total chars is too low (gibberish/formulas)
+        //    e.g. "(sic)(sic)(sic)" normalizes to "sic sic sic sic" which is fine,
+        //    but we catch repeated single-word patterns
+        if (mb_strlen($lettersOnly) < 2) {
+            return [
+                'valid' => false,
+                'reason' => 'insufficient_letters',
+                'original' => $original,
+                'display' => $display,
+                'normalized' => $normalized,
+            ];
+        }
+
+        // 3. Repetitive nonsense: same word repeated 3+ times (e.g. "sic sic sic sic")
+        $words = preg_split('/\s+/u', $normalized);
+        if (count($words) >= 3) {
+            $uniqueWords = array_unique($words);
+            if (count($uniqueWords) === 1) {
+                return [
+                    'valid' => false,
+                    'reason' => 'repetitive_nonsense',
+                    'original' => $original,
+                    'display' => $display,
+                    'normalized' => $normalized,
+                ];
+            }
+        }
+
+        // 4. Excessively long strings (>200 chars) are typically parsing artifacts
+        if (mb_strlen($normalized) > 200) {
+            return [
+                'valid' => false,
+                'reason' => 'too_long',
+                'original' => $original,
+                'display' => $display,
+                'normalized' => $normalized,
+            ];
+        }
+
+        // 5. Starts with a digit and has more digits than letters — likely a table fragment
+        if (preg_match('/^\d/u', $normalized) && preg_match_all('/\d/u', $normalized) > preg_match_all('/\p{L}/u', $normalized)) {
+            return [
+                'valid' => false,
+                'reason' => 'numeric_fragment',
+                'original' => $original,
+                'display' => $display,
+                'normalized' => $normalized,
+            ];
+        }
+
+        // ── Soft review rules (suspicious but not auto-deleted) ─────────────
         $needsReview = false;
         $reasons = [];
 
-        // Too short/suspicious: contains digits
+        // Contains digits
         if (preg_match('/\d/u', $display)) {
             $needsReview = true;
             $reasons[] = 'contains_number';

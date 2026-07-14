@@ -43,6 +43,26 @@ class KeywordTreatmentServiceTest extends TestCase
         // 5. "]+ catalyst" → catalyst
         $res5 = $this->normalizer->cleanDisplayValue("]+ catalyst");
         $this->assertEquals("catalyst", $res5);
+
+        // 6. "-3.04" → invalid (purely numeric)
+        $res6 = $this->normalizer->normalizeKeyword("-3.04");
+        $this->assertFalse($res6['valid']);
+        $this->assertEquals("purely_numeric", $res6['reason']);
+
+        // 7. "(sic)(sic)(sic)(sic)" → invalid (repetitive nonsense)
+        $res7 = $this->normalizer->normalizeKeyword("(sic)(sic)(sic)(sic)");
+        $this->assertFalse($res7['valid']);
+        $this->assertEquals("repetitive_nonsense", $res7['reason']);
+
+        // 8. "::.! .! <" → invalid (empty_or_too_short)
+        $res8 = $this->normalizer->normalizeKeyword("::.! .! <");
+        $this->assertFalse($res8['valid']);
+
+        // 9. Valid keywords must stay valid
+        $res9 = $this->normalizer->normalizeKeyword("deep learning");
+        $this->assertTrue($res9['valid']);
+        $res10 = $this->normalizer->normalizeKeyword("COVID-19");
+        $this->assertTrue($res10['valid']);
     }
 
     public function testFuzzyMatcherAndAcronyms(): void
