@@ -479,6 +479,9 @@ class DocumentEnrichmentService
         // Enriquecer Qualis CAPES para os documentos do projeto
         $this->enrichQualis($projectId, $conn);
 
+        // Registrar periódicos faltantes localizando pelo ISSN no Crossref
+        $this->registerMissingJournals($projectId, $conn);
+
         // Obter periódicos/revistas não resolvidos no sincronismo
         $unresolvedJournals = [];
         $rawUnresolvedJournals = $conn->fetchAllAssociative('
@@ -928,5 +931,84 @@ class DocumentEnrichmentService
 
         $affected = $conn->executeStatement($sql, [$projectId]);
         $this->logger->info("Qualis enrichment complete. Affected {d.qualis} documents: {$affected}.");
+    }
+
+    /**
+     * Finds unresolved ISSNs in project documents, queries Crossref to register them.
+     */
+    private function registerMissingJournals(int $projectId, Connection $conn): void
+    {
+        $this->logger->info("Searching for missing journals to register by ISSN for Project #{$projectId}...");
+
+        // 1. Find distinct ISSNs in this project's documents that are not linked to any qualis_journal
+        $rows = $conn->fetchAllAssociative('
+            SELECT DISTINCT issn 
+            FROM document 
+            WHERE project_id = ? AND qualis_journal_id IS NULL AND issn IS NOT NULL AND issn != "" AND issn != "-" AND issn != "0000-0000"
+        ', [$projectId]);
+
+        if (empty($rows)) {
+            return;
+        }
+
+        $issns = [];
+        foreach ($rows as $row) {
+            $raw = trim($row['issn']);
+            $clean = str_replace([' ', '-'], '', $raw);
+            if (strlen($clean) >= 7) {
+                $issns[$clean] = $raw;
+            }
+        }
+
+        $registeredCount = 0;
+        foreach ($issns as $normalizedIssn => $originalIssn) {
+            // Check if already registered
+            $existingId = $conn->fetchOne(
+                'SELECT id FROM qualis_journal WHERE normalized_issn = ?',
+                [$normalizedIssn]
+            );
+            if ($existingId) {
+                continue;
+            }
+
+            // Query Crossref
+            $url = 'https://api.crossref.org/journals/' . urlencode($originalIssn);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 3); // short timeout to avoid blocking web request too long
+            curl_setopt($ch, CURLOPT_USERAGENT, 'BiblioMap/1.0 (https://bibliomap.wab.com.br; mailto:admin@wab.com.br)');
+            
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $responseBody) {
+                $data = json_decode($responseBody, true);
+                $title = $data['message']['title'] ?? null;
+
+                if ($title) {
+                    try {
+                        $conn->insert('qualis_journal', [
+                            'title' => substr($title, 0, 500),
+                            'issn' => $originalIssn,
+                            'normalized_issn' => $normalizedIssn,
+                            'qualis' => null,
+                        ]);
+                        $registeredCount++;
+                    } catch (\Throwable) {
+                        // ignore constraint violations
+                    }
+                }
+            }
+            // Minor sleep to respect rate limits
+            usleep(100000); // 100ms
+        }
+
+        if ($registeredCount > 0) {
+            $this->logger->info("Registered {$registeredCount} new journals from Crossref.");
+            // Re-run the linking query to link documents to the new journals
+            $this->enrichQualis($projectId, $conn);
+        }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Service\Import\DocumentEnrichmentService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -23,11 +24,16 @@ class TestProjectSyncCommand extends Command
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this->addArgument('projectId', InputArgument::OPTIONAL, 'Project ID to sync', 5);
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         ini_set('memory_limit', '1024M');
         $io = new SymfonyStyle($input, $output);
-        $projectId = 5;
+        $projectId = (int) $input->getArgument('projectId');
 
         $io->title("Syncing all metadata (geography, institutions, authors, keywords) for project {$projectId}...");
         $report = $this->enrichmentService->enrichProject($projectId);
