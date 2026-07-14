@@ -23,3 +23,7 @@ docs/sources/*
 
 .DS_Store
 .DS_Store
+
+
+docs/temp
+docs/temp/*

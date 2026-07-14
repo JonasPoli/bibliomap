@@ -25,6 +25,7 @@ class DocumentEnrichmentService
     {
         $conn = $this->em->getConnection();
         $this->logger->info("Starting geographical and institutional enrichment for Project #{$projectId}...");
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
         $startTime = microtime(true);
 
@@ -201,6 +202,8 @@ class DocumentEnrichmentService
                                 'official_name' => $usLoc['state'],
                                 'sigla' => $usLoc['state'],
                                 'status' => 1,
+                                'created_at' => $now,
+                                'updated_at' => $now,
                             ]);
                             $newStateId = (int)$conn->lastInsertId();
                             $statesLookup[$stateKey] = ['id' => $newStateId, 'country_id' => $usaCountryId];
