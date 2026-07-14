@@ -172,7 +172,12 @@
                         {% for c in list %}
                         <tr class="country-row" data-country="{{ c.country|lower }}">
                             <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
-                            <td style="font-weight:600;color:var(--bm-text)">{{ c.country }}</td>
+                            <td style="font-weight:600;color:var(--bm-text)">
+                                {% if c.sigla %}
+                                    <img src="https://flagcdn.com/16x12/{{ c.sigla|trim|lower }}.png" width="16" height="12" style="border:1px solid rgba(255,255,255,0.15);border-radius:2px;margin-right:6px;vertical-align:middle" alt="{{ c.sigla }}">
+                                {% endif %}
+                                {{ c.country }}
+                            </td>
                             <td style="text-align:right;font-weight:700" class="text-accent">{{ c.doc_count }}</td>
                             <td style="text-align:right">{{ c.citation_count }}</td>
                             <td style="text-align:right;color:var(--bm-text-muted)">{{ c.avg_citations }}</td>
