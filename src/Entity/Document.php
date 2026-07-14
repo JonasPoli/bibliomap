@@ -279,8 +279,8 @@ class Document
     {
         $names = [];
         foreach ($this->documentAuthors as $da) {
-            if ($da->getAuthor()) {
-                $names[] = $da->getAuthor()->getName();
+            if ($da->getAuthorIdentity()) {
+                $names[] = $da->getAuthorIdentity()->getName();
             }
         }
         return implode('; ', $names);
