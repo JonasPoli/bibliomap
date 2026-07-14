@@ -82,8 +82,20 @@
                         {% for doc in list %}
                         <tr class="doc-row" data-title="{{ doc.title|lower }}" data-authors="{{ doc.authors_str|lower }}">
                             <td>
-                                <div style="font-weight:600;color:var(--bm-text);line-height:1.3" title="{{ doc.title }}">
-                                    {{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}
+                                <div style="font-weight:600;line-height:1.3" title="{{ doc.title }}">
+                                    {% if doc.url %}
+                                        <a href="{{ doc.url }}" target="_blank" style="color:var(--bm-text);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                            {{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}
+                                            <i class="bi bi-box-arrow-up-right ms-1 text-muted" style="font-size:10px"></i>
+                                        </a>
+                                    {% elseif doc.doi %}
+                                        <a href="https://doi.org/{{ doc.doi }}" target="_blank" style="color:var(--bm-text);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                            {{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}
+                                            <i class="bi bi-box-arrow-up-right ms-1 text-muted" style="font-size:10px"></i>
+                                        </a>
+                                    {% else %}
+                                        <span style="color:var(--bm-text)">{{ doc.title|slice(0, 70) }}{{ doc.title|length > 70 ? '…' : '' }}</span>
+                                    {% endif %}
                                 </div>
                                 <div style="font-size:11px;color:var(--bm-text-muted);margin-top:2px" title="{{ doc.authors_str }}">
                                     {{ doc.authors_str|slice(0, 60) }}{{ doc.authors_str|length > 60 ? '…' : '' }}

@@ -230,7 +230,7 @@ class ReportService
     public function getDocumentsReport(int $projectId, int $limit = 100): array
     {
         $documents = $this->conn->fetchAllAssociative(
-            "SELECT d.id, d.title, d.year, d.source_title, d.doi, d.qualis, COALESCE(d.cited_by, 0) AS cited_by,
+            "SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.qualis, COALESCE(d.cited_by, 0) AS cited_by,
                     (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ')
                      FROM author_identity a
                      JOIN document_author da ON a.id = da.author_identity_id
