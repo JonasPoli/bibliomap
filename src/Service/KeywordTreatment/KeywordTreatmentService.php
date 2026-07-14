@@ -212,7 +212,7 @@ class KeywordTreatmentService
                                 }
 
                                 if ($existingId) {
-                                    // Duplicate collision! Merge and schedule deletion of this duplicate keyword.
+                                    // Duplicate collision! Merge via raw SQL and detach from Doctrine.
                                     
                                     // 1. Delete matching pairs in document_keyword to avoid unique key constraint violation
                                     $dupDkIds = $conn->fetchFirstColumn('
@@ -235,11 +235,10 @@ class KeywordTreatmentService
                                     // 4. Re-point keyword treatment logs to preserve logs history
                                     $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
 
-                                    // 5. Mark status as false so that subsequent loops in this execution batch skip this entity
-                                    $kw->setStatus(false);
-
-                                    // 5. Schedule deletion of the entity from the unit of work
-                                    $this->em->remove($kw);
+                                    // 5. Delete the duplicate keyword via raw SQL and detach from Doctrine
+                                    $kwId = $kw->getId();
+                                    $this->em->detach($kw);
+                                    $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$kwId]);
                                 } else {
                                     // Safely update display name and normalized name
                                     $kw->setKeywordDisplay($normRes['display']);
@@ -247,9 +246,10 @@ class KeywordTreatmentService
                                     
                                     // Register in our batch tracking map
                                     $assignedInBatch[$mapKey] = $kw->getId();
+
+                                    $this->logAction($job, $kw, 'cleaned', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, 'string_cleanup', $options->dryRun, 'normalizer');
                                 }
                             }
-                            $this->logAction($job, $kw, 'cleaned', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, 'string_cleanup', $options->dryRun, 'normalizer');
                         }
                     }
                 }
