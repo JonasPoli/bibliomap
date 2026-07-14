@@ -62,9 +62,18 @@ class ThesaurusController extends AbstractController
 
         $concepts = $this->em->getRepository(ThesaurusConcept::class)->findBy(['scheme' => $scheme]);
 
+        $conceptLabels = [];
+        if (!empty($concepts)) {
+            $labels = $this->em->getRepository(ThesaurusLabel::class)->findBy(['concept' => $concepts]);
+            foreach ($labels as $l) {
+                $conceptLabels[$l->getConcept()->getId()][] = $l;
+            }
+        }
+
         return $this->render('admin/thesaurus/scheme_show.html.twig', [
             'scheme' => $scheme,
             'concepts' => $concepts,
+            'conceptLabels' => $conceptLabels,
         ]);
     }
 
@@ -102,6 +111,47 @@ class ThesaurusController extends AbstractController
 
         $this->addFlash('success', 'Conceito criado com sucesso.');
         return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
+    }
+
+    #[Route('/concept/{id}/label/new', name: 'app_admin_thesaurus_label_new', methods: ['POST'])]
+    public function newLabel(int $id, Request $request): Response
+    {
+        $concept = $this->em->getRepository(ThesaurusConcept::class)->find($id);
+        if (!$concept) {
+            throw $this->createNotFoundException('Conceito não encontrado.');
+        }
+
+        $labelText = trim($request->request->get('label', ''));
+        if ($labelText === '') {
+            $this->addFlash('danger', 'O rótulo do sinônimo não pode ser vazio.');
+            return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
+        }
+
+        $normalizer = new \App\Service\Import\TextNormalizer();
+        $labelNorm = $normalizer->normalizeForComparison($labelText);
+
+        // Check if duplicate
+        $existing = $this->em->getRepository(ThesaurusLabel::class)->findOneBy([
+            'concept' => $concept,
+            'normalizedLabel' => $labelNorm
+        ]);
+
+        if (!$existing) {
+            $label = new ThesaurusLabel();
+            $label->setConcept($concept);
+            $label->setLabel($labelText);
+            $label->setNormalizedLabel($labelNorm);
+            $label->setType('alternative');
+            $label->setLanguage('en'); // Default to English or project language
+
+            $this->em->persist($label);
+            $this->em->flush();
+            $this->addFlash('success', 'Sinônimo "' . $labelText . '" adicionado com sucesso ao conceito "' . $concept->getPreferredLabel() . '".');
+        } else {
+            $this->addFlash('warning', 'Este sinônimo já está cadastrado para este conceito.');
+        }
+
+        return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
     }
 
     #[Route('/matches', name: 'app_admin_thesaurus_matches', methods: ['GET'])]

@@ -31,14 +31,15 @@
                     <thead>
                         <tr>
                             <th>Conceito Principal</th>
+                            <th>Sinônimos (Alternative Labels)</th>
                             <th>Forma Normalizada</th>
-                            <th>Status</th>
+                            <th style="width:260px">Adicionar Sinônimo</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% if concepts is empty %}
                             <tr>
-                                <td colspan="3" class="text-center py-4 text-muted">Nenhum conceito adicionado a este esquema ainda.</td>
+                                <td colspan="4" class="text-center py-4 text-muted">Nenhum conceito adicionado a este esquema ainda.</td>
                             </tr>
                         {% else %}
                             {% for concept in concepts %}
@@ -46,9 +47,27 @@
                                     <td>
                                         <span class="text-white fw-bold">{{ concept.preferredLabel }}</span>
                                     </td>
+                                    <td>
+                                        {% set labelsList = conceptLabels[concept.id] ?? [] %}
+                                        {% set hasAlt = false %}
+                                        {% for lbl in labelsList %}
+                                            {% if lbl.type == 'alternative' %}
+                                                <span class="badge bg-secondary me-1" style="font-size:11px;padding:4px 8px;border:1px solid rgba(255,255,255,0.1)">{{ lbl.label }}</span>
+                                                {% set hasAlt = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if not hasAlt %}
+                                            <span class="text-muted" style="font-size:12px;font-style:italic">Nenhum sinônimo</span>
+                                        {% endif %}
+                                    </td>
                                     <td><code>{{ concept.normalizedLabel }}</code></td>
                                     <td>
-                                        <span class="badge bg-success-subtle text-success">{{ concept.status }}</span>
+                                        <form action="{{ path('app_admin_thesaurus_label_new', {id: concept.id}) }}" method="post" class="d-flex gap-1">
+                                            <input type="text" name="label" class="form-control form-control-sm" placeholder="Novo sinônimo..." required style="font-size:12px;height:28px;background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
+                                            <button type="submit" class="btn btn-sm btn-bm-primary px-2 d-inline-flex align-items-center justify-content-center" style="font-size:11px;height:28px" title="Adicionar Sinônimo">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                             {% endfor %}
