@@ -176,9 +176,9 @@ class AdminKeywordController extends AbstractController
                     if ($line === '') continue;
                     $lineNorm = StringNormalizer::normalizeString($line, true);
 
-                    $exists = $conn->fetchOne('SELECT id FROM keyword_variation WHERE keyword_id = ? AND normalized_name = ?', [$keyId, $lineNorm]);
+                    $exists = $conn->fetchOne('SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?', [$keyId, $lineNorm]);
                     if (!$exists) {
-                        $conn->insert('keyword_variation', [
+                        $conn->insert('palavra_chave_variacoes_nome', [
                             'keyword_id' => $keyId,
                             'variation_name' => $line,
                             'normalized_name' => $lineNorm,
