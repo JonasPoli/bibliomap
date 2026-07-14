@@ -91,66 +91,180 @@ class ThesaurusController extends AbstractController
             return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
         }
 
+        $normalizer = new \App\Service\Import\TextNormalizer();
+        $conceptNorm = $normalizer->normalizeForComparison($preferredLabel);
+
+        // Check if duplicate concept
+        $existingConcept = $this->em->getRepository(ThesaurusConcept::class)->findOneBy([
+            'scheme' => $scheme,
+            'normalizedLabel' => $conceptNorm
+        ]);
+
+        if ($existingConcept) {
+            $this->addFlash('warning', 'Este conceito já está cadastrado neste esquema.');
+            return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
+        }
+
         $concept = new ThesaurusConcept();
         $concept->setScheme($scheme);
         $concept->setPreferredLabel($preferredLabel);
-        $concept->setNormalizedLabel(strtolower($preferredLabel));
+        $concept->setNormalizedLabel($conceptNorm);
         
         $this->em->persist($concept);
-        $this->em->flush();
 
-        // Save it also as the preferred label in thesaurus_label
-        $label = new ThesaurusLabel();
-        $label->setConcept($concept);
-        $label->setLabel($preferredLabel);
-        $label->setNormalizedLabel(strtolower($preferredLabel));
-        $label->setType('preferred');
-        
-        $this->em->persist($label);
-        $this->em->flush();
+        // Save preferred label
+        $prefLabel = new ThesaurusLabel();
+        $prefLabel->setConcept($concept);
+        $prefLabel->setLabel($preferredLabel);
+        $prefLabel->setNormalizedLabel($conceptNorm);
+        $prefLabel->setType('preferred');
+        $this->em->persist($prefLabel);
 
-        $this->addFlash('success', 'Conceito criado com sucesso.');
+        // Save synonyms (alternative labels)
+        $synonymsText = $request->request->get('synonyms', '');
+        $lines = explode("\n", $synonymsText);
+        foreach ($lines as $line) {
+            $synonym = trim($line);
+            if ($synonym === '') {
+                continue;
+            }
+            $synNorm = $normalizer->normalizeForComparison($synonym);
+            // Skip preferred label
+            if ($synNorm === $conceptNorm) {
+                continue;
+            }
+            // Check duplicate in same concept
+            $existingLabel = $this->em->getRepository(ThesaurusLabel::class)->findOneBy([
+                'concept' => $concept,
+                'normalizedLabel' => $synNorm
+            ]);
+            if (!$existingLabel) {
+                $altLabel = new ThesaurusLabel();
+                $altLabel->setConcept($concept);
+                $altLabel->setLabel($synonym);
+                $altLabel->setNormalizedLabel($synNorm);
+                $altLabel->setType('alternative');
+                $altLabel->setLanguage('en');
+                $this->em->persist($altLabel);
+            }
+        }
+
+        $this->em->flush();
+        $this->addFlash('success', 'Conceito e sinônimos criados com sucesso.');
         return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
     }
 
-    #[Route('/concept/{id}/label/new', name: 'app_admin_thesaurus_label_new', methods: ['POST'])]
-    public function newLabel(int $id, Request $request): Response
+    #[Route('/concept/{id}/edit', name: 'app_admin_thesaurus_concept_edit', methods: ['GET', 'POST'])]
+    public function editConcept(int $id, Request $request): Response
     {
         $concept = $this->em->getRepository(ThesaurusConcept::class)->find($id);
         if (!$concept) {
             throw $this->createNotFoundException('Conceito não encontrado.');
         }
 
-        $labelText = trim($request->request->get('label', ''));
-        if ($labelText === '') {
-            $this->addFlash('danger', 'O rótulo do sinônimo não pode ser vazio.');
+        $normalizer = new \App\Service\Import\TextNormalizer();
+
+        // Get existing labels
+        $labels = $this->em->getRepository(ThesaurusLabel::class)->findBy(['concept' => $concept]);
+        $altLabels = [];
+        $prefLabelObj = null;
+        foreach ($labels as $l) {
+            if ($l->getType() === 'preferred') {
+                $prefLabelObj = $l;
+            } else {
+                $altLabels[] = $l;
+            }
+        }
+
+        if ($request->isMethod('POST')) {
+            $preferredLabel = trim($request->request->get('preferredLabel', ''));
+            if ($preferredLabel === '') {
+                $this->addFlash('danger', 'O rótulo preferido não pode ser vazio.');
+                return $this->redirectToRoute('app_admin_thesaurus_concept_edit', ['id' => $id]);
+            }
+
+            $conceptNorm = $normalizer->normalizeForComparison($preferredLabel);
+
+            // Update Concept preferred label
+            $concept->setPreferredLabel($preferredLabel);
+            $concept->setNormalizedLabel($conceptNorm);
+            $concept->setUpdatedAt(new DateTimeImmutable());
+
+            // Update or create preferred label object
+            if ($prefLabelObj) {
+                $prefLabelObj->setLabel($preferredLabel);
+                $prefLabelObj->setNormalizedLabel($conceptNorm);
+                $prefLabelObj->setUpdatedAt(new DateTimeImmutable());
+            } else {
+                $prefLabelObj = new ThesaurusLabel();
+                $prefLabelObj->setConcept($concept);
+                $prefLabelObj->setLabel($preferredLabel);
+                $prefLabelObj->setNormalizedLabel($conceptNorm);
+                $prefLabelObj->setType('preferred');
+                $this->em->persist($prefLabelObj);
+            }
+
+            // Remove existing alternative labels to rebuild
+            foreach ($altLabels as $l) {
+                $this->em->remove($l);
+            }
+
+            // Add new alternative labels
+            $synonymsText = $request->request->get('synonyms', '');
+            $lines = explode("\n", $synonymsText);
+            $processedNorms = [];
+            foreach ($lines as $line) {
+                $synonym = trim($line);
+                if ($synonym === '') {
+                    continue;
+                }
+                $synNorm = $normalizer->normalizeForComparison($synonym);
+                if ($synNorm === $conceptNorm || in_array($synNorm, $processedNorms)) {
+                    continue;
+                }
+                $processedNorms[] = $synNorm;
+
+                $altLabel = new ThesaurusLabel();
+                $altLabel->setConcept($concept);
+                $altLabel->setLabel($synonym);
+                $altLabel->setNormalizedLabel($synNorm);
+                $altLabel->setType('alternative');
+                $altLabel->setLanguage('en');
+                $this->em->persist($altLabel);
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', 'Conceito e sinônimos atualizados com sucesso.');
             return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
         }
 
-        $normalizer = new \App\Service\Import\TextNormalizer();
-        $labelNorm = $normalizer->normalizeForComparison($labelText);
+        // Get alternative labels as string for textarea
+        $synonymsString = implode("\n", array_map(fn($l) => $l->getLabel(), $altLabels));
 
-        // Check if duplicate
-        $existing = $this->em->getRepository(ThesaurusLabel::class)->findOneBy([
+        return $this->render('admin/thesaurus/concept_edit.html.twig', [
             'concept' => $concept,
-            'normalizedLabel' => $labelNorm
+            'synonyms' => $synonymsString,
         ]);
+    }
 
-        if (!$existing) {
-            $label = new ThesaurusLabel();
-            $label->setConcept($concept);
-            $label->setLabel($labelText);
-            $label->setNormalizedLabel($labelNorm);
-            $label->setType('alternative');
-            $label->setLanguage('en'); // Default to English or project language
-
-            $this->em->persist($label);
-            $this->em->flush();
-            $this->addFlash('success', 'Sinônimo "' . $labelText . '" adicionado com sucesso ao conceito "' . $concept->getPreferredLabel() . '".');
-        } else {
-            $this->addFlash('warning', 'Este sinônimo já está cadastrado para este conceito.');
+    #[Route('/concept/{id}/delete', name: 'app_admin_thesaurus_concept_delete', methods: ['POST'])]
+    public function deleteConcept(int $id, Request $request): Response
+    {
+        $concept = $this->em->getRepository(ThesaurusConcept::class)->find($id);
+        if (!$concept) {
+            throw $this->createNotFoundException('Conceito não encontrado.');
         }
 
+        $submittedToken = $request->request->get('_token');
+        if ($this->isCsrfTokenValid('delete-concept-' . $concept->getId(), $submittedToken)) {
+            $schemeId = $concept->getScheme()->getId();
+            $this->em->remove($concept);
+            $this->em->flush();
+            $this->addFlash('success', 'Conceito excluído com sucesso.');
+            return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
+        }
+
+        $this->addFlash('danger', 'Token CSRF inválido.');
         return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
     }
 

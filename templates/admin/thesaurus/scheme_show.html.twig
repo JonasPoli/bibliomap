@@ -21,77 +21,89 @@
     </a>
 </div>
 
-<div class="row g-4">
-    <!-- Concepts List -->
-    <div class="col-lg-8">
-        <div class="bm-card">
-            <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }})</h5>
-            <div class="table-responsive">
-                <table class="table table-dark table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Conceito Principal</th>
-                            <th>Sinônimos (Alternative Labels)</th>
-                            <th>Forma Normalizada</th>
-                            <th style="width:260px">Adicionar Sinônimo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if concepts is empty %}
-                            <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">Nenhum conceito adicionado a este esquema ainda.</td>
-                            </tr>
-                        {% else %}
-                            {% for concept in concepts %}
-                                <tr>
-                                    <td>
-                                        <span class="text-white fw-bold">{{ concept.preferredLabel }}</span>
-                                    </td>
-                                    <td>
-                                        {% set labelsList = conceptLabels[concept.id] ?? [] %}
-                                        {% set hasAlt = false %}
-                                        {% for lbl in labelsList %}
-                                            {% if lbl.type == 'alternative' %}
-                                                <span class="badge bg-secondary me-1" style="font-size:11px;padding:4px 8px;border:1px solid rgba(255,255,255,0.1)">{{ lbl.label }}</span>
-                                                {% set hasAlt = true %}
-                                            {% endif %}
-                                        {% endfor %}
-                                        {% if not hasAlt %}
-                                            <span class="text-muted" style="font-size:12px;font-style:italic">Nenhum sinônimo</span>
-                                        {% endif %}
-                                    </td>
-                                    <td><code>{{ concept.normalizedLabel }}</code></td>
-                                    <td>
-                                        <form action="{{ path('app_admin_thesaurus_label_new', {id: concept.id}) }}" method="post" class="d-flex gap-1">
-                                            <input type="text" name="label" class="form-control form-control-sm" placeholder="Novo sinônimo..." required style="font-size:12px;height:28px;background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
-                                            <button type="submit" class="btn btn-sm btn-bm-primary px-2 d-inline-flex align-items-center justify-content-center" style="font-size:11px;height:28px" title="Adicionar Sinônimo">
-                                                <i class="bi bi-plus-lg"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        {% endif %}
-                    </tbody>
-                </table>
+<!-- 1. Card para Adicionar Conceito -->
+<div class="bm-card mb-4">
+    <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Conceito</h5>
+    <form action="{{ path('app_admin_thesaurus_concept_new', {schemeId: scheme.id}) }}" method="post">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label text-muted-bm small fw-bold">Conceito Principal (Termo de Exibição / Preferred Label)</label>
+                <input type="text" name="preferredLabel" class="form-control" placeholder="Ex: Horticultural Therapy" required style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
+                <span class="text-muted-bm" style="font-size:11px">Este será o nome padronizado oficial que aparecerá nos relatórios.</span>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha)</label>
+                <textarea name="synonyms" class="form-control" rows="3" placeholder="Ex:&#10;horticultural therapy&#10;therapeutic horticulture&#10;garden therapy" style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)"></textarea>
+                <span class="text-muted-bm" style="font-size:11px">Insira termos adicionais (um por linha) que serão fundidos neste conceito.</span>
             </div>
         </div>
-    </div>
-
-    <!-- Quick Add Concept Form -->
-    <div class="col-lg-4">
-        <div class="bm-card">
-            <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Conceito</h5>
-            <form action="{{ path('app_admin_thesaurus_concept_new', {schemeId: scheme.id}) }}" method="post">
-                <div class="mb-3">
-                    <label class="form-label">Rótulo Preferencial (Nome Oficial)</label>
-                    <input type="text" name="preferredLabel" class="form-control" placeholder="Ex: Artificial Intelligence" required>
-                </div>
-                <button type="submit" class="btn btn-bm-primary w-100 fw-bold">
-                    <i class="bi bi-check-circle me-1"></i>Criar Conceito
-                </button>
-            </form>
+        <div class="mt-3 text-end">
+            <button type="submit" class="btn btn-bm-primary px-4 fw-bold">
+                <i class="bi bi-check-circle me-1"></i>Criar Conceito
+            </button>
         </div>
+    </form>
+</div>
+
+<!-- 2. Tabela de Listagem de Conceitos (Abaixo do Card) -->
+<div class="bm-card">
+    <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }})</h5>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width:250px">Conceito Principal</th>
+                    <th>Sinônimos (Alternative Labels)</th>
+                    <th style="width:200px">Forma Normalizada</th>
+                    <th style="width:160px;text-align:right">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if concepts is empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-muted">Nenhum conceito adicionado a este esquema ainda.</td>
+                    </tr>
+                {% else %}
+                    {% for concept in concepts %}
+                        <tr>
+                            <td>
+                                <span class="text-white fw-bold" style="font-size:14.5px">{{ concept.preferredLabel }}</span>
+                            </td>
+                            <td>
+                                {% set labelsList = conceptLabels[concept.id] ?? [] %}
+                                {% set altLabelsCount = 0 %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for lbl in labelsList %}
+                                        {% if lbl.type == 'alternative' %}
+                                            <span class="badge bg-secondary" style="font-size:11px;padding:4px 8px;border:1px solid rgba(255,255,255,0.1)">{{ lbl.label }}</span>
+                                            {% set altLabelsCount = altLabelsCount + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if altLabelsCount == 0 %}
+                                        <span class="text-muted" style="font-size:12px;font-style:italic">Nenhum sinônimo</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td><code>{{ concept.normalizedLabel }}</code></td>
+                            <td>
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <a href="{{ path('app_admin_thesaurus_concept_edit', {id: concept.id}) }}" class="btn btn-sm btn-bm-secondary px-2.5 py-1" style="font-size:12px">
+                                        <i class="bi bi-pencil me-1"></i>Editar
+                                    </a>
+                                    
+                                    <form action="{{ path('app_admin_thesaurus_concept_delete', {id: concept.id}) }}" method="post" onsubmit="return confirm('Tem certeza que deseja excluir este conceito e todos os seus sinônimos?')" style="display:inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete-concept-' ~ concept.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-danger px-2.5 py-1" style="font-size:12px">
+                                            <i class="bi bi-trash me-1"></i>Excluir
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

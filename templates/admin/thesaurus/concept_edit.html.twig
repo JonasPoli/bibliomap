@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Conceito — Tesauro — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}">Administração</a>
+    <span class="mx-2 text-muted">/</span>
+    <a href="{{ path('app_admin_thesaurus_index') }}">Tesauros</a>
+    <span class="mx-2 text-muted">/</span>
+    <a href="{{ path('app_admin_thesaurus_scheme_show', {id: concept.scheme.id}) }}">{{ concept.scheme.name }}</a>
+    <span class="mx-2 text-muted">/</span>
+    <span class="current">Editar Conceito</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h1 class="bm-page-title"><i class="bi bi-pencil-square me-2"></i>Editar Conceito</h1>
+        <p class="bm-page-subtitle">Modifique o termo principal e edite a lista de sinônimos.</p>
+    </div>
+    <a href="{{ path('app_admin_thesaurus_scheme_show', {id: concept.scheme.id}) }}" class="btn btn-bm-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Voltar
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="bm-card">
+            <h5 class="mb-4 text-white"><i class="bi bi-tag-fill text-accent me-2"></i>Conceito: {{ concept.preferredLabel }}</h5>
+            
+            <form action="{{ path('app_admin_thesaurus_concept_edit', {id: concept.id}) }}" method="post">
+                <div class="mb-4">
+                    <label class="form-label text-muted-bm small fw-bold">Rótulo Preferencial (Nome Oficial)</label>
+                    <input type="text" name="preferredLabel" class="form-control form-control-lg" value="{{ concept.preferredLabel }}" required style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
+                    <span class="text-muted-bm d-block mt-1" style="font-size:11.5px">O termo principal que será exibido unificadamente nos relatórios.</span>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha)</label>
+                    <textarea name="synonyms" class="form-control" rows="10" placeholder="Ex:&#10;horticultural therapy&#10;therapeutic horticulture&#10;garden therapy" style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text);font-family:var(--bs-font-monospace)">{{ synonyms }}</textarea>
+                    <span class="text-muted-bm d-block mt-1" style="font-size:11.5px">Edite a lista de sinônimos. Para remover um sinônimo, basta apagar a linha correspondente.</span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="{{ path('app_admin_thesaurus_scheme_show', {id: concept.scheme.id}) }}" class="btn btn-bm-secondary px-4">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-bm-primary px-4 fw-bold">
+                        <i class="bi bi-save me-1"></i>Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
