@@ -120,6 +120,22 @@ class AdminJournalController extends AbstractController
         ]);
     }
 
+    #[Route('/{id}/sucupira', name: 'app_admin_journals_sucupira_lookup', methods: ['GET'])]
+    public function sucupiraLookup(int $id, \App\Service\Qualis\SucupiraScraperService $scraper): Response
+    {
+        $journal = $this->em->find(QualisJournal::class, $id);
+        if (!$journal) {
+            throw $this->createNotFoundException('Periódico não encontrado.');
+        }
+
+        $rows = $scraper->fetchDetailedRows($journal->getIssn());
+
+        return $this->render('admin/journals/sucupira_lookup.html.twig', [
+            'journal' => $journal,
+            'rows' => $rows
+        ]);
+    }
+
     #[Route('/{id}/edit', name: 'app_admin_journals_edit', methods: ['GET', 'POST'])]
     public function edit(int $id, Request $request): Response
     {

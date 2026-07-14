@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Consulta Sucupira — {{ journal.title }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_journals_index') }}" style="text-decoration:none;color:var(--bm-text-muted)">Admin</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_journals_index') }}" style="text-decoration:none;color:var(--bm-text-muted)">Revistas e Qualis</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Consulta Sucupira</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-search text-accent me-2"></i>Consulta em Tempo Real — Sucupira
+    </h1>
+    <p class="bm-page-subtitle">Exibindo os dados oficiais obtidos em tempo real da Plataforma Sucupira para este periódico.</p>
+</div>
+
+<div class="bm-card mb-4">
+    <div class="row align-items-center">
+        <div class="col-md-9">
+            <h4 style="font-weight:700;color:var(--bm-text);margin:0">{{ journal.title }}</h4>
+            <div class="text-muted-bm mt-1">
+                ISSN: <span class="font-monospace text-accent" style="font-weight:600">{{ journal.issn }}</span>
+            </div>
+        </div>
+        <div class="col-md-3 text-md-end mt-3 mt-md-0">
+            <a href="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf" target="_blank" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
+                <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Sucupira Oficial
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="bm-card">
+    <h5 class="mb-3" style="font-weight:700">Classificação por Áreas de Avaliação</h5>
+    
+    {% if rows is empty %}
+        <div class="text-center py-5 text-muted-bm">
+            <i class="bi bi-exclamation-triangle fs-2 mb-2 text-warning d-block"></i>
+            Nenhuma publicação registrada para o ISSN <strong>{{ journal.issn }}</strong> nos quadriênios avaliados (2021-2024 e 2017-2020) na Plataforma Sucupira.
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th>ISSN</th>
+                        <th>Título Oficial na CAPES</th>
+                        <th>Área de Publicação</th>
+                        <th style="text-align:center">Classificação (Qualis)</th>
+                        <th>Área Mãe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr class="border-bm">
+                            <td class="font-monospace" style="color:var(--bm-text-muted)">{{ row.issn }}</td>
+                            <td style="font-weight:600">{{ row.title }}</td>
+                            <td>{{ row.area }}</td>
+                            <td style="text-align:center">
+                                {% set qColor = '#8b949e' %}
+                                {% set qBg = 'rgba(255,255,255,0.05)' %}
+                                {% if row.qualis in ['A1', 'A2'] %}
+                                    {% set qColor = '#2ea043' %}
+                                    {% set qBg = 'rgba(56,139,60,0.15)' %}
+                                {% elseif row.qualis in ['A3', 'A4'] %}
+                                    {% set qColor = '#58a6ff' %}
+                                    {% set qBg = 'rgba(56,139,253,0.15)' %}
+                                {% elseif row.qualis in ['B1', 'B2'] %}
+                                    {% set qColor = '#d29922' %}
+                                    {% set qBg = 'rgba(187,128,9,0.15)' %}
+                                {% elseif row.qualis in ['B3', 'B4'] %}
+                                    {% set qColor = '#db6d28' %}
+                                    {% set qBg = 'rgba(219,109,40,0.15)' %}
+                                {% elseif row.qualis == 'C' %}
+                                    {% set qColor = '#f85149' %}
+                                    {% set qBg = 'rgba(248,81,73,0.15)' %}
+                                {% endif %}
+                                <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:11px;font-weight:700">{{ row.qualis }}</span>
+                            </td>
+                            <td style="color:var(--bm-text-muted)">{{ row.mother_area }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+    
+    <div class="mt-4 pt-3 border-top border-bm text-center">
+        <a href="{{ path('app_admin_journals_index') }}" class="btn btn-sm btn-bm-secondary px-4 py-2" style="text-decoration:none">
+            <i class="bi bi-arrow-left me-1"></i> Voltar para a Lista
+        </a>
+    </div>
+</div>
+{% endblock %}
