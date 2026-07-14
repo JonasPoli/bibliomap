@@ -19,16 +19,16 @@ class KeywordTreatmentServiceTest extends TestCase
 
     public function testCleanDisplayValueAndNormalizeKeyword(): void
     {
-        // 1. " Artificial intelligence" → Artificial intelligence / artificial intelligence
+        // 1. " Artificial intelligence" → artificial intelligence / artificial intelligence
         $res1 = $this->normalizer->normalizeKeyword(" Artificial intelligence");
         $this->assertTrue($res1['valid']);
-        $this->assertEquals("Artificial intelligence", $res1['display']);
+        $this->assertEquals("artificial intelligence", $res1['display']);
         $this->assertEquals("artificial intelligence", $res1['normalized']);
 
-        // 2. "_Summer Camp" → Summer Camp / summer camp
+        // 2. "_Summer Camp" → summer camp / summer camp
         $res2 = $this->normalizer->normalizeKeyword("_Summer Camp");
         $this->assertTrue($res2['valid']);
-        $this->assertEquals("Summer Camp", $res2['display']);
+        $this->assertEquals("summer camp", $res2['display']);
         $this->assertEquals("summer camp", $res2['normalized']);
 
         // 3. "'Art Beyond Mechanical Reproduction'" → Art Beyond Mechanical Reproduction

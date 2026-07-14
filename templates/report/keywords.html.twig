@@ -169,41 +169,73 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <!-- Bar chart -->
-    <div class="col-xl-6" id="view-barchart">
-        <div class="bm-card h-100">
-            <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos mais Frequentes</h5>
-            <div style="position:relative;height:320px">
-                <canvas id="chart-kws"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Word Cloud -->
-    <div class="col-xl-6" id="view-wordcloud" style="display:none">
-        <div class="bm-card h-100">
-            <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras</h5>
-            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Azul = Palavras de Autores · Roxo = Palavras Indexadas</p>
-            <div id="wordcloud-container" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
-                <canvas id="canvas-wordcloud" style="width:100%;height:100%"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Treemap Chart -->
-    <div class="col-xl-6" id="view-treemap" style="display:none">
-        <div class="bm-card h-100">
-            <h5 class="card-title mb-2" style="font-weight:700">Mapa de Árvore (Treemap)</h5>
-            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">O tamanho da caixa indica a frequência. Azul = Autor · Roxo = Indexada</p>
-            <div style="position:relative;height:320px">
-                <div id="chart-treemap" style="width:100%;height:100%"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Table Column -->
+    <!-- Coluna 1: Graficos por Origem -->
     <div class="col-xl-6">
-        <div class="bm-card h-100 d-flex flex-column">
+        <div class="bm-card h-100">
+            <!-- Bar chart segmented -->
+            <div id="segmented-barchart-container">
+                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos por Origem</h5>
+                <div style="position:relative;height:320px">
+                    <canvas id="chart-kws"></canvas>
+                </div>
+            </div>
+
+            <!-- Word Cloud segmented -->
+            <div id="segmented-wordcloud-container" style="display:none">
+                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras por Origem</h5>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Azul = Palavras de Autores · Roxo = Palavras Indexadas</p>
+                <div id="wordcloud-container" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
+                    <canvas id="canvas-wordcloud" style="width:100%;height:100%"></canvas>
+                </div>
+            </div>
+
+            <!-- Treemap segmented -->
+            <div id="segmented-treemap-container" style="display:none">
+                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Arvore por Origem</h5>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">O tamanho da caixa indica a frequencia. Azul = Autor · Roxo = Indexada</p>
+                <div style="position:relative;height:320px">
+                    <div id="chart-treemap" style="width:100%;height:100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coluna 2: Graficos Consolidados -->
+    <div class="col-xl-6">
+        <div class="bm-card h-100">
+            <!-- Bar chart consolidated -->
+            <div id="consolidated-barchart-container">
+                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos Consolidados (Soma)</h5>
+                <div style="position:relative;height:320px">
+                    <canvas id="chart-kws-consolidated"></canvas>
+                </div>
+            </div>
+
+            <!-- Word Cloud consolidated -->
+            <div id="consolidated-wordcloud-container" style="display:none">
+                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras Consolidada</h5>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
+                <div id="wordcloud-container-consolidated" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
+                    <canvas id="canvas-wordcloud-consolidated" style="width:100%;height:100%"></canvas>
+                </div>
+            </div>
+
+            <!-- Treemap consolidated -->
+            <div id="consolidated-treemap-container" style="display:none">
+                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Arvore Consolidado</h5>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
+                <div style="position:relative;height:320px">
+                    <div id="chart-treemap-consolidated" style="width:100%;height:100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Table Column -->
+    <div class="col-12">
+        <div class="bm-card d-flex flex-column">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h5 class="card-title mb-0" style="font-weight:700">
                     {% if app.request.query.get('q') %}
@@ -233,7 +265,7 @@
                     </form>
                 </div>
             </div>
-            <div class="table-responsive flex-grow-1" style="max-height:320px;overflow-y:auto">
+            <div class="table-responsive flex-grow-1" style="max-height:400px;overflow-y:auto">
                 <table class="table table-hover align-middle border-bm mb-0" id="kws-table" style="font-size:13px">
                     <thead class="sticky-top bg-bm-card border-bottom border-bm">
                         <tr>
@@ -244,12 +276,12 @@
                                 Origem <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortKeywordsTable(2, 'number')">
-                                Ocorrências <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Ocorrencias <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortKeywordsTable(3, 'string')">
-                                Período <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Periodo <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Acoes</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
@@ -385,11 +417,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
 <script>
-const listData = {{ list|slice(0, 80)|json_encode|raw }};
+const listData = {{ list|json_encode|raw }};
 let chartInstance  = null;
+let chartInstanceConsolidated = null;
 let wcInitialized  = false;
 let tmInitialized  = false;
 let myTreemapChart = null;
+let myTreemapChartConsolidated = null;
 let currentView    = 'barchart';
 
 function isThemeLight() {
@@ -403,7 +437,33 @@ function getColors() {
         bg:   light ? '#f6f8fa' : '#1c2128',
         authorColor: '#4f8ef7',
         indexedColor: '#a855f7',
+        consolidatedColor: '#10b981',
     };
+}
+
+function getConsolidatedData(limit = 80) {
+    const map = {};
+    listData.forEach(k => {
+        const term = k.term;
+        if (!map[term]) {
+            map[term] = {
+                id: k.id,
+                term: term,
+                freq: 0,
+                type: 'consolidated',
+                first_year: k.first_year,
+                last_year: k.last_year
+            };
+        }
+        map[term].freq += k.freq;
+        if (k.first_year && (!map[term].first_year || k.first_year < map[term].first_year)) {
+            map[term].first_year = k.first_year;
+        }
+        if (k.last_year && (!map[term].last_year || k.last_year > map[term].last_year)) {
+            map[term].last_year = k.last_year;
+        }
+    });
+    return Object.values(map).sort((a, b) => b.freq - a.freq).slice(0, limit);
 }
 
 window.addEventListener('bm-theme-changed', () => {
@@ -419,9 +479,16 @@ window.addEventListener('bm-theme-changed', () => {
 
 function showView(view) {
     currentView = view;
-    document.getElementById('view-barchart').style.display  = view === 'barchart'  ? '' : 'none';
-    document.getElementById('view-wordcloud').style.display = view === 'wordcloud' ? '' : 'none';
-    document.getElementById('view-treemap').style.display   = view === 'treemap'   ? '' : 'none';
+    
+    // Toggle segmented
+    document.getElementById('segmented-barchart-container').style.display = view === 'barchart' ? '' : 'none';
+    document.getElementById('segmented-wordcloud-container').style.display = view === 'wordcloud' ? '' : 'none';
+    document.getElementById('segmented-treemap-container').style.display = view === 'treemap' ? '' : 'none';
+
+    // Toggle consolidated
+    document.getElementById('consolidated-barchart-container').style.display = view === 'barchart' ? '' : 'none';
+    document.getElementById('consolidated-wordcloud-container').style.display = view === 'wordcloud' ? '' : 'none';
+    document.getElementById('consolidated-treemap-container').style.display = view === 'treemap' ? '' : 'none';
 
     const btnBar   = document.getElementById('btn-barchart');
     const btnCloud = document.getElementById('btn-wordcloud');
@@ -447,20 +514,24 @@ function showView(view) {
     } else if (view === 'treemap') {
         if (!tmInitialized) {
             buildTreemap();
-        } else if (myTreemapChart) {
-            myTreemapChart.resize();
+        } else {
+            if (myTreemapChart) myTreemapChart.resize();
+            if (myTreemapChartConsolidated) myTreemapChartConsolidated.resize();
         }
     }
 }
 
 function buildWordCloud() {
     const cl     = getColors();
+    
+    // Segmented Word Cloud
     const canvas = document.getElementById('canvas-wordcloud');
     const container = document.getElementById('wordcloud-container');
     canvas.width  = container.clientWidth  || 500;
     canvas.height = container.clientHeight || 320;
 
-    const words = listData.map(k => [
+    const segmentedList = listData.slice(0, 80);
+    const words = segmentedList.map(k => [
         k.term,
         Math.max(10, Math.min(60, k.freq * 4 + 10))
     ]);
@@ -470,11 +541,37 @@ function buildWordCloud() {
         gridSize: Math.round(16 * canvas.width / 1024),
         weightFactor: 1,
         fontFamily: 'Inter, system-ui, sans-serif',
-        color: (word, weight, fontSize, distance, theta) => {
-            const item = listData.find(k => k.term === word);
+        color: (word) => {
+            const item = segmentedList.find(k => k.term === word);
             if (!item) return cl.authorColor;
             return item.type === 'author' ? cl.authorColor : cl.indexedColor;
         },
+        rotateRatio: 0.2,
+        rotationSteps: 2,
+        backgroundColor: 'transparent',
+        minSize: 9,
+        drawOutOfBound: false,
+        shrinkToFit: true,
+    });
+
+    // Consolidated Word Cloud
+    const canvasCons = document.getElementById('canvas-wordcloud-consolidated');
+    const containerCons = document.getElementById('wordcloud-container-consolidated');
+    canvasCons.width  = containerCons.clientWidth  || 500;
+    canvasCons.height = containerCons.clientHeight || 320;
+
+    const consolidatedList = getConsolidatedData(80);
+    const wordsCons = consolidatedList.map(k => [
+        k.term,
+        Math.max(10, Math.min(60, k.freq * 4 + 10))
+    ]);
+
+    WordCloud(canvasCons, {
+        list: wordsCons,
+        gridSize: Math.round(16 * canvasCons.width / 1024),
+        weightFactor: 1,
+        fontFamily: 'Inter, system-ui, sans-serif',
+        color: () => cl.consolidatedColor,
         rotateRatio: 0.2,
         rotationSteps: 2,
         backgroundColor: 'transparent',
@@ -488,13 +585,15 @@ function buildWordCloud() {
 
 function buildTreemap() {
     const cl = getColors();
+    
+    // Segmented Treemap
     const chartDom = document.getElementById('chart-treemap');
     if (!myTreemapChart) {
         myTreemapChart = echarts.init(chartDom);
     }
 
-    const topKws = listData.slice(0, 40);
-    const data = topKws.map(k => {
+    const segmentedList = listData.slice(0, 40);
+    const data = segmentedList.map(k => {
         const itemColor = k.type === 'author' ? cl.authorColor : cl.indexedColor;
         return {
             name: k.term,
@@ -513,12 +612,12 @@ function buildTreemap() {
             formatter: function (info) {
                 const term = info.name;
                 const value = info.value;
-                const item = listData.find(k => k.term === term);
+                const item = segmentedList.find(k => k.term === term);
                 const typeText = item && item.type === 'author' ? 'Palavra de Autor' : 'Palavra Indexada';
                 return `<div style="font-family:'Inter',sans-serif;font-size:12px;">` +
                        `<b>${term}</b><br/>` +
                        `Tipo: <b>${typeText}</b><br/>` +
-                       `Ocorrências: <b>${value}</b>` +
+                       `Ocorrencias: <b>${value}</b>` +
                        `</div>`;
             }
         },
@@ -552,14 +651,77 @@ function buildTreemap() {
             ]
         }]
     };
-
     myTreemapChart.setOption(option);
+
+    // Consolidated Treemap
+    const chartDomCons = document.getElementById('chart-treemap-consolidated');
+    if (!myTreemapChartConsolidated) {
+        myTreemapChartConsolidated = echarts.init(chartDomCons);
+    }
+
+    const consolidatedList = getConsolidatedData(40);
+    const dataCons = consolidatedList.map(k => {
+        return {
+            name: k.term,
+            value: k.freq,
+            itemStyle: {
+                color: cl.consolidatedColor,
+                borderColor: 'var(--bm-card-bg)',
+                borderWidth: 2
+            }
+        };
+    });
+
+    const optionCons = {
+        tooltip: {
+            trigger: 'item',
+            formatter: function (info) {
+                const term = info.name;
+                const value = info.value;
+                return `<div style="font-family:'Inter',sans-serif;font-size:12px;">` +
+                       `<b>${term}</b><br/>` +
+                       `Tipo: <b>Consolidada (Soma)</b><br/>` +
+                       `Ocorrencias: <b>${value}</b>` +
+                       `</div>`;
+            }
+        },
+        series: [{
+            type: 'treemap',
+            data: dataCons,
+            roam: false,
+            nodeClick: false,
+            breadcrumb: {
+                show: false
+            },
+            label: {
+                show: true,
+                formatter: '{b}\n({c})',
+                fontSize: 11,
+                fontFamily: '"Inter", sans-serif',
+                fontWeight: '600',
+                color: '#ffffff'
+            },
+            itemStyle: {
+                borderColor: 'var(--bm-card-bg)',
+                borderWidth: 2
+            },
+            levels: [
+                {
+                    itemStyle: {
+                        borderWidth: 2,
+                        gapWidth: 2
+                    }
+                }
+            ]
+        }]
+    };
+    myTreemapChartConsolidated.setOption(optionCons);
+
     tmInitialized = true;
 
     window.addEventListener('resize', () => {
-        if (myTreemapChart) {
-            myTreemapChart.resize();
-        }
+        if (myTreemapChart) myTreemapChart.resize();
+        if (myTreemapChartConsolidated) myTreemapChartConsolidated.resize();
     });
 }
 
@@ -568,18 +730,22 @@ function rebuildChart() {
     Chart.defaults.color       = cl.text;
     Chart.defaults.borderColor = cl.grid;
     if (chartInstance) chartInstance.destroy();
+    if (chartInstanceConsolidated) chartInstanceConsolidated.destroy();
 
-    const top15 = listData.slice(0, 15);
-    const ctx   = document.getElementById('chart-kws').getContext('2d');
+    const segmentedList = listData.slice(0, 15);
+    const consolidatedList = getConsolidatedData(15);
+
+    // Segmented Chart
+    const ctx = document.getElementById('chart-kws').getContext('2d');
     chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: top15.map(k => k.term),
+            labels: segmentedList.map(k => k.term),
             datasets: [{
-                label: 'Ocorrências',
-                data: top15.map(k => k.freq),
-                backgroundColor: top15.map(k => k.type === 'author' ? cl.authorColor + 'cc' : cl.indexedColor + 'cc'),
-                borderColor: top15.map(k => k.type === 'author' ? cl.authorColor : cl.indexedColor),
+                label: 'Ocorrencias',
+                data: segmentedList.map(k => k.freq),
+                backgroundColor: segmentedList.map(k => k.type === 'author' ? cl.authorColor + 'cc' : cl.indexedColor + 'cc'),
+                borderColor: segmentedList.map(k => k.type === 'author' ? cl.authorColor : cl.indexedColor),
                 borderWidth: 1,
                 borderRadius: 4
             }]
@@ -604,7 +770,47 @@ function rebuildChart() {
                 y: {
                     grid: { color: cl.grid },
                     beginAtZero: true,
-                    title: { display: true, text: 'Frequência', font: { weight: 'bold' } }
+                    title: { display: true, text: 'Frequencia', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+
+    // Consolidated Chart
+    const ctxCons = document.getElementById('chart-kws-consolidated').getContext('2d');
+    chartInstanceConsolidated = new Chart(ctxCons, {
+        type: 'bar',
+        data: {
+            labels: consolidatedList.map(k => k.term),
+            datasets: [{
+                label: 'Ocorrencias',
+                data: consolidatedList.map(k => k.freq),
+                backgroundColor: cl.consolidatedColor + 'cc',
+                borderColor: cl.consolidatedColor,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        generateLabels: () => [
+                            { text: 'Palavra Consolidada (Soma)', fillStyle: cl.consolidatedColor + 'cc', strokeStyle: cl.consolidatedColor }
+                        ]
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } },
+                y: {
+                    grid: { color: cl.grid },
+                    beginAtZero: true,
+                    title: { display: true, text: 'Frequencia', font: { weight: 'bold' } }
                 }
             }
         }

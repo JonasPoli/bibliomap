@@ -376,32 +376,24 @@ class ReportService
     public function getInstitutionsReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
-            'SELECT institutions, COALESCE(cited_by, 0) AS cited_by FROM document WHERE project_id = ? AND institutions IS NOT NULL',
+            'SELECT i.official_name AS institution,
+                    COUNT(DISTINCT di.document_id) AS doc_count,
+                    SUM(COALESCE(d.cited_by, 0)) AS citation_count
+             FROM documento_instituicoes di
+             JOIN document d ON di.document_id = d.id
+             JOIN instituicoes_ensino i ON di.institution_id = i.id
+             WHERE d.project_id = ?
+             GROUP BY i.id, i.official_name
+             ORDER BY doc_count DESC, citation_count DESC',
             [$projectId]
         );
 
-        $freqs = [];
-        $citations = [];
-        foreach ($rows as $row) {
-            $arr = json_decode($row['institutions'], true);
-            if (is_array($arr)) {
-                foreach ($arr as $inst) {
-                    $inst = trim($inst);
-                    if ($inst !== '') {
-                        $freqs[$inst] = ($freqs[$inst] ?? 0) + 1;
-                        $citations[$inst] = ($citations[$inst] ?? 0) + (int)$row['cited_by'];
-                    }
-                }
-            }
-        }
-
-        arsort($freqs);
-
         $list = [];
-        foreach ($freqs as $inst => $freq) {
-            $citCount = $citations[$inst] ?? 0;
+        foreach ($rows as $row) {
+            $freq = (int)$row['doc_count'];
+            $citCount = (int)$row['citation_count'];
             $list[] = [
-                'institution'    => $inst,
+                'institution'    => $row['institution'],
                 'freq'           => $freq,
                 'doc_count'      => $freq,
                 'citation_count' => $citCount,
@@ -419,7 +411,7 @@ class ReportService
         return [
             'list' => $list,
             'kpis' => [
-                'total_institutions' => count($freqs),
+                'total_institutions' => count($list),
                 'top_institution'     => $topInstitutionName,
                 'top_institution_docs'=> $topInstitutionDocs,
             ]

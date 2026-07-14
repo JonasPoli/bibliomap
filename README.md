@@ -16,6 +16,7 @@ Plataforma web para análise bibliométrica de produção científica. Importa b
 5. [Banco de dados](#banco-de-dados)
 6. [Rodando o servidor de desenvolvimento](#rodando-o-servidor-de-desenvolvimento)
 7. [Comandos úteis](#comandos-úteis)
+8. [Comandos Customizados do Sistema (CLI)](#comandos-customizados-do-sistema-cli)
 
 ---
 
@@ -395,7 +396,7 @@ php -S 127.0.0.1:8000 -t public/
 ## Comandos úteis
 
 ```bash
-# Limpar o cache
+# Limpar o cache do Symfony
 php bin/console cache:clear
 
 # Ver todas as rotas registradas
@@ -404,10 +405,7 @@ php bin/console debug:router
 # Verificar requisitos do Symfony
 symfony check:requirements
 
-# Criar um usuário admin (se houver comando disponível)
-php bin/console app:create-user
-
-# Ver status das migrations
+# Ver status das migrations do banco de dados
 php bin/console doctrine:migrations:status
 
 # Gerar uma nova migration após alterar entidades
@@ -416,9 +414,108 @@ php bin/console doctrine:migrations:diff
 # Executar migrations pendentes
 php bin/console doctrine:migrations:migrate
 
-# Verificar a versão do PHP e extensões
+# Verificar a versão do PHP e extensões instaladas
 php -m | grep -E "pdo|mbstring|intl|xml|zip"
 ```
+
+---
+
+## Comandos Customizados do Sistema (CLI)
+
+O BiblioMap inclui uma série de comandos customizados no namespace `app` para gerenciar importações, tratamento de dados, administração e testes automáticos. Todos os comandos devem ser executados na raiz do projeto usando o comando `php bin/console <nome-do-comando>`.
+
+### 💻 Administração e Acesso
+
+#### `app:admin:create`
+* **Descrição:** Cria um novo usuário administrador no sistema ou promove um usuário existente.
+* **Opções:**
+  * `--super`: Atribui permissão de Super Administrador (`ROLE_SUPER_ADMIN`) ao usuário criado/promovido.
+* **Exemplo:** `php bin/console app:admin:create`
+
+---
+
+### 📥 Importação e Sincronização de Dados
+
+#### `app:import:dataset`
+* **Descrição:** Processa um dataset de importação pendente. Este comando é chamado de forma assíncrona pelo sistema em segundo plano quando um novo arquivo é enviado, mas pode ser executado manualmente para re-processar ou depurar erros.
+* **Argumentos:**
+  * `datasetId` (Obrigatório): ID numérico do dataset a ser importado.
+* **Exemplo:** `php bin/console app:import:dataset 12`
+
+#### `app:project:sync-cli`
+* **Descrição:** Executa todo o pipeline de sincronização e enriquecimento de dados (geográfico, institucional, autores e palavras-chave) para um determinado projeto.
+* **Argumentos:**
+  * `projectId` (Obrigatório): ID do projeto.
+* **Exemplo:** `php bin/console app:project:sync-cli 9`
+
+---
+
+### 📝 Tratamento e Normalização de Palavras-chave
+
+#### `app:keywords:clear`
+* **Descrição:** Limpa por completo todas as palavras-chave (tabelas `keyword` e `document_keyword`) do banco de dados. Útil para reiniciar o dicionário do sistema antes de novos testes ou importações limpas.
+* **Exemplo:** `php bin/console app:keywords:clear`
+
+#### `app:keywords:diagnose`
+* **Descrição:** Exibe um relatório diagnóstico completo sobre o estado da base de palavras-chave no banco de dados.
+* **Exemplo:** `php bin/console app:keywords:diagnose`
+
+#### `app:keywords:treat`
+* **Descrição:** Executa o pipeline automatizado de tratamento e consolidação de termos de palavras-chave.
+* **Exemplo:** `php bin/console app:keywords:treat`
+
+#### `app:keywords:normalize-casing`
+* **Descrição:** Normaliza a capitalização (casing) das palavras-chave para evitar duplicados por diferenças de caixa alta/baixa, consolidando as referências e limpando dados órfãos.
+* **Exemplo:** `php bin/console app:keywords:normalize-casing`
+
+#### `app:keywords:migrate-keyword-concepts-to-thesaurus`
+* **Descrição:** Migra associações de conceitos legados do sistema antigo para a estrutura nova baseada em `ThesaurusConcept`.
+* **Exemplo:** `php bin/console app:keywords:migrate-keyword-concepts-to-thesaurus`
+
+---
+
+### 🗺️ Dados Geográficos e Institucionais
+
+#### `app:geography:seed`
+* **Descrição:** Alimenta o banco de dados com a estrutura geográfica padrão (países do mundo, estados e cidades brasileiras) e suas variações linguísticas e siglas de uso comum.
+* **Exemplo:** `php bin/console app:geography:seed`
+
+#### `app:geography:apply-corrections-v6`
+* **Descrição:** Executa as correções de auditoria avançadas para instituições e países (Fase 3 / V6) com base nos CSVs da pasta `docs/ajustes/`.
+* **Exemplo:** `php bin/console app:geography:apply-corrections-v6`
+
+> [!NOTE]
+> Existem variações deste comando para projetos específicos e fases anteriores, como `app:apply-corrections`, `app:apply-corrections-v4`, `app:geography:apply-corrections` e `app:geography:apply-corrections-p5`.
+
+---
+
+### 🎓 Banco Qualis CAPES e Periódicos
+
+#### `app:qualis:import`
+* **Descrição:** Importa a base de classificação de periódicos Qualis CAPES a partir de arquivos PDF.
+* **Exemplo:** `php bin/console app:qualis:import`
+
+#### `app:qualis:resolve-missing`
+* **Descrição:** Consulta a API externa Crossref para buscar dados de periódicos (e seus respectivos ISSNs) que estejam ausentes e os insere na tabela `qualis_journal` para validação futura.
+* **Exemplo:** `php bin/console app:qualis:resolve-missing`
+
+---
+
+### 🧪 Testes e Backfill
+
+#### `app:run-heavy-test-routine`
+* **Descrição:** Roda a rotina pesada de testes automáticos. Limpa projetos antigos de teste, cria o projeto de teste atual, importa os arquivos de dados fornecidos de forma concorrente e realiza a auditoria e validação comparativa detalhada de métricas e arquivos de exportação CSV.
+* **Argumentos:**
+  * `files` (Obrigatório, múltiplos): Caminho dos arquivos TXT/CSV a serem importados e testados.
+* **Exemplo:** `php bin/console app:run-heavy-test-routine savedrecs.txt savedrecs02.txt savedrecs03.txt`
+
+#### `app:backfill:countries` / `app:backfill:institutions`
+* **Descrição:** Re-processa e atualiza colunas JSON de países/instituições em documentos existentes no banco de dados a partir dos arquivos Scopus CSV originais.
+* **Exemplo:** `php bin/console app:backfill:countries`
+
+#### `app:backfill:theoretical-lenses-citations`
+* **Descrição:** Atualiza formatos de citação de lentes teóricas registradas no sistema, garantindo pelo menos 10 formatos por lente.
+* **Exemplo:** `php bin/console app:backfill:theoretical-lenses-citations`
 
 ---
 

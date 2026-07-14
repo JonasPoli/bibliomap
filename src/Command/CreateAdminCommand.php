@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -32,6 +33,7 @@ class CreateAdminCommand extends Command
         $this
             ->addArgument('email',    InputArgument::OPTIONAL, 'E-mail do administrador', 'admin@wab.com.br')
             ->addArgument('password', InputArgument::OPTIONAL, 'Senha do administrador',  'wab12345678')
+            ->addOption('super', null, InputOption::VALUE_NONE, 'Promover a Super Administrador')
             ->setHelp(<<<'EOT'
 Cria um usuário administrador ou promove um usuário existente.
 
@@ -41,6 +43,9 @@ Uso:
 
   <info>php bin/console app:admin:create seuemail@example.com MinhaS3nh@</info>
       → Cria/promove o usuário especificado
+
+  <info>php bin/console app:admin:create --super</info>
+      → Cria/promove o usuário para Super Administrador
 EOT);
     }
 
@@ -49,6 +54,7 @@ EOT);
         $io       = new SymfonyStyle($input, $output);
         $email    = (string) $input->getArgument('email');
         $password = (string) $input->getArgument('password');
+        $isSuper  = (bool) $input->getOption('super');
 
         $io->title('BiblioMap — Criar Administrador');
 
@@ -56,11 +62,11 @@ EOT);
         $user = $this->userRepo->findOneBy(['email' => $email]);
 
         if ($user !== null) {
-            $io->note("Usuário '{$email}' já existe. Promovendo a administrador...");
+            $io->note("Usuário '{$email}' já existe. Promovendo...");
         } else {
             $user = new User();
             $user->setEmail($email);
-            $user->setName('Administrador');
+            $user->setName($isSuper ? 'Super Administrador' : 'Administrador');
             $this->em->persist($user);
             $io->note("Criando novo usuário '{$email}'...");
         }
@@ -68,13 +74,13 @@ EOT);
         // Hash password
         $hashed = $this->passwordHasher->hashPassword($user, $password);
         $user->setPassword($hashed);
-        $user->setRoles(['ROLE_ADMIN']);
+        $user->setRoles($isSuper ? ['ROLE_SUPER_ADMIN'] : ['ROLE_ADMIN']);
         $user->setStatus(User::STATUS_ACTIVE);
 
         $this->em->flush();
 
         $io->success([
-            'Administrador criado/atualizado com sucesso!',
+            ($isSuper ? 'Super Administrador' : 'Administrador') . ' criado/atualizado com sucesso!',
             "E-mail : {$email}",
             "Senha  : {$password}",
             'Acesso : /login',

@@ -103,26 +103,30 @@ class NetworkService
     }
 
     /**
-     * Build Country Collaboration Network from JSON.
+     * Build Country Collaboration Network from canonical mapped countries.
      */
     public function countries(int $projectId, int $minWeight = 1, int $maxNodes = 100): array
     {
         $conn = $this->em->getConnection();
 
-        // Fetch all countries arrays
-        $docs = $conn->fetchAllAssociative('
-            SELECT countries 
-            FROM document 
-            WHERE project_id = ? AND countries IS NOT NULL
+        // Fetch all synchronized countries linked to documents in this project
+        $rows = $conn->fetchAllAssociative('
+            SELECT dp.document_id, p.common_name AS country
+            FROM documento_paises dp
+            JOIN paises p ON dp.country_id = p.id
+            JOIN document d ON dp.document_id = d.id
+            WHERE d.project_id = ?
         ', [$projectId]);
+
+        $docCountries = [];
+        foreach ($rows as $row) {
+            $docCountries[$row['document_id']][] = $row['country'];
+        }
 
         $countryCounts = [];
         $edgeWeights   = [];
 
-        foreach ($docs as $doc) {
-            $countries = json_decode($doc['countries'], true);
-            if (!is_array($countries)) continue;
-
+        foreach ($docCountries as $docId => $countries) {
             $countries = array_map('trim', $countries);
             $countries = array_unique(array_filter($countries));
 
