@@ -165,6 +165,8 @@ class KeywordTreatmentService
 
                 if (empty($keywords)) break;
 
+                $assignedInBatch = [];
+
                 // === Pass 1: Cleaning & Invalid marking ===
                 if ($options->processInvalids) {
                     foreach ($keywords as $kw) {
@@ -194,8 +196,55 @@ class KeywordTreatmentService
                         if ($normRes['display'] !== $oldDisplay || $normRes['normalized'] !== $oldNorm) {
                             $cleanedCount++;
                             if (!$options->dryRun) {
-                                $kw->setKeywordDisplay($normRes['display']);
-                                $kw->setKeywordNormalized($normRes['normalized']);
+                                $targetNorm = $normRes['normalized'];
+                                $targetType = $kw->getKeywordType();
+                                $mapKey = $targetNorm . '||' . $targetType;
+
+                                // Check if this normalized term and type already exists in the database
+                                $existingId = $conn->fetchOne(
+                                    'SELECT id FROM keyword WHERE keyword_normalized = ? AND keyword_type = ? AND id != ?',
+                                    [$targetNorm, $targetType, $kw->getId()]
+                                );
+
+                                // Or if it was already assigned to another keyword in the current batch in memory
+                                if (!$existingId && isset($assignedInBatch[$mapKey])) {
+                                    $existingId = $assignedInBatch[$mapKey];
+                                }
+
+                                if ($existingId) {
+                                    // Duplicate collision! Merge and schedule deletion of this duplicate keyword.
+                                    
+                                    // 1. Delete matching pairs in document_keyword to avoid unique key constraint violation
+                                    $dupDkIds = $conn->fetchFirstColumn('
+                                        SELECT dk1.id
+                                        FROM document_keyword dk1
+                                        JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk2.keyword_id = ?
+                                        WHERE dk1.keyword_id = ?
+                                    ', [(int)$existingId, $kw->getId()]);
+
+                                    if (!empty($dupDkIds)) {
+                                        $conn->executeStatement('DELETE FROM document_keyword WHERE id IN (' . implode(',', $dupDkIds) . ')');
+                                    }
+
+                                    // 2. Re-point remaining document_keyword rows to the canonical keyword
+                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+
+                                    // 3. Re-point keyword variations
+                                    $conn->executeStatement('UPDATE keyword_variation SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+
+                                    // 4. Mark status as false so that subsequent loops in this execution batch skip this entity
+                                    $kw->setStatus(false);
+
+                                    // 5. Schedule deletion of the entity from the unit of work
+                                    $this->em->remove($kw);
+                                } else {
+                                    // Safely update display name and normalized name
+                                    $kw->setKeywordDisplay($normRes['display']);
+                                    $kw->setKeywordNormalized($targetNorm);
+                                    
+                                    // Register in our batch tracking map
+                                    $assignedInBatch[$mapKey] = $kw->getId();
+                                }
                             }
                             $this->logAction($job, $kw, 'cleaned', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, 'string_cleanup', $options->dryRun, 'normalizer');
                         }
