@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Entity\QualisJournal;
+use App\Service\Qualis\SucupiraScraperService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,7 +18,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class QualisResolveMissingCommand extends Command
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly SucupiraScraperService $scraperService
     ) {
         parent::__construct();
     }
@@ -106,7 +108,10 @@ class QualisResolveMissingCommand extends Command
                     $journal->setTitle($title);
                     $journal->setIssn($originalIssn);
                     $journal->setNormalizedIssn($normalizedIssn);
-                    $journal->setQualis(null);
+                    
+                    // Fetch Qualis classification from Sucupira
+                    $qualis = $this->scraperService->fetchQualis($originalIssn);
+                    $journal->setQualis($qualis);
 
                     $this->em->persist($journal);
                     $resolved++;

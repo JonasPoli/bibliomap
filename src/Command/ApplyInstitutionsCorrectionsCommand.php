@@ -37,7 +37,7 @@ class ApplyInstitutionsCorrectionsCommand extends Command
         set_time_limit(1800);
 
         $io = new SymfonyStyle($input, $output);
-        $csvPath = '/Users/jonaspoli/work/html/bibliometric/docs/ajustes/correcoes_instituicoes_detalhado.csv';
+        $csvPath = __DIR__ . '/../../docs/ajustes/correcoes_instituicoes_detalhado.csv';
 
         if (!file_exists($csvPath)) {
             $io->error("File not found: {$csvPath}");

@@ -480,7 +480,7 @@ class ApplyGeographyAndInstitutionCorrectionsV6Command extends Command
         // ─────────────────────────────────────────────────────────────────────
         // PHASE 3: Apply Corrections (02_instituicoes_correcao_alta_confianca.csv and 05_nomes_errados_corrigir_e_variations.csv)
         // ─────────────────────────────────────────────────────────────────────
-        $applyInstitutionFiles = function(string $path, string $phaseName) use ($reader, $applyRowCorrection, $batchSize, &$i) {
+        $applyInstitutionFiles = function(string $path, string $phaseName) use ($applyRowCorrection, $batchSize, &$i) {
             if (file_exists($path)) {
                 $this->em->flush();
                 $reader = Reader::createFromPath($path, 'r');

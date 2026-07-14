@@ -132,4 +132,70 @@ class TheoreticalLens
         $this->color = $color ?: '#4f8ef7';
         return $this;
     }
+
+    /**
+     * Generates a list of default citation formats for a given lens name.
+     */
+    public static function generateDefaultCitationFormats(string $name): array
+    {
+        $formats = [];
+        $name = trim($name);
+        if ($name === '') {
+            return [];
+        }
+
+        // 1. Original and basic cases
+        $formats[] = $name;
+        $formats[] = mb_strtolower($name);
+        $formats[] = mb_strtoupper($name);
+
+        // 2. Hyphen replacements
+        $noHyphen = str_replace('-', ' ', $name);
+        $formats[] = $noHyphen;
+        $formats[] = mb_strtolower($noHyphen);
+
+        // 3. Clean alphanumeric
+        $clean = preg_replace('/[^\p{L}\p{N}\s]/u', '', $name);
+        $formats[] = $clean;
+        $formats[] = mb_strtolower($clean);
+
+        // 4. Plurals
+        $formats[] = $name . 's';
+        $formats[] = mb_strtolower($name) . 's';
+        $formats[] = $noHyphen . 's';
+        $formats[] = mb_strtolower($noHyphen) . 's';
+
+        // 5. Plural 'y' -> 'ies'
+        if (preg_match('/y$/i', $name)) {
+            $ies = preg_replace('/y$/i', 'ies', $name);
+            $formats[] = $ies;
+            $formats[] = mb_strtolower($ies);
+            
+            $iesNoHyphen = preg_replace('/y$/i', 'ies', $noHyphen);
+            $formats[] = $iesNoHyphen;
+            $formats[] = mb_strtolower($iesNoHyphen);
+        }
+
+        // 6. Prefixes
+        $formats[] = 'the ' . mb_strtolower($name);
+        $formats[] = 'the ' . mb_strtolower($noHyphen);
+
+        // 7. Acronyms
+        $words = preg_split('/[\s\-]+/', $name);
+        if (count($words) >= 2) {
+            $acronym = '';
+            foreach ($words as $word) {
+                $first = mb_substr($word, 0, 1);
+                if (preg_match('/\p{L}/u', $first)) {
+                    $acronym .= mb_strtoupper($first);
+                }
+            }
+            if (mb_strlen($acronym) >= 2) {
+                $formats[] = $acronym;
+                $formats[] = $acronym . ' theory';
+            }
+        }
+
+        return array_values(array_unique(array_filter(array_map('trim', $formats))));
+    }
 }
