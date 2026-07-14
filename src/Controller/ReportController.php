@@ -449,6 +449,7 @@ class ReportController extends AbstractController
             'topKeywords'  => $data['topKeywords'],
             'topDocs'      => $data['topDocs'],
             'topCountries' => $data['topCountries'],
+            'qualisDist'   => $data['qualisDist'] ?? [],
         ]);
     }
 

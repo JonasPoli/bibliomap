@@ -940,11 +940,15 @@ class DocumentEnrichmentService
     {
         $this->logger->info("Searching for missing journals to register by ISSN for Project #{$projectId}...");
 
-        // 1. Find distinct ISSNs in this project's documents that are not linked to any qualis_journal
+        // 1. Find distinct ISSNs in this project's documents that are not linked to any qualis_journal,
+        // prioritizing those with more documents and limiting to 30 per run to avoid web timeouts.
         $rows = $conn->fetchAllAssociative('
-            SELECT DISTINCT issn 
+            SELECT issn, COUNT(*) AS doc_count
             FROM document 
             WHERE project_id = ? AND qualis_journal_id IS NULL AND issn IS NOT NULL AND issn != "" AND issn != "-" AND issn != "0000-0000"
+            GROUP BY issn
+            ORDER BY doc_count DESC
+            LIMIT 30
         ', [$projectId]);
 
         if (empty($rows)) {
@@ -955,7 +959,7 @@ class DocumentEnrichmentService
         foreach ($rows as $row) {
             $raw = trim($row['issn']);
             $clean = str_replace([' ', '-'], '', $raw);
-            if (strlen($clean) >= 7) {
+            if (strlen($clean) >= 7 && !isset($issns[$clean])) {
                 $issns[$clean] = $raw;
             }
         }

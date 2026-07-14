@@ -522,6 +522,26 @@ class ReportService
         $countryData = $this->getCountriesReport($projectId);
         $topCountries = array_slice($countryData['list'], 0, 10);
 
+        // Qualis distribution
+        $qualisDist = $this->conn->fetchAllAssociative(
+            'SELECT COALESCE(qualis, "Sem Qualis") AS qualis, COUNT(*) AS doc_count
+             FROM document
+             WHERE project_id = ?
+             GROUP BY qualis
+             ORDER BY CASE WHEN qualis = "A1" THEN 1
+                           WHEN qualis = "A2" THEN 2
+                           WHEN qualis = "A3" THEN 3
+                           WHEN qualis = "A4" THEN 4
+                           WHEN qualis = "B1" THEN 5
+                           WHEN qualis = "B2" THEN 6
+                           WHEN qualis = "B3" THEN 7
+                           WHEN qualis = "B4" THEN 8
+                           WHEN qualis = "B5" THEN 9
+                           WHEN qualis = "C" THEN 10
+                           ELSE 11 END',
+            [$projectId]
+        );
+
         return [
             'kpis'        => $kpis,
             'annual'      => $annual,
@@ -530,6 +550,7 @@ class ReportService
             'topKeywords' => $topKeywords,
             'topDocs'     => $topDocs,
             'topCountries'=> $topCountries,
+            'qualisDist'  => $qualisDist,
         ];
     }
 

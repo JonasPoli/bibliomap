@@ -149,17 +149,35 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     PRODUÇÃO ANUAL
+     PRODUÇÃO ANUAL E DISTRIBUIÇÃO QUALIS
 ═══════════════════════════════════════════════════════════════════════════ -->
 <hr class="section-divider">
-<h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
-    <i class="bi bi-bar-chart-line text-accent"></i> Produção Anual
-</h2>
-<div class="bm-card mb-4">
-    <div style="position:relative;height:220px">
-        <canvas id="chart-annual"></canvas>
+<div class="row g-4 mb-4">
+    <!-- Produção Anual -->
+    <div class="col-xl-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-bar-chart-line text-accent"></i> Produção Anual
+        </h2>
+        <div class="bm-card h-100">
+            <div style="position:relative;height:220px">
+                <canvas id="chart-annual"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Distribuição Qualis -->
+    <div class="col-xl-6">
+        <h2 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="bi bi-journal-bookmark text-accent"></i> Distribuição Qualis CAPES
+        </h2>
+        <div class="bm-card h-100">
+            <div style="position:relative;height:220px">
+                <canvas id="chart-qualis"></canvas>
+            </div>
+        </div>
     </div>
 </div>
+
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      TOP RANKINGS (2 colunnas)
@@ -361,7 +379,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 const annualData = {{ annual|json_encode|raw }};
+const qualisData = {{ qualisDist|json_encode|raw }};
 let annualChart  = null;
+let qualisChart  = null;
 
 function isThemeLight() {
     return document.documentElement.getAttribute('data-bs-theme') === 'light';
@@ -376,7 +396,10 @@ function getColors() {
     };
 }
 
-window.addEventListener('bm-theme-changed', buildAnnualChart);
+window.addEventListener('bm-theme-changed', () => {
+    buildAnnualChart();
+    buildQualisChart();
+});
 
 function buildAnnualChart() {
     const cl = getColors();
@@ -440,6 +463,55 @@ function buildAnnualChart() {
     });
 }
 
+function buildQualisChart() {
+    if (qualisChart) qualisChart.destroy();
+
+    const labels = qualisData.map(r => r.qualis);
+    const data   = qualisData.map(r => r.doc_count);
+
+    const colorMap = {
+        'A1': '#2ea043', 'A2': '#3fb950',
+        'A3': '#58a6ff', 'A4': '#388bfd',
+        'B1': '#d29922', 'B2': '#b7830f',
+        'B3': '#db6d28', 'B4': '#f0883e',
+        'B5': '#e76f51', 'C': '#f85149',
+        'Sem Qualis': '#8b949e'
+    };
+
+    const backgroundColors = labels.map(label => colorMap[label] || '#8b949e');
+    const cl = getColors();
+
+    const ctx = document.getElementById('chart-qualis').getContext('2d');
+    qualisChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors,
+                borderWidth: 1,
+                borderColor: isThemeLight() ? '#fff' : '#0d1117'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        color: cl.text,
+                        font: { size: 11 }
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
 buildAnnualChart();
+buildQualisChart();
 </script>
 {% endblock %}
