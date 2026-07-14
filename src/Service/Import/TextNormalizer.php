@@ -72,23 +72,36 @@ final class TextNormalizer
         ];
 
         $properNouns = [
+            // Countries & Continents & Regions
             'brazil', 'brasil', 'portugal', 'angola', 'mozambique', 'spain', 'espanha', 'italy', 'italia',
             'france', 'frança', 'germany', 'alemanha', 'uk', 'usa', 'china', 'japan', 'japão', 'india',
             'canada', 'canadá', 'australia', 'austrália', 'belgium', 'bélgica', 'netherlands', 'holanda',
             'switzerland', 'suíça', 'sweden', 'suécia', 'norway', 'noruega', 'denmark', 'dinamarca',
             'finland', 'finlândia', 'austria', 'áustria', 'russia', 'rússia', 'mexico', 'méxico',
             'argentina', 'chile', 'colombia', 'colômbia', 'peru', 'ecuador', 'equador', 'venezuela',
-            'uruguay', 'uruguai', 'paraguay', 'paraguai', 'bolivia', 'bolívia', 'sao paulo', 'são paulo',
-            'rio de janeiro', 'lisbon', 'lisboa', 'porto', 'coimbra', 'madrid', 'barcelona', 'paris',
-            'london', 'londres', 'new york', 'nova york', 'washington', 'california', 'texas', 'florida',
-            'tokyo', 'toquio', 'beijing', 'pequim', 'shanghai', 'xangai'
+            'uruguay', 'uruguai', 'paraguay', 'paraguai', 'bolivia', 'bolívia',
+            'europe', 'europa', 'asia', 'ásia', 'america', 'américa', 'africa', 'áfrica', 'oceania',
+            'england', 'inglaterra', 'scotland', 'escócia', 'wales', 'ireland', 'irlanda',
+
+            // Multi-word component words to capitalize
+            'sao', 'são', 'paulo', 'rio', 'de', 'janeiro', 'new', 'york', 'united', 'states', 'kingdom',
+            'great', 'britain', 'latin', 'north', 'south', 'european', 'union', 'uniao', 'união', 'world', 'bank',
+            'lisbon', 'lisboa', 'porto', 'coimbra', 'madrid', 'barcelona', 'paris',
+            'london', 'londres', 'washington', 'california', 'califórnia', 'texas', 'florida', 'flórida',
+            'tokyo', 'toquio', 'tóquio', 'beijing', 'pequim', 'shanghai', 'xangai',
+
+            // Institutional terms
+            'university', 'universidade', 'institute', 'instituto', 'association', 'associação', 'associacao',
+            'organization', 'organização', 'organizacao', 'department', 'departamento', 'journal', 'review',
+            'academy', 'academia', 'society', 'sociedade', 'center', 'centre', 'centro', 'school', 'escola',
+            'college', 'colégio', 'colegio', 'hospital', 'foundation', 'fundação', 'fundacao', 'ministry',
+            'ministério', 'ministerio', 'council', 'conselho'
         ];
 
         $words = preg_split('/\s+/u', $term);
         $formattedWords = [];
-        $isEntirelyUpper = (mb_strtoupper($term, 'UTF-8') === $term);
 
-        foreach ($words as $index => $word) {
+        foreach ($words as $word) {
             $cleanWord = preg_replace('/[^\p{L}\p{N}]+/u', '', $word);
             $cleanWordLower = mb_strtolower($cleanWord, 'UTF-8');
             $len = mb_strlen($cleanWord);
@@ -106,9 +119,14 @@ final class TextNormalizer
 
             // 2. Check proper noun list
             if (in_array($cleanWordLower, $properNouns)) {
-                $firstChar = mb_substr($word, 0, 1, 'UTF-8');
-                $rest = mb_substr($word, 1, null, 'UTF-8');
-                $formattedWords[] = mb_strtoupper($firstChar, 'UTF-8') . mb_strtolower($rest, 'UTF-8');
+                // If it is 'de' (particle), keep it lowercase
+                if ($cleanWordLower === 'de') {
+                    $formattedWords[] = mb_strtolower($word, 'UTF-8');
+                } else {
+                    $firstChar = mb_substr($word, 0, 1, 'UTF-8');
+                    $rest = mb_substr($word, 1, null, 'UTF-8');
+                    $formattedWords[] = mb_strtoupper($firstChar, 'UTF-8') . mb_strtolower($rest, 'UTF-8');
+                }
                 continue;
             }
 
@@ -119,46 +137,8 @@ final class TextNormalizer
                 continue;
             }
 
-            // If entire phrase is upper case, we convert rest to lower case
-            if ($isEntirelyUpper) {
-                $formattedWords[] = mb_strtolower($word, 'UTF-8');
-                continue;
-            }
-
-            // 4. Proper noun check for capitalized words in mixed case
-            $firstChar = mb_substr($word, 0, 1, 'UTF-8');
-            $isCapitalized = (mb_strtoupper($firstChar, 'UTF-8') === $firstChar && !preg_match('/^\d+$/', $firstChar));
-
-            if ($isCapitalized) {
-                if ($index === 0) {
-                    // Multi-word first word capitalization check
-                    if (count($words) > 1) {
-                        $hasOtherCapitalized = false;
-                        for ($k = 1; $k < count($words); $k++) {
-                            $wNext = $words[$k];
-                            if (mb_strlen($wNext) > 1) {
-                                $fcNext = mb_substr($wNext, 0, 1, 'UTF-8');
-                                if (mb_strtoupper($fcNext, 'UTF-8') === $fcNext && mb_strtolower($wNext, 'UTF-8') !== $wNext) {
-                                    $hasOtherCapitalized = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if ($hasOtherCapitalized) {
-                            $formattedWords[] = mb_strtoupper($firstChar, 'UTF-8') . mb_strtolower(mb_substr($word, 1, null, 'UTF-8'), 'UTF-8');
-                        } else {
-                            $formattedWords[] = mb_strtolower($word, 'UTF-8');
-                        }
-                    } else {
-                        // Single word: keep capitalization (e.g. "Brazil", "Gardens")
-                        $formattedWords[] = mb_strtoupper($firstChar, 'UTF-8') . mb_strtolower(mb_substr($word, 1, null, 'UTF-8'), 'UTF-8');
-                    }
-                } else {
-                    $formattedWords[] = mb_strtoupper($firstChar, 'UTF-8') . mb_strtolower(mb_substr($word, 1, null, 'UTF-8'), 'UTF-8');
-                }
-            } else {
-                $formattedWords[] = mb_strtolower($word, 'UTF-8');
-            }
+            // 4. Default: all general terms in lowercase
+            $formattedWords[] = mb_strtolower($word, 'UTF-8');
         }
 
         return implode(' ', $formattedWords);
