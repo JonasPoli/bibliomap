@@ -572,6 +572,14 @@ class DocumentEnrichmentService
             usort($matchedUnitsList, fn($a, $b) => $b['count'] <=> $a['count']);
         }
 
+        // ── 7. Automatically apply Thesaurus Concepts to Keywords ──
+        $conn->executeStatement("
+            UPDATE keyword k
+            JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            SET k.thesaurus_concept_id = tl.concept_id
+            WHERE k.thesaurus_concept_id IS NULL
+        ");
+
         return [
             'total_docs' => $totalDocs,
             'processed_docs' => $processedDocs,

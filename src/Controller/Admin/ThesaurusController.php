@@ -123,20 +123,23 @@ class ThesaurusController extends AbstractController
         // Save synonyms (alternative labels)
         $synonymsText = $request->request->get('synonyms', '');
         $lines = explode("\n", $synonymsText);
+        $processedSynonyms = [];
         foreach ($lines as $line) {
             $synonym = trim($line);
             if ($synonym === '') {
                 continue;
             }
-            $synNorm = $normalizer->normalizeForComparison($synonym);
-            // Skip preferred label
-            if ($synNorm === $conceptNorm) {
+            // Skip if exactly preferred label or already processed in this request
+            if ($synonym === $preferredLabel || in_array($synonym, $processedSynonyms)) {
                 continue;
             }
-            // Check duplicate in same concept
+            $processedSynonyms[] = $synonym;
+
+            $synNorm = $normalizer->normalizeForComparison($synonym);
+            // Check duplicate in database
             $existingLabel = $this->em->getRepository(ThesaurusLabel::class)->findOneBy([
                 'concept' => $concept,
-                'normalizedLabel' => $synNorm
+                'label' => $synonym
             ]);
             if (!$existingLabel) {
                 $altLabel = new ThesaurusLabel();
@@ -150,6 +153,7 @@ class ThesaurusController extends AbstractController
         }
 
         $this->em->flush();
+        $this->applyThesaurusMappings();
         $this->addFlash('success', 'Conceito e sinônimos criados com sucesso.');
         return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
     }
@@ -212,18 +216,19 @@ class ThesaurusController extends AbstractController
             // Add new alternative labels
             $synonymsText = $request->request->get('synonyms', '');
             $lines = explode("\n", $synonymsText);
-            $processedNorms = [];
+            $processedSynonyms = [];
             foreach ($lines as $line) {
                 $synonym = trim($line);
                 if ($synonym === '') {
                     continue;
                 }
-                $synNorm = $normalizer->normalizeForComparison($synonym);
-                if ($synNorm === $conceptNorm || in_array($synNorm, $processedNorms)) {
+                // Skip if exactly preferred label or already processed in this request
+                if ($synonym === $preferredLabel || in_array($synonym, $processedSynonyms)) {
                     continue;
                 }
-                $processedNorms[] = $synNorm;
+                $processedSynonyms[] = $synonym;
 
+                $synNorm = $normalizer->normalizeForComparison($synonym);
                 $altLabel = new ThesaurusLabel();
                 $altLabel->setConcept($concept);
                 $altLabel->setLabel($synonym);
@@ -234,6 +239,7 @@ class ThesaurusController extends AbstractController
             }
 
             $this->em->flush();
+            $this->applyThesaurusMappings($concept->getId());
             $this->addFlash('success', 'Conceito e sinônimos atualizados com sucesso.');
             return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
         }
@@ -470,6 +476,7 @@ class ThesaurusController extends AbstractController
 
             fclose($handle);
             $this->em->flush();
+            $this->applyThesaurusMappings();
 
             $this->addFlash('success', sprintf(
                 'Importação concluída: %d labels importados, %d concepts criados, %d ignorados, %d erros (de %d linhas).',
@@ -480,5 +487,28 @@ class ThesaurusController extends AbstractController
         }
 
         return $this->redirectToRoute('app_admin_thesaurus_index');
+    }
+
+    private function applyThesaurusMappings(?int $conceptId = null): void
+    {
+        $conn = $this->em->getConnection();
+        
+        if ($conceptId !== null) {
+            // Reset keywords that were matched to this concept but are no longer in the thesaurus_label
+            $conn->executeStatement("
+                UPDATE keyword k
+                LEFT JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label AND tl.concept_id = :conceptId
+                SET k.thesaurus_concept_id = NULL
+                WHERE k.thesaurus_concept_id = :conceptId AND tl.id IS NULL
+            ", ['conceptId' => $conceptId]);
+        }
+
+        // Apply mappings to all keywords where thesaurus_concept_id is NULL
+        $conn->executeStatement("
+            UPDATE keyword k
+            JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            SET k.thesaurus_concept_id = tl.concept_id
+            WHERE k.thesaurus_concept_id IS NULL
+        ");
     }
 }
