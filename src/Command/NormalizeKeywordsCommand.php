@@ -60,19 +60,30 @@ class NormalizeKeywordsCommand extends Command
 
         if ($execute && !empty($casingUpdates)) {
             $io->text('Applying casing corrections...');
-            $conn->beginTransaction();
-            try {
-                foreach ($casingUpdates as $id => $newDisplay) {
-                    $conn->executeStatement('UPDATE keyword SET keyword_display = ? WHERE id = ?', ['temp_' . $id, $id]);
-                    $conn->executeStatement('UPDATE keyword SET keyword_display = ? WHERE id = ?', [$newDisplay, $id]);
+            
+            $chunks = array_chunk($casingUpdates, 1000, true);
+            $totalUpdated = 0;
+            
+            foreach ($chunks as $chunk) {
+                $conn->beginTransaction();
+                try {
+                    foreach ($chunk as $id => $newDisplay) {
+                        $conn->executeStatement('UPDATE keyword SET keyword_display = ? WHERE id = ?', ['temp_' . $id, $id]);
+                        $conn->executeStatement('UPDATE keyword SET keyword_display = ? WHERE id = ?', [$newDisplay, $id]);
+                    }
+                    $conn->commit();
+                    $totalUpdated += count($chunk);
+                    $io->text(sprintf('Updated %d/%d keywords...', $totalUpdated, count($casingUpdates)));
+                    
+                    unset($chunk);
+                    gc_collect_cycles();
+                } catch (\Throwable $e) {
+                    $conn->rollBack();
+                    $io->error('Failed to update casing batch: ' . $e->getMessage());
+                    return Command::FAILURE;
                 }
-                $conn->commit();
-                $io->success(sprintf('Updated casing for %d keywords.', count($casingUpdates)));
-            } catch (\Throwable $e) {
-                $conn->rollBack();
-                $io->error('Failed to update casing: ' . $e->getMessage());
-                return Command::FAILURE;
             }
+            $io->success(sprintf('Updated casing for %d keywords.', $totalUpdated));
         }
 
         // 2. Identify and merge casing duplicates
