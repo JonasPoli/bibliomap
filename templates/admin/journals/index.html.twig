@@ -103,9 +103,15 @@
                                         {% set qColor = '#f85149' %}
                                         {% set qBg = 'rgba(248,81,73,0.15)' %}
                                     {% endif %}
-                                    <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:11px;font-weight:700">{{ journal.qualis }}</span>
+                                    <a href="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf" target="_blank" title="Consultar na Plataforma Sucupira" style="text-decoration:none">
+                                        <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:11px;font-weight:700">
+                                            {{ journal.qualis }} <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9px"></i>
+                                        </span>
+                                    </a>
                                 {% else %}
-                                    <span class="text-muted" style="font-size:11px">—</span>
+                                    <a href="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf" target="_blank" class="text-muted" title="Consultar na Plataforma Sucupira" style="font-size:11px;text-decoration:none">
+                                        — <i class="bi bi-box-arrow-up-right ms-1" style="font-size:9px"></i>
+                                    </a>
                                 {% endif %}
                             </td>
                             <td style="text-align:right">
