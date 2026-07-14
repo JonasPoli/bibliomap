@@ -382,10 +382,6 @@ class NormalizationService
             }
         }
 
-        // ── Cross-type matches (same term in author AND indexed) ──────────────
-        $crossType = $this->findCrossTypeKeywords($projectId, $type);
-        $suggestions = array_merge($crossType, $suggestions);
-
         usort($suggestions, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
 
         return array_slice($suggestions, 0, 5000);
