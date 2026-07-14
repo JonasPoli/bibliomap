@@ -327,7 +327,7 @@ class NormalizationService
 
         $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
 
-        // Fetch keywords in the project (only the selected type)
+        // Fetch keywords in the project (only the selected type and not mapped to thesaurus)
         $keywords = $conn->fetchAllAssociative('
             SELECT
                 k.id,
@@ -336,7 +336,7 @@ class NormalizationService
             FROM keyword k
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.keyword_type = ?
+            WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
             GROUP BY k.id, k.keyword_display
             HAVING doc_count > 0
             ORDER BY k.keyword_display ASC
@@ -410,7 +410,7 @@ class NormalizationService
              FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND k.keyword_type = ?
+             WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
              GROUP BY k.id, k.keyword_display, k.keyword_type
              HAVING doc_count > 0
              ORDER BY doc_count DESC',
@@ -424,7 +424,7 @@ class NormalizationService
              FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND k.keyword_type = ?
+             WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
              GROUP BY k.id, k.keyword_display, k.keyword_type
              HAVING doc_count > 0',
             [$projectId, $mappedOtherType]
