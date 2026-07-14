@@ -17,7 +17,7 @@ class NetworkService
     {
         $conn = $this->em->getConnection();
 
-        // 1. Fetch raw nodes (authors) with their doc count and citations
+        // 1. Fetch raw nodes (authors) with their doc count and citations, limited to top 1000
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
                 a.id, 
@@ -30,10 +30,18 @@ class NetworkService
             WHERE d.project_id = ?
             GROUP BY a.id, a.preferred_name
             ORDER BY doc_count DESC
+            LIMIT 1000
         ', [$projectId]);
 
-        // 2. Fetch raw edges
-        $rawEdges = $conn->fetchAllAssociative('
+        if (empty($rawNodes)) {
+            return $this->formatGraph([], [], $maxNodes);
+        }
+
+        $authorIds = array_column($rawNodes, 'id');
+        $inList = implode(',', array_map('intval', $authorIds));
+
+        // 2. Fetch raw edges restricted only to top 1000 authors
+        $rawEdges = $conn->fetchAllAssociative("
             SELECT 
                 da1.author_identity_id AS source, 
                 da2.author_identity_id AS target, 
@@ -42,10 +50,12 @@ class NetworkService
             JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.author_identity_id < da2.author_identity_id
             JOIN document d ON da1.document_id = d.id
             WHERE d.project_id = ?
+              AND da1.author_identity_id IN ($inList)
+              AND da2.author_identity_id IN ($inList)
             GROUP BY da1.author_identity_id, da2.author_identity_id
             HAVING weight >= ?
             ORDER BY weight DESC
-        ', [$projectId, $minWeight]);
+        ", [$projectId, $minWeight]);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
     }
@@ -58,7 +68,7 @@ class NetworkService
         $conn = $this->em->getConnection();
         $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
 
-        // 1. Fetch raw nodes (keywords grouped by concept)
+        // 1. Fetch raw nodes (keywords grouped by concept) limited to top 1000 concepts
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
                 COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id, 
@@ -73,10 +83,18 @@ class NetworkService
             WHERE d.project_id = ? AND k.keyword_type = ?
             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
             ORDER BY doc_count DESC
+            LIMIT 1000
         ', [$projectId, $mappedType]);
 
-        // 2. Fetch raw edges (grouped by source and target concept IDs)
-        $rawEdges = $conn->fetchAllAssociative('
+        if (empty($rawNodes)) {
+            return $this->formatGraph([], [], $maxNodes);
+        }
+
+        $conceptIds = array_column($rawNodes, 'id');
+        $inList = implode(',', array_map('intval', $conceptIds));
+
+        // 2. Fetch raw edges (grouped by source and target concept IDs) restricted to top 1000 concepts
+        $rawEdges = $conn->fetchAllAssociative("
             SELECT 
                 CASE WHEN COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) < COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) 
                      THEN COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) 
@@ -93,11 +111,13 @@ class NetworkService
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
+              AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) IN ($inList)
+              AND COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) IN ($inList)
               AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) != COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
             GROUP BY source, target
             HAVING weight >= ?
             ORDER BY weight DESC
-        ', [$projectId, $mappedType, $mappedType, $minWeight]);
+        ", [$projectId, $mappedType, $mappedType, $minWeight]);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
     }

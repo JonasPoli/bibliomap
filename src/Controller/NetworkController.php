@@ -34,6 +34,19 @@ class NetworkController extends AbstractController
     public function data(int $id, string $type, Request $request): Response
     {
         $project   = $this->getProject($id);
+
+        // Safety check to prevent timeouts on extremely large projects (e.g. 35,000+ documents)
+        $docCount = (int)$this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM document WHERE project_id = ?',
+            [$project->getId()]
+        );
+        if ($docCount > 35000) {
+            return $this->json([
+                'error' => 'project_too_large',
+                'message' => sprintf('Este projeto contém %s registros. Por segurança, a geração de redes interativas na Web está desabilitada para projetos com mais de 35.000 registros.', number_format($docCount, 0, ',', '.'))
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $minWeight = max((int)$request->query->get('minWeight', 1), 1);
         $limit     = min(max((int)$request->query->get('limit', 100), 10), 300);
         $kwType    = $request->query->get('kwType', 'author');
