@@ -155,7 +155,7 @@ class KeywordTreatmentService
             $offset = 0;
             $batchSize = $options->batchSize;
             $totalProcessed = 0;
-            $limit = $options->limit ?? PHP_INT_MAX;
+            $limit = ($options->limit && $options->limit > 0) ? $options->limit : PHP_INT_MAX;
 
             while ($offset < $limit) {
                 $batchLimit = min($batchSize, $limit - $offset);
@@ -385,12 +385,12 @@ class KeywordTreatmentService
                 $totalProcessed += count($keywords);
                 $offset += $batchSize;
 
-                // Clear entity manager to free memory but keep job reference
-                if ($offset < $limit && count($keywords) === $batchLimit) {
-                    $jobId = $job->getId();
-                    $this->em->clear();
-                    $job = $this->em->getRepository(KeywordTreatmentJob::class)->find($jobId);
-                }
+                // Always clear entity manager and free memory after each batch
+                $jobId = $job->getId();
+                unset($keywords, $assignedInBatch, $deletedInBatch);
+                $this->em->clear();
+                gc_collect_cycles();
+                $job = $this->em->getRepository(KeywordTreatmentJob::class)->find($jobId);
             }
 
             // Count affected documents

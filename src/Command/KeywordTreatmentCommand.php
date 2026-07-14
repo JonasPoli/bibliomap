@@ -28,8 +28,8 @@ class KeywordTreatmentCommand extends Command
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Simulates changes without writing to database.')
             ->addOption('execute', null, InputOption::VALUE_NONE, 'Applies and persists corrections in the database.')
-            ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Maximum keywords to process', 5000)
-            ->addOption('batch-size', null, InputOption::VALUE_OPTIONAL, 'Batch size for processing', 500)
+            ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Maximum keywords to process (0 = all)', 0)
+            ->addOption('batch-size', null, InputOption::VALUE_OPTIONAL, 'Batch size for processing', 200)
             ->addOption('min-auto-score', null, InputOption::VALUE_OPTIONAL, 'Minimum fuzzy auto-match threshold', 95.0)
             ->addOption('min-review-score', null, InputOption::VALUE_OPTIONAL, 'Minimum fuzzy review threshold', 75.0)
             ->addOption('auto-create-concepts', null, InputOption::VALUE_NONE, 'Auto-create ThesaurusConcepts for unmatched keywords')
