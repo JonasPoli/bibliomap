@@ -85,11 +85,32 @@ class ReportController extends AbstractController
         }
 
         // Fetch selected keywords info
-        $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
-        $selectedKeywords = $this->conn->fetchAllAssociative(
-            "SELECT id, keyword_display AS term, keyword_type AS type FROM keyword WHERE id IN ($placeholders) ORDER BY term",
-            $selectedIds
-        );
+        $selectedKeywords = [];
+        if (!empty($selectedIds)) {
+            foreach ($selectedIds as $selId) {
+                // First check if it is a thesaurus concept
+                $tc = $this->conn->fetchAssociative('SELECT id, preferred_label AS term FROM thesaurus_concept WHERE id = ?', [$selId]);
+                if ($tc) {
+                    $selectedKeywords[] = [
+                        'id' => (int)$tc['id'],
+                        'term' => $tc['term'],
+                        'type' => 'thesaurus_concept',
+                    ];
+                } else {
+                    // Otherwise fallback to keyword
+                    $kw = $this->conn->fetchAssociative('SELECT id, keyword_display AS term, keyword_original, keyword_type AS type FROM keyword WHERE id = ?', [$selId]);
+                    if ($kw) {
+                        $selectedKeywords[] = [
+                            'id' => (int)$kw['id'],
+                            'term' => $kw['term'] ?: $kw['keyword_original'] ?? 'Sem rótulo',
+                            'type' => $kw['type'] === 'author_keyword' ? 'author' : 'indexed',
+                        ];
+                    }
+                }
+            }
+            // Sort by term alphabetically
+            usort($selectedKeywords, fn($a, $b) => strcmp($a['term'], $b['term']));
+        }
 
         // Available years (for display)
         $years = $this->conn->fetchFirstColumn(
@@ -353,14 +374,20 @@ class ReportController extends AbstractController
                     ) AS author_names
              FROM document d
              JOIN document_keyword dk ON d.id = dk.document_id
-             WHERE d.project_id = ? AND dk.keyword_id = ?
+             JOIN keyword k ON dk.keyword_id = k.id
+             WHERE d.project_id = ? AND COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) = ?
              ORDER BY d.year DESC, d.title ASC',
             [$project->getId(), $keywordId]
         );
 
-        // Fetch keyword term
+        // Fetch keyword term (coalesced concept display label)
         $keywordTerm = $this->conn->fetchOne(
-            'SELECT term FROM keyword WHERE id = ?',
+            'SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original) AS term
+             FROM keyword k
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) = ?
+             LIMIT 1',
             [$keywordId]
         );
 
