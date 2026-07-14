@@ -230,9 +230,12 @@ class KeywordTreatmentService
                                     $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
 
                                     // 3. Re-point keyword variations
-                                    $conn->executeStatement('UPDATE keyword_variation SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+                                    $conn->executeStatement('UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
 
-                                    // 4. Mark status as false so that subsequent loops in this execution batch skip this entity
+                                    // 4. Re-point keyword treatment logs to preserve logs history
+                                    $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+
+                                    // 5. Mark status as false so that subsequent loops in this execution batch skip this entity
                                     $kw->setStatus(false);
 
                                     // 5. Schedule deletion of the entity from the unit of work
