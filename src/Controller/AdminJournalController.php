@@ -128,11 +128,14 @@ class AdminJournalController extends AbstractController
             throw $this->createNotFoundException('Periódico não encontrado.');
         }
 
-        $rows = $scraper->fetchDetailedRows($journal->getIssn());
+        $data = $scraper->fetchDetailedRows($journal->getIssn());
 
         return $this->render('admin/journals/sucupira_lookup.html.twig', [
             'journal' => $journal,
-            'rows' => $rows
+            'rows' => $data['rows'] ?? [],
+            'jsessionid' => $data['jsessionid'] ?? null,
+            'viewstate' => $data['viewstate'] ?? null,
+            'eventid' => $data['eventid'] ?? '237'
         ]);
     }
 

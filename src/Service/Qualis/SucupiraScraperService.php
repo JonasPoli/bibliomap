@@ -196,13 +196,20 @@ class SucupiraScraperService
         $viewState = $matchesViewState[1];
 
         // 2. Query event 237 (2021-2024 quadrennium) first, fall back to event 236 (2017-2020)
-        $rows = $this->queryEventRows($issn, '237', $cookieStr, $viewState);
+        $eventId = '237';
+        $rows = $this->queryEventRows($issn, $eventId, $cookieStr, $viewState);
         if (empty($rows)) {
             $this->logger->info("No rows found for ISSN {$issn} in quadrennium 2021-2024. Falling back to 2017-2020.");
-            $rows = $this->queryEventRows($issn, '236', $cookieStr, $viewState);
+            $eventId = '236';
+            $rows = $this->queryEventRows($issn, $eventId, $cookieStr, $viewState);
         }
 
-        return $rows;
+        return [
+            'rows' => $rows,
+            'jsessionid' => $cookies['JSESSIONID'] ?? null,
+            'viewstate' => $viewState,
+            'eventid' => $eventId
+        ];
     }
 
     private function queryEventRows(string $issn, string $eventId, string $cookieStr, string $viewState): array

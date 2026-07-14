@@ -27,9 +27,24 @@
             </div>
         </div>
         <div class="col-md-3 text-md-end mt-3 mt-md-0">
-            <a href="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf" target="_blank" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
-                <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Sucupira Oficial
-            </a>
+            {% if jsessionid and viewstate %}
+                <form action="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf;jsessionid={{ jsessionid }}" method="POST" target="_blank" class="d-inline">
+                    <input type="hidden" name="form" value="form">
+                    <input type="hidden" name="form:evento" value="{{ eventid }}">
+                    <input type="hidden" name="form:checkIssn" value="on">
+                    <input type="hidden" name="form:issn:issn" value="{{ journal.issn }}">
+                    <input type="hidden" name="form:consultar" value="Consultar">
+                    <input type="hidden" name="javax.faces.ViewState" value="{{ viewstate }}">
+                    
+                    <button type="submit" class="btn btn-sm btn-bm-secondary px-3 py-2" style="border:1px solid var(--bm-border)">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Sucupira Oficial
+                    </button>
+                </form>
+            {% else %}
+                <a href="https://sucupira-legado.capes.gov.br/sucupira/public/consultas/coleta/veiculoPublicacaoQualis/listaConsultaGeralPeriodicos.jsf" target="_blank" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Sucupira Oficial
+                </a>
+            {% endif %}
         </div>
     </div>
 </div>
