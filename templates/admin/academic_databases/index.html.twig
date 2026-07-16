@@ -1,0 +1,159 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gerenciamento de Bases de Dados — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Bases de Dados</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <h1 class="bm-page-title">
+                <i class="bi bi-database me-2 text-accent"></i>
+                Gerenciar Bases de Dados
+            </h1>
+            <p class="bm-page-subtitle">Configure as bases acadêmicas suportadas no sistema, seus padrões de identificação e logos.</p>
+        </div>
+        <div>
+            <a href="{{ path('app_admin_academic_databases_new') }}" class="btn btn-bm-primary d-inline-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle"></i> + Nova Base
+            </a>
+        </div>
+    </div>
+</div>
+
+{# Filters Card #}
+<div class="bm-card mb-4" style="padding: 16px;">
+    <form method="GET" action="{{ path('app_admin_academic_databases_index') }}" class="row g-2 align-items-center">
+        <div class="col-md-9">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text border-bm" style="background:rgba(255,255,255,0.02);color:var(--bm-text-muted)">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" name="search" class="form-control" placeholder="Buscar por nome, sigla ou descrição..." value="{{ search }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-bm-primary btn-sm w-100" style="height: 33px;">Filtrar</button>
+        </div>
+    </form>
+</div>
+
+{# Databases Table #}
+<div class="bm-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div style="font-size: 13.5px; color: var(--bm-text-muted)">
+            Mostrando <strong>{{ databases|length }}</strong> de <strong>{{ totalItems }}</strong> bases cadastradas.
+        </div>
+    </div>
+
+    {% if databases is empty %}
+        <div class="text-center py-5">
+            <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+            <h5 style="font-weight: 600; color: var(--bm-text);">Nenhuma base de dados encontrada</h5>
+            <p class="text-muted-bm mb-0">Tente ajustar seus critérios de busca.</p>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table align-middle border-bm mb-0" style="color:var(--bm-text); font-size: 13.5px;">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size: 12px;">
+                        <th style="width: 60px;">ID</th>
+                        <th>Base de Dados</th>
+                        <th>Chave (Acronym)</th>
+                        <th>Formats</th>
+                        <th>Colunas de Assinatura (CSV)</th>
+                        <th class="text-end" style="width: 160px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for db in databases %}
+                    <tr class="border-bm">
+                        <td style="color:var(--bm-text-muted); font-family:var(--bs-font-monospace)">#{{ db.id }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:48px; height:24px; background:rgba(255,255,255,0.03); border:1px solid var(--bm-border); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden">
+                                    {% if db.logo %}
+                                        {{ source_logo(db.acronym, 18) }}
+                                    {% else %}
+                                        <i class="bi bi-database text-muted"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <span style="font-weight:600">{{ db.name }}</span>
+                                    {% if db.url %}
+                                        <div style="font-size: 10.5px; color: var(--bm-text-muted)"><a href="{{ db.url }}" target="_blank" style="color:inherit;text-decoration:none">{{ db.url|slice(0,30) }}... <i class="bi bi-box-arrow-up-right"></i></a></div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <code style="background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; color:var(--bm-accent)">{{ db.acronym }}</code>
+                        </td>
+                        <td>
+                            {% for fmt in db.fileFormats %}
+                                <span class="badge bg-secondary" style="font-size:10px">{{ fmt }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if db.signatureColumns %}
+                                <span style="font-size:11.5px; color:var(--bm-text-muted)" title="{{ db.signatureColumns|join(', ') }}">
+                                    {{ db.signatureColumns|length }} colunas de assinatura
+                                </span>
+                            {% else %}
+                                <span class="text-muted-bm">Nenhuma (detecção customizada/desativada)</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-2">
+                                <a href="{{ path('app_admin_academic_databases_edit', {id: db.id}) }}" class="btn btn-sm btn-bm-secondary">
+                                    <i class="bi bi-pencil-square me-1"></i> Editar
+                                </a>
+                                <form method="POST" action="{{ path('app_admin_academic_databases_delete', {id: db.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir esta base de dados? Todas as associações com revistas serão removidas.');" style="display:inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_database_delete_' ~ db.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Pagination #}
+        {% if totalPages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+                <div style="font-size:12.5px;color:var(--bm-text-muted)">
+                    Página {{ page }} de {{ totalPages }}.
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm m-0">
+                        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ path('app_admin_academic_databases_index', {search: search, page: page - 1}) }}">
+                                Anterior
+                            </a>
+                        </li>
+                        <li class="page-item active">
+                            <span class="page-link">Pág. {{ page }} de {{ totalPages }}</span>
+                        </li>
+                        <li class="page-item {% if page == totalPages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ path('app_admin_academic_databases_index', {search: search, page: page + 1}) }}">
+                                Próxima
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -21,6 +21,10 @@ use Twig\TwigFunction;
  */
 class DataSourceExtension extends AbstractExtension implements GlobalsInterface
 {
+    public function __construct(
+        private readonly \Doctrine\ORM\EntityManagerInterface $em
+    ) {}
+
     public function getFunctions(): array
     {
         return [
@@ -41,8 +45,33 @@ class DataSourceExtension extends AbstractExtension implements GlobalsInterface
 
     public function getGlobals(): array
     {
-        // Makes `data_sources` available as a global Twig variable too
-        return ['data_sources' => DataSources::all()];
+        // Combine static sources with database sources
+        $sources = DataSources::all();
+        try {
+            $dbSources = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findAll();
+            foreach ($dbSources as $db) {
+                $acronym = $db->getAcronym();
+                if (!isset($sources[$acronym])) {
+                    $sources[$acronym] = [
+                        'key'         => $acronym,
+                        'label'       => $db->getName(),
+                        'vendor'      => null,
+                        'url'         => $db->getUrl(),
+                        'logo'        => $db->getLogo(),
+                        'logoDark'    => $db->getLogo(),
+                        'logoType'    => str_ends_with(strtolower($db->getLogo() ?? ''), '.svg') ? 'svg' : 'img',
+                        'logoBg'      => null,
+                        'formats'     => $db->getFileFormats() ?? [],
+                        'emoji'       => '📄',
+                        'limit'       => null,
+                        'bgColor'     => '#0d1520',
+                        'accentColor' => '#4f8ef7',
+                    ];
+                }
+            }
+        } catch (\Throwable) {}
+
+        return ['data_sources' => $sources];
     }
 
     // ── Public functions exposed to Twig ──────────────────────────────────────
@@ -57,6 +86,21 @@ class DataSourceExtension extends AbstractExtension implements GlobalsInterface
     public function sourceLogo(string $key, int $height = 28, bool $dark = true): string
     {
         $src = DataSources::get($key);
+
+        if ($src === null) {
+            try {
+                $dbSource = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findOneBy(['acronym' => $key]);
+                if ($dbSource) {
+                    $src = [
+                        'key' => $dbSource->getAcronym(),
+                        'label' => $dbSource->getName(),
+                        'logo' => $dbSource->getLogo(),
+                        'logoDark' => $dbSource->getLogo(),
+                        'logoBg' => null,
+                    ];
+                }
+            } catch (\Throwable) {}
+        }
 
         if ($src === null || $src['logo'] === null) {
             return $this->emojiSpan(DataSources::emoji($key), $height);
@@ -91,17 +135,68 @@ class DataSourceExtension extends AbstractExtension implements GlobalsInterface
 
     public function sourceLabel(string $key): string
     {
-        return DataSources::label($key);
+        $label = DataSources::label($key);
+        if ($label === $key) {
+            try {
+                $dbSource = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findOneBy(['acronym' => $key]);
+                if ($dbSource) {
+                    return $dbSource->getName();
+                }
+            } catch (\Throwable) {}
+        }
+        return $label;
     }
 
     public function sourceInfo(string $key): ?array
     {
-        return DataSources::get($key);
+        $src = DataSources::get($key);
+        if ($src === null) {
+            try {
+                $dbSource = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findOneBy(['acronym' => $key]);
+                if ($dbSource) {
+                    return [
+                        'key' => $dbSource->getAcronym(),
+                        'label' => $dbSource->getName(),
+                        'vendor' => null,
+                        'url' => $dbSource->getUrl(),
+                        'logo' => $dbSource->getLogo(),
+                        'formats' => $dbSource->getFileFormats() ?? [],
+                        'emoji' => '📄',
+                    ];
+                }
+            } catch (\Throwable) {}
+        }
+        return $src;
     }
 
     public function dataSources(): array
     {
-        return DataSources::all();
+        $sources = DataSources::all();
+        try {
+            $dbSources = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findAll();
+            foreach ($dbSources as $db) {
+                $acronym = $db->getAcronym();
+                if (!isset($sources[$acronym])) {
+                    $sources[$acronym] = [
+                        'key'         => $acronym,
+                        'label'       => $db->getName(),
+                        'vendor'      => null,
+                        'url'         => $db->getUrl(),
+                        'logo'        => $db->getLogo(),
+                        'logoDark'    => $db->getLogo(),
+                        'logoType'    => str_ends_with(strtolower($db->getLogo() ?? ''), '.svg') ? 'svg' : 'img',
+                        'logoBg'      => null,
+                        'formats'     => $db->getFileFormats() ?? [],
+                        'emoji'       => '📄',
+                        'limit'       => null,
+                        'bgColor'     => '#0d1520',
+                        'accentColor' => '#4f8ef7',
+                    ];
+                }
+            }
+        } catch (\Throwable) {}
+
+        return $sources;
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

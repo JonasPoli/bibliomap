@@ -482,6 +482,9 @@ class DocumentEnrichmentService
         // Registrar periódicos faltantes localizando pelo ISSN no Crossref
         $this->registerMissingJournals($projectId, $conn);
 
+        // Registrar e vincular periódicos com as bases acadêmicas
+        $this->registerAndLinkAcademicDatabases($projectId, $conn);
+
         // Obter periódicos/revistas não resolvidos no sincronismo
         $unresolvedJournals = [];
         $rawUnresolvedJournals = $conn->fetchAllAssociative('
@@ -1022,5 +1025,117 @@ class DocumentEnrichmentService
             // Re-run the linking query to link documents to the new journals
             $this->enrichQualis($projectId, $conn);
         }
+    }
+
+    /**
+     * Maps and links journals to the academic databases where their documents were found.
+     * If the journal is not registered yet, registers it (using Crossref with a fallback to sourceTitle).
+     */
+    private function registerAndLinkAcademicDatabases(int $projectId, Connection $conn): void
+    {
+        $this->logger->info("Mapping and linking journals to academic databases for Project #{$projectId}...");
+
+        // Fetch distinct ISSNs, sources and source_titles from the project's documents
+        $rows = $conn->fetchAllAssociative('
+            SELECT DISTINCT issn, source, source_title
+            FROM document
+            WHERE project_id = ? AND issn IS NOT NULL AND issn != "" AND issn != "-" AND issn != "0000-0000"
+        ', [$projectId]);
+
+        if (empty($rows)) {
+            return;
+        }
+
+        // Cache academic databases by acronym
+        $dbRows = $conn->fetchAllAssociative('SELECT id, acronym FROM academic_database');
+        $dbCache = [];
+        foreach ($dbRows as $db) {
+            $dbCache[strtolower($db['acronym'])] = (int)$db['id'];
+        }
+
+        foreach ($rows as $row) {
+            $rawIssn = trim($row['issn']);
+            $source = strtolower(trim($row['source']));
+            $sourceTitle = trim($row['source_title'] ?? 'Sem título');
+
+            if ($source === '' || $source === 'unknown') {
+                continue;
+            }
+
+            $normalizedIssn = strtolower(str_replace([' ', '-'], '', $rawIssn));
+            if (strlen($normalizedIssn) < 7) {
+                continue;
+            }
+
+            // Look up journal
+            $journalId = $conn->fetchOne(
+                'SELECT id FROM qualis_journal WHERE normalized_issn = ?',
+                [$normalizedIssn]
+            );
+
+            if (!$journalId) {
+                // Register missing journal
+                $title = null;
+
+                // Try Crossref first
+                $url = 'https://api.crossref.org/journals/' . urlencode($rawIssn);
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+                curl_setopt($ch, CURLOPT_USERAGENT, 'BiblioMap/1.0 (https://bibliomap.wab.com.br; mailto:admin@wab.com.br)');
+                $responseBody = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200 && $responseBody) {
+                    $data = json_decode($responseBody, true);
+                    $title = $data['message']['title'] ?? null;
+                }
+
+                if (!$title) {
+                    $title = $sourceTitle;
+                }
+
+                try {
+                    $conn->insert('qualis_journal', [
+                        'title' => substr($title, 0, 500),
+                        'issn' => $rawIssn,
+                        'normalized_issn' => $normalizedIssn,
+                        'qualis' => null,
+                    ]);
+                    $journalId = $conn->lastInsertId();
+                } catch (\Throwable) {
+                    // Fetch in case it was inserted in parallel
+                    $journalId = $conn->fetchOne(
+                        'SELECT id FROM qualis_journal WHERE normalized_issn = ?',
+                        [$normalizedIssn]
+                    );
+                }
+            }
+
+            if ($journalId && isset($dbCache[$source])) {
+                $dbId = $dbCache[$source];
+                // Check if already linked
+                $exists = $conn->fetchOne('
+                    SELECT 1 FROM qualis_journal_academic_database 
+                    WHERE qualis_journal_id = ? AND academic_database_id = ?
+                ', [$journalId, $dbId]);
+
+                if (!$exists) {
+                    try {
+                        $conn->insert('qualis_journal_academic_database', [
+                            'qualis_journal_id' => $journalId,
+                            'academic_database_id' => $dbId,
+                        ]);
+                    } catch (\Throwable) {
+                        // ignore duplicate key exceptions
+                    }
+                }
+            }
+        }
+
+        // Re-run the linking query to link documents to any newly created journals
+        $this->enrichQualis($projectId, $conn);
     }
 }

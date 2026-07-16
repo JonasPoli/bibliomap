@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\AcademicDatabase;
 use App\Entity\QualisJournal;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Reader;
@@ -30,6 +31,19 @@ class AdminJournalController extends AbstractController
         $limit = 100;
         $offset = ($page - 1) * $limit;
 
+        $sort = $request->query->getString('sort', 'title');
+        $direction = strtoupper($request->query->getString('direction', 'ASC'));
+        if (!in_array($direction, ['ASC', 'DESC'])) {
+            $direction = 'ASC';
+        }
+
+        $allowedSortFields = [
+            'title' => 'q.title',
+            'issn' => 'q.issn',
+            'qualis' => 'q.qualis',
+        ];
+        $sortField = $allowedSortFields[$sort] ?? 'q.title';
+
         $qb = $this->em->createQueryBuilder()
             ->select('q')
             ->from(QualisJournal::class, 'q');
@@ -49,7 +63,7 @@ class AdminJournalController extends AbstractController
         $totalResults = (int)$countQb->select('COUNT(q.id)')->getQuery()->getSingleScalarResult();
         $totalPages = ceil($totalResults / $limit);
 
-        $journals = $qb->orderBy('q.title', 'ASC')
+        $journals = $qb->orderBy($sortField, $direction)
             ->setFirstResult($offset)
             ->setMaxResults($limit)
             ->getQuery()
@@ -61,7 +75,9 @@ class AdminJournalController extends AbstractController
             'qualis' => $qualis,
             'currentPage' => $page,
             'totalPages' => $totalPages,
-            'totalResults' => $totalResults
+            'totalResults' => $totalResults,
+            'currentSort' => $sort,
+            'currentDirection' => $direction,
         ]);
     }
 
@@ -88,7 +104,8 @@ class AdminJournalController extends AbstractController
             if ($title === '' || $issn === '') {
                 $this->addFlash('danger', 'Título e ISSN são campos obrigatórios.');
                 return $this->render('admin/journals/new.html.twig', [
-                    'journal' => $journal
+                    'journal' => $journal,
+                    'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
                 ]);
             }
 
@@ -99,7 +116,8 @@ class AdminJournalController extends AbstractController
             if ($existing) {
                 $this->addFlash('danger', "Já existe um periódico cadastrado com o ISSN {$issn}.");
                 return $this->render('admin/journals/new.html.twig', [
-                    'journal' => $journal
+                    'journal' => $journal,
+                    'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
                 ]);
             }
 
@@ -107,6 +125,17 @@ class AdminJournalController extends AbstractController
             $journal->setIssn($issn);
             $journal->setNormalizedIssn($normalizedIssn);
             $journal->setQualis($qualisVal !== '' ? $qualisVal : null);
+
+            // Handle academic databases association
+            $selectedDbIds = $request->request->all()['academic_databases'] ?? [];
+            if (is_array($selectedDbIds)) {
+                foreach ($selectedDbIds as $dbId) {
+                    $db = $this->em->find(AcademicDatabase::class, (int)$dbId);
+                    if ($db) {
+                        $journal->addAcademicDatabase($db);
+                    }
+                }
+            }
 
             $this->em->persist($journal);
             $this->em->flush();
@@ -116,7 +145,8 @@ class AdminJournalController extends AbstractController
         }
 
         return $this->render('admin/journals/new.html.twig', [
-            'journal' => $journal
+            'journal' => $journal,
+            'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
         ]);
     }
 
@@ -161,7 +191,8 @@ class AdminJournalController extends AbstractController
             if ($title === '' || $issn === '') {
                 $this->addFlash('danger', 'Título e ISSN são campos obrigatórios.');
                 return $this->render('admin/journals/edit.html.twig', [
-                    'journal' => $journal
+                    'journal' => $journal,
+                    'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
                 ]);
             }
 
@@ -173,7 +204,8 @@ class AdminJournalController extends AbstractController
                 if ($existing) {
                     $this->addFlash('danger', "Já existe outro periódico cadastrado com o ISSN {$issn}.");
                     return $this->render('admin/journals/edit.html.twig', [
-                        'journal' => $journal
+                        'journal' => $journal,
+                        'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
                     ]);
                 }
             }
@@ -183,6 +215,18 @@ class AdminJournalController extends AbstractController
             $journal->setNormalizedIssn($normalizedIssn);
             $journal->setQualis($qualisVal !== '' ? $qualisVal : null);
 
+            // Handle academic databases association
+            $journal->getAcademicDatabases()->clear();
+            $selectedDbIds = $request->request->all()['academic_databases'] ?? [];
+            if (is_array($selectedDbIds)) {
+                foreach ($selectedDbIds as $dbId) {
+                    $db = $this->em->find(AcademicDatabase::class, (int)$dbId);
+                    if ($db) {
+                        $journal->addAcademicDatabase($db);
+                    }
+                }
+            }
+
             $this->em->flush();
 
             $this->addFlash('success', 'Periódico atualizado com sucesso!');
@@ -190,7 +234,8 @@ class AdminJournalController extends AbstractController
         }
 
         return $this->render('admin/journals/edit.html.twig', [
-            'journal' => $journal
+            'journal' => $journal,
+            'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
         ]);
     }
 

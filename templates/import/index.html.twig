@@ -196,6 +196,19 @@
                 <button class="src-tab" data-src="crossref">
                     <span class="src-tab-img">{{ source_logo('crossref', 18) }}</span> Crossref
                 </button>
+                {% for db in databases %}
+                    {% if db.acronym not in ['scopus', 'wos', 'lens', 'pubmed', 'openalex', 'crossref', 'generic'] %}
+                        <button class="src-tab" data-src="{{ db.acronym }}">
+                            <span class="src-tab-img">
+                                {% if db.logo %}
+                                    {{ source_logo(db.acronym, 18) }}
+                                {% else %}
+                                    <span style="font-size:16px">📄</span>
+                                {% endif %}
+                            </span> {{ db.name }}
+                        </button>
+                    {% endif %}
+                {% endfor %}
                 <button class="src-tab" data-src="other">
                     <span style="font-size:16px">📄</span> Outra base
                 </button>
@@ -573,6 +586,43 @@
                     </div></li>
                 </ol>
             </div>
+
+            {# ════ DYNAMIC BASES ════ #}
+            {% for db in databases %}
+                {% if db.acronym not in ['scopus', 'wos', 'lens', 'pubmed', 'openalex', 'crossref', 'generic'] %}
+                    <div class="src-panel" id="panel-{{ db.acronym }}">
+                        <div class="src-header">
+                            <div class="src-logo-box">
+                                {% if db.logo %}
+                                    {{ source_logo(db.acronym, 36) }}
+                                {% else %}
+                                    <div class="src-logo" style="background:#1e2d45;color:var(--bm-accent)">📄</div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div style="font-size:15px;font-weight:700;color:var(--bm-text)">{{ db.name }}</div>
+                                <div style="font-size:12px;color:var(--bm-text-muted)">
+                                    {{ db.url ? db.url ~ ' · ' : '' }}
+                                    Formatos aceitos: 
+                                    {% for fmt in db.fileFormats %}
+                                        <span class="badge bg-secondary" style="font-size:10px">{{ fmt }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="font-size:13.5px;color:var(--bm-text);line-height:1.6;margin-top:10px">
+                            {% if db.importInstructions %}
+                                {{ db.importInstructions|nl2br }}
+                            {% else %}
+                                <p class="text-muted-bm">{{ db.description|default('Nenhuma instrução de importação cadastrada para esta base.') }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
 
             {# ════ OUTRA BASE ════ #}
             <div class="src-panel" id="panel-other">

@@ -35,7 +35,11 @@ class ImportController extends AbstractController
     public function index(int $projectId): Response
     {
         $project = $this->getProject($projectId);
-        return $this->render('import/index.html.twig', ['project' => $project]);
+        $databases = $this->em->getRepository(\App\Entity\AcademicDatabase::class)->findBy([], ['name' => 'ASC']);
+        return $this->render('import/index.html.twig', [
+            'project' => $project,
+            'databases' => $databases,
+        ]);
     }
 
     // ── Step 2: Receive file, detect format, show preview ────────────────────

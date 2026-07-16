@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Base de Dados — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{{ path('app_admin_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Admin</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <a href="{{ path('app_admin_academic_databases_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Bases de Dados</a>
+    <span style="margin:0 6px;color:var(--bm-border)">/</span>
+    <span class="current">Editar Base</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Base de Dados Acadêmica
+    </h1>
+    <p class="bm-page-subtitle">Modifique as informações de cadastro, formatos e colunas de assinatura para detecção automática.</p>
+</div>
+
+<div class="bm-card col-lg-8">
+    <form method="POST" action="{{ path('app_admin_academic_databases_edit', {id: database.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('admin_database_edit_' ~ database.id) }}">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Nome da Base *</label>
+                <input type="text" name="name" class="form-control" value="{{ database.name }}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Sigla/Chave de Identificação *</label>
+                <input type="text" name="acronym" class="form-control" value="{{ database.acronym }}" required>
+                <small class="text-muted-bm" style="font-size:11px">Deve ser em letras minúsculas (ex: scopus, wos, scielo, lens).</small>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">URL Principal (Website)</label>
+                <input type="url" name="url" class="form-control" value="{{ database.url }}">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Caminho do Logo</label>
+                <input type="text" name="logo" class="form-control" value="{{ database.logo }}">
+                <small class="text-muted-bm" style="font-size:11px">Caminho relativo a /public (ex: /img/Scopus_logo.svg).</small>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Formatos de Arquivo Suportados</label>
+                <input type="text" name="fileFormats" class="form-control" value="{{ database.fileFormats ? database.fileFormats|join(', ') : '' }}" placeholder="Ex: csv, ris, txt">
+                <small class="text-muted-bm" style="font-size:11px">Formatos separados por vírgula (ex: csv, ris).</small>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Colunas de Assinatura (para detecção automática em arquivos CSV)</label>
+                <textarea name="signatureColumns" class="form-control" rows="4" placeholder="PMID&#10;Title&#10;Authors&#10;Citation">{{ database.signatureColumns ? database.signatureColumns|join('\n') : '' }}</textarea>
+                <small class="text-muted-bm" style="font-size:11px">Uma coluna por linha. O sistema calcula a taxa de acerto de cabeçalho com base nestas colunas.</small>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Descrição</label>
+                <textarea name="description" class="form-control" rows="3">{{ database.description }}</textarea>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Instruções para Exportação/Importação (Markdown/HTML)</label>
+                <textarea name="importInstructions" class="form-control" rows="6">{{ database.importInstructions }}</textarea>
+                <small class="text-muted-bm" style="font-size:11px">Estas instruções serão exibidas no painel de importação ao selecionar esta base.</small>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{{ path('app_admin_academic_databases_index') }}" class="btn btn-bm-secondary" style="text-decoration:none">Cancelar</a>
+            <button type="submit" class="btn btn-bm-primary">Salvar Alterações</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

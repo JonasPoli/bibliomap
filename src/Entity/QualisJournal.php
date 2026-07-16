@@ -2,6 +2,8 @@
 
 namespace App\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -13,6 +15,16 @@ class QualisJournal
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
+
+    /** @var Collection<int, AcademicDatabase> */
+    #[ORM\ManyToMany(targetEntity: AcademicDatabase::class, inversedBy: 'journals')]
+    #[ORM\JoinTable(name: 'qualis_journal_academic_database')]
+    private Collection $academicDatabases;
+
+    public function __construct()
+    {
+        $this->academicDatabases = new ArrayCollection();
+    }
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $issn = null;
@@ -72,6 +84,28 @@ class QualisJournal
     public function setQualis(?string $qualis): self
     {
         $this->qualis = $qualis;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, AcademicDatabase>
+     */
+    public function getAcademicDatabases(): Collection
+    {
+        return $this->academicDatabases;
+    }
+
+    public function addAcademicDatabase(AcademicDatabase $academicDatabase): self
+    {
+        if (!$this->academicDatabases->contains($academicDatabase)) {
+            $this->academicDatabases->add($academicDatabase);
+        }
+        return $this;
+    }
+
+    public function removeAcademicDatabase(AcademicDatabase $academicDatabase): self
+    {
+        $this->academicDatabases->removeElement($academicDatabase);
         return $this;
     }
 }
