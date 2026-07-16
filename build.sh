@@ -44,17 +44,34 @@ for arg in "$@"; do
 done
 
 # ── Seleciona binário PHP ─────────────────────────────────────────────────────
-if $IS_PROD; then
+PHP=""
+
+# 1. Se existir o binário específico do RunCloud (PHP 8.4), prioriza ele
+if [ -x "/RunCloud/Packages/php84rc/bin/php" ]; then
     PHP="/RunCloud/Packages/php84rc/bin/php"
-else
-    # Tenta php84; se não existir, cai para php
-    if command -v php84 &>/dev/null; then
-        PHP="php84"
-    elif command -v php &>/dev/null; then
+fi
+
+# 2. Senão, tenta outros candidatos conhecidos para PHP 8.4
+if [ -z "$PHP" ]; then
+    for candidate in php8.4 php84; do
+        if command -v "$candidate" &>/dev/null; then
+            PHP="$candidate"
+            break
+        fi
+    done
+fi
+
+# 3. Fallback para 'php' genérico do sistema
+if [ -z "$PHP" ]; then
+    if command -v php &>/dev/null; then
         PHP="php"
-        echo -e "${YELLOW}⚠  'php84' não encontrado — usando '$(command -v php)'${NC}"
+        # Alerta caso o php padrão do sistema seja menor que 8.4
+        PHP_VER_ID=$("$PHP" -r "echo PHP_VERSION_ID;" 2>/dev/null || echo "0")
+        if [ "$PHP_VER_ID" -lt 80400 ]; then
+            echo -e "${YELLOW}⚠  Atenção: usando '$(command -v php)' (versão menor que 8.4), o build pode falhar.${NC}"
+        fi
     else
-        echo -e "${RED}✗  Nenhum binário PHP encontrado. Instale php84 ou passe --prod.${NC}"
+        echo -e "${RED}✗  Nenhum binário PHP encontrado. Instale php8.4 ou configure o PATH.${NC}"
         exit 1
     fi
 fi
@@ -138,19 +155,25 @@ else
 fi
 
 # ── 5. Composer install / autoloader ─────────────────────────────────────────
+# Localiza o composer de forma robusta
+COMPOSER_PATH=""
+for candidate in /usr/local/bin/composer /usr/bin/composer "$HOME/.composer/vendor/bin/composer"; do
+    if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+        COMPOSER_PATH="$candidate"
+        break
+    fi
+done
+if [ -z "$COMPOSER_PATH" ]; then
+    if command -v composer &>/dev/null; then
+        COMPOSER_PATH="$(command -v composer)"
+    fi
+fi
+
 if $IS_PROD; then
     step "Rodando composer install (produção)..."
 
-    # Localiza o composer
-    COMPOSER_BIN=""
-    for candidate in /usr/local/bin/composer /usr/bin/composer "$HOME/.composer/vendor/bin/composer" composer; do
-        if "$PHP" "$candidate" --version &>/dev/null 2>&1 || command -v "$candidate" &>/dev/null; then
-            COMPOSER_BIN="$candidate"; break
-        fi
-    done
-
-    if [ -n "$COMPOSER_BIN" ]; then
-        "$PHP" "$COMPOSER_BIN" install \
+    if [ -n "$COMPOSER_PATH" ]; then
+        "$PHP" "$COMPOSER_PATH" install \
             --no-dev \
             --optimize-autoloader \
             --no-interaction \
@@ -162,7 +185,11 @@ if $IS_PROD; then
     fi
 else
     step "Regenerando autoloader do Composer..."
-    composer dump-autoload --optimize 2>/dev/null && ok "Autoloader regenerado" || skip "composer não disponível no PATH"
+    if [ -n "$COMPOSER_PATH" ]; then
+        "$PHP" "$COMPOSER_PATH" dump-autoload --optimize 2>/dev/null && ok "Autoloader regenerado" || skip "Falha ao rodar composer dump-autoload"
+    else
+        skip "composer não disponível"
+    fi
 fi
 
 # ── 6. Arquivos compilados de assets (AssetMapper) ────────────────────────────
