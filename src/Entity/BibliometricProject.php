@@ -63,6 +63,10 @@ class BibliometricProject
     #[ORM\Column(nullable: true)]
     private ?int $endYear = null;
 
+    /** Minimum publication year for classification — documents before this are routed to noise */
+    #[ORM\Column(nullable: true)]
+    private ?int $classificationMinYear = null;
+
     #[ORM\Column(length: 50, options: ['default' => 'draft'])]
     private string $status = self::STATUS_DRAFT;
 
@@ -123,6 +127,9 @@ class BibliometricProject
 
     public function getEndYear(): ?int { return $this->endYear; }
     public function setEndYear(?int $v): static { $this->endYear = $v; return $this; }
+
+    public function getClassificationMinYear(): ?int { return $this->classificationMinYear; }
+    public function setClassificationMinYear(?int $v): static { $this->classificationMinYear = $v; return $this; }
 
     public function getStatus(): string { return $this->status; }
     public function setStatus(string $status): static { $this->status = $status; return $this; }

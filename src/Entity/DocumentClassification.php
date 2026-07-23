@@ -9,7 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'document_classification')]
 #[ORM\Index(fields: ['project'])]
 #[ORM\Index(fields: ['document'])]
-#[ORM\UniqueConstraint(name: 'uniq_doc_classification', columns: ['document_id', 'project_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_doc_group_classification', columns: ['document_id', 'project_id', 'group_id'])]
 class DocumentClassification
 {
     #[ORM\Id]

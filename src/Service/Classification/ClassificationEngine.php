@@ -12,11 +12,13 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * ClassificationEngine
  *
- * Replicates the logic of classifica.php:
- *   1. Validator groups   — document MUST contain at least one validator term; otherwise → noise group
- *   2. Noise groups       — if any noise term found → routed to the noise group (first noise group wins)
- *   3. Normal groups      — first matching normal group wins (ordered by position)
- *   4. Unclassified group — document had validators but matched no normal group
+ * Replicates the full logic of classifica.php + gerar-vosviewer-categorias pipeline:
+ *
+ *   1. Temporal filter   — documents with year < minYear → noise group
+ *   2. Noise groups      — if any noise term found → routed to the noise group
+ *   3. Validator groups   — document MUST contain at least one validator term; otherwise → noise group
+ *   4. Normal groups      — ALL matching normal groups are assigned (multi-classification)
+ *   5. Unclassified group — document had validators but matched no normal group
  */
 class ClassificationEngine
 {
@@ -30,7 +32,7 @@ class ClassificationEngine
      * Run full classification for all documents in a project.
      * Clears previous results before inserting new ones.
      *
-     * @return array{total: int, by_group: array<string, int>, unclassified: int, noise: int}
+     * @return array{total: int, by_group: array<string, int>, unclassified: int, noise: int, multi: int}
      */
     public function run(BibliometricProject $project): array
     {
@@ -50,11 +52,16 @@ class ClassificationEngine
         $noiseTermMap   = $this->buildTermMap($noiseGroups);
         $normalTermMap  = $this->buildTermMap($normalGroups);
 
+        // Get temporal filter
+        $minYear = $project->getClassificationMinYear();
+
         // 3. Fetch all documents for the project via raw SQL for performance
+        //    Include both keyword_display and original_term for full coverage (Keywords Plus)
         $conn = $this->em->getConnection();
         $docs = $conn->fetchAllAssociative(
-            'SELECT d.id, d.title, d.abstract_text,
-                    GROUP_CONCAT(DISTINCT k.keyword_display SEPARATOR " ") AS keywords
+            'SELECT d.id, d.title, d.abstract_text, d.year,
+                    GROUP_CONCAT(DISTINCT COALESCE(k.keyword_display, dk.original_term) SEPARATOR " ") AS keywords,
+                    GROUP_CONCAT(DISTINCT dk.original_term SEPARATOR " ") AS keywords_original
              FROM document d
              LEFT JOIN document_keyword dk ON dk.document_id = d.id
              LEFT JOIN keyword k ON k.id = dk.keyword_id
@@ -63,35 +70,55 @@ class ClassificationEngine
             [$project->getId()]
         );
 
-        $stats      = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0];
+        $stats      = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0, 'multi' => 0];
         $batchSize  = 100;
         $count      = 0;
 
         $now = new \DateTimeImmutable();
 
         foreach ($docs as $row) {
+            // Build the full text for analysis — mirrors classifica.php's approach:
+            // TI + DE + ID + AB  (title + author_keywords + keywords_plus + abstract)
             $text = strtolower(
                 ($row['title'] ?? '') . ' ' .
                 ($row['abstract_text'] ?? '') . ' ' .
-                ($row['keywords'] ?? '')
+                ($row['keywords'] ?? '') . ' ' .
+                ($row['keywords_original'] ?? '')
             );
 
-            $assignedGroup = null;
-            $matchedTerm   = null;
+            $assignedGroups = [];
+            $isNoise = false;
 
-            // Step A: Check noise terms first
-            foreach ($noiseTermMap as $groupId => $terms) {
-                foreach ($terms as $term) {
-                    if ($term !== '' && str_contains($text, $term)) {
-                        $assignedGroup = $this->findGroupById($allGroups, $groupId);
-                        $matchedTerm   = $term;
-                        break 2;
+            // Step A: Temporal filter — year < minYear → noise
+            if ($minYear !== null) {
+                $year = $row['year'] ?? null;
+                if ($year !== null && (int)$year > 0 && (int)$year < $minYear) {
+                    $noiseGroup = reset($noiseGroups) ?: null;
+                    if ($noiseGroup) {
+                        $assignedGroups[] = ['group' => $noiseGroup, 'term' => 'year<' . $minYear];
+                    }
+                    $isNoise = true;
+                }
+            }
+
+            // Step B: Check noise terms
+            if (!$isNoise) {
+                foreach ($noiseTermMap as $groupId => $terms) {
+                    foreach ($terms as $term) {
+                        if ($term !== '' && str_contains($text, $term)) {
+                            $assignedGroups[] = [
+                                'group' => $this->findGroupById($allGroups, $groupId),
+                                'term' => $term,
+                            ];
+                            $isNoise = true;
+                            break 2;
+                        }
                     }
                 }
             }
 
-            // Step B: Validate (must have at least one validator term)
-            if ($assignedGroup === null && !empty($validatorTerms)) {
+            // Step C: Validate (must have at least one validator term)
+            if (!$isNoise && !empty($validatorTerms)) {
                 $passedValidation = false;
                 foreach ($validatorTerms as $groupId => $terms) {
                     foreach ($terms as $term) {
@@ -103,54 +130,69 @@ class ClassificationEngine
                 }
                 if (!$passedValidation) {
                     // Fails validation → route to first noise group
-                    $assignedGroup = reset($noiseGroups) ?: null;
-                    $matchedTerm   = null;
+                    $noiseGroup = reset($noiseGroups) ?: null;
+                    if ($noiseGroup) {
+                        $assignedGroups[] = ['group' => $noiseGroup, 'term' => null];
+                    }
+                    $isNoise = true;
                 }
             }
 
-            // Step C: Match normal groups
-            if ($assignedGroup === null) {
+            // Step D: Match ALL normal groups (multi-classification)
+            if (!$isNoise) {
                 foreach ($normalTermMap as $groupId => $terms) {
                     foreach ($terms as $term) {
                         if ($term !== '' && str_contains($text, $term)) {
-                            $assignedGroup = $this->findGroupById($allGroups, $groupId);
-                            $matchedTerm   = $term;
-                            break 2;
+                            $assignedGroups[] = [
+                                'group' => $this->findGroupById($allGroups, $groupId),
+                                'term' => $term,
+                            ];
+                            break; // Found a match for this group, move to next group
                         }
                     }
                 }
             }
 
-            // Step D: Unclassified if no match
-            if ($assignedGroup === null) {
-                $assignedGroup = $uncGroup;
+            // Step E: Unclassified if no match
+            if (empty($assignedGroups)) {
+                $assignedGroups[] = ['group' => $uncGroup, 'term' => null];
             }
 
-            // Insert result using raw SQL for bulk performance
-            $this->em->getConnection()->executeStatement(
-                'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override)
-                 VALUES (?, ?, ?, ?, ?, 0)
-                 ON DUPLICATE KEY UPDATE group_id = VALUES(group_id), matched_term = VALUES(matched_term), run_at = VALUES(run_at), manual_override = 0',
-                [
-                    $row['id'],
-                    $assignedGroup?->getId(),
-                    $project->getId(),
-                    $matchedTerm,
-                    $now->format('Y-m-d H:i:s'),
-                ]
-            );
+            // Track multi-classification
+            if (count($assignedGroups) > 1 && !$isNoise) {
+                $stats['multi']++;
+            }
 
-            // Update stats
-            $stats['total']++;
-            if ($assignedGroup) {
-                $gName = $assignedGroup->getName();
-                $stats['by_group'][$gName] = ($stats['by_group'][$gName] ?? 0) + 1;
-                if ($assignedGroup->getType() === ClassificationGroup::TYPE_NOISE) {
-                    $stats['noise']++;
-                } elseif ($assignedGroup->getType() === ClassificationGroup::TYPE_UNCLASSIFIED) {
-                    $stats['unclassified']++;
+            // Insert results — one row per assigned group
+            foreach ($assignedGroups as $assignment) {
+                $group = $assignment['group'];
+                $matchedTerm = $assignment['term'];
+
+                $this->em->getConnection()->executeStatement(
+                    'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override)
+                     VALUES (?, ?, ?, ?, ?, 0)
+                     ON DUPLICATE KEY UPDATE matched_term = VALUES(matched_term), run_at = VALUES(run_at), manual_override = 0',
+                    [
+                        $row['id'],
+                        $group?->getId(),
+                        $project->getId(),
+                        $matchedTerm,
+                        $now->format('Y-m-d H:i:s'),
+                    ]
+                );
+
+                // Update stats
+                if ($group) {
+                    $gName = $group->getName();
+                    $stats['by_group'][$gName] = ($stats['by_group'][$gName] ?? 0) + 1;
                 }
-            } else {
+            }
+
+            // Count noise and unclassified at document level
+            $stats['total']++;
+            if ($isNoise) {
+                $stats['noise']++;
+            } elseif (count($assignedGroups) === 1 && $assignedGroups[0]['group']?->getType() === ClassificationGroup::TYPE_UNCLASSIFIED) {
                 $stats['unclassified']++;
             }
 

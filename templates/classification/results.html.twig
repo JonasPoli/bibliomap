@@ -17,14 +17,30 @@
         <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </a>
+        <a href="{{ path('app_classification_export_vosviewer', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
+            <i class="bi bi-diagram-3 me-1"></i> VOSviewer
+        </a>
         <form action="{{ path('app_classification_run', {id: project.id}) }}" method="post" class="d-inline">
             <input type="hidden" name="_token" value="{{ csrf_token('clf_run_' ~ project.id) }}">
+            {% if project.classificationMinYear %}
+            <input type="hidden" name="min_year" value="{{ project.classificationMinYear }}">
+            {% endif %}
             <button type="submit" class="btn btn-bm-primary" style="font-size:12.5px">
                 <i class="bi bi-arrow-clockwise me-1"></i> Re-executar
             </button>
         </form>
     </div>
 </div>
+
+{% if totalDocs is defined and totalDocs > 0 %}
+<div class="mb-2" style="font-size:12px;color:var(--bm-text-muted)">
+    <i class="bi bi-file-earmark-text me-1"></i>
+    <strong style="color:var(--bm-text)">{{ totalDocs }}</strong> documentos únicos classificados
+    {% if project.classificationMinYear %}
+        · <i class="bi bi-calendar-minus me-1"></i>Filtro: ano ≥ <strong style="color:var(--bm-warning)">{{ project.classificationMinYear }}</strong>
+    {% endif %}
+</div>
+{% endif %}
 
 {% for label, messages in app.flashes %}
     {% for msg in messages %}
@@ -181,6 +197,17 @@
                 {% if doc.sourceTitle %} · <em>{{ doc.sourceTitle|slice(0,60) }}</em>{% endif %}
                 {% if doc.citedBy %} · <span style="color:var(--bm-warning)"><i class="bi bi-quote"></i> {{ doc.citedBy }}</span>{% endif %}
             </div>
+
+            {# Multi-group badges — show all groups this document belongs to #}
+            {% set otherGroups = docGroupNames[doc.id] ?? [] %}
+            {% if otherGroups|length > 1 %}
+            <div class="mb-2 d-flex flex-wrap gap-1 align-items-center">
+                <span style="font-size:10px;color:var(--bm-text-muted);margin-right:2px"><i class="bi bi-collection me-1"></i>Grupos:</span>
+                {% for gName in otherGroups %}
+                <span style="font-size:10px;background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.2);border-radius:4px;padding:2px 6px;color:var(--bm-accent)">{{ gName }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {# Matched term badge #}
             {% if clf.matchedTerm %}

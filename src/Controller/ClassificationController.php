@@ -139,14 +139,24 @@ class ClassificationController extends AbstractController
             return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
         }
 
+        // Save min_year setting from the form
+        $minYearRaw = $request->request->get('min_year', '');
+        $minYear = ($minYearRaw !== '' && $minYearRaw !== null) ? (int) $minYearRaw : null;
+        $project->setClassificationMinYear($minYear);
+        $this->em->flush();
+
         try {
             $stats = $this->engine->run($project);
+            $multiMsg = $stats['multi'] > 0
+                ? sprintf(', %d em múltiplos grupos', $stats['multi'])
+                : '';
             $this->addFlash('success', sprintf(
-                '✅ Classificação concluída! %d documentos processados — %d classificados, %d ruído, %d sem grupo.',
+                '✅ Classificação concluída! %d documentos processados — %d classificados, %d ruído, %d sem grupo%s.',
                 $stats['total'],
                 $stats['total'] - $stats['noise'] - $stats['unclassified'],
                 $stats['noise'],
-                $stats['unclassified']
+                $stats['unclassified'],
+                $multiMsg
             ));
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro ao executar classificação: ' . $e->getMessage());
@@ -167,6 +177,7 @@ class ClassificationController extends AbstractController
         $groups    = $this->groupRepo->findByProject($project->getId());
         $counts    = $this->classRepo->countByGroup($project->getId());
         $hasResult = $this->classRepo->hasResults($project->getId());
+        $totalDocs = $this->classRepo->countDistinctDocuments($project->getId());
 
         $activeGroupId = $request->query->get('group');
         $activeGroup   = null;
@@ -201,6 +212,15 @@ class ClassificationController extends AbstractController
             }
         }
 
+        // Build a map of documentId => [group names] for multi-classification display
+        $docGroupNames = [];
+        foreach ($documents as $dc) {
+            $docId = $dc->getDocument()?->getId();
+            if ($docId && !isset($docGroupNames[$docId])) {
+                $docGroupNames[$docId] = $this->classRepo->findGroupNamesByDocument($docId, $project->getId());
+            }
+        }
+
         return $this->render('classification/results.html.twig', [
             'project'       => $project,
             'groups'        => $groups,
@@ -213,6 +233,8 @@ class ClassificationController extends AbstractController
             'totalPages'    => $totalPages,
             'total'         => $total,
             'limit'         => $limit,
+            'totalDocs'     => $totalDocs,
+            'docGroupNames' => $docGroupNames,
         ]);
     }
 
@@ -258,29 +280,34 @@ class ClassificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
+        // Fetch all classifications with groups, aggregating groups per document
         $rows = $this->em->getConnection()->fetchAllAssociative(
-            'SELECT d.title, d.abstract_text, d.year, d.doi,
-                    g.name AS group_name, g.type AS group_type,
-                    dc.matched_term, dc.manual_override, dc.run_at
+            'SELECT d.id AS doc_id, d.title, d.abstract_text, d.year, d.doi,
+                    GROUP_CONCAT(DISTINCT g.name ORDER BY g.position SEPARATOR "|") AS group_names,
+                    GROUP_CONCAT(DISTINCT g.type ORDER BY g.position SEPARATOR "|") AS group_types,
+                    GROUP_CONCAT(DISTINCT dc.matched_term SEPARATOR "|") AS matched_terms,
+                    MAX(dc.manual_override) AS manual_override,
+                    MAX(dc.run_at) AS run_at
              FROM document_classification dc
              JOIN document d ON d.id = dc.document_id
              LEFT JOIN classification_group g ON g.id = dc.group_id
              WHERE dc.project_id = ?
-             ORDER BY g.name, d.year DESC',
+             GROUP BY d.id
+             ORDER BY group_names, d.year DESC',
             [$project->getId()]
         );
 
         $csv = "\xEF\xBB\xBF"; // BOM UTF-8
-        $csv .= "Título;Ano;DOI;Grupo;Tipo;Termo Correspondido;Override Manual;Data Classificação\r\n";
+        $csv .= "Título;Ano;DOI;Grupos;Tipos;Termos Correspondidos;Override Manual;Data Classificação\r\n";
         foreach ($rows as $r) {
             $csv .= sprintf(
                 '"%s";%s;"%s";"%s";"%s";"%s";%s;"%s"' . "\r\n",
                 str_replace('"', '""', $r['title'] ?? ''),
                 $r['year'] ?? '',
                 $r['doi'] ?? '',
-                str_replace('"', '""', $r['group_name'] ?? 'Sem Classificação'),
-                $r['group_type'] ?? '',
-                str_replace('"', '""', $r['matched_term'] ?? ''),
+                str_replace('"', '""', $r['group_names'] ?? 'Sem Classificação'),
+                $r['group_types'] ?? '',
+                str_replace('"', '""', $r['matched_terms'] ?? ''),
                 $r['manual_override'] ? 'Sim' : 'Não',
                 $r['run_at'] ?? '',
             );
@@ -290,6 +317,42 @@ class ClassificationController extends AbstractController
 
         return new Response($csv, 200, [
             'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    // ─── Export VOSviewer Categories ──────────────────────────────────────────
+
+    #[Route('/export-vosviewer', name: 'export_vosviewer', methods: ['GET'])]
+    public function exportVosviewer(BibliometricProject $project): Response
+    {
+        $this->denyAccessUnlessGranted('view', $project);
+
+        // Fetch all documents with their non-noise, non-unclassified group names
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT d.id AS doc_id,
+                    GROUP_CONCAT(DISTINCT g.name ORDER BY g.position SEPARATOR ";") AS group_names
+             FROM document_classification dc
+             JOIN document d ON d.id = dc.document_id
+             JOIN classification_group g ON g.id = dc.group_id
+             WHERE dc.project_id = ?
+               AND g.type = ?
+             GROUP BY d.id
+             ORDER BY d.id',
+            [$project->getId(), ClassificationGroup::TYPE_NORMAL]
+        );
+
+        $content = "label\n";
+        foreach ($rows as $r) {
+            if (!empty($r['group_names'])) {
+                $content .= $r['group_names'] . "\n";
+            }
+        }
+
+        $filename = 'vosviewer-categorias-' . $project->getId() . '.txt';
+
+        return new Response($content, 200, [
+            'Content-Type'        => 'text/plain; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ]);
     }

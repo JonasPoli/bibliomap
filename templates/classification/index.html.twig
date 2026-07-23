@@ -18,6 +18,9 @@
         <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </a>
+        <a href="{{ path('app_classification_export_vosviewer', {id: project.id}) }}" class="btn btn-bm-secondary">
+            <i class="bi bi-diagram-3 me-1"></i> VOSviewer
+        </a>
         {% endif %}
         <a href="{{ path('app_classification_group_new', {id: project.id}) }}" class="btn btn-bm-primary">
             <i class="bi bi-plus-lg me-1"></i> Novo Grupo
@@ -160,7 +163,12 @@
             </h6>
             <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.55;margin-bottom:16px">
                 Processa todos os documentos do projeto em sequência:<br>
-                <strong style="color:var(--bm-warning)">① Validadores</strong> → <strong style="color:var(--bm-danger)">② Ruído</strong> → <strong style="color:var(--bm-accent)">③ Temático</strong> → <strong style="color:var(--bm-text-muted)">④ Sem grupo</strong>
+                <strong style="color:var(--bm-text-muted)">⓪ Filtro Temporal</strong> →
+                <strong style="color:var(--bm-danger)">① Ruído</strong> →
+                <strong style="color:var(--bm-warning)">② Validadores</strong> →
+                <strong style="color:var(--bm-accent)">③ Temáticos (todos)</strong> →
+                <strong style="color:var(--bm-text-muted)">④ Sem grupo</strong>
+                <br><span style="font-size:11px;color:var(--bm-text-muted)">Um documento pode ser classificado em <strong>múltiplos</strong> grupos temáticos.</span>
             </p>
 
             {% if groups|length == 0 %}
@@ -168,11 +176,26 @@
             {% else %}
             <form action="{{ path('app_classification_run', {id: project.id}) }}" method="post" id="runForm">
                 <input type="hidden" name="_token" value="{{ csrf_token('clf_run_' ~ project.id) }}">
+
+                <div class="mb-3">
+                    <label for="min_year" class="form-label" style="font-size:12.5px;color:var(--bm-text)">
+                        <i class="bi bi-calendar-minus me-1"></i>Ano Mínimo (filtro temporal)
+                    </label>
+                    <input type="number" id="min_year" name="min_year" class="form-control"
+                           value="{{ project.classificationMinYear }}"
+                           placeholder="Ex: 2000" min="1900" max="2100"
+                           style="font-size:13px">
+                    <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
+                        Documentos com ano &lt; este valor serão classificados como <strong style="color:var(--bm-danger)">Ruído</strong>.
+                        Deixe vazio para não filtrar.
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-bm-primary w-100" id="runBtn">
                     <i class="bi bi-play-fill me-1"></i> Executar Classificação
                 </button>
                 <div style="font-size:11px;color:var(--bm-text-muted);margin-top:8px;text-align:center">
-                    ⚠️ Sobrescreve resultados anteriores
+                    ⚠️ Sobrescreve resultados anteriores · Classifica em <strong>múltiplos grupos</strong>
                 </div>
             </form>
             {% endif %}

@@ -69,6 +69,35 @@ class DocumentClassificationRepository extends ServiceEntityRepository
         return $result;
     }
 
+    /** Count distinct documents (not classification rows) */
+    public function countDistinctDocuments(int $projectId): int
+    {
+        return (int) $this->createQueryBuilder('dc')
+            ->select('COUNT(DISTINCT dc.document)')
+            ->where('dc.project = :pid')
+            ->setParameter('pid', $projectId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Get all group names for a given document in a project.
+     * @return string[] group names
+     */
+    public function findGroupNamesByDocument(int $documentId, int $projectId): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT g.name
+             FROM document_classification dc
+             LEFT JOIN classification_group g ON g.id = dc.group_id
+             WHERE dc.document_id = ? AND dc.project_id = ?
+             ORDER BY g.position ASC',
+            [$documentId, $projectId]
+        );
+
+        return array_map(fn($r) => $r['name'] ?? 'Sem Classificação', $rows);
+    }
+
     public function deleteByProject(int $projectId): void
     {
         $this->createQueryBuilder('dc')
