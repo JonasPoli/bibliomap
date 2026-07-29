@@ -368,38 +368,6 @@
 </div>
 {% endblock %}
 
-{% block javascripts %}
-    {{ parent() }}
-    <script>
-        document.querySelectorAll('form').forEach(form => {
-            if (form.action.includes('/import')) {
-                form.addEventListener('submit', function(e) {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        setTimeout(() => {
-                            submitBtn.disabled = true;
-                        }, 50);
-
-                        const modal = form.closest('.modal');
-                        if (modal) {
-                            modal.querySelectorAll('button:not([type="submit"]), input, select, textarea').forEach(el => {
-                                setTimeout(() => { el.disabled = true; }, 50);
-                            });
-                        }
-
-                        let seconds = 0;
-                        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-
-                        setInterval(() => {
-                            seconds++;
-                            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-                        }, 1000);
-                    }
-                });
-            }
-        });
-    </script>
-
 <!-- Import Thesaurus Modal -->
 <div class="modal fade animate__animated animate__fadeIn" id="importThesaurusModal" tabindex="-1" aria-labelledby="importThesaurusModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -427,4 +395,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
 {% endblock %}

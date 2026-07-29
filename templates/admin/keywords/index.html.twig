@@ -194,33 +194,4 @@
 
 {% block javascripts %}
     {{ parent() }}
-    <script>
-        document.querySelectorAll('form').forEach(form => {
-            if (form.action.includes('/import')) {
-                form.addEventListener('submit', function(e) {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        setTimeout(() => {
-                            submitBtn.disabled = true;
-                        }, 50);
-
-                        const modal = form.closest('.modal');
-                        if (modal) {
-                            modal.querySelectorAll('button:not([type="submit"]), input, select, textarea').forEach(el => {
-                                setTimeout(() => { el.disabled = true; }, 50);
-                            });
-                        }
-
-                        let seconds = 0;
-                        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-
-                        setInterval(() => {
-                            seconds++;
-                            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-                        }, 1000);
-                    }
-                });
-            }
-        });
-    </script>
 {% endblock %}

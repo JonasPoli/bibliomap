@@ -579,6 +579,61 @@
                 }
             });
         }
+
+        // Global Import Loading Handler (forms)
+        document.querySelectorAll('form').forEach(form => {
+            const action = (form.getAttribute('action') || '').toLowerCase();
+            const id = (form.getAttribute('id') || '').toLowerCase();
+            
+            if (action.includes('import') || id.includes('import')) {
+                form.addEventListener('submit', function(e) {
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn && !submitBtn.disabled) {
+                        let seconds = 0;
+                        setTimeout(() => {
+                            submitBtn.disabled = true;
+                            const modal = form.closest('.modal');
+                            if (modal) {
+                                modal.querySelectorAll('button:not([type="submit"]), input, select, textarea').forEach(el => {
+                                    el.disabled = true;
+                                });
+                            }
+                        }, 50);
+
+                        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processando... (${seconds}s)`;
+
+                        setInterval(() => {
+                            seconds++;
+                            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processando... (${seconds}s)`;
+                        }, 1000);
+                    }
+                });
+            }
+        });
+
+        // Global Export Loading Handler (links)
+        document.querySelectorAll('a, button').forEach(el => {
+            const href = (el.getAttribute('href') || '').toLowerCase();
+            if (href.includes('/export') || href.includes('export-thesaurus')) {
+                el.addEventListener('click', function(e) {
+                    if (el.classList.contains('disabled') || el.getAttribute('aria-disabled') === 'true') {
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    const originalHtml = el.innerHTML;
+                    el.classList.add('disabled');
+                    el.style.pointerEvents = 'none';
+                    el.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Exportando...`;
+                    
+                    setTimeout(() => {
+                        el.classList.remove('disabled');
+                        el.style.pointerEvents = 'auto';
+                        el.innerHTML = originalHtml;
+                    }, 4000);
+                });
+            }
+        });
     });
 </script>
 {% block javascripts %}{% endblock %}
