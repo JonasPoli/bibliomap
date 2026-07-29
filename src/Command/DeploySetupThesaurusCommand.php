@@ -32,12 +32,30 @@ class DeploySetupThesaurusCommand extends Command
 
         $io->title("BiblioMap Production Deployment Setup Routine");
 
-        // 1. Ensure Columns Exist
-        $io->section("1. Updating Database Schema (foundation & extinction years)");
+        // 1. Ensure Columns & Tables Exist
+        $io->section("1. Updating Database Schema");
         $this->addCol($conn, "instituicoes_ensino", "ano_fundacao", $io);
         $this->addCol($conn, "instituicoes_ensino", "ano_extincao", $io);
         $this->addCol($conn, "paises", "ano_fundacao", $io);
         $this->addCol($conn, "paises", "ano_extincao", $io);
+
+        // Ensure qualis_journal_variacoes_nome table exists
+        $conn->executeStatement("
+            CREATE TABLE IF NOT EXISTS qualis_journal_variacoes_nome (
+                id INT AUTO_INCREMENT NOT NULL,
+                journal_id INT NOT NULL,
+                variation_name VARCHAR(500) NOT NULL,
+                normalized_name VARCHAR(500) NOT NULL,
+                variation_type VARCHAR(50) DEFAULT 'alternative' NOT NULL,
+                status TINYINT(1) DEFAULT 1 NOT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                INDEX IDX_JOURNAL_VAR_NORM (normalized_name),
+                INDEX IDX_JOURNAL_VAR_JOURNAL (journal_id),
+                PRIMARY KEY(id)
+            ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB
+        ");
+        $io->writeln("Ensured table qualis_journal_variacoes_nome exists.");
 
         // 2. Deduplicate Variation Tables
         $io->section("2. Deduplicating Variation Tables");
@@ -52,6 +70,12 @@ class DeploySetupThesaurusCommand extends Command
         ];
 
         foreach ($tables as $tbl => $col) {
+            $tableCheck = $conn->fetchAllAssociative("SHOW TABLES LIKE ?", [$tbl]);
+            if (empty($tableCheck)) {
+                $io->writeln("Table {$tbl} does not exist, skipping deduplication.");
+                continue;
+            }
+
             $deleted = $conn->executeStatement("
                 DELETE t1 FROM $tbl t1
                 INNER JOIN $tbl t2 
