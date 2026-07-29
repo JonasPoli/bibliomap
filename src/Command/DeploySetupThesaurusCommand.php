@@ -34,10 +34,42 @@ class DeploySetupThesaurusCommand extends Command
 
         // 1. Ensure Columns & Tables Exist
         $io->section("1. Updating Database Schema");
-        $this->addCol($conn, "instituicoes_ensino", "ano_fundacao", $io);
-        $this->addCol($conn, "instituicoes_ensino", "ano_extincao", $io);
-        $this->addCol($conn, "paises", "ano_fundacao", $io);
-        $this->addCol($conn, "paises", "ano_extincao", $io);
+        
+        $emecCols = [
+            'razao_social' => 'VARCHAR(255) DEFAULT NULL',
+            'cnpj' => 'VARCHAR(20) DEFAULT NULL',
+            'codigo_mantenedora' => 'INT DEFAULT NULL',
+            'codigo_ies' => 'INT DEFAULT NULL',
+            'latitude' => 'VARCHAR(50) DEFAULT NULL',
+            'longitude' => 'VARCHAR(50) DEFAULT NULL',
+            'telefone' => 'VARCHAR(100) DEFAULT NULL',
+            'endereco_sede' => 'VARCHAR(255) DEFAULT NULL',
+            'organizacao_academica' => 'VARCHAR(100) DEFAULT NULL',
+            'tipo_credenciamento' => 'VARCHAR(150) DEFAULT NULL',
+            'categoria' => 'VARCHAR(100) DEFAULT NULL',
+            'categoria_administrativa' => 'VARCHAR(100) DEFAULT NULL',
+            'data_criacao' => 'DATE DEFAULT NULL',
+            'ci' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_ci' => 'INT DEFAULT NULL',
+            'ci_ead' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_ci_ead' => 'INT DEFAULT NULL',
+            'igc' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_igc' => 'INT DEFAULT NULL',
+            'reitor' => 'VARCHAR(150) DEFAULT NULL',
+            'representante_legal' => 'VARCHAR(150) DEFAULT NULL',
+            'sinalizacoes_vigentes' => 'VARCHAR(255) DEFAULT NULL',
+            'situacao_ies' => 'VARCHAR(50) DEFAULT NULL',
+            'vantagepoint' => 'VARCHAR(255) DEFAULT NULL',
+            'ano_fundacao' => 'INT DEFAULT NULL',
+            'ano_extincao' => 'INT DEFAULT NULL',
+        ];
+
+        foreach ($emecCols as $col => $typeDef) {
+            $this->addCol($conn, "instituicoes_ensino", $col, $typeDef, $io);
+        }
+
+        $this->addCol($conn, "paises", "ano_fundacao", "INT DEFAULT NULL", $io);
+        $this->addCol($conn, "paises", "ano_extincao", "INT DEFAULT NULL", $io);
 
         // Ensure qualis_journal_variacoes_nome table exists
         $conn->executeStatement("
@@ -100,11 +132,11 @@ class DeploySetupThesaurusCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function addCol($conn, string $table, string $col, SymfonyStyle $io): void
+    private function addCol($conn, string $table, string $col, string $typeDef, SymfonyStyle $io): void
     {
         $check = $conn->fetchAllAssociative("SHOW COLUMNS FROM $table LIKE ?", [$col]);
         if (empty($check)) {
-            $conn->executeStatement("ALTER TABLE $table ADD COLUMN $col INT DEFAULT NULL");
+            $conn->executeStatement("ALTER TABLE $table ADD COLUMN $col $typeDef");
             $io->writeln("Added column {$col} to {$table}");
         } else {
             $io->writeln("Column {$col} already exists in {$table}");

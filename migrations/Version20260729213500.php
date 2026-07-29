@@ -23,11 +23,40 @@ final class Version20260729213500 extends AbstractMigration
 
         // 1. Check instituicoes_ensino columns
         $instCols = array_map(fn($c) => strtolower($c['Field']), $conn->fetchAllAssociative("SHOW COLUMNS FROM instituicoes_ensino"));
-        if (!in_array('ano_fundacao', $instCols)) {
-            $this->addSql('ALTER TABLE instituicoes_ensino ADD ano_fundacao INT DEFAULT NULL');
-        }
-        if (!in_array('ano_extincao', $instCols)) {
-            $this->addSql('ALTER TABLE instituicoes_ensino ADD ano_extincao INT DEFAULT NULL');
+        
+        $emecCols = [
+            'razao_social' => 'VARCHAR(255) DEFAULT NULL',
+            'cnpj' => 'VARCHAR(20) DEFAULT NULL',
+            'codigo_mantenedora' => 'INT DEFAULT NULL',
+            'codigo_ies' => 'INT DEFAULT NULL',
+            'latitude' => 'VARCHAR(50) DEFAULT NULL',
+            'longitude' => 'VARCHAR(50) DEFAULT NULL',
+            'telefone' => 'VARCHAR(100) DEFAULT NULL',
+            'endereco_sede' => 'VARCHAR(255) DEFAULT NULL',
+            'organizacao_academica' => 'VARCHAR(100) DEFAULT NULL',
+            'tipo_credenciamento' => 'VARCHAR(150) DEFAULT NULL',
+            'categoria' => 'VARCHAR(100) DEFAULT NULL',
+            'categoria_administrativa' => 'VARCHAR(100) DEFAULT NULL',
+            'data_criacao' => 'DATE DEFAULT NULL',
+            'ci' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_ci' => 'INT DEFAULT NULL',
+            'ci_ead' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_ci_ead' => 'INT DEFAULT NULL',
+            'igc' => 'VARCHAR(10) DEFAULT NULL',
+            'ano_igc' => 'INT DEFAULT NULL',
+            'reitor' => 'VARCHAR(150) DEFAULT NULL',
+            'representante_legal' => 'VARCHAR(150) DEFAULT NULL',
+            'sinalizacoes_vigentes' => 'VARCHAR(255) DEFAULT NULL',
+            'situacao_ies' => 'VARCHAR(50) DEFAULT NULL',
+            'vantagepoint' => 'VARCHAR(255) DEFAULT NULL',
+            'ano_fundacao' => 'INT DEFAULT NULL',
+            'ano_extincao' => 'INT DEFAULT NULL',
+        ];
+
+        foreach ($emecCols as $col => $typeDef) {
+            if (!in_array($col, $instCols)) {
+                $this->addSql("ALTER TABLE instituicoes_ensino ADD {$col} {$typeDef}");
+            }
         }
 
         // 2. Check paises columns
