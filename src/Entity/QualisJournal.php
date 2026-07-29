@@ -21,9 +21,14 @@ class QualisJournal
     #[ORM\JoinTable(name: 'qualis_journal_academic_database')]
     private Collection $academicDatabases;
 
+    /** @var Collection<int, JournalVariation> */
+    #[ORM\OneToMany(mappedBy: 'journal', targetEntity: JournalVariation::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $variations;
+
     public function __construct()
     {
         $this->academicDatabases = new ArrayCollection();
+        $this->variations = new ArrayCollection();
     }
 
     #[ORM\Column(length: 50, nullable: true)]
@@ -106,6 +111,33 @@ class QualisJournal
     public function removeAcademicDatabase(AcademicDatabase $academicDatabase): self
     {
         $this->academicDatabases->removeElement($academicDatabase);
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, JournalVariation>
+     */
+    public function getVariations(): Collection
+    {
+        return $this->variations;
+    }
+
+    public function addVariation(JournalVariation $variation): self
+    {
+        if (!$this->variations->contains($variation)) {
+            $this->variations->add($variation);
+            $variation->setJournal($this);
+        }
+        return $this;
+    }
+
+    public function removeVariation(JournalVariation $variation): self
+    {
+        if ($this->variations->removeElement($variation)) {
+            if ($variation->getJournal() === $this) {
+                $variation->setJournal(null);
+            }
+        }
         return $this;
     }
 }

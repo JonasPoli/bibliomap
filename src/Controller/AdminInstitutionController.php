@@ -18,12 +18,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+use App\Service\Thesaurus\ThesaurusFileService;
+
 #[Route('/admin/institutions')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminInstitutionController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly ThesaurusFileService $thesaurusService,
     ) {}
 
     #[Route('', name: 'app_admin_institutions_index', methods: ['GET'])]
@@ -39,7 +42,18 @@ class AdminInstitutionController extends AbstractController
             ->leftJoin('i.city', 'ci');
 
         if ($search !== '') {
-            $qb->andWhere('i.officialName LIKE :search OR i.shortName LIKE :search OR i.sigla LIKE :search')
+            $orX = $qb->expr()->orX(
+                'i.officialName LIKE :search',
+                'i.shortName LIKE :search',
+                'i.sigla LIKE :search',
+                'i.razaoSocial LIKE :search',
+                'i.cnpj LIKE :search'
+            );
+            if (is_numeric($search)) {
+                $orX->add('i.codigoIes = :searchInt');
+                $qb->setParameter('searchInt', (int) $search);
+            }
+            $qb->andWhere($orX)
                ->setParameter('search', '%' . $search . '%');
         }
 
@@ -112,10 +126,14 @@ class AdminInstitutionController extends AbstractController
         // Gather current variations
         $vars = $institution->getVariations();
         $variationNames = [];
+        $seenNorms = [];
+        $officialNorm = DocumentEnrichmentService::normalize($institution->getOfficialName());
+
         foreach ($vars as $v) {
-            // Don't show officialName itself as variation since it is auto-linked
-            if (DocumentEnrichmentService::normalize($v->getVariationName()) !== DocumentEnrichmentService::normalize($institution->getOfficialName())) {
+            $norm = DocumentEnrichmentService::normalize($v->getVariationName());
+            if ($norm !== '' && $norm !== $officialNorm && !isset($seenNorms[$norm])) {
                 $variationNames[] = $v->getVariationName();
+                $seenNorms[$norm] = true;
             }
         }
         $variationsText = implode("\n", $variationNames);
@@ -165,7 +183,43 @@ class AdminInstitutionController extends AbstractController
         $institution->setOfficialWebsite($request->request->get('officialWebsite') ?: null);
         $institution->setInstitutionalEmail($request->request->get('institutionalEmail') ?: null);
         $institution->setNotes($request->request->get('notes') ?: null);
+        $institution->setFoundationYear($request->request->get('foundationYear') !== '' && $request->request->get('foundationYear') !== null ? (int)$request->request->get('foundationYear') : null);
+        $institution->setExtinctionYear($request->request->get('extinctionYear') !== '' && $request->request->get('extinctionYear') !== null ? (int)$request->request->get('extinctionYear') : null);
         $institution->setStatus($request->request->getBoolean('status', true));
+
+        // e-MEC Fields
+        $institution->setRazaoSocial($request->request->get('razaoSocial') ?: null);
+        $institution->setCnpj($request->request->get('cnpj') ?: null);
+        $institution->setCodigoMantenedora($request->request->get('codigoMantenedora') !== '' && $request->request->get('codigoMantenedora') !== null ? (int)$request->request->get('codigoMantenedora') : null);
+        $institution->setCodigoIes($request->request->get('codigoIes') !== '' && $request->request->get('codigoIes') !== null ? (int)$request->request->get('codigoIes') : null);
+        $institution->setLatitude($request->request->get('latitude') ?: null);
+        $institution->setLongitude($request->request->get('longitude') ?: null);
+        $institution->setTelefone($request->request->get('telefone') ?: null);
+        $institution->setEnderecoSede($request->request->get('enderecoSede') ?: null);
+        $institution->setOrganizacaoAcademica($request->request->get('organizacaoAcademica') ?: null);
+        $institution->setTipoCredenciamento($request->request->get('tipoCredenciamento') ?: null);
+        $institution->setCategoria($request->request->get('categoria') ?: null);
+        $institution->setCategoriaAdministrativa($request->request->get('categoriaAdministrativa') ?: null);
+        
+        $dataCriacaoStr = $request->request->get('dataCriacao');
+        if ($dataCriacaoStr) {
+            $date = \DateTimeImmutable::createFromFormat('Y-m-d', $dataCriacaoStr);
+            $institution->setDataCriacao($date ?: null);
+        } else {
+            $institution->setDataCriacao(null);
+        }
+
+        $institution->setCi($request->request->get('ci') ?: null);
+        $institution->setAnoCi($request->request->get('anoCi') !== '' && $request->request->get('anoCi') !== null ? (int)$request->request->get('anoCi') : null);
+        $institution->setCiEad($request->request->get('ciEad') ?: null);
+        $institution->setAnoCiEad($request->request->get('anoCiEad') !== '' && $request->request->get('anoCiEad') !== null ? (int)$request->request->get('anoCiEad') : null);
+        $institution->setIgc($request->request->get('igc') ?: null);
+        $institution->setAnoIgc($request->request->get('anoIgc') !== '' && $request->request->get('anoIgc') !== null ? (int)$request->request->get('anoIgc') : null);
+        $institution->setReitor($request->request->get('reitor') ?: null);
+        $institution->setRepresentanteLegal($request->request->get('representanteLegal') ?: null);
+        $institution->setSinalizacoesVigentes($request->request->get('sinalizacoesVigentes') ?: null);
+        $institution->setSituacaoIes($request->request->get('situacaoIes') ?: 'Ativa');
+        $institution->setVantagepoint($request->request->get('vantagepoint') ?: null);
 
         $countryId = $request->request->get('countryId');
         if ($countryId) {
@@ -205,9 +259,10 @@ class AdminInstitutionController extends AbstractController
 
         $csv = \League\Csv\Writer::createFromString('');
         $csv->insertOne([
-            'official_name', 'short_name', 'sigla', 'institution_type', 'natureza', 
-            'country_name', 'state_sigla', 'city_name', 'official_website', 
-            'institutional_email', 'status', 'notes', 'variations'
+            'official_name', 'short_name', 'sigla', 'razao_social', 'cnpj', 'codigo_ies', 'codigo_mantenedora',
+            'institution_type', 'natureza', 'organizacao_academica', 'categoria_administrativa', 'igc', 'ano_igc', 'ci', 'ano_ci',
+            'country_name', 'state_sigla', 'city_name', 'latitude', 'longitude', 'official_website', 
+            'institutional_email', 'telefone', 'reitor', 'situacao_ies', 'vantagepoint', 'status', 'notes', 'variations'
         ]);
 
         foreach ($institutions as $inst) {
@@ -227,13 +282,29 @@ class AdminInstitutionController extends AbstractController
                 $inst->getOfficialName(),
                 $inst->getShortName() ?? '',
                 $inst->getSigla() ?? '',
+                $inst->getRazaoSocial() ?? '',
+                $inst->getCnpj() ?? '',
+                $inst->getCodigoIes() ?? '',
+                $inst->getCodigoMantenedora() ?? '',
                 $inst->getInstitutionType() ?? '',
                 $inst->getNatureza() ?? '',
+                $inst->getOrganizacaoAcademica() ?? '',
+                $inst->getCategoriaAdministrativa() ?? '',
+                $inst->getIgc() ?? '',
+                $inst->getAnoIgc() ?? '',
+                $inst->getCi() ?? '',
+                $inst->getAnoCi() ?? '',
                 $inst->getCountry() ? $inst->getCountry()->getCommonName() : '',
                 $inst->getState() ? $inst->getState()->getSigla() : '',
                 $inst->getCity() ? $inst->getCity()->getOfficialName() : '',
+                $inst->getLatitude() ?? '',
+                $inst->getLongitude() ?? '',
                 $inst->getOfficialWebsite() ?? '',
                 $inst->getInstitutionalEmail() ?? '',
+                $inst->getTelefone() ?? '',
+                $inst->getReitor() ?? '',
+                $inst->getSituacaoIes() ?? '',
+                $inst->getVantagepoint() ?? '',
                 $inst->isStatus() ? '1' : '0',
                 $inst->getNotes() ?? '',
                 implode(';', $variationNames)
@@ -242,7 +313,7 @@ class AdminInstitutionController extends AbstractController
 
         $response = new Response($csv->toString());
         $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-        $response->headers->set('Content-Disposition', 'attachment; filename="instituicoes.csv"');
+        $response->headers->set('Content-Disposition', 'attachment; filename="instituicoes_emec.csv"');
 
         return $response;
     }
@@ -264,7 +335,6 @@ class AdminInstitutionController extends AbstractController
         try {
             set_time_limit(1200);
 
-            // Preload Countries, States, Cities, Institutions in memory maps to prevent timeouts
             $countries = $this->em->getRepository(Country::class)->findAll();
             $countryMap = [];
             foreach ($countries as $c) {
@@ -273,10 +343,6 @@ class AdminInstitutionController extends AbstractController
                 if ($c->getSigla()) {
                     $countryMap[DocumentEnrichmentService::normalize($c->getSigla())] = $c;
                 }
-            }
-            $countryVars = $this->em->getRepository(CountryVariation::class)->findAll();
-            foreach ($countryVars as $cv) {
-                $countryMap[$cv->getNormalizedName()] = $cv->getCountry();
             }
 
             $states = $this->em->getRepository(State::class)->findAll();
@@ -288,11 +354,6 @@ class AdminInstitutionController extends AbstractController
                     $stateMap[$coId . '_' . DocumentEnrichmentService::normalize($s->getSigla())] = $s;
                 }
             }
-            $stateVars = $this->em->getRepository(StateVariation::class)->findAll();
-            foreach ($stateVars as $sv) {
-                $coId = $sv->getState()->getCountry()->getId();
-                $stateMap[$coId . '_' . $sv->getNormalizedName()] = $sv->getState();
-            }
 
             $cities = $this->em->getRepository(City::class)->findAll();
             $cityMap = [];
@@ -301,22 +362,11 @@ class AdminInstitutionController extends AbstractController
                 $stId = $ct->getState() ? $ct->getState()->getId() : 'null';
                 $cityMap[$coId . '_' . $stId . '_' . $ct->getNormalizedName()] = $ct;
             }
-            $cityVars = $this->em->getRepository(CityVariation::class)->findAll();
-            foreach ($cityVars as $ctv) {
-                $city = $ctv->getCity();
-                $coId = $city->getCountry()->getId();
-                $stId = $city->getState() ? $city->getState()->getId() : 'null';
-                $cityMap[$coId . '_' . $stId . '_' . $ctv->getNormalizedName()] = $city;
-            }
 
             $institutions = $this->em->getRepository(Institution::class)->findAll();
             $instMap = [];
             foreach ($institutions as $inst) {
                 $instMap[DocumentEnrichmentService::normalize($inst->getOfficialName())] = $inst;
-            }
-            $instVars = $this->em->getRepository(InstitutionVariation::class)->findAll();
-            foreach ($instVars as $iv) {
-                $instMap[$iv->getNormalizedName()] = $iv->getInstitution();
             }
 
             $csv = \League\Csv\Reader::createFromPath($file->getRealPath(), 'r');
@@ -333,6 +383,9 @@ class AdminInstitutionController extends AbstractController
 
                 $shortName = trim($record['short_name'] ?? '') ?: null;
                 $sigla = trim($record['sigla'] ?? '') ?: null;
+                $razaoSocial = trim($record['razao_social'] ?? '') ?: null;
+                $cnpj = trim($record['cnpj'] ?? '') ?: null;
+                $codigoIes = !empty($record['codigo_ies']) ? (int)$record['codigo_ies'] : null;
                 $instType = trim($record['institution_type'] ?? '') ?: null;
                 $natureza = trim($record['natureza'] ?? '') ?: null;
                 $countryName = trim($record['country_name'] ?? '');
@@ -374,6 +427,9 @@ class AdminInstitutionController extends AbstractController
                 $inst->setOfficialName($officialName);
                 $inst->setShortName($shortName);
                 $inst->setSigla($sigla);
+                $inst->setRazaoSocial($razaoSocial);
+                $inst->setCnpj($cnpj);
+                $inst->setCodigoIes($codigoIes);
                 $inst->setInstitutionType($instType);
                 $inst->setNatureza($natureza);
                 $inst->setCountry($country);
@@ -448,7 +504,7 @@ class AdminInstitutionController extends AbstractController
             }
         }
 
-        $names = array_filter([$institution->getOfficialName(), $institution->getShortName(), $institution->getSigla()]);
+        $names = array_filter([$institution->getOfficialName(), $institution->getShortName(), $institution->getSigla(), $institution->getRazaoSocial()]);
         foreach ($names as $name) {
             $norm = DocumentEnrichmentService::normalize($name);
             $exists = false;
@@ -524,45 +580,62 @@ class AdminInstitutionController extends AbstractController
     private function syncVariations(Institution $institution, string $variationsText, bool $flush = true): void
     {
         $lines = explode("\n", $variationsText);
-        $validVariationNames = [];
-        
-        $validVariationNames[$institution->getOfficialName()] = 'official';
-        
+        $validMap = [];
+
+        $officialNorm = DocumentEnrichmentService::normalize($institution->getOfficialName());
+        $validMap[$officialNorm] = ['name' => $institution->getOfficialName(), 'type' => 'official'];
+
         if ($institution->getShortName()) {
-            $validVariationNames[$institution->getShortName()] = 'short';
+            $norm = DocumentEnrichmentService::normalize($institution->getShortName());
+            if ($norm !== '') $validMap[$norm] = ['name' => $institution->getShortName(), 'type' => 'short'];
         }
         if ($institution->getSigla()) {
-            $validVariationNames[$institution->getSigla()] = 'sigla';
+            $norm = DocumentEnrichmentService::normalize($institution->getSigla());
+            if ($norm !== '') $validMap[$norm] = ['name' => $institution->getSigla(), 'type' => 'sigla'];
+        }
+        if ($institution->getRazaoSocial()) {
+            $norm = DocumentEnrichmentService::normalize($institution->getRazaoSocial());
+            if ($norm !== '') $validMap[$norm] = ['name' => $institution->getRazaoSocial(), 'type' => 'razao_social'];
         }
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line !== '') {
-                $validVariationNames[$line] = 'alternative';
+            if ($line === '') continue;
+
+            $norm = DocumentEnrichmentService::normalize($line);
+            if ($norm !== '' && !isset($validMap[$norm])) {
+                $validMap[$norm] = ['name' => $line, 'type' => 'alternative'];
             }
         }
 
         $existingVars = $institution->getVariations();
         $existingMap = [];
-        foreach ($existingVars as $v) {
-            $existingMap[$v->getVariationName()] = $v;
-        }
 
-        foreach ($validVariationNames as $name => $type) {
-            if (!isset($existingMap[$name])) {
-                $v = new InstitutionVariation();
-                $v->setVariationName($name);
-                $v->setNormalizedName(DocumentEnrichmentService::normalize($name));
-                $v->setVariationType($type);
-                $institution->addVariation($v);
-                $this->em->persist($v);
+        foreach ($existingVars as $v) {
+            $norm = $v->getNormalizedName();
+            if (isset($existingMap[$norm])) {
+                $institution->removeVariation($v);
+                $this->em->remove($v);
             } else {
-                $existingMap[$name]->setVariationType($type);
+                $existingMap[$norm] = $v;
             }
         }
 
-        foreach ($existingMap as $name => $v) {
-            if (!isset($validVariationNames[$name])) {
+        foreach ($validMap as $norm => $item) {
+            if (!isset($existingMap[$norm])) {
+                $v = new InstitutionVariation();
+                $v->setVariationName($item['name']);
+                $v->setNormalizedName($norm);
+                $v->setVariationType($item['type']);
+                $institution->addVariation($v);
+                $this->em->persist($v);
+            } else {
+                $existingMap[$norm]->setVariationType($item['type']);
+            }
+        }
+
+        foreach ($existingMap as $norm => $v) {
+            if (!isset($validMap[$norm])) {
                 $institution->removeVariation($v);
                 $this->em->remove($v);
             }
@@ -571,5 +644,117 @@ class AdminInstitutionController extends AbstractController
         if ($flush) {
             $this->em->flush();
         }
+    }
+
+    #[Route('/export-thesaurus', name: 'app_admin_institutions_export_thesaurus', methods: ['GET'])]
+    public function exportThesaurus(Request $request): Response
+    {
+        $format = strtolower($request->query->get('format', 'the'));
+        $institutions = $this->em->getRepository(Institution::class)->findAll();
+
+        $data = [];
+        foreach ($institutions as $inst) {
+            $vars = [];
+            foreach ($inst->getVariations() as $v) {
+                $vars[] = $v->getVariationName();
+            }
+            $data[] = [
+                'header' => $inst->getOfficialName(),
+                'variations' => $vars
+            ];
+        }
+
+        if ($format === 'csv') {
+            $content = $this->thesaurusService->generateCsvContent($data);
+            $mime = 'text/csv; charset=utf-8';
+            $filename = 'thesauro_instituicoes.csv';
+        } else {
+            $content = $this->thesaurusService->generateTheContent($data);
+            $mime = 'text/plain; charset=utf-8';
+            $filename = 'thesauro_instituicoes.the';
+        }
+
+        $response = new Response($content);
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
+
+    #[Route('/import-thesaurus', name: 'app_admin_institutions_import_thesaurus', methods: ['POST'])]
+    public function importThesaurus(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('import_institutions_thesaurus', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        $file = $request->files->get('thesaurus_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo .the ou .csv.');
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        try {
+            set_time_limit(600);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
+
+            $instsMap = [];
+            foreach ($this->em->getRepository(Institution::class)->findAll() as $inst) {
+                $instsMap[DocumentEnrichmentService::normalize($inst->getOfficialName())] = $inst;
+                if ($inst->getSigla()) {
+                    $instsMap[DocumentEnrichmentService::normalize($inst->getSigla())] = $inst;
+                }
+            }
+
+            $addedVars = 0;
+            $newInsts = 0;
+
+            foreach ($entries as $entry) {
+                $headerName = trim($entry['header'] ?? '');
+                if ($headerName === '') continue;
+
+                $normHeader = DocumentEnrichmentService::normalize($headerName);
+                $inst = $instsMap[$normHeader] ?? null;
+
+                if (!$inst) {
+                    $inst = new Institution();
+                    $inst->setOfficialName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
+                    $inst->setStatus(true);
+                    $this->em->persist($inst);
+                    $this->em->flush();
+                    $instsMap[$normHeader] = $inst;
+                    $newInsts++;
+                }
+
+                $existingVars = [];
+                foreach ($inst->getVariations() as $v) {
+                    $existingVars[$v->getNormalizedName()] = true;
+                }
+
+                foreach ($entry['variations'] as $varName) {
+                    $normVar = DocumentEnrichmentService::normalize($varName);
+                    if ($normVar === '') continue;
+
+                    if (!isset($existingVars[$normVar])) {
+                        $v = new InstitutionVariation();
+                        $v->setVariationName($varName);
+                        $v->setNormalizedName($normVar);
+                        $v->setVariationType('alternative');
+                        $inst->addVariation($v);
+                        $existingVars[$normVar] = true;
+                        $addedVars++;
+                    }
+                }
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', "Importação de Tesauro concluída! Novas Instituições: {$newInsts}, Novas Variações: {$addedVars}.");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_institutions_index');
     }
 }

@@ -4,6 +4,9 @@ namespace App\Controller;
 
 use App\Entity\AcademicDatabase;
 use App\Entity\QualisJournal;
+use App\Entity\JournalVariation;
+use App\Service\Import\DocumentEnrichmentService;
+use App\Service\Thesaurus\ThesaurusFileService;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Reader;
 use League\Csv\Writer;
@@ -19,7 +22,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AdminJournalController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly ThesaurusFileService $thesaurusService,
     ) {}
 
     #[Route('', name: 'app_admin_journals_index', methods: ['GET'])]
@@ -58,7 +62,6 @@ class AdminJournalController extends AbstractController
                ->setParameter('qualis', $qualis);
         }
 
-        // Clone query builder to count total results for pagination
         $countQb = clone $qb;
         $totalResults = (int)$countQb->select('COUNT(q.id)')->getQuery()->getSingleScalarResult();
         $totalPages = ceil($totalResults / $limit);
@@ -111,7 +114,6 @@ class AdminJournalController extends AbstractController
 
             $normalizedIssn = strtolower(str_replace(['-', ' '], '', $issn));
 
-            // Check if already exists
             $existing = $this->em->getRepository(QualisJournal::class)->findOneBy(['normalizedIssn' => $normalizedIssn]);
             if ($existing) {
                 $this->addFlash('danger', "Já existe um periódico cadastrado com o ISSN {$issn}.");
@@ -126,7 +128,6 @@ class AdminJournalController extends AbstractController
             $journal->setNormalizedIssn($normalizedIssn);
             $journal->setQualis($qualisVal !== '' ? $qualisVal : null);
 
-            // Handle academic databases association
             $selectedDbIds = $request->request->all()['academic_databases'] ?? [];
             if (is_array($selectedDbIds)) {
                 foreach ($selectedDbIds as $dbId) {
@@ -192,20 +193,21 @@ class AdminJournalController extends AbstractController
                 $this->addFlash('danger', 'Título e ISSN são campos obrigatórios.');
                 return $this->render('admin/journals/edit.html.twig', [
                     'journal' => $journal,
-                    'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
+                    'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC']),
+                    'variationsText' => $request->request->getString('variations', ''),
                 ]);
             }
 
             $normalizedIssn = strtolower(str_replace(['-', ' '], '', $issn));
 
-            // Check if ISSN changed and conflicts
             if ($normalizedIssn !== $journal->getNormalizedIssn()) {
                 $existing = $this->em->getRepository(QualisJournal::class)->findOneBy(['normalizedIssn' => $normalizedIssn]);
                 if ($existing) {
                     $this->addFlash('danger', "Já existe outro periódico cadastrado com o ISSN {$issn}.");
                     return $this->render('admin/journals/edit.html.twig', [
                         'journal' => $journal,
-                        'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
+                        'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC']),
+                        'variationsText' => $request->request->getString('variations', ''),
                     ]);
                 }
             }
@@ -215,7 +217,6 @@ class AdminJournalController extends AbstractController
             $journal->setNormalizedIssn($normalizedIssn);
             $journal->setQualis($qualisVal !== '' ? $qualisVal : null);
 
-            // Handle academic databases association
             $journal->getAcademicDatabases()->clear();
             $selectedDbIds = $request->request->all()['academic_databases'] ?? [];
             if (is_array($selectedDbIds)) {
@@ -227,15 +228,51 @@ class AdminJournalController extends AbstractController
                 }
             }
 
+            // Sync variations text
+            $variationsText = $request->request->getString('variations', '');
+            $lines = array_filter(array_map('trim', explode("\n", $variationsText)));
+            $submittedNorms = [];
+
+            foreach ($lines as $lineName) {
+                $normName = DocumentEnrichmentService::normalize($lineName);
+                if ($normName === '') continue;
+
+                $submittedNorms[$normName] = $lineName;
+            }
+
+            // Remove existing variations omitted in post
+            foreach ($journal->getVariations() as $existingVar) {
+                if (!isset($submittedNorms[$existingVar->getNormalizedName()])) {
+                    $journal->removeVariation($existingVar);
+                } else {
+                    unset($submittedNorms[$existingVar->getNormalizedName()]);
+                }
+            }
+
+            // Add remaining new submitted variations
+            foreach ($submittedNorms as $normName => $origName) {
+                $var = new JournalVariation();
+                $var->setVariationName($origName);
+                $var->setNormalizedName($normName);
+                $var->setVariationType('alternative');
+                $journal->addVariation($var);
+            }
+
             $this->em->flush();
 
             $this->addFlash('success', 'Periódico atualizado com sucesso!');
             return $this->redirectToRoute('app_admin_journals_index');
         }
 
+        $variationsLines = [];
+        foreach ($journal->getVariations() as $v) {
+            $variationsLines[] = $v->getVariationName();
+        }
+
         return $this->render('admin/journals/edit.html.twig', [
             'journal' => $journal,
-            'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC'])
+            'databases' => $this->em->getRepository(AcademicDatabase::class)->findBy([], ['name' => 'ASC']),
+            'variationsText' => implode("\n", $variationsLines),
         ]);
     }
 
@@ -246,9 +283,7 @@ class AdminJournalController extends AbstractController
 
         $response = new StreamedResponse(function() use ($conn) {
             $handle = fopen('php://output', 'w+');
-            // UTF-8 BOM for Excel
             fwrite($handle, "\xEF\xBB\xBF");
-
             fputcsv($handle, ['issn', 'title', 'qualis'], ';');
 
             $stmt = $conn->executeQuery('SELECT issn, title, qualis FROM qualis_journal ORDER BY title ASC');
@@ -267,6 +302,115 @@ class AdminJournalController extends AbstractController
         $response->headers->set('Content-Disposition', 'attachment; filename="revistas_qualis.csv"');
 
         return $response;
+    }
+
+    #[Route('/export-thesaurus', name: 'app_admin_journals_export_thesaurus', methods: ['GET'])]
+    public function exportThesaurus(Request $request): Response
+    {
+        $format = strtolower($request->query->get('format', 'the'));
+        $journals = $this->em->getRepository(QualisJournal::class)->findAll();
+
+        $data = [];
+        foreach ($journals as $j) {
+            $vars = [];
+            foreach ($j->getVariations() as $v) {
+                $vars[] = $v->getVariationName();
+            }
+            $data[] = [
+                'header' => $j->getTitle(),
+                'variations' => $vars
+            ];
+        }
+
+        if ($format === 'csv') {
+            $content = $this->thesaurusService->generateCsvContent($data);
+            $mime = 'text/csv; charset=utf-8';
+            $filename = 'thesauro_revistas.csv';
+        } else {
+            $content = $this->thesaurusService->generateTheContent($data);
+            $mime = 'text/plain; charset=utf-8';
+            $filename = 'thesauro_revistas.the';
+        }
+
+        $response = new Response($content);
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
+
+    #[Route('/import-thesaurus', name: 'app_admin_journals_import_thesaurus', methods: ['POST'])]
+    public function importThesaurus(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('import_journals_thesaurus', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_journals_index');
+        }
+
+        $file = $request->files->get('thesaurus_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo .the ou .csv.');
+            return $this->redirectToRoute('app_admin_journals_index');
+        }
+
+        try {
+            set_time_limit(600);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
+
+            $journalsMap = [];
+            foreach ($this->em->getRepository(QualisJournal::class)->findAll() as $j) {
+                $journalsMap[DocumentEnrichmentService::normalize($j->getTitle())] = $j;
+            }
+
+            $addedVars = 0;
+            $newJournals = 0;
+
+            foreach ($entries as $entry) {
+                $headerName = trim($entry['header'] ?? '');
+                if ($headerName === '') continue;
+
+                $normHeader = DocumentEnrichmentService::normalize($headerName);
+                $journal = $journalsMap[$normHeader] ?? null;
+
+                if (!$journal) {
+                    $journal = new QualisJournal();
+                    $journal->setTitle(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
+                    $journal->setNormalizedIssn('custom_' . substr(md5($normHeader), 0, 10));
+                    $this->em->persist($journal);
+                    $this->em->flush();
+                    $journalsMap[$normHeader] = $journal;
+                    $newJournals++;
+                }
+
+                $existingVars = [];
+                foreach ($journal->getVariations() as $v) {
+                    $existingVars[$v->getNormalizedName()] = true;
+                }
+
+                foreach ($entry['variations'] as $varName) {
+                    $normVar = DocumentEnrichmentService::normalize($varName);
+                    if ($normVar === '') continue;
+
+                    if (!isset($existingVars[$normVar])) {
+                        $var = new JournalVariation();
+                        $var->setVariationName($varName);
+                        $var->setNormalizedName($normVar);
+                        $var->setVariationType('alternative');
+                        $journal->addVariation($var);
+                        $existingVars[$normVar] = true;
+                        $addedVars++;
+                    }
+                }
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', "Importação de Tesauro concluída! Novos Periódicos: {$newJournals}, Novas Variações: {$addedVars}.");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_journals_index');
     }
 
     #[Route('/import', name: 'app_admin_journals_import', methods: ['POST'])]
@@ -289,12 +433,10 @@ class AdminJournalController extends AbstractController
 
             $csv = Reader::createFromPath($file->getRealPath(), 'r');
             $csv->setHeaderOffset(0);
-            // Try to auto-detect delimiter
             $delimiter = ';';
             $firstHeader = $csv->getHeader()[0] ?? '';
             if (str_contains($firstHeader, ',')) {
                 $delimiter = ',';
-                // Reload header with correct delimiter
                 $csv = Reader::createFromPath($file->getRealPath(), 'r');
                 $csv->setHeaderOffset(0);
             }
@@ -306,7 +448,6 @@ class AdminJournalController extends AbstractController
             try {
                 $batch = [];
                 foreach ($csv->getRecords() as $record) {
-                    // Try getting fields case-insensitive
                     $issn = trim($record['issn'] ?? $record['ISSN'] ?? '');
                     $title = trim($record['title'] ?? $record['TITLE'] ?? $record['titulo'] ?? $record['Título'] ?? '');
                     $qualis = strtoupper(trim($record['qualis'] ?? $record['QUALIS'] ?? ''));
@@ -352,15 +493,11 @@ class AdminJournalController extends AbstractController
         return $this->redirectToRoute('app_admin_journals_index');
     }
 
-    /**
-     * Helper to process batches using INSERT ... ON DUPLICATE KEY UPDATE.
-     */
     private function processImportBatch($conn, array $batch): array
     {
         $imported = 0;
         $updated = 0;
 
-        // Collect normalized_issns in batch to verify existence
         $issns = array_map(fn($row) => $row['normalized_issn'], $batch);
         $quoted = array_map(fn($val) => $conn->quote($val), $issns);
         

@@ -35,6 +35,12 @@ class Country
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $nationality = null;
 
+    #[ORM\Column(name: 'ano_fundacao', type: 'integer', nullable: true)]
+    private ?int $foundationYear = null;
+
+    #[ORM\Column(name: 'ano_extincao', type: 'integer', nullable: true)]
+    private ?int $extinctionYear = null;
+
     #[ORM\Column(options: ['default' => true])]
     private bool $status = true;
 
@@ -80,6 +86,12 @@ class Country
 
     public function getNationality(): ?string { return $this->nationality; }
     public function setNationality(?string $v): static { $this->nationality = $v; return $this; }
+
+    public function getFoundationYear(): ?int { return $this->foundationYear; }
+    public function setFoundationYear(?int $v): static { $this->foundationYear = $v; return $this; }
+
+    public function getExtinctionYear(): ?int { return $this->extinctionYear; }
+    public function setExtinctionYear(?int $v): static { $this->extinctionYear = $v; return $this; }
 
     public function isStatus(): bool { return $this->status; }
     public function setStatus(bool $v): static { $this->status = $v; return $this; }

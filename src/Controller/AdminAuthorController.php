@@ -13,12 +13,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+use App\Service\Thesaurus\ThesaurusFileService;
+
 #[Route('/admin/authors')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminAuthorController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly ThesaurusFileService $thesaurusService,
     ) {}
 
     #[Route('', name: 'app_admin_authors_index', methods: ['GET'])]
@@ -558,5 +561,117 @@ class AdminAuthorController extends AbstractController
                 $this->em->remove($v);
             }
         }
+    }
+
+    #[Route('/export-thesaurus', name: 'app_admin_authors_export_thesaurus', methods: ['GET'])]
+    public function exportThesaurus(Request $request): Response
+    {
+        $format = strtolower($request->query->get('format', 'the'));
+        $authors = $this->em->getRepository(AuthorIdentity::class)->findAll();
+
+        $data = [];
+        foreach ($authors as $a) {
+            $vars = [];
+            foreach ($a->getVariations() as $v) {
+                $vars[] = $v->getOriginalName();
+            }
+            $data[] = [
+                'header' => $a->getPreferredName(),
+                'variations' => $vars
+            ];
+        }
+
+        if ($format === 'csv') {
+            $content = $this->thesaurusService->generateCsvContent($data);
+            $mime = 'text/csv; charset=utf-8';
+            $filename = 'thesauro_autores.csv';
+        } else {
+            $content = $this->thesaurusService->generateTheContent($data);
+            $mime = 'text/plain; charset=utf-8';
+            $filename = 'thesauro_autores.the';
+        }
+
+        $response = new Response($content);
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
+
+    #[Route('/import-thesaurus', name: 'app_admin_authors_import_thesaurus', methods: ['POST'])]
+    public function importThesaurus(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('import_authors_thesaurus', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        $file = $request->files->get('thesaurus_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo .the ou .csv.');
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        try {
+            set_time_limit(600);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
+
+            $authorsMap = [];
+            foreach ($this->em->getRepository(AuthorIdentity::class)->findAll() as $a) {
+                $authorsMap[StringNormalizer::normalizeString($a->getPreferredName(), true)] = $a;
+            }
+
+            $addedVars = 0;
+            $newAuthors = 0;
+
+            foreach ($entries as $entry) {
+                $headerName = trim($entry['header'] ?? '');
+                if ($headerName === '') continue;
+
+                $normHeader = StringNormalizer::normalizeString($headerName, true);
+                $author = $authorsMap[$normHeader] ?? null;
+
+                if (!$author) {
+                    $author = new AuthorIdentity();
+                    $author->setPreferredName($headerName);
+                    $author->setNormalizedName($normHeader);
+                    $author->setStatus(1);
+                    $this->em->persist($author);
+                    $this->em->flush();
+                    $authorsMap[$normHeader] = $author;
+                    $newAuthors++;
+                }
+
+                $existingVars = [];
+                foreach ($author->getVariations() as $v) {
+                    $existingVars[$v->getNormalizedName()] = true;
+                }
+
+                foreach ($entry['variations'] as $varName) {
+                    $normVar = StringNormalizer::normalizeString($varName, true);
+                    if ($normVar === '') continue;
+
+                    if (!isset($existingVars[$normVar])) {
+                        $v = new AuthorNameVariant();
+                        $v->setOriginalName($varName);
+                        $v->setDisplayName(StringNormalizer::normalizeString($varName));
+                        $v->setNormalizedName($normVar);
+                        $v->setSource('alternative');
+                        $v->setConfidence(1.0);
+                        $author->addVariation($v);
+                        $existingVars[$normVar] = true;
+                        $addedVars++;
+                    }
+                }
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', "Importação de Tesauro concluída! Novos Autores: {$newAuthors}, Novas Variações: {$addedVars}.");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_authors_index');
     }
 }

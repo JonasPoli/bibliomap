@@ -13,65 +13,97 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-plus-circle text-accent me-2"></i>Nova Instituição de Ensino
+        <i class="bi bi-plus-circle text-accent me-2"></i>Cadastrar Nova Instituição
     </h1>
-    <p class="bm-page-subtitle">Cadastre uma nova instituição para reconciliar com os artigos importados.</p>
+    <p class="bm-page-subtitle">Preencha as informações cadastrais e dados e-MEC para a nova instituição de ensino.</p>
 </div>
 
-<div class="row g-4">
-    <div class="col-lg-8">
+<div class="row justify-content-center">
+    <div class="col-lg-9">
         <div class="bm-card">
             <form method="POST" action="{{ path('app_admin_institutions_new') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('new_institution') }}">
 
+                <!-- Section 1: Informações Básicas -->
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-info-circle me-1"></i> Informações Principais</h5>
                 <div class="row g-3 mb-4">
-                    <!-- Official Name -->
                     <div class="col-12">
                         <label class="form-label">Nome Oficial Completo *</label>
-                        <input type="text" name="officialName" class="form-control" placeholder="Ex: Universidade de São Paulo" required>
+                        <input type="text" name="officialName" class="form-control" placeholder="Ex: Universidade de Brasília" required>
                     </div>
 
-                    <!-- Short Name -->
                     <div class="col-md-6">
-                        <label class="form-label">Nome Curto / Popular</label>
-                        <input type="text" name="shortName" class="form-control" placeholder="Ex: USP - São Paulo">
+                        <label class="form-label">Razão Social (Mantenedora)</label>
+                        <input type="text" name="razaoSocial" class="form-control" placeholder="Ex: FUNDACAO UNIVERSIDADE DE BRASILIA">
                     </div>
 
-                    <!-- Sigla -->
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <label class="form-label">Sigla Oficial</label>
-                        <input type="text" name="sigla" class="form-control" placeholder="Ex: USP">
+                        <input type="text" name="sigla" class="form-control" placeholder="Ex: UNB">
                     </div>
 
-                    <!-- Type of Institution -->
+                    <div class="col-md-3">
+                        <label class="form-label">CNPJ</label>
+                        <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Código IES (e-MEC)</label>
+                        <input type="number" name="codigoIes" class="form-control" placeholder="Ex: 2">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Código Mantenedora</label>
+                        <input type="number" name="codigoMantenedora" class="form-control" placeholder="Ex: 2">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Situação e-MEC</label>
+                        <input type="text" name="situacaoIes" class="form-control" value="Ativa" placeholder="Ex: Ativa">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Ano de Fundação <span class="text-muted">(opcional)</span></label>
+                        <input type="number" name="foundationYear" class="form-control" placeholder="Ex: 1953">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Ano de Extinção / Fim <span class="text-muted">(opcional)</span></label>
+                        <input type="number" name="extinctionYear" class="form-control" placeholder="Ex: 1991">
+                    </div>
+                </div>
+
+                <hr class="my-4 border-bm">
+
+                <!-- Section 2: Classificação e Organização Académica -->
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-diagram-3 me-1"></i> Classificação Acadêmica & Jurídica</h5>
+                <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Tipo de Instituição</label>
-                        <select name="institutionType" class="form-select">
-                            <option value="Universidade">Universidade</option>
-                            <option value="Faculdade">Faculdade</option>
-                            <option value="Centro Universitário">Centro Universitário</option>
-                            <option value="Instituto Federal">Instituto Federal</option>
-                            <option value="Escola Técnica">Escola Técnica</option>
-                            <option value="Instituto de Pesquisa">Instituto de Pesquisa</option>
-                            <option value="Outro">Outro</option>
-                        </select>
+                        <label class="form-label">Organização Acadêmica</label>
+                        <input type="text" name="organizacaoAcademica" class="form-control" placeholder="Ex: Universidade">
                     </div>
 
-                    <!-- Natureza -->
                     <div class="col-md-6">
-                        <label class="form-label">Natureza</label>
-                        <select name="natureza" class="form-select">
-                            <option value="Pública">Pública</option>
-                            <option value="Privada">Privada</option>
-                            <option value="Comunitária">Comunitária</option>
-                            <option value="Confessional">Confessional</option>
-                            <option value="Federal">Federal</option>
-                            <option value="Estadual">Estadual</option>
-                            <option value="Municipal">Municipal</option>
-                        </select>
+                        <label class="form-label">Categoria Administrativa</label>
+                        <input type="text" name="categoriaAdministrativa" class="form-control" placeholder="Ex: Pública Federal">
                     </div>
 
-                    <!-- Location Selects -->
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Credenciamento</label>
+                        <input type="text" name="tipoCredenciamento" class="form-control" placeholder="Ex: EAD - Superior / Presencial">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Natureza Jurídica</label>
+                        <input type="text" name="natureza" class="form-control" placeholder="Ex: Pessoa Jurídica de Direito Público - Federal">
+                    </div>
+                </div>
+
+                <hr class="my-4 border-bm">
+
+                <!-- Section 3: Endereço e Localização -->
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-geo-alt me-1"></i> Localização & Endereço</h5>
+                <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label class="form-label">País</label>
                         <select name="countryId" class="form-select">
@@ -83,7 +115,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Estado (Se aplicável)</label>
+                        <label class="form-label">Estado</label>
                         <select name="stateId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for s in states %}
@@ -93,7 +125,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Cidade (Se aplicável)</label>
+                        <label class="form-label">Cidade</label>
                         <select name="cityId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for ct in cities %}
@@ -102,18 +134,32 @@
                         </select>
                     </div>
 
-                    <!-- Web & Contact -->
-                    <div class="col-md-6">
+                    <div class="col-12">
+                        <label class="form-label">Endereço Sede</label>
+                        <input type="text" name="enderecoSede" class="form-control" placeholder="Campus Universitário, CEP, Bairro...">
+                    </div>
+                </div>
+
+                <hr class="my-4 border-bm">
+
+                <!-- Section 4: Contatos e Observações -->
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-telephone me-1"></i> Contatos e Gestão</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
                         <label class="form-label">Site Oficial</label>
                         <input type="url" name="officialWebsite" class="form-control" placeholder="https://exemplo.edu.br">
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label">E-mail Institucional</label>
                         <input type="email" name="institutionalEmail" class="form-control" placeholder="contato@exemplo.edu.br">
                     </div>
 
-                    <!-- Status -->
+                    <div class="col-md-4">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" name="telefone" class="form-control" placeholder="(00) 0000-0000">
+                    </div>
+
                     <div class="col-12">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="status" id="status" value="1" checked>
@@ -121,25 +167,24 @@
                         </div>
                     </div>
 
-                    <!-- Notes -->
                     <div class="col-12">
                         <label class="form-label">Observações</label>
                         <textarea name="notes" class="form-control" rows="2" placeholder="Informações adicionais..."></textarea>
                     </div>
                 </div>
 
-                <!-- Variations Input -->
+                <!-- Variations Textarea -->
                 <div class="mb-4">
-                    <h5 class="mb-2" style="font-weight:700">Variações de Escrita</h5>
+                    <h5 class="mb-2 fw-bold">Variações de Escrita</h5>
                     <p style="font-size:12px;color:var(--bm-text-muted)">
-                        Adicione variações de escrita da instituição (uma por linha). O sistema usará esta lista para vincular os artigos automaticamente.
+                        Adicione variações de escrita da instituição (uma por linha).
                     </p>
-                    <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="USP&#10;Univ. de São Paulo&#10;Universidade São Paulo&#10;University of Sao Paulo"></textarea>
+                    <textarea name="variationsText" class="form-control font-monospace" rows="4" placeholder="Ex: Univ. de Brasília&#10;Universidade de Brasilia"></textarea>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
                     <a href="{{ path('app_admin_institutions_index') }}" class="btn-bm-secondary btn" style="text-decoration:none">Cancelar</a>
-                    <button type="submit" class="btn-bm-primary">Salvar Instituição</button>
+                    <button type="submit" class="btn-bm-primary">Cadastrar Instituição</button>
                 </div>
             </form>
         </div>

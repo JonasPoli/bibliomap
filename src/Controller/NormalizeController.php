@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Entity\BibliometricProject;
 use App\Service\Normalize\NormalizationService;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Csv\Reader;
+use League\Csv\Writer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -96,7 +98,6 @@ class NormalizeController extends AbstractController
             $this->addFlash('danger', $errMessage);
         }
 
-        // Redirect back with current tab parameters intact
         return $this->redirectToRoute('app_normalize_index', [
             'id'     => $project->getId(),
             'tab'    => $request->request->get('tab', 'authors'),
@@ -107,7 +108,7 @@ class NormalizeController extends AbstractController
     #[Route('/merge-batch', name: 'app_normalize_merge_batch', methods: ['POST'])]
     public function mergeBatch(int $id, Request $request): Response
     {
-        $this->getProject($id); // access check
+        $this->getProject($id);
 
         $data = json_decode($request->getContent(), true);
         if (!is_array($data)) {
@@ -138,6 +139,119 @@ class NormalizeController extends AbstractController
         }
     }
 
+    // ── Export & Import Normalization Routes ──────────────────────────────────
+
+    #[Route('/export/authors', name: 'app_normalize_export_authors', methods: ['GET'])]
+    public function exportAuthors(int $id): Response
+    {
+        $project = $this->getProject($id);
+        $rules = $this->normalizationService->exportAuthorNormalization($project->getId());
+
+        $csv = Writer::createFromString('');
+        $csv->insertOne(['preferred_name', 'variant_name', 'source', 'created_at']);
+
+        foreach ($rules as $r) {
+            $csv->insertOne([
+                $r['preferred_name'] ?? '',
+                $r['variant_name'] ?? '',
+                $r['source'] ?? 'alternative',
+                $r['created_at'] ?? '',
+            ]);
+        }
+
+        $response = new Response($csv->toString());
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="normalizacao_autores_projeto_%d.csv"', $project->getId()));
+
+        return $response;
+    }
+
+    #[Route('/import/authors', name: 'app_normalize_import_authors', methods: ['POST'])]
+    public function importAuthors(int $id, Request $request): Response
+    {
+        $project = $this->getProject($id);
+
+        if (!$this->isCsrfTokenValid('import_author_normalization', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'authors']);
+        }
+
+        $file = $request->files->get('csv_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo CSV.');
+            return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'authors']);
+        }
+
+        try {
+            $csv = Reader::createFromPath($file->getRealPath(), 'r');
+            $csv->setHeaderOffset(0);
+
+            $records = iterator_to_array($csv->getRecords());
+            $applied = $this->normalizationService->importAuthorNormalization($project->getId(), $records);
+
+            $this->addFlash('success', "Importação de normatização de autores concluída! Processados: {$applied} par(es).");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao importar normatização de autores: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'authors']);
+    }
+
+    #[Route('/export/keywords', name: 'app_normalize_export_keywords', methods: ['GET'])]
+    public function exportKeywords(int $id): Response
+    {
+        $project = $this->getProject($id);
+        $rules = $this->normalizationService->exportKeywordNormalization($project->getId());
+
+        $csv = Writer::createFromString('');
+        $csv->insertOne(['preferred_keyword', 'variant_keyword', 'keyword_type', 'status']);
+
+        foreach ($rules as $r) {
+            $csv->insertOne([
+                $r['preferred_keyword'] ?? '',
+                $r['variant_keyword'] ?? '',
+                $r['keyword_type'] ?? 'author_keyword',
+                $r['status'] ?? 1,
+            ]);
+        }
+
+        $response = new Response($csv->toString());
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="normalizacao_palavras_chave_projeto_%d.csv"', $project->getId()));
+
+        return $response;
+    }
+
+    #[Route('/import/keywords', name: 'app_normalize_import_keywords', methods: ['POST'])]
+    public function importKeywords(int $id, Request $request): Response
+    {
+        $project = $this->getProject($id);
+
+        if (!$this->isCsrfTokenValid('import_keyword_normalization', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'keywords']);
+        }
+
+        $file = $request->files->get('csv_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo CSV.');
+            return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'keywords']);
+        }
+
+        try {
+            $csv = Reader::createFromPath($file->getRealPath(), 'r');
+            $csv->setHeaderOffset(0);
+
+            $records = iterator_to_array($csv->getRecords());
+            $applied = $this->normalizationService->importKeywordNormalization($project->getId(), $records);
+
+            $this->addFlash('success', "Importação de normatização de palavras-chave concluída! Processados: {$applied} par(es).");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao importar normatização de palavras-chave: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'keywords']);
+    }
 
     // ── Helper ────────────────────────────────────────────────────────────────
 

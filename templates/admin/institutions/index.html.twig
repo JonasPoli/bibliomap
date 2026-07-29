@@ -10,6 +10,18 @@
 
 {% block topbar_actions %}
 <div class="d-inline-flex gap-2">
+    <div class="dropdown">
+        <button class="btn btn-sm btn-bm-secondary px-3 py-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-download me-1"></i> Exportar Tesauro
+        </button>
+        <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item" href="{{ path('app_admin_institutions_export_thesaurus', {format: 'the'}) }}"><i class="bi bi-file-earmark-text me-2"></i>VantagePoint (.the)</a></li>
+            <li><a class="dropdown-item" href="{{ path('app_admin_institutions_export_thesaurus', {format: 'csv'}) }}"><i class="bi bi-filetype-csv me-2"></i>CSV (.csv)</a></li>
+        </ul>
+    </div>
+    <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
+        <i class="bi bi-upload me-1"></i> Importar Tesauro
+    </button>
     <a href="{{ path('app_admin_institutions_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-download me-1"></i> Exportar CSV
     </a>
@@ -25,16 +37,16 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-building text-accent me-2"></i>Gerenciamento de Instituições
+        <i class="bi bi-building text-accent me-2"></i>Gerenciamento de Instituições e-MEC
     </h1>
-    <p class="bm-page-subtitle">Cadastre e padronize universidades, institutos de pesquisa e variações de escrita.</p>
+    <p class="bm-page-subtitle">Cadastre, padronize e consulte universidades, dados do e-MEC, códigos IES, indicadores e siglas.</p>
 </div>
 
 <!-- Search Bar -->
 <div class="bm-card mb-4">
     <form method="GET" action="{{ path('app_admin_institutions_index') }}" class="row g-2">
         <div class="col-md-10">
-            <input type="text" name="search" class="form-control" placeholder="Buscar por nome oficial, nome curto ou sigla..." value="{{ search }}">
+            <input type="text" name="search" class="form-control" placeholder="Buscar por nome oficial, sigla, razão social, CNPJ ou código IES..." value="{{ search }}">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
@@ -54,13 +66,15 @@
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
-                        <th>Nome Oficial</th>
+                        <th>Nome Oficial / Razão Social</th>
                         <th>Sigla</th>
+                        <th>Identificação e-MEC</th>
                         <th>Tipo / Natureza</th>
                         <th>Localização</th>
+                        <th>IGC / CI</th>
                         <th>Variações</th>
                         <th>Status</th>
-                        <th style="width:140px;text-align:right">Ações</th>
+                        <th style="width:120px;text-align:right">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,26 +82,43 @@
                         <tr class="border-bm">
                             <td>
                                 <div style="font-weight:600">{{ inst.officialName }}</div>
-                                {% if inst.shortName %}
-                                    <small class="text-muted-bm">{{ inst.shortName }}</small>
+                                {% if inst.razaoSocial and inst.razaoSocial != inst.officialName %}
+                                    <small class="text-muted-bm d-block" style="font-size:11.5px">{{ inst.razaoSocial }}</small>
+                                {% elseif inst.shortName %}
+                                    <small class="text-muted-bm d-block" style="font-size:11.5px">{{ inst.shortName }}</small>
                                 {% endif %}
                             </td>
-                            <td class="font-monospace text-accent">{{ inst.sigla ?? '—' }}</td>
+                            <td class="font-monospace text-accent fw-bold">{{ inst.sigla ?? '—' }}</td>
                             <td>
-                                <span class="badge bg-secondary" style="font-size:11px">{{ inst.institutionType ?? 'Universidade' }}</span>
-                                <span class="badge" style="background:rgba(79,142,247,0.12);color:var(--bm-accent);font-size:11px">{{ inst.natureza ?? 'Pública' }}</span>
+                                {% if inst.codigoIes or inst.cnpj %}
+                                    <div style="font-size:11.5px">
+                                        {% if inst.codigoIes %}<span class="badge bg-dark-subtle text-body border me-1">IES #{{ inst.codigoIes }}</span>{% endif %}
+                                        {% if inst.cnpj %}<small class="text-muted-bm d-block">CNPJ: {{ inst.cnpj }}</small>{% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted-bm">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary" style="font-size:11px">{{ inst.organizacaoAcademica ?? inst.institutionType ?? 'Universidade' }}</span>
+                                <span class="badge" style="background:rgba(79,142,247,0.12);color:var(--bm-accent);font-size:11px">{{ inst.categoriaAdministrativa ?? inst.natureza ?? 'Pública' }}</span>
                             </td>
                             <td>
                                 {% if inst.country %}
                                     <div style="font-size:12.5px">
-                                        <i class="bi bi-globe me-1 text-muted-bm"></i>{{ inst.country.commonName }}
+                                        <i class="bi bi-geo-alt me-1 text-muted-bm"></i>
+                                        {{ inst.city ? inst.city.officialName : '' }}
+                                        {{ inst.state ? (inst.city ? ', ' : '') ~ inst.state.sigla : '' }}
+                                        {% if not inst.city and not inst.state %}{{ inst.country.commonName }}{% endif %}
                                     </div>
-                                    {% if inst.city or inst.state %}
-                                        <small class="text-muted-bm">
-                                            {{ inst.city ? inst.city.officialName : '' }}
-                                            {{ inst.state ? (inst.city ? ', ' : '') ~ inst.state.sigla : '' }}
-                                        </small>
-                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted-bm">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if inst.igc or inst.ci %}
+                                    <span class="badge bg-info-subtle text-info-emphasis" style="font-size:11px">IGC: {{ inst.igc ?? '—' }}</span>
+                                    <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:11px">CI: {{ inst.ci ?? '—' }}</span>
                                 {% else %}
                                     <span class="text-muted-bm">—</span>
                                 {% endif %}
@@ -152,37 +183,32 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block javascripts %}
-    {{ parent() }}
-    <script>
-        document.querySelectorAll('form').forEach(form => {
-            if (form.action.includes('/import')) {
-                form.addEventListener('submit', function(e) {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        setTimeout(() => {
-                            submitBtn.disabled = true;
-                        }, 50);
-
-                        const modal = form.closest('.modal');
-                        if (modal) {
-                            modal.querySelectorAll('button:not([type="submit"]), input, select, textarea').forEach(el => {
-                                setTimeout(() => { el.disabled = true; }, 50);
-                            });
-                        }
-
-                        let seconds = 0;
-                        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-
-                        setInterval(() => {
-                            seconds++;
-                            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importando... (${seconds}s)`;
-                        }, 1000);
-                    }
-                });
-            }
-        });
-    </script>
+<!-- Import Thesaurus Modal -->
+<div class="modal fade animate__animated animate__fadeIn" id="importThesaurusModal" tabindex="-1" aria-labelledby="importThesaurusModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
+            <div class="modal-header border-bm">
+                <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">Importar Tesauro de Instituições</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ path('app_admin_institutions_import_thesaurus') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('import_institutions_thesaurus') }}">
+                    <p style="font-size:13px;color:var(--bm-text-muted)">
+                        Envie um arquivo no formato <b>VantagePoint (.the)</b> ou <b>CSV (.csv)</b> contendo termos preferidos e suas variações.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Arquivo de Tesauro (.the ou .csv) *</label>
+                        <input type="file" name="thesaurus_file" class="form-control" accept=".the,.csv" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-bm">
+                    <button type="button" class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-bm-primary">Importar Tesauro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

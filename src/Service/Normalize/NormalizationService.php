@@ -887,4 +887,228 @@ class NormalizationService
         $lev = levenshtein($s1, $s2);
         return 1 - ($lev / $maxLen);
     }
+
+    // ── Export & Import Normalization Rules ────────────────────────────────────
+
+    public function exportAuthorNormalization(int $projectId): array
+    {
+        $conn = $this->em->getConnection();
+
+        return $conn->fetchAllAssociative('
+            SELECT DISTINCT
+                ai.preferred_name AS preferred_name,
+                anv.original_name AS variant_name,
+                anv.source AS source,
+                anv.created_at AS created_at
+            FROM author_identity ai
+            JOIN author_name_variant anv ON ai.id = anv.author_identity_id
+            JOIN document_author da ON ai.id = da.author_identity_id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ? AND anv.original_name != ai.preferred_name
+            ORDER BY ai.preferred_name ASC, anv.original_name ASC
+        ', [$projectId]);
+    }
+
+    public function importAuthorNormalization(int $projectId, array $records): int
+    {
+        $conn = $this->em->getConnection();
+        $appliedCount = 0;
+
+        $authors = $conn->fetchAllAssociative('
+            SELECT ai.id, ai.preferred_name, ai.normalized_name
+            FROM author_identity ai
+            JOIN document_author da ON ai.id = da.author_identity_id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ?
+            GROUP BY ai.id, ai.preferred_name, ai.normalized_name
+        ', [$projectId]);
+
+        $authorMap = [];
+        foreach ($authors as $a) {
+            $authorMap[\App\Service\Import\DocumentEnrichmentService::normalize($a['preferred_name'])] = (int)$a['id'];
+        }
+
+        $variations = $conn->fetchAllAssociative('
+            SELECT anv.author_identity_id, anv.normalized_name
+            FROM author_name_variant anv
+            JOIN document_author da ON anv.author_identity_id = da.author_identity_id
+            JOIN document d ON da.document_id = d.id
+            WHERE d.project_id = ?
+        ', [$projectId]);
+
+        foreach ($variations as $v) {
+            $authorMap[$v['normalized_name']] = (int)$v['author_identity_id'];
+        }
+
+        foreach ($records as $record) {
+            $preferredName = trim($record['preferred_name'] ?? $record['keep_name'] ?? $record['preferred'] ?? $record['keep'] ?? '');
+            $variantName   = trim($record['variant_name'] ?? $record['discard_name'] ?? $record['variant'] ?? $record['discard'] ?? '');
+
+            if ($preferredName === '' || $variantName === '' || strcasecmp($preferredName, $variantName) === 0) {
+                continue;
+            }
+
+            $normPreferred = \App\Service\Import\DocumentEnrichmentService::normalize($preferredName);
+            $normVariant   = \App\Service\Import\DocumentEnrichmentService::normalize($variantName);
+
+            $keepId = $authorMap[$normPreferred] ?? null;
+            if (!$keepId) {
+                $keepId = $conn->fetchOne('SELECT id FROM author_identity WHERE normalized_name = ?', [$normPreferred]);
+                if (!$keepId) {
+                    $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+                    $conn->insert('author_identity', [
+                        'preferred_name' => $preferredName,
+                        'normalized_name' => $normPreferred,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                    $keepId = (int)$conn->lastInsertId();
+                } else {
+                    $keepId = (int)$keepId;
+                }
+                $authorMap[$normPreferred] = $keepId;
+            }
+
+            $discardId = $authorMap[$normVariant] ?? null;
+            if ($discardId && $discardId !== $keepId) {
+                $this->mergeAuthors($keepId, $discardId);
+                $appliedCount++;
+            } else {
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
+                    [$keepId, $normVariant]
+                );
+                if (!$existsVar) {
+                    $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+                    $conn->insert('author_name_variant', [
+                        'author_identity_id' => $keepId,
+                        'original_name'      => $variantName,
+                        'display_name'       => $variantName,
+                        'normalized_name'    => $normVariant,
+                        'source'             => 'alternative',
+                        'confidence'         => 1.0,
+                        'created_at'         => $now,
+                        'updated_at'         => $now,
+                    ]);
+                    $appliedCount++;
+                }
+            }
+        }
+
+        return $appliedCount;
+    }
+
+    public function exportKeywordNormalization(int $projectId): array
+    {
+        $conn = $this->em->getConnection();
+
+        return $conn->fetchAllAssociative('
+            SELECT DISTINCT
+                k.keyword_display AS preferred_keyword,
+                kv.variation_name AS variant_keyword,
+                k.keyword_type AS keyword_type,
+                kv.status AS status
+            FROM keyword k
+            JOIN palavra_chave_variacoes_nome kv ON k.id = kv.keyword_id
+            JOIN document_keyword dk ON k.id = dk.keyword_id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ? AND kv.variation_name != k.keyword_display
+            ORDER BY k.keyword_display ASC, kv.variation_name ASC
+        ', [$projectId]);
+    }
+
+    public function importKeywordNormalization(int $projectId, array $records): int
+    {
+        $conn = $this->em->getConnection();
+        $appliedCount = 0;
+
+        $keywords = $conn->fetchAllAssociative('
+            SELECT k.id, k.keyword_display, k.keyword_original, k.keyword_type
+            FROM keyword k
+            JOIN document_keyword dk ON k.id = dk.keyword_id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ?
+            GROUP BY k.id, k.keyword_display, k.keyword_original, k.keyword_type
+        ', [$projectId]);
+
+        $keywordMap = [];
+        foreach ($keywords as $k) {
+            $norm = \App\Service\Import\DocumentEnrichmentService::normalize($k['keyword_display']);
+            $type = $k['keyword_type'];
+            $keywordMap[$type . '_' . $norm] = (int)$k['id'];
+            $keywordMap['all_' . $norm] = (int)$k['id'];
+        }
+
+        $variations = $conn->fetchAllAssociative('
+            SELECT kv.keyword_id, kv.normalized_name, k.keyword_type
+            FROM palavra_chave_variacoes_nome kv
+            JOIN keyword k ON kv.keyword_id = k.id
+            JOIN document_keyword dk ON k.id = dk.keyword_id
+            JOIN document d ON dk.document_id = d.id
+            WHERE d.project_id = ?
+        ', [$projectId]);
+
+        foreach ($variations as $v) {
+            $keywordMap[$v['keyword_type'] . '_' . $v['normalized_name']] = (int)$v['keyword_id'];
+            $keywordMap['all_' . $v['normalized_name']] = (int)$v['keyword_id'];
+        }
+
+        foreach ($records as $record) {
+            $preferredTerm = trim($record['preferred_keyword'] ?? $record['keep_term'] ?? $record['preferred'] ?? $record['keep'] ?? '');
+            $variantTerm   = trim($record['variant_keyword'] ?? $record['discard_term'] ?? $record['variant'] ?? $record['discard'] ?? '');
+            $kwType        = trim($record['keyword_type'] ?? $record['type'] ?? 'author_keyword');
+
+            if ($kwType === 'author') $kwType = 'author_keyword';
+            if ($kwType === 'indexed') $kwType = 'indexed_keyword';
+
+            if ($preferredTerm === '' || $variantTerm === '' || strcasecmp($preferredTerm, $variantTerm) === 0) {
+                continue;
+            }
+
+            $normPreferred = \App\Service\Import\DocumentEnrichmentService::normalize($preferredTerm);
+            $normVariant   = \App\Service\Import\DocumentEnrichmentService::normalize($variantTerm);
+
+            $keepId = $keywordMap[$kwType . '_' . $normPreferred] ?? $keywordMap['all_' . $normPreferred] ?? null;
+
+            if (!$keepId) {
+                $keepId = $conn->fetchOne('SELECT id FROM keyword WHERE keyword_type = ? AND keyword_original = ?', [$kwType, $preferredTerm]);
+                if (!$keepId) {
+                    $conn->insert('keyword', [
+                        'keyword_original' => $preferredTerm,
+                        'keyword_display'  => $preferredTerm,
+                        'keyword_type'     => $kwType,
+                    ]);
+                    $keepId = (int)$conn->lastInsertId();
+                } else {
+                    $keepId = (int)$keepId;
+                }
+                $keywordMap[$kwType . '_' . $normPreferred] = $keepId;
+                $keywordMap['all_' . $normPreferred] = $keepId;
+            }
+
+            $discardId = $keywordMap[$kwType . '_' . $normVariant] ?? $keywordMap['all_' . $normVariant] ?? null;
+
+            if ($discardId && $discardId !== $keepId) {
+                $this->mergeKeywords($keepId, $discardId);
+                $appliedCount++;
+            } else {
+                $existsVar = $conn->fetchOne(
+                    'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
+                    [$keepId, $normVariant]
+                );
+                if (!$existsVar) {
+                    $conn->insert('palavra_chave_variacoes_nome', [
+                        'keyword_id'      => $keepId,
+                        'variation_name'  => $variantTerm,
+                        'normalized_name' => $normVariant,
+                        'variation_type'  => 'alternative',
+                        'status'          => 1
+                    ]);
+                    $appliedCount++;
+                }
+            }
+        }
+
+        return $appliedCount;
+    }
 }

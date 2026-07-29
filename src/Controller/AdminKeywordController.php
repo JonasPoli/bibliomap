@@ -12,12 +12,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+use App\Service\Thesaurus\ThesaurusFileService;
+
 #[Route('/admin/keywords')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminKeywordController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly ThesaurusFileService $thesaurusService,
     ) {}
 
     #[Route('', name: 'app_admin_keywords_index', methods: ['GET'])]
@@ -475,5 +478,116 @@ class AdminKeywordController extends AbstractController
                 $this->em->remove($v);
             }
         }
+    }
+
+    #[Route('/export-thesaurus', name: 'app_admin_keywords_export_thesaurus', methods: ['GET'])]
+    public function exportThesaurus(Request $request): Response
+    {
+        $format = strtolower($request->query->get('format', 'the'));
+        $keywords = $this->em->getRepository(Keyword::class)->findAll();
+
+        $data = [];
+        foreach ($keywords as $k) {
+            $vars = [];
+            foreach ($k->getVariations() as $v) {
+                $vars[] = $v->getVariationName();
+            }
+            $data[] = [
+                'header' => $k->getKeywordOriginal(),
+                'variations' => $vars
+            ];
+        }
+
+        if ($format === 'csv') {
+            $content = $this->thesaurusService->generateCsvContent($data);
+            $mime = 'text/csv; charset=utf-8';
+            $filename = 'thesauro_palavras_chave.csv';
+        } else {
+            $content = $this->thesaurusService->generateTheContent($data);
+            $mime = 'text/plain; charset=utf-8';
+            $filename = 'thesauro_palavras_chave.the';
+        }
+
+        $response = new Response($content);
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
+
+    #[Route('/import-thesaurus', name: 'app_admin_keywords_import_thesaurus', methods: ['POST'])]
+    public function importThesaurus(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('import_keywords_thesaurus', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        $file = $request->files->get('thesaurus_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo .the ou .csv.');
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        try {
+            set_time_limit(600);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
+
+            $keywordsMap = [];
+            foreach ($this->em->getRepository(Keyword::class)->findAll() as $k) {
+                $keywordsMap[StringNormalizer::normalizeString($k->getKeywordOriginal(), true)] = $k;
+            }
+
+            $addedVars = 0;
+            $newKeywords = 0;
+
+            foreach ($entries as $entry) {
+                $headerName = trim($entry['header'] ?? '');
+                if ($headerName === '') continue;
+
+                $normHeader = StringNormalizer::normalizeString($headerName, true);
+                $keyword = $keywordsMap[$normHeader] ?? null;
+
+                if (!$keyword) {
+                    $keyword = new Keyword();
+                    $keyword->setKeywordOriginal($headerName);
+                    $keyword->setKeywordDisplay($headerName);
+                    $keyword->setKeywordType(Keyword::TYPE_AUTHOR);
+                    $keyword->setStatus(1);
+                    $this->em->persist($keyword);
+                    $this->em->flush();
+                    $keywordsMap[$normHeader] = $keyword;
+                    $newKeywords++;
+                }
+
+                $existingVars = [];
+                foreach ($keyword->getVariations() as $v) {
+                    $existingVars[$v->getNormalizedName()] = true;
+                }
+
+                foreach ($entry['variations'] as $varName) {
+                    $normVar = StringNormalizer::normalizeString($varName, true);
+                    if ($normVar === '') continue;
+
+                    if (!isset($existingVars[$normVar])) {
+                        $v = new KeywordVariation();
+                        $v->setVariationName($varName);
+                        $v->setNormalizedName($normVar);
+                        $v->setVariationType('alternative');
+                        $keyword->addVariation($v);
+                        $existingVars[$normVar] = true;
+                        $addedVars++;
+                    }
+                }
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', "Importação de Tesauro concluída! Novas Palavras-Chave: {$newKeywords}, Novas Variações: {$addedVars}.");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_keywords_index');
     }
 }

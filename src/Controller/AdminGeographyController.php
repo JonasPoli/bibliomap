@@ -17,12 +17,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+use App\Service\Thesaurus\ThesaurusFileService;
+
 #[Route('/admin/geography')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminGeographyController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly ThesaurusFileService $thesaurusService,
     ) {}
 
     #[Route('', name: 'app_admin_geography_index', methods: ['GET'])]
@@ -76,6 +79,8 @@ class AdminGeographyController extends AbstractController
             $country->setIsoCode($request->request->get('isoCode') ?: null);
             $country->setContinente($request->request->get('continente') ?: null);
             $country->setNationality($request->request->get('nationality') ?: null);
+            $country->setFoundationYear($request->request->get('foundationYear') !== '' && $request->request->get('foundationYear') !== null ? (int)$request->request->get('foundationYear') : null);
+            $country->setExtinctionYear($request->request->get('extinctionYear') !== '' && $request->request->get('extinctionYear') !== null ? (int)$request->request->get('extinctionYear') : null);
             $country->setStatus($request->request->getBoolean('status', true));
 
             $this->em->persist($country);
@@ -107,6 +112,8 @@ class AdminGeographyController extends AbstractController
             $country->setIsoCode($request->request->get('isoCode') ?: null);
             $country->setContinente($request->request->get('continente') ?: null);
             $country->setNationality($request->request->get('nationality') ?: null);
+            $country->setFoundationYear($request->request->get('foundationYear') !== '' && $request->request->get('foundationYear') !== null ? (int)$request->request->get('foundationYear') : null);
+            $country->setExtinctionYear($request->request->get('extinctionYear') !== '' && $request->request->get('extinctionYear') !== null ? (int)$request->request->get('extinctionYear') : null);
             $country->setStatus($request->request->getBoolean('status', true));
 
             $this->em->flush();
@@ -1171,5 +1178,121 @@ class AdminGeographyController extends AbstractController
         if ($flush) {
             $this->em->flush();
         }
+    }
+
+    #[Route('/export-thesaurus', name: 'app_admin_geography_export_thesaurus', methods: ['GET'])]
+    public function exportThesaurus(Request $request): Response
+    {
+        $format = strtolower($request->query->get('format', 'the'));
+        $countries = $this->em->getRepository(Country::class)->findAll();
+
+        $data = [];
+        foreach ($countries as $c) {
+            $vars = [];
+            foreach ($c->getVariations() as $v) {
+                $vars[] = $v->getVariationName();
+            }
+            $data[] = [
+                'header' => $c->getCommonName(),
+                'variations' => $vars
+            ];
+        }
+
+        if ($format === 'csv') {
+            $content = $this->thesaurusService->generateCsvContent($data);
+            $mime = 'text/csv; charset=utf-8';
+            $filename = 'thesauro_geografia.csv';
+        } else {
+            $content = $this->thesaurusService->generateTheContent($data);
+            $mime = 'text/plain; charset=utf-8';
+            $filename = 'thesauro_geografia.the';
+        }
+
+        $response = new Response($content);
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
+
+    #[Route('/import-thesaurus', name: 'app_admin_geography_import_thesaurus', methods: ['POST'])]
+    public function importThesaurus(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('import_geography_thesaurus', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_geography_index');
+        }
+
+        $file = $request->files->get('thesaurus_file');
+        if (!$file) {
+            $this->addFlash('danger', 'Por favor, envie um arquivo .the ou .csv.');
+            return $this->redirectToRoute('app_admin_geography_index');
+        }
+
+        try {
+            set_time_limit(600);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
+
+            $countriesMap = [];
+            foreach ($this->em->getRepository(Country::class)->findAll() as $c) {
+                $countriesMap[DocumentEnrichmentService::normalize($c->getCommonName())] = $c;
+                $countriesMap[DocumentEnrichmentService::normalize($c->getOfficialName())] = $c;
+                if ($c->getSigla()) {
+                    $countriesMap[DocumentEnrichmentService::normalize($c->getSigla())] = $c;
+                }
+            }
+
+            $addedVars = 0;
+            $newCountries = 0;
+
+            foreach ($entries as $entry) {
+                $headerName = trim($entry['header'] ?? '');
+                if ($headerName === '') continue;
+
+                $normHeader = DocumentEnrichmentService::normalize($headerName);
+                $country = $countriesMap[$normHeader] ?? null;
+
+                if (!$country) {
+                    $country = new Country();
+                    $country->setOfficialName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
+                    $country->setCommonName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
+                    $country->setIsoCode(strtoupper(substr($normHeader, 0, 3)));
+                    $country->setSigla(strtoupper(substr($normHeader, 0, 2)));
+                    $country->setStatus(true);
+                    $this->em->persist($country);
+                    $this->em->flush();
+                    $countriesMap[$normHeader] = $country;
+                    $newCountries++;
+                }
+
+                $existingVars = [];
+                foreach ($country->getVariations() as $v) {
+                    $existingVars[$v->getNormalizedName()] = true;
+                }
+
+                foreach ($entry['variations'] as $varName) {
+                    $normVar = DocumentEnrichmentService::normalize($varName);
+                    if ($normVar === '') continue;
+
+                    if (!isset($existingVars[$normVar])) {
+                        $v = new CountryVariation();
+                        $v->setVariationName($varName);
+                        $v->setNormalizedName($normVar);
+                        $v->setVariationType('alternative');
+                        $country->addVariation($v);
+                        $existingVars[$normVar] = true;
+                        $addedVars++;
+                    }
+                }
+            }
+
+            $this->em->flush();
+            $this->addFlash('success', "Importação de Tesauro concluída! Novos Países: {$newCountries}, Novas Variações: {$addedVars}.");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_geography_index');
     }
 }

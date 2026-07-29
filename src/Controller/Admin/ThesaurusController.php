@@ -28,28 +28,8 @@ class ThesaurusController extends AbstractController
     #[Route('', name: 'app_admin_thesaurus_index', methods: ['GET'])]
     public function index(): Response
     {
-        $schemes = $this->em->getRepository(ThesaurusScheme::class)->findAll();
-        
-        // If empty, seed default schemes automatically for convenience
-        if (empty($schemes)) {
-            $types = ['keyword' => 'Palavras-chave', 'institution' => 'Instituições', 'place' => 'Lugares/Países', 'author' => 'Autores'];
-            foreach ($types as $type => $name) {
-                $scheme = new ThesaurusScheme();
-                $scheme->setName("Tesauro de $name");
-                $scheme->setSlug($type);
-                $scheme->setType($type);
-                $this->em->persist($scheme);
-            }
-            $this->em->flush();
-            $schemes = $this->em->getRepository(ThesaurusScheme::class)->findAll();
-        }
-
-        $pendingMatchesCount = $this->em->getRepository(ThesaurusMatch::class)->count(['status' => 'pending']);
-
-        return $this->render('admin/thesaurus/index.html.twig', [
-            'schemes' => $schemes,
-            'pending_matches_count' => $pendingMatchesCount,
-        ]);
+        $this->addFlash('info', 'O gerenciamento de Tesauros (VantagePoint / CSV) foi integrado diretamente nas seções de Palavras-Chave, Instituições, Autores, Geografia e Revistas.');
+        return $this->redirectToRoute('app_admin_keywords_index');
     }
 
     #[Route('/scheme/{id}', name: 'app_admin_thesaurus_scheme_show', methods: ['GET'])]
