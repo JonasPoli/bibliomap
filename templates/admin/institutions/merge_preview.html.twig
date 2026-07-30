@@ -15,7 +15,7 @@
     <h1 class="bm-page-title">
         <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Instituições
     </h1>
-    <p class="bm-page-subtitle">Compare instituições de ensino e pesquisa lado a lado, selecione o registro Principal (Master) e escolha quais valores de cada campo devem prevalecer.</p>
+    <p class="bm-page-subtitle">Compare instituições de ensino e pesquisa lado a lado, selecione a instituição Principal (Master) e defina individualmente o valor de cada atributo.</p>
 </div>
 
 <form action="{{ path('app_admin_institutions_merge_execute') }}" method="POST">
@@ -67,7 +67,7 @@
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
-                        <th style="width:220px">Campo / Propriedade</th>
+                        <th style="width:240px">Campo / Propriedade</th>
                         {% for inst in institutions %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ inst.id }}</span>
@@ -84,7 +84,7 @@
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[officialName]" value="{{ inst.officialName }}" id="off_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="off_{{ inst.id }}">{{ inst.officialName }}</label>
+                                    <label class="form-check-label fw-bold" for="off_{{ inst.id }}">{{ inst.officialName }}</label>
                                 </div>
                             </td>
                         {% endfor %}
@@ -142,61 +142,269 @@
                         {% endfor %}
                     </tr>
 
-                    {# Código IES / Mantenedora #}
+                    {# Código IES #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Código IES / Mantenedora (e-MEC)</td>
+                        <td class="fw-bold bg-bm-card">Código IES (e-MEC)</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[codigoIes]" value="{{ inst.codigoIes }}" id="ies_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="ies_{{ inst.id }}">
-                                        IES: {{ inst.codigoIes ? ('#' ~ inst.codigoIes) : '—' }} | Mant: {{ inst.codigoMantenedora ? ('#' ~ inst.codigoMantenedora) : '—' }}
-                                    </label>
+                                    <label class="form-check-label" for="ies_{{ inst.id }}">{{ inst.codigoIes ? ('#' ~ inst.codigoIes) : '—' }}</label>
                                 </div>
                             </td>
                         {% endfor %}
                     </tr>
 
-                    {# Tipo / Natureza / Categoria #}
+                    {# Código Mantenedora #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Tipo / Natureza / Categoria</td>
+                        <td class="fw-bold bg-bm-card">Código Mantenedora (e-MEC)</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="fields[institutionType]" value="{{ inst.institutionType }}" id="type_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="type_{{ inst.id }}">
-                                        {{ inst.institutionType ?? '—' }} / {{ inst.natureza ?? '—' }} / {{ inst.categoria ?? '—' }}
-                                    </label>
+                                    <input class="form-check-input" type="radio" name="fields[codigoMantenedora]" value="{{ inst.codigoMantenedora }}" id="mant_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="mant_{{ inst.id }}">{{ inst.codigoMantenedora ? ('#' ~ inst.codigoMantenedora) : '—' }}</label>
                                 </div>
                             </td>
                         {% endfor %}
                     </tr>
 
-                    {# Organização Acadêmica / Reitor #}
+                    {# Tipo de Instituição #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Org. Acadêmica / Reitor</td>
+                        <td class="fw-bold bg-bm-card">Tipo de Instituição</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[institutionType]" value="{{ inst.institutionType }}" id="itype_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="itype_{{ inst.id }}">{{ inst.institutionType ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Natureza Jurídica #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Natureza Jurídica</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[natureza]" value="{{ inst.natureza }}" id="nat_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="nat_{{ inst.id }}">{{ inst.natureza ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Categoria #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Categoria</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[categoria]" value="{{ inst.categoria }}" id="cat_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="cat_{{ inst.id }}">{{ inst.categoria ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Categoria Administrativa #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Categoria Administrativa</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[categoriaAdministrativa]" value="{{ inst.categoriaAdministrativa }}" id="catadm_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="catadm_{{ inst.id }}">{{ inst.categoriaAdministrativa ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Organização Acadêmica #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Organização Acadêmica</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[organizacaoAcademica]" value="{{ inst.organizacaoAcademica }}" id="org_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="org_{{ inst.id }}">
-                                        {{ inst.organizacaoAcademica ?? '—' }} {% if inst.reitor %}(Reitor: {{ inst.reitor }}){% endif %}
+                                    <label class="form-check-label" for="org_{{ inst.id }}">{{ inst.organizacaoAcademica ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Tipo de Credenciamento #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Tipo de Credenciamento</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[tipoCredenciamento]" value="{{ inst.tipoCredenciamento }}" id="cred_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="cred_{{ inst.id }}">{{ inst.tipoCredenciamento ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Situação da IES #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Situação da IES</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[situacaoIes]" value="{{ inst.situacaoIes }}" id="sit_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="sit_{{ inst.id }}">{{ inst.situacaoIes ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Reitor #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Reitor</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[reitor]" value="{{ inst.reitor }}" id="reitor_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="reitor_{{ inst.id }}">{{ inst.reitor ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Representante Legal #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Representante Legal</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[representanteLegal]" value="{{ inst.representanteLegal }}" id="rep_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="rep_{{ inst.id }}">{{ inst.representanteLegal ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Website Oficial #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Website Oficial</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[officialWebsite]" value="{{ inst.officialWebsite }}" id="web_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="web_{{ inst.id }}">{{ inst.officialWebsite ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Email Institucional #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Email Institucional</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[institutionalEmail]" value="{{ inst.institutionalEmail }}" id="email_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="email_{{ inst.id }}">{{ inst.institutionalEmail ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Telefone #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Telefone</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[telefone]" value="{{ inst.telefone }}" id="tel_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="tel_{{ inst.id }}">{{ inst.telefone ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Endereço da Sede #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Endereço da Sede</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[enderecoSede]" value="{{ inst.enderecoSede }}" id="end_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="end_{{ inst.id }}">{{ inst.enderecoSede ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Coordenadas Geográficas #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Coordenadas (Lat / Long)</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[coordsInstId]" value="{{ inst.id }}" id="coords_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="coords_{{ inst.id }}">
+                                        {{ inst.latitude ? (inst.latitude ~ ', ' ~ inst.longitude) : '—' }}
                                     </label>
                                 </div>
                             </td>
                         {% endfor %}
                     </tr>
 
-                    {# Website / Email / Telefone #}
+                    {# Conceito Institucional (CI) #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Website / Email / Contato</td>
+                        <td class="fw-bold bg-bm-card">Conceito CI / Ano</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="fields[officialWebsite]" value="{{ inst.officialWebsite }}" id="web_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="web_{{ inst.id }}">
-                                        {{ inst.officialWebsite ?? '—' }} | {{ inst.institutionalEmail ?? '—' }}
+                                    <input class="form-check-input" type="radio" name="fields[ciInstId]" value="{{ inst.id }}" id="ci_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="ci_{{ inst.id }}">
+                                        {{ inst.ci ? ('CI ' ~ inst.ci ~ ' (' ~ inst.anoCi ~ ')') : '—' }}
                                     </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Conceito CI-EAD #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Conceito CI-EAD / Ano</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[ciEadInstId]" value="{{ inst.id }}" id="ciead_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="ciead_{{ inst.id }}">
+                                        {{ inst.ciEad ? ('CI-EAD ' ~ inst.ciEad ~ ' (' ~ inst.anoCiEad ~ ')') : '—' }}
+                                    </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Índice IGC #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Índice IGC / Ano</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[igcInstId]" value="{{ inst.id }}" id="igc_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="igc_{{ inst.id }}">
+                                        {{ inst.igc ? ('IGC ' ~ inst.igc ~ ' (' ~ inst.anoIgc ~ ')') : '—' }}
+                                    </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Sinalizações Vigentes #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Sinalizações Vigentes</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[sinalizacoesVigentes]" value="{{ inst.sinalizacoesVigentes }}" id="sin_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="sin_{{ inst.id }}">{{ inst.sinalizacoesVigentes ?? '—' }}</label>
                                 </div>
                             </td>
                         {% endfor %}
@@ -240,6 +448,19 @@
                                     <label class="form-check-label" for="fy_{{ inst.id }}">
                                         Fund: {{ inst.foundationYear ?? '—' }} | Ext: {{ inst.extinctionYear ?? '—' }}
                                     </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Observações #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Observações</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[notes]" value="{{ inst.notes }}" id="notes_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="notes_{{ inst.id }}">{{ inst.notes ?? '—' }}</label>
                                 </div>
                             </td>
                         {% endfor %}

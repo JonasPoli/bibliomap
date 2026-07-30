@@ -69,16 +69,51 @@ class EntityMergeService
         if (isset($selectedFields['institutionType'])) $master->setInstitutionType($selectedFields['institutionType'] ?: null);
         if (isset($selectedFields['natureza'])) $master->setNatureza($selectedFields['natureza'] ?: null);
         if (isset($selectedFields['categoria'])) $master->setCategoria($selectedFields['categoria'] ?: null);
+        if (isset($selectedFields['categoriaAdministrativa'])) $master->setCategoriaAdministrativa($selectedFields['categoriaAdministrativa'] ?: null);
         if (isset($selectedFields['organizacaoAcademica'])) $master->setOrganizacaoAcademica($selectedFields['organizacaoAcademica'] ?: null);
+        if (isset($selectedFields['tipoCredenciamento'])) $master->setTipoCredenciamento($selectedFields['tipoCredenciamento'] ?: null);
+        if (isset($selectedFields['situacaoIes'])) $master->setSituacaoIes($selectedFields['situacaoIes'] ?: null);
         if (isset($selectedFields['reitor'])) $master->setReitor($selectedFields['reitor'] ?: null);
+        if (isset($selectedFields['representanteLegal'])) $master->setRepresentanteLegal($selectedFields['representanteLegal'] ?: null);
         if (isset($selectedFields['officialWebsite'])) $master->setOfficialWebsite($selectedFields['officialWebsite'] ?: null);
         if (isset($selectedFields['institutionalEmail'])) $master->setInstitutionalEmail($selectedFields['institutionalEmail'] ?: null);
         if (isset($selectedFields['telefone'])) $master->setTelefone($selectedFields['telefone'] ?: null);
         if (isset($selectedFields['enderecoSede'])) $master->setEnderecoSede($selectedFields['enderecoSede'] ?: null);
         if (isset($selectedFields['vantagepoint'])) $master->setVantagepoint($selectedFields['vantagepoint'] ?: null);
+        if (isset($selectedFields['sinalizacoesVigentes'])) $master->setSinalizacoesVigentes($selectedFields['sinalizacoesVigentes'] ?: null);
+        if (isset($selectedFields['notes'])) $master->setNotes($selectedFields['notes'] ?: null);
 
         if (isset($selectedFields['foundationYear'])) $master->setFoundationYear($selectedFields['foundationYear'] !== '' ? (int)$selectedFields['foundationYear'] : null);
         if (isset($selectedFields['extinctionYear'])) $master->setExtinctionYear($selectedFields['extinctionYear'] !== '' ? (int)$selectedFields['extinctionYear'] : null);
+
+        if (isset($selectedFields['coordsInstId'])) {
+            $cInst = $instMap[(int)$selectedFields['coordsInstId']] ?? null;
+            if ($cInst) {
+                $master->setLatitude($cInst->getLatitude());
+                $master->setLongitude($cInst->getLongitude());
+            }
+        }
+        if (isset($selectedFields['ciInstId'])) {
+            $cInst = $instMap[(int)$selectedFields['ciInstId']] ?? null;
+            if ($cInst) {
+                $master->setCi($cInst->getCi());
+                $master->setAnoCi($cInst->getAnoCi());
+            }
+        }
+        if (isset($selectedFields['ciEadInstId'])) {
+            $cInst = $instMap[(int)$selectedFields['ciEadInstId']] ?? null;
+            if ($cInst) {
+                $master->setCiEad($cInst->getCiEad());
+                $master->setAnoCiEad($cInst->getAnoCiEad());
+            }
+        }
+        if (isset($selectedFields['igcInstId'])) {
+            $cInst = $instMap[(int)$selectedFields['igcInstId']] ?? null;
+            if ($cInst) {
+                $master->setIgc($cInst->getIgc());
+                $master->setAnoIgc($cInst->getAnoIgc());
+            }
+        }
         
         if (isset($selectedFields['locationInstId'])) {
             $locInst = $instMap[(int)$selectedFields['locationInstId']] ?? null;
