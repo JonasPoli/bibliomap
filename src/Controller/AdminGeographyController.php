@@ -10,6 +10,7 @@ use App\Entity\StateVariation;
 use App\Entity\City;
 use App\Entity\CityVariation;
 use App\Service\Import\DocumentEnrichmentService;
+use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,32 +34,59 @@ class AdminGeographyController extends AbstractController
     #[Route('', name: 'app_admin_geography_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        $countries = $this->em->getRepository(Country::class)->findBy([], ['commonName' => 'ASC']);
+        $search = trim($request->query->getString('search', ''));
+        $normSearch = StringNormalizer::normalizeString($search, true);
         $regions = $this->em->getRepository(Region::class)->findBy([], ['name' => 'ASC']);
-        
-        $states = $this->em->createQueryBuilder()
-            ->select('s')
+
+        // Countries query with variations search
+        $countryQb = $this->em->createQueryBuilder()
+            ->select('DISTINCT c')
+            ->from(Country::class, 'c')
+            ->leftJoin('c.variations', 'v');
+
+        if ($search !== '') {
+            $countryQb->andWhere('c.officialName LIKE :search OR c.commonName LIKE :search OR c.sigla LIKE :search OR c.isoAlpha2 LIKE :search OR c.isoAlpha3 LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', '%' . $search . '%')
+                ->setParameter('normSearch', '%' . $normSearch . '%');
+        }
+        $countries = $countryQb->orderBy('c.commonName', 'ASC')->getQuery()->getResult();
+
+        // States query with variations search
+        $stateQb = $this->em->createQueryBuilder()
+            ->select('DISTINCT s')
             ->from(State::class, 's')
             ->leftJoin('s.country', 'c')
             ->leftJoin('s.region', 'r')
-            ->orderBy('s.officialName', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->leftJoin('s.variations', 'v');
 
-        $cities = $this->em->createQueryBuilder()
-            ->select('ct')
+        if ($search !== '') {
+            $stateQb->andWhere('s.officialName LIKE :search OR s.sigla LIKE :search OR c.commonName LIKE :search OR r.name LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', '%' . $search . '%')
+                ->setParameter('normSearch', '%' . $normSearch . '%');
+        }
+        $states = $stateQb->orderBy('s.officialName', 'ASC')->getQuery()->getResult();
+
+        // Cities query with variations search
+        $cityQb = $this->em->createQueryBuilder()
+            ->select('DISTINCT ct')
             ->from(City::class, 'ct')
             ->leftJoin('ct.country', 'c')
             ->leftJoin('ct.state', 's')
-            ->orderBy('ct.officialName', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->leftJoin('ct.variations', 'v');
+
+        if ($search !== '') {
+            $cityQb->andWhere('ct.officialName LIKE :search OR s.officialName LIKE :search OR c.commonName LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', '%' . $search . '%')
+                ->setParameter('normSearch', '%' . $normSearch . '%');
+        }
+        $cities = $cityQb->orderBy('ct.officialName', 'ASC')->getQuery()->getResult();
 
         return $this->render('admin/geography/index.html.twig', [
             'countries' => $countries,
             'regions' => $regions,
             'states' => $states,
             'cities' => $cities,
+            'search' => $search,
         ]);
     }
 

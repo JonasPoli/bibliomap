@@ -30,18 +30,20 @@ class AdminAuthorController extends AbstractController
     public function index(Request $request): Response
     {
         $search = trim($request->query->getString('search', ''));
+        $normSearch = StringNormalizer::normalizeString($search, true);
         $status = $request->query->get('status', 'all');
         $page   = max(1, $request->query->getInt('page', 1));
         $limit  = 100;
 
         $qb = $this->em->createQueryBuilder()
-            ->select('a')
+            ->select('DISTINCT a')
             ->from(AuthorIdentity::class, 'a')
             ->leftJoin('a.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :search OR a.orcid LIKE :search OR v.variationName LIKE :search')
-               ->setParameter('search', '%' . $search . '%');
+            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :normSearch OR a.orcid LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+               ->setParameter('search', '%' . $search . '%')
+               ->setParameter('normSearch', '%' . $normSearch . '%');
         }
 
         if ($status === 'active') {

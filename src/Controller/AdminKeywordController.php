@@ -29,19 +29,21 @@ class AdminKeywordController extends AbstractController
     public function index(Request $request): Response
     {
         $search = trim($request->query->getString('search', ''));
+        $normSearch = StringNormalizer::normalizeString($search, true);
         $status = $request->query->get('status', 'all');
         $type   = $request->query->get('type', 'all');
         $page   = max(1, $request->query->getInt('page', 1));
         $limit  = 100;
 
         $qb = $this->em->createQueryBuilder()
-            ->select('k')
+            ->select('DISTINCT k')
             ->from(Keyword::class, 'k')
             ->leftJoin('k.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('k.keywordOriginal LIKE :search OR k.keywordDisplay LIKE :search OR k.keywordType LIKE :search OR v.variationName LIKE :search')
-               ->setParameter('search', '%' . $search . '%');
+            $qb->andWhere('k.keywordOriginal LIKE :search OR k.keywordDisplay LIKE :search OR k.keywordType LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+               ->setParameter('search', '%' . $search . '%')
+               ->setParameter('normSearch', '%' . $normSearch . '%');
         }
 
         if ($status === 'active') {

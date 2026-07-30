@@ -11,6 +11,7 @@ use App\Entity\StateVariation;
 use App\Entity\City;
 use App\Entity\CityVariation;
 use App\Service\Import\DocumentEnrichmentService;
+use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,11 +36,12 @@ class AdminInstitutionController extends AbstractController
     public function index(Request $request): Response
     {
         $search = trim($request->query->getString('search', ''));
+        $normSearch = StringNormalizer::normalizeString($search, true);
         $page = max(1, $request->query->getInt('page', 1));
         $limit = 100;
         
         $qb = $this->em->createQueryBuilder()
-            ->select('i')
+            ->select('DISTINCT i')
             ->from(Institution::class, 'i')
             ->leftJoin('i.country', 'co')
             ->leftJoin('i.state', 'st')
@@ -55,6 +57,7 @@ class AdminInstitutionController extends AbstractController
                 'i.cnpj LIKE :search',
                 'i.vantagepoint LIKE :search',
                 'v.variationName LIKE :search',
+                'v.normalizedName LIKE :normSearch',
                 'co.commonName LIKE :search',
                 'st.officialName LIKE :search',
                 'ci.officialName LIKE :search'
@@ -65,7 +68,8 @@ class AdminInstitutionController extends AbstractController
                 $qb->setParameter('searchInt', (int) $search);
             }
             $qb->andWhere($orX)
-               ->setParameter('search', '%' . $search . '%');
+               ->setParameter('search', '%' . $search . '%')
+               ->setParameter('normSearch', '%' . $normSearch . '%');
         }
 
         $query = $qb->orderBy('i.officialName', 'ASC')

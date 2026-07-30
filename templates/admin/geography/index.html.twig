@@ -42,7 +42,19 @@
     <h1 class="bm-page-title">
         <i class="bi bi-globe text-accent me-2"></i>Estruturas Geográficas
     </h1>
-    <p class="bm-page-subtitle">Gerencie os cadastros de países, regiões, estados e cidades utilizados nos filtros e relatórios.</p>
+<!-- Search Filter Card -->
+<div class="bm-card mb-4">
+    <form method="GET" action="{{ path('app_admin_geography_index') }}" class="row g-2 align-items-center">
+        <div class="col-md-10">
+            <div class="input-group">
+                <span class="input-group-text border-bm bg-bm-card text-muted-bm"><i class="bi bi-search"></i></span>
+                <input type="text" name="search" class="form-control border-bm bg-bm-card text-bm" placeholder="Buscar por país, estado, cidade, código ISO, sigla ou variações do Tesauro..." value="{{ search }}">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-bm-secondary w-100"><i class="bi bi-filter me-1"></i> Filtrar</button>
+        </div>
+    </form>
 </div>
 
 <!-- Tabs Card -->

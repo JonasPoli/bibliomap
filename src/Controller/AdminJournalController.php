@@ -6,6 +6,7 @@ use App\Entity\AcademicDatabase;
 use App\Entity\QualisJournal;
 use App\Entity\JournalVariation;
 use App\Service\Import\DocumentEnrichmentService;
+use App\Service\Import\StringNormalizer;
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,7 +32,8 @@ class AdminJournalController extends AbstractController
     #[Route('', name: 'app_admin_journals_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        $search = $request->query->getString('search', '');
+        $search = trim($request->query->getString('search', ''));
+        $normSearch = StringNormalizer::normalizeString($search, true);
         $qualis = $request->query->getString('qualis', 'all');
         $page = max(1, $request->query->getInt('page', 1));
         $limit = 100;
@@ -51,13 +53,14 @@ class AdminJournalController extends AbstractController
         $sortField = $allowedSortFields[$sort] ?? 'q.title';
 
         $qb = $this->em->createQueryBuilder()
-            ->select('q')
+            ->select('DISTINCT q')
             ->from(QualisJournal::class, 'q')
             ->leftJoin('q.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('q.title LIKE :search OR q.issn LIKE :search OR q.qualis LIKE :search OR v.variationName LIKE :search')
-               ->setParameter('search', '%' . $search . '%');
+            $qb->andWhere('q.title LIKE :search OR q.issn LIKE :search OR q.qualis LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+               ->setParameter('search', '%' . $search . '%')
+               ->setParameter('normSearch', '%' . $normSearch . '%');
         }
 
         if ($qualis !== 'all' && $qualis !== '') {
