@@ -49,7 +49,7 @@ class EntityMergeService
         $allVariationStrings = [];
         foreach ($instMap as $inst) {
             if ($inst->getOfficialName()) $allVariationStrings[] = $inst->getOfficialName();
-            if ($inst->getCommonName()) $allVariationStrings[] = $inst->getCommonName();
+            if ($inst->getShortName()) $allVariationStrings[] = $inst->getShortName();
             if ($inst->getSigla()) $allVariationStrings[] = $inst->getSigla();
             if ($inst->getRazaoSocial()) $allVariationStrings[] = $inst->getRazaoSocial();
 
@@ -60,25 +60,33 @@ class EntityMergeService
 
         // Apply selected fields to Master
         if (isset($selectedFields['officialName'])) $master->setOfficialName($selectedFields['officialName']);
-        if (isset($selectedFields['commonName'])) $master->setCommonName($selectedFields['commonName'] ?: null);
+        if (isset($selectedFields['shortName'])) $master->setShortName($selectedFields['shortName'] ?: null);
         if (isset($selectedFields['sigla'])) $master->setSigla($selectedFields['sigla'] ?: null);
         if (isset($selectedFields['razaoSocial'])) $master->setRazaoSocial($selectedFields['razaoSocial'] ?: null);
         if (isset($selectedFields['cnpj'])) $master->setCnpj($selectedFields['cnpj'] ?: null);
-        if (isset($selectedFields['codigoIes'])) $master->setCodigoIes($selectedFields['codigoIes'] ?: null);
-        if (isset($selectedFields['anoFundacao'])) $master->setAnoFundacao($selectedFields['anoFundacao'] !== '' ? (int)$selectedFields['anoFundacao'] : null);
-        if (isset($selectedFields['anoExtincao'])) $master->setAnoExtincao($selectedFields['anoExtincao'] !== '' ? (int)$selectedFields['anoExtincao'] : null);
+        if (isset($selectedFields['codigoIes'])) $master->setCodigoIes($selectedFields['codigoIes'] !== '' ? (int)$selectedFields['codigoIes'] : null);
+        if (isset($selectedFields['codigoMantenedora'])) $master->setCodigoMantenedora($selectedFields['codigoMantenedora'] !== '' ? (int)$selectedFields['codigoMantenedora'] : null);
+        if (isset($selectedFields['institutionType'])) $master->setInstitutionType($selectedFields['institutionType'] ?: null);
+        if (isset($selectedFields['natureza'])) $master->setNatureza($selectedFields['natureza'] ?: null);
+        if (isset($selectedFields['categoria'])) $master->setCategoria($selectedFields['categoria'] ?: null);
+        if (isset($selectedFields['organizacaoAcademica'])) $master->setOrganizacaoAcademica($selectedFields['organizacaoAcademica'] ?: null);
+        if (isset($selectedFields['reitor'])) $master->setReitor($selectedFields['reitor'] ?: null);
+        if (isset($selectedFields['officialWebsite'])) $master->setOfficialWebsite($selectedFields['officialWebsite'] ?: null);
+        if (isset($selectedFields['institutionalEmail'])) $master->setInstitutionalEmail($selectedFields['institutionalEmail'] ?: null);
+        if (isset($selectedFields['telefone'])) $master->setTelefone($selectedFields['telefone'] ?: null);
+        if (isset($selectedFields['enderecoSede'])) $master->setEnderecoSede($selectedFields['enderecoSede'] ?: null);
+        if (isset($selectedFields['vantagepoint'])) $master->setVantagepoint($selectedFields['vantagepoint'] ?: null);
+
+        if (isset($selectedFields['foundationYear'])) $master->setFoundationYear($selectedFields['foundationYear'] !== '' ? (int)$selectedFields['foundationYear'] : null);
+        if (isset($selectedFields['extinctionYear'])) $master->setExtinctionYear($selectedFields['extinctionYear'] !== '' ? (int)$selectedFields['extinctionYear'] : null);
         
-        if (isset($selectedFields['countryId'])) {
-            $country = $selectedFields['countryId'] ? $this->em->getRepository(Country::class)->find($selectedFields['countryId']) : null;
-            $master->setCountry($country);
-        }
-        if (isset($selectedFields['stateId'])) {
-            $state = $selectedFields['stateId'] ? $this->em->getRepository(State::class)->find($selectedFields['stateId']) : null;
-            $master->setState($state);
-        }
-        if (isset($selectedFields['cityId'])) {
-            $city = $selectedFields['cityId'] ? $this->em->getRepository(City::class)->find($selectedFields['cityId']) : null;
-            $master->setCity($city);
+        if (isset($selectedFields['locationInstId'])) {
+            $locInst = $instMap[(int)$selectedFields['locationInstId']] ?? null;
+            if ($locInst) {
+                $master->setCountry($locInst->getCountry());
+                $master->setState($locInst->getState());
+                $master->setCity($locInst->getCity());
+            }
         }
 
         // Deduplicate and re-attach variations to Master

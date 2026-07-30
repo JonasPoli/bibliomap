@@ -15,7 +15,7 @@
     <h1 class="bm-page-title">
         <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Instituições
     </h1>
-    <p class="bm-page-subtitle">Compare até 5 registros lado a lado, selecione o registro Principal (Master) e defina qual valor deve ser mantido para cada campo.</p>
+    <p class="bm-page-subtitle">Compare instituições de ensino e pesquisa lado a lado, selecione o registro Principal (Master) e escolha quais valores de cada campo devem prevalecer.</p>
 </div>
 
 <form action="{{ path('app_admin_institutions_merge_execute') }}" method="POST">
@@ -28,9 +28,9 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
-                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione a Instituição Principal (Master)
                 </h5>
-                <p class="text-muted-bm mb-0" style="font-size:13px">O registro selecionado como Master será mantido no sistema. Os demais serão mesclados e suas variações serão anexadas a ele.</p>
+                <p class="text-muted-bm mb-0" style="font-size:13px">A instituição selecionada como Master será mantida. As demais serão mescladas e todos os seus nomes/siglas virarão variações do Tesauro.</p>
             </div>
             <a href="{{ path('app_admin_institutions_index') }}" class="btn btn-sm btn-bm-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Cancelar
@@ -49,7 +49,7 @@
                         </div>
                         <div class="mt-2" style="font-size:13px;color:var(--bm-text)">
                             <div class="fw-bold">{{ inst.officialName }}</div>
-                            <small class="text-muted-bm">{{ inst.sigla ?? 'Sem sigla' }} | {{ inst.city.officialName ?? '' }} {{ inst.state.code ?? '' }}</small>
+                            <small class="text-muted-bm">Sigla: {{ inst.sigla ?? '—' }} | IES: {{ inst.codigoIes ?? '—' }}</small>
                         </div>
                     </div>
                 </div>
@@ -60,7 +60,7 @@
     <!-- Comparison Table -->
     <div class="bm-card mb-4">
         <h5 class="mb-3" style="font-weight:700">
-            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos no Registro Master
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
         </h5>
         
         <div class="table-responsive">
@@ -136,33 +136,67 @@
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[cnpj]" value="{{ inst.cnpj }}" id="cnpj_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="cnpj_{{ inst.id }}">{{ inst.cnpj ?? '—' }}</label>
+                                    <label class="form-check-label font-monospace" for="cnpj_{{ inst.id }}">{{ inst.cnpj ?? '—' }}</label>
                                 </div>
                             </td>
                         {% endfor %}
                     </tr>
 
-                    {# Código IES #}
+                    {# Código IES / Mantenedora #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Código IES (e-MEC)</td>
+                        <td class="fw-bold bg-bm-card">Código IES / Mantenedora (e-MEC)</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[codigoIes]" value="{{ inst.codigoIes }}" id="ies_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="ies_{{ inst.id }}">{{ inst.codigoIes ? ('IES #' ~ inst.codigoIes) : '—' }}</label>
+                                    <label class="form-check-label" for="ies_{{ inst.id }}">
+                                        IES: {{ inst.codigoIes ? ('#' ~ inst.codigoIes) : '—' }} | Mant: {{ inst.codigoMantenedora ? ('#' ~ inst.codigoMantenedora) : '—' }}
+                                    </label>
                                 </div>
                             </td>
                         {% endfor %}
                     </tr>
 
-                    {# Tipo / Natureza #}
+                    {# Tipo / Natureza / Categoria #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Tipo / Natureza</td>
+                        <td class="fw-bold bg-bm-card">Tipo / Natureza / Categoria</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[institutionType]" value="{{ inst.institutionType }}" id="type_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label" for="type_{{ inst.id }}">{{ inst.institutionType ?? '—' }} / {{ inst.natureza ?? '—' }}</label>
+                                    <label class="form-check-label" for="type_{{ inst.id }}">
+                                        {{ inst.institutionType ?? '—' }} / {{ inst.natureza ?? '—' }} / {{ inst.categoria ?? '—' }}
+                                    </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Organização Acadêmica / Reitor #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Org. Acadêmica / Reitor</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[organizacaoAcademica]" value="{{ inst.organizacaoAcademica }}" id="org_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="org_{{ inst.id }}">
+                                        {{ inst.organizacaoAcademica ?? '—' }} {% if inst.reitor %}(Reitor: {{ inst.reitor }}){% endif %}
+                                    </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Website / Email / Telefone #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Website / Email / Contato</td>
+                        {% for inst in institutions %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[officialWebsite]" value="{{ inst.officialWebsite }}" id="web_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="web_{{ inst.id }}">
+                                        {{ inst.officialWebsite ?? '—' }} | {{ inst.institutionalEmail ?? '—' }}
+                                    </label>
                                 </div>
                             </td>
                         {% endfor %}
@@ -187,9 +221,9 @@
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="fields[cityId]" value="{{ inst.city.id ?? '' }}" id="loc_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
+                                    <input class="form-check-input" type="radio" name="fields[locationInstId]" value="{{ inst.id }}" id="loc_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
                                     <label class="form-check-label" for="loc_{{ inst.id }}">
-                                        {{ inst.city.officialName ?? '—' }} / {{ inst.state.code ?? '—' }} ({{ inst.country.commonName ?? '—' }})
+                                        {{ inst.city.officialName ?? '—' }} / {{ inst.state.officialName ?? '—' }} ({{ inst.country.commonName ?? '—' }})
                                     </label>
                                 </div>
                             </td>
@@ -238,8 +272,8 @@
         <a href="{{ path('app_admin_institutions_index') }}" class="btn btn-bm-secondary px-4 py-2">
             Cancelar
         </a>
-        <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? O registro Master será atualizado e os outros serão removidos.');">
-            <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem e Atualizar Tesauro
+        <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? A instituição Master será atualizada e as outras serão removidas.');">
+            <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Instituições
         </button>
     </div>
 </form>
