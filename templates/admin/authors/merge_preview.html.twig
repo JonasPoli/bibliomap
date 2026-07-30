@@ -71,7 +71,7 @@
                         {% for auth in authors %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ auth.id }}</span>
-                                {{ auth.preferredName|u.truncate(20, '...') }}
+                                {{ auth.preferredName|length > 25 ? auth.preferredName|slice(0, 25) ~ '...' : auth.preferredName }}
                             </th>
                         {% endfor %}
                     </tr>

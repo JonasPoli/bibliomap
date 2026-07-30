@@ -71,7 +71,7 @@
                         {% for kw in keywords %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ kw.id }}</span>
-                                {{ kw.keywordOriginal|u.truncate(20, '...') }}
+                                {{ kw.keywordOriginal|length > 25 ? kw.keywordOriginal|slice(0, 25) ~ '...' : kw.keywordOriginal }}
                             </th>
                         {% endfor %}
                     </tr>

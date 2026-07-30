@@ -71,7 +71,7 @@
                         {% for j in journals %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ j.id }}</span>
-                                {{ j.title|u.truncate(20, '...') }}
+                                {{ j.title|length > 25 ? j.title|slice(0, 25) ~ '...' : j.title }}
                             </th>
                         {% endfor %}
                     </tr>

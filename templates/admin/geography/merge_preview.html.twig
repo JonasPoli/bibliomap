@@ -71,7 +71,7 @@
                         {% for c in countries %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ c.id }}</span>
-                                {{ c.commonName|u.truncate(20, '...') }}
+                                {{ c.commonName|length > 25 ? c.commonName|slice(0, 25) ~ '...' : c.commonName }}
                             </th>
                         {% endfor %}
                     </tr>

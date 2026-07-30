@@ -71,7 +71,7 @@
                         {% for inst in institutions %}
                             <th>
                                 <span class="badge bg-secondary me-1">#{{ inst.id }}</span>
-                                {{ inst.sigla ? inst.sigla : inst.officialName|u.truncate(20, '...') }}
+                                {{ inst.sigla ? inst.sigla : (inst.officialName|length > 25 ? inst.officialName|slice(0, 25) ~ '...' : inst.officialName) }}
                             </th>
                         {% endfor %}
                     </tr>
