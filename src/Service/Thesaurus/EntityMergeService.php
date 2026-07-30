@@ -189,9 +189,27 @@ class EntityMergeService
             $master->setPreferredName($selectedFields['preferredName']);
             $master->setNormalizedName(StringNormalizer::normalizeString($selectedFields['preferredName'], true));
         }
-        if (isset($selectedFields['orcid'])) $master->setOrcid($selectedFields['orcid'] ?: null);
-        if (isset($selectedFields['lattesId'])) $master->setLattesId($selectedFields['lattesId'] ?: null);
-        if (isset($selectedFields['notes'])) $master->setNotes($selectedFields['notes'] ?: null);
+
+        // Consolidate external identifiers from merged authors
+        foreach ($sources as $source) {
+            foreach ($source->getIdentifiers() as $ident) {
+                $hasIdent = false;
+                foreach ($master->getIdentifiers() as $mIdent) {
+                    if ($mIdent->getProvider() === $ident->getProvider() && $mIdent->getIdentifier() === $ident->getIdentifier()) {
+                        $hasIdent = true;
+                        break;
+                    }
+                }
+                if (!$hasIdent) {
+                    $newIdent = new AuthorExternalIdentifier();
+                    $newIdent->setAuthorIdentity($master);
+                    $newIdent->setProvider($ident->getProvider());
+                    $newIdent->setIdentifier($ident->getIdentifier());
+                    $newIdent->setUrl($ident->getUrl());
+                    $this->em->persist($newIdent);
+                }
+            }
+        }
 
         $existingVariations = [];
         foreach ($master->getVariations() as $var) {
@@ -207,9 +225,10 @@ class EntityMergeService
 
             $varObj = new AuthorNameVariant();
             $varObj->setAuthorIdentity($master);
-            $varObj->setVariationName($rawVar);
+            $varObj->setOriginalName($rawVar);
+            $varObj->setDisplayName($rawVar);
             $varObj->setNormalizedName($norm);
-            $varObj->setVariationType('alternative');
+            $varObj->setSource('merge');
 
             $this->em->persist($varObj);
             $existingVariations[$norm] = true;

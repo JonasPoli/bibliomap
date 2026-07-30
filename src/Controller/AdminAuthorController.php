@@ -38,10 +38,11 @@ class AdminAuthorController extends AbstractController
         $qb = $this->em->createQueryBuilder()
             ->select('DISTINCT a')
             ->from(AuthorIdentity::class, 'a')
-            ->leftJoin('a.variations', 'v');
+            ->leftJoin('a.variations', 'v')
+            ->leftJoin('a.identifiers', 'id');
 
         if ($search !== '') {
-            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :normSearch OR a.orcid LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :normSearch OR id.identifier LIKE :search OR v.originalName LIKE :search OR v.displayName LIKE :search OR v.normalizedName LIKE :normSearch')
                ->setParameter('search', '%' . $search . '%')
                ->setParameter('normSearch', '%' . $normSearch . '%');
         }
