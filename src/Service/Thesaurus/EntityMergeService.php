@@ -5,24 +5,24 @@ namespace App\Service\Thesaurus;
 use App\Entity\AuthorIdentity;
 use App\Entity\AuthorNameVariant;
 use App\Entity\City;
-use App\Entity\CityVariationName;
+use App\Entity\CityVariation;
 use App\Entity\Country;
-use App\Entity\CountryVariationName;
+use App\Entity\CountryVariation;
 use App\Entity\Institution;
-use App\Entity\InstitutionVariationName;
+use App\Entity\InstitutionVariation;
 use App\Entity\Keyword;
-use App\Entity\KeywordVariationName;
+use App\Entity\KeywordVariation;
 use App\Entity\QualisJournal;
-use App\Entity\JournalVariationName;
+use App\Entity\JournalVariation;
 use App\Entity\State;
-use App\Entity\StateVariationName;
+use App\Entity\StateVariation;
+use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 
 class EntityMergeService
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly ThesaurusFileService $thesaurusFileService
+        private readonly EntityManagerInterface $em
     ) {}
 
     /**
@@ -43,36 +43,31 @@ class EntityMergeService
         }
 
         $master = $instMap[$masterId];
-        $sources = array_filter($instMap, fn($id) => $id !== $masterId, ARRAY_FILTER_USE_KEY);
+        $sources = array_filter($instMap, fn($inst) => $inst->getId() !== $masterId);
 
-        // Collect names and variations to consolidate into Master
+        // Collect all variations from master and source institutions
         $allVariationStrings = [];
-
         foreach ($instMap as $inst) {
             if ($inst->getOfficialName()) $allVariationStrings[] = $inst->getOfficialName();
-            if ($inst->getShortName()) $allVariationStrings[] = $inst->getShortName();
+            if ($inst->getCommonName()) $allVariationStrings[] = $inst->getCommonName();
             if ($inst->getSigla()) $allVariationStrings[] = $inst->getSigla();
             if ($inst->getRazaoSocial()) $allVariationStrings[] = $inst->getRazaoSocial();
-            
+
             foreach ($inst->getVariations() as $var) {
                 if ($var->getVariationName()) $allVariationStrings[] = $var->getVariationName();
             }
         }
 
-        // Apply chosen field values to Master
+        // Apply selected fields to Master
         if (isset($selectedFields['officialName'])) $master->setOfficialName($selectedFields['officialName']);
-        if (isset($selectedFields['shortName'])) $master->setShortName($selectedFields['shortName'] ?: null);
+        if (isset($selectedFields['commonName'])) $master->setCommonName($selectedFields['commonName'] ?: null);
         if (isset($selectedFields['sigla'])) $master->setSigla($selectedFields['sigla'] ?: null);
         if (isset($selectedFields['razaoSocial'])) $master->setRazaoSocial($selectedFields['razaoSocial'] ?: null);
         if (isset($selectedFields['cnpj'])) $master->setCnpj($selectedFields['cnpj'] ?: null);
-        if (isset($selectedFields['codigoIes'])) $master->setCodigoIes($selectedFields['codigoIes'] !== '' ? (int)$selectedFields['codigoIes'] : null);
-        if (isset($selectedFields['institutionType'])) $master->setInstitutionType($selectedFields['institutionType'] ?: null);
-        if (isset($selectedFields['natureza'])) $master->setNatureza($selectedFields['natureza'] ?: null);
-        if (isset($selectedFields['vantagepoint'])) $master->setVantagepoint($selectedFields['vantagepoint'] ?: null);
-        if (isset($selectedFields['officialWebsite'])) $master->setOfficialWebsite($selectedFields['officialWebsite'] ?: null);
-        if (isset($selectedFields['foundationYear'])) $master->setFoundationYear($selectedFields['foundationYear'] !== '' ? (int)$selectedFields['foundationYear'] : null);
-        if (isset($selectedFields['extinctionYear'])) $master->setExtinctionYear($selectedFields['extinctionYear'] !== '' ? (int)$selectedFields['extinctionYear'] : null);
-
+        if (isset($selectedFields['codigoIes'])) $master->setCodigoIes($selectedFields['codigoIes'] ?: null);
+        if (isset($selectedFields['anoFundacao'])) $master->setAnoFundacao($selectedFields['anoFundacao'] !== '' ? (int)$selectedFields['anoFundacao'] : null);
+        if (isset($selectedFields['anoExtincao'])) $master->setAnoExtincao($selectedFields['anoExtincao'] !== '' ? (int)$selectedFields['anoExtincao'] : null);
+        
         if (isset($selectedFields['countryId'])) {
             $country = $selectedFields['countryId'] ? $this->em->getRepository(Country::class)->find($selectedFields['countryId']) : null;
             $master->setCountry($country);
@@ -96,10 +91,10 @@ class EntityMergeService
             $rawVar = trim($rawVar);
             if ($rawVar === '') continue;
             
-            $norm = $this->thesaurusFileService->normalizeName($rawVar);
+            $norm = StringNormalizer::normalizeString($rawVar, true);
             if ($norm === '' || isset($existingVariations[$norm])) continue;
 
-            $varObj = new InstitutionVariationName();
+            $varObj = new InstitutionVariation();
             $varObj->setInstitution($master);
             $varObj->setVariationName($rawVar);
             $varObj->setNormalizedName($norm);
@@ -110,7 +105,7 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        // Remove non-master institutions
+        // Remove source institutions
         foreach ($sources as $source) {
             $this->em->remove($source);
         }
@@ -120,7 +115,7 @@ class EntityMergeService
     }
 
     /**
-     * Merge multiple Authors into Master AuthorIdentity
+     * Merge multiple AuthorIdentities into Master AuthorIdentity
      */
     public function mergeAuthors(int $masterId, array $sourceIds, array $selectedFields): AuthorIdentity
     {
@@ -137,7 +132,7 @@ class EntityMergeService
         }
 
         $master = $authorMap[$masterId];
-        $sources = array_filter($authorMap, fn($id) => $id !== $masterId, ARRAY_FILTER_USE_KEY);
+        $sources = array_filter($authorMap, fn($auth) => $auth->getId() !== $masterId);
 
         $allVariationStrings = [];
         foreach ($authorMap as $auth) {
@@ -149,7 +144,7 @@ class EntityMergeService
 
         if (isset($selectedFields['preferredName'])) {
             $master->setPreferredName($selectedFields['preferredName']);
-            $master->setNormalizedName($this->thesaurusFileService->normalizeName($selectedFields['preferredName']));
+            $master->setNormalizedName(StringNormalizer::normalizeString($selectedFields['preferredName'], true));
         }
         if (isset($selectedFields['orcid'])) $master->setOrcid($selectedFields['orcid'] ?: null);
         if (isset($selectedFields['lattesId'])) $master->setLattesId($selectedFields['lattesId'] ?: null);
@@ -164,7 +159,7 @@ class EntityMergeService
             $rawVar = trim($rawVar);
             if ($rawVar === '') continue;
             
-            $norm = $this->thesaurusFileService->normalizeName($rawVar);
+            $norm = StringNormalizer::normalizeString($rawVar, true);
             if ($norm === '' || isset($existingVariations[$norm])) continue;
 
             $varObj = new AuthorNameVariant();
@@ -203,7 +198,7 @@ class EntityMergeService
         }
 
         $master = $journalMap[$masterId];
-        $sources = array_filter($journalMap, fn($id) => $id !== $masterId, ARRAY_FILTER_USE_KEY);
+        $sources = array_filter($journalMap, fn($j) => $j->getId() !== $masterId);
 
         $allVariationStrings = [];
         foreach ($journalMap as $j) {
@@ -226,10 +221,10 @@ class EntityMergeService
             $rawVar = trim($rawVar);
             if ($rawVar === '') continue;
             
-            $norm = $this->thesaurusFileService->normalizeName($rawVar);
+            $norm = StringNormalizer::normalizeString($rawVar, true);
             if ($norm === '' || isset($existingVariations[$norm])) continue;
 
-            $varObj = new JournalVariationName();
+            $varObj = new JournalVariation();
             $varObj->setJournal($master);
             $varObj->setVariationName($rawVar);
             $varObj->setNormalizedName($norm);
@@ -266,7 +261,7 @@ class EntityMergeService
         }
 
         $master = $kwMap[$masterId];
-        $sources = array_filter($kwMap, fn($id) => $id !== $masterId, ARRAY_FILTER_USE_KEY);
+        $sources = array_filter($kwMap, fn($kw) => $kw->getId() !== $masterId);
 
         $allVariationStrings = [];
         foreach ($kwMap as $kw) {
@@ -290,10 +285,10 @@ class EntityMergeService
             $rawVar = trim($rawVar);
             if ($rawVar === '') continue;
             
-            $norm = $this->thesaurusFileService->normalizeName($rawVar);
+            $norm = StringNormalizer::normalizeString($rawVar, true);
             if ($norm === '' || isset($existingVariations[$norm])) continue;
 
-            $varObj = new KeywordVariationName();
+            $varObj = new KeywordVariation();
             $varObj->setKeyword($master);
             $varObj->setVariationName($rawVar);
             $varObj->setNormalizedName($norm);
@@ -330,7 +325,7 @@ class EntityMergeService
         }
 
         $master = $countryMap[$masterId];
-        $sources = array_filter($countryMap, fn($id) => $id !== $masterId, ARRAY_FILTER_USE_KEY);
+        $sources = array_filter($countryMap, fn($c) => $c->getId() !== $masterId);
 
         $allVariationStrings = [];
         foreach ($countryMap as $c) {
@@ -357,10 +352,10 @@ class EntityMergeService
             $rawVar = trim($rawVar);
             if ($rawVar === '') continue;
             
-            $norm = $this->thesaurusFileService->normalizeName($rawVar);
+            $norm = StringNormalizer::normalizeString($rawVar, true);
             if ($norm === '' || isset($existingVariations[$norm])) continue;
 
-            $varObj = new CountryVariationName();
+            $varObj = new CountryVariation();
             $varObj->setCountry($master);
             $varObj->setVariationName($rawVar);
             $varObj->setNormalizedName($norm);
