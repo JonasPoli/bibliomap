@@ -28,6 +28,9 @@
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
+    <button type="submit" form="mergeForm" id="btn-merge-authors" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 autores na tabela para mesclar">
+        <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
+    </button>
     <a href="{{ path('app_admin_authors_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Novo Autor
     </a>
@@ -69,13 +72,16 @@
             Nenhum autor encontrado.
         </div>
     {% else %}
+        <form id="mergeForm" action="{{ path('app_admin_authors_merge_preview') }}" method="POST">
         <div class="table-responsive">
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
-                        <th>Nome</th>
-                        <th>Sobrenome</th>
-                        <th>Iniciais</th>
+                        <th style="width:36px;text-align:center">
+                            <i class="bi bi-intersect text-warning" title="Marque até 5 para mesclar"></i>
+                        </th>
+                        <th>Nome Preferido</th>
+                        <th>Nome Normalizado</th>
                         <th>ORCID</th>
                         <th>Variações</th>
                         <th>Status</th>
@@ -85,11 +91,13 @@
                 <tbody>
                     {% for auth in authors %}
                         <tr class="border-bm">
-                            <td>
-                                <div style="font-weight:600">{{ auth.name }}</div>
+                            <td style="text-align:center">
+                                <input type="checkbox" name="ids[]" value="{{ auth.id }}" class="form-check-input merge-checkbox" style="cursor:pointer">
                             </td>
-                            <td>{{ auth.surname ?? '—' }}</td>
-                            <td class="font-monospace text-accent">{{ auth.initials ?? '—' }}</td>
+                            <td>
+                                <div style="font-weight:600">{{ auth.preferredName }}</div>
+                            </td>
+                            <td class="font-monospace text-muted-bm">{{ auth.normalizedName ?? '—' }}</td>
                             <td>
                                 {% if auth.orcid %}
                                     <a href="https://orcid.org/{{ auth.orcid }}" target="_blank" class="text-accent" style="text-decoration:none">
@@ -168,7 +176,46 @@
                 Total: <b>{{ totalItems|number_format(0, ',', '.') }}</b> autor(es) encontrado(s).
             </div>
         {% endif %}
+        </form>
     {% endif %}
+</div>
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('.merge-checkbox');
+            const btnMerge = document.getElementById('btn-merge-authors');
+            const mergeCount = document.getElementById('merge-count');
+
+            function updateMergeState() {
+                const checked = document.querySelectorAll('.merge-checkbox:checked');
+                const count = checked.length;
+                if (mergeCount) mergeCount.textContent = count;
+
+                if (count >= 2 && count <= 5) {
+                    btnMerge.disabled = false;
+                    btnMerge.classList.remove('btn-bm-warning');
+                    btnMerge.classList.add('btn-warning');
+                } else {
+                    btnMerge.disabled = true;
+                    btnMerge.classList.remove('btn-warning');
+                    btnMerge.classList.add('btn-bm-warning');
+                }
+
+                checkboxes.forEach(cb => {
+                    if (!cb.checked && count >= 5) {
+                        cb.disabled = true;
+                    } else {
+                        cb.disabled = false;
+                    }
+                });
+            }
+
+            checkboxes.forEach(cb => cb.addEventListener('change', updateMergeState));
+        });
+    </script>
+{% endblock %}
 
 <!-- Import CSV Modal -->
 <div class="modal fade animate__animated animate__fadeIn" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">

@@ -28,6 +28,9 @@
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
+    <button type="submit" form="mergeForm" id="btn-merge-keywords" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 palavras-chave na tabela para mesclar">
+        <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
+    </button>
     <a href="{{ path('app_admin_keywords_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Nova Palavra-chave
     </a>
@@ -77,11 +80,15 @@
             Nenhuma palavra-chave encontrada.
         </div>
     {% else %}
+        <form id="mergeForm" action="{{ path('app_admin_keywords_merge_preview') }}" method="POST">
         <div class="table-responsive">
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
-                        <th>Termo</th>
+                        <th style="width:36px;text-align:center">
+                            <i class="bi bi-intersect text-warning" title="Marque até 5 para mesclar"></i>
+                        </th>
+                        <th>Termo Original</th>
                         <th>Tipo</th>
                         <th>Variações</th>
                         <th>Status</th>
@@ -91,16 +98,24 @@
                 <tbody>
                     {% for kw in keywords %}
                         <tr class="border-bm">
-                            <td>
-                                <div style="font-weight:600" class="text-accent">{{ kw.term }}</div>
+                            <td style="text-align:center">
+                                <input type="checkbox" name="ids[]" value="{{ kw.id }}" class="form-check-input merge-checkbox" style="cursor:pointer">
                             </td>
                             <td>
-                                {% if kw.type == 'author' %}
-                                    <span class="badge bg-secondary">Autor</span>
-                                {% elseif kw.type == 'indexed' %}
-                                    <span class="badge bg-info text-dark">Indexada</span>
+                                <div style="font-weight:600" class="text-accent">{{ kw.keywordOriginal }}</div>
+                                {% if kw.keywordDisplay and kw.keywordDisplay != kw.keywordOriginal %}
+                                    <small class="text-muted-bm d-block" style="font-size:11.5px">{{ kw.keywordDisplay }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if kw.keywordType == 'author' %}
+                                    <span class="badge bg-primary-subtle text-primary border me-1">Autor</span>
+                                {% elseif kw.keywordType == 'indexed' %}
+                                    <span class="badge bg-info-subtle text-info border me-1">Indexada</span>
+                                {% elseif kw.keywordType == 'mesh' %}
+                                    <span class="badge bg-warning-subtle text-warning border me-1">MeSH</span>
                                 {% else %}
-                                    <span class="badge" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">MeSH</span>
+                                    <span class="badge bg-secondary-subtle text-secondary border me-1">{{ kw.keywordType }}</span>
                                 {% endif %}
                             </td>
                             <td>

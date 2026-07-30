@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
+use App\Service\Thesaurus\EntityMergeService;
 
 #[Route('/admin/keywords')]
 #[IsGranted('ROLE_ADMIN')]
@@ -21,6 +22,7 @@ class AdminKeywordController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
+        private readonly EntityMergeService $mergeService,
     ) {}
 
     #[Route('', name: 'app_admin_keywords_index', methods: ['GET'])]
@@ -601,6 +603,61 @@ class AdminKeywordController extends AbstractController
             $this->addFlash('success', "Importação de Tesauro concluída! Novas Palavras-Chave: {$newKeywords}, Novas Variações: {$addedVars}.");
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_keywords_index');
+    }
+
+    #[Route('/merge-preview', name: 'app_admin_keywords_merge_preview', methods: ['POST'])]
+    public function mergePreview(Request $request): Response
+    {
+        $ids = array_map('intval', (array) $request->request->all('ids'));
+        $ids = array_values(array_filter($ids));
+
+        if (count($ids) < 2 || count($ids) > 5) {
+            $this->addFlash('warning', 'Selecione entre 2 e 5 palavras-chave para mesclar.');
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        $keywords = $this->em->getRepository(Keyword::class)->findBy(['id' => $ids]);
+        if (count($keywords) < 2) {
+            $this->addFlash('danger', 'Palavras-chave selecionadas não foram encontradas.');
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        $allVariations = [];
+        foreach ($keywords as $kw) {
+            if ($kw->getKeywordOriginal()) $allVariations[] = $kw->getKeywordOriginal();
+            if ($kw->getKeywordDisplay()) $allVariations[] = $kw->getKeywordDisplay();
+            foreach ($kw->getVariations() as $var) {
+                if ($var->getVariationName()) $allVariations[] = $var->getVariationName();
+            }
+        }
+        $allVariations = array_values(array_unique(array_filter($allVariations)));
+
+        return $this->render('admin/keywords/merge_preview.html.twig', [
+            'keywords' => $keywords,
+            'allVariations' => $allVariations,
+        ]);
+    }
+
+    #[Route('/merge-execute', name: 'app_admin_keywords_merge_execute', methods: ['POST'])]
+    public function mergeExecute(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('merge_keywords', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        $masterId = (int) $request->request->get('master_id');
+        $sourceIds = array_map('intval', (array) $request->request->all('source_ids'));
+        $fields = (array) $request->request->all('fields');
+
+        try {
+            $master = $this->mergeService->mergeKeywords($masterId, $sourceIds, $fields);
+            $this->addFlash('success', "Palavra-chave '{$master->getKeywordOriginal()}' (#{$master->getId()}) mesclada e consolidada no Tesauro com sucesso!");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_keywords_index');

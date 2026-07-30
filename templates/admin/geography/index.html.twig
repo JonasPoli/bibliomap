@@ -22,6 +22,9 @@
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
         <i class="bi bi-upload me-1"></i> Importar Tesauro
     </button>
+    <button type="submit" form="mergeForm" id="btn-merge-geography" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 países na tabela para mesclar">
+        <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
+    </button>
     <a href="{{ path('app_admin_geography_country_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Novo País
     </a>
@@ -76,10 +79,14 @@
                     </button>
                 </div>
             </div>
+            <form id="mergeForm" action="{{ path('app_admin_geography_merge_preview') }}" method="POST">
             <div class="table-responsive">
                 <table class="table align-middle border-bm mb-0" style="font-size:13.5px">
                     <thead>
                         <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                            <th style="width:36px;text-align:center">
+                                <i class="bi bi-intersect text-warning" title="Marque até 5 para mesclar"></i>
+                            </th>
                             <th>Nome Oficial</th>
                             <th>Nome Comum</th>
                             <th>Sigla</th>
@@ -94,6 +101,9 @@
                     <tbody>
                         {% for c in countries %}
                             <tr class="border-bm">
+                                <td style="text-align:center">
+                                    <input type="checkbox" name="ids[]" value="{{ c.id }}" class="form-check-input merge-checkbox" style="cursor:pointer">
+                                </td>
                                 <td style="font-weight:600">{{ c.officialName }}</td>
                                 <td>
                                     {% if c.sigla %}
@@ -139,6 +149,7 @@
                     </tbody>
                 </table>
             </div>
+            </form>
         </div>
 
         <!-- Tab 2: States -->
@@ -398,4 +409,37 @@
 
 {% block javascripts %}
     {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('.merge-checkbox');
+            const btnMerge = document.getElementById('btn-merge-geography');
+            const mergeCount = document.getElementById('merge-count');
+
+            function updateMergeState() {
+                const checked = document.querySelectorAll('.merge-checkbox:checked');
+                const count = checked.length;
+                if (mergeCount) mergeCount.textContent = count;
+
+                if (count >= 2 && count <= 5) {
+                    btnMerge.disabled = false;
+                    btnMerge.classList.remove('btn-bm-warning');
+                    btnMerge.classList.add('btn-warning');
+                } else {
+                    btnMerge.disabled = true;
+                    btnMerge.classList.remove('btn-warning');
+                    btnMerge.classList.add('btn-bm-warning');
+                }
+
+                checkboxes.forEach(cb => {
+                    if (!cb.checked && count >= 5) {
+                        cb.disabled = true;
+                    } else {
+                        cb.disabled = false;
+                    }
+                });
+            }
+
+            checkboxes.forEach(cb => cb.addEventListener('change', updateMergeState));
+        });
+    </script>
 {% endblock %}

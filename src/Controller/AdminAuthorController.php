@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
+use App\Service\Thesaurus\EntityMergeService;
 
 #[Route('/admin/authors')]
 #[IsGranted('ROLE_ADMIN')]
@@ -22,6 +23,7 @@ class AdminAuthorController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
+        private readonly EntityMergeService $mergeService,
     ) {}
 
     #[Route('', name: 'app_admin_authors_index', methods: ['GET'])]
@@ -685,6 +687,60 @@ class AdminAuthorController extends AbstractController
             $this->addFlash('success', "Importação de Tesauro concluída! Novos Autores: {$newAuthors}, Novas Variações: {$addedVars}.");
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_authors_index');
+    }
+
+    #[Route('/merge-preview', name: 'app_admin_authors_merge_preview', methods: ['POST'])]
+    public function mergePreview(Request $request): Response
+    {
+        $ids = array_map('intval', (array) $request->request->all('ids'));
+        $ids = array_values(array_filter($ids));
+
+        if (count($ids) < 2 || count($ids) > 5) {
+            $this->addFlash('warning', 'Selecione entre 2 e 5 autores para mesclar.');
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        $authors = $this->em->getRepository(AuthorIdentity::class)->findBy(['id' => $ids]);
+        if (count($authors) < 2) {
+            $this->addFlash('danger', 'Autores selecionados não foram encontrados.');
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        $allVariations = [];
+        foreach ($authors as $auth) {
+            if ($auth->getPreferredName()) $allVariations[] = $auth->getPreferredName();
+            foreach ($auth->getVariations() as $var) {
+                if ($var->getVariationName()) $allVariations[] = $var->getVariationName();
+            }
+        }
+        $allVariations = array_values(array_unique(array_filter($allVariations)));
+
+        return $this->render('admin/authors/merge_preview.html.twig', [
+            'authors' => $authors,
+            'allVariations' => $allVariations,
+        ]);
+    }
+
+    #[Route('/merge-execute', name: 'app_admin_authors_merge_execute', methods: ['POST'])]
+    public function mergeExecute(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('merge_authors', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        $masterId = (int) $request->request->get('master_id');
+        $sourceIds = array_map('intval', (array) $request->request->all('source_ids'));
+        $fields = (array) $request->request->all('fields');
+
+        try {
+            $master = $this->mergeService->mergeAuthors($masterId, $sourceIds, $fields);
+            $this->addFlash('success', "Autor '{$master->getPreferredName()}' (#{$master->getId()}) mesclado e consolidado no Tesauro com sucesso!");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_authors_index');

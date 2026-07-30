@@ -19,6 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
+use App\Service\Thesaurus\EntityMergeService;
 
 #[Route('/admin/institutions')]
 #[IsGranted('ROLE_ADMIN')]
@@ -27,6 +28,7 @@ class AdminInstitutionController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
+        private readonly EntityMergeService $mergeService,
     ) {}
 
     #[Route('', name: 'app_admin_institutions_index', methods: ['GET'])]
@@ -777,6 +779,63 @@ class AdminInstitutionController extends AbstractController
             $this->addFlash('success', "Importação de Tesauro concluída! Novas Instituições: {$newInsts}, Novas Variações: {$addedVars}.");
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_institutions_index');
+    }
+
+    #[Route('/merge-preview', name: 'app_admin_institutions_merge_preview', methods: ['POST'])]
+    public function mergePreview(Request $request): Response
+    {
+        $ids = array_map('intval', (array) $request->request->all('ids'));
+        $ids = array_values(array_filter($ids));
+
+        if (count($ids) < 2 || count($ids) > 5) {
+            $this->addFlash('warning', 'Selecione entre 2 e 5 instituições para mesclar.');
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        $institutions = $this->em->getRepository(Institution::class)->findBy(['id' => $ids]);
+        if (count($institutions) < 2) {
+            $this->addFlash('danger', 'Instituições selecionadas não foram encontradas.');
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        $allVariations = [];
+        foreach ($institutions as $inst) {
+            if ($inst->getOfficialName()) $allVariations[] = $inst->getOfficialName();
+            if ($inst->getShortName()) $allVariations[] = $inst->getShortName();
+            if ($inst->getSigla()) $allVariations[] = $inst->getSigla();
+            if ($inst->getRazaoSocial()) $allVariations[] = $inst->getRazaoSocial();
+            foreach ($inst->getVariations() as $var) {
+                if ($var->getVariationName()) $allVariations[] = $var->getVariationName();
+            }
+        }
+        $allVariations = array_values(array_unique(array_filter($allVariations)));
+
+        return $this->render('admin/institutions/merge_preview.html.twig', [
+            'institutions' => $institutions,
+            'allVariations' => $allVariations,
+        ]);
+    }
+
+    #[Route('/merge-execute', name: 'app_admin_institutions_merge_execute', methods: ['POST'])]
+    public function mergeExecute(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('merge_institutions', $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        $masterId = (int) $request->request->get('master_id');
+        $sourceIds = array_map('intval', (array) $request->request->all('source_ids'));
+        $fields = (array) $request->request->all('fields');
+
+        try {
+            $master = $this->mergeService->mergeInstitutions($masterId, $sourceIds, $fields);
+            $this->addFlash('success', "Instituição '{$master->getOfficialName()}' (#{$master->getId()}) mesclada e consolidada no Tesauro com sucesso!");
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar instituições: ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_institutions_index');

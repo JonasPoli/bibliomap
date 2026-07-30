@@ -28,6 +28,9 @@
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
+    <button type="submit" form="mergeForm" id="btn-merge-journals" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 revistas na tabela para mesclar">
+        <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
+    </button>
     <a href="{{ path('app_admin_journals_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Nova Revista
     </a>
@@ -76,10 +79,14 @@
             Nenhum periódico científico encontrado.
         </div>
     {% else %}
+        <form id="mergeForm" action="{{ path('app_admin_journals_merge_preview') }}" method="POST">
         <div class="table-responsive">
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th style="width:36px;text-align:center">
+                            <i class="bi bi-intersect text-warning" title="Marque até 5 para mesclar"></i>
+                        </th>
                         <th>
                             <a href="{{ path('app_admin_journals_index', {search: search, qualis: qualis, sort: 'title', direction: currentSort == 'title' and currentDirection == 'ASC' ? 'DESC' : 'ASC'}) }}" style="color:inherit; text-decoration:none" class="d-inline-flex align-items-center">
                                 Periódico / Revista
@@ -117,6 +124,9 @@
                 <tbody>
                     {% for journal in journals %}
                         <tr class="border-bm">
+                            <td style="text-align:center">
+                                <input type="checkbox" name="ids[]" value="{{ journal.id }}" class="form-check-input merge-checkbox" style="cursor:pointer">
+                            </td>
                             <td>
                                 <div style="font-weight:600;color:var(--bm-text)">{{ journal.title }}</div>
                             </td>
@@ -212,8 +222,46 @@
                 Total: <b>{{ totalResults|number_format(0, ',', '.') }}</b> periódico(s) encontrado(s).
             </div>
         {% endif %}
+        </form>
     {% endif %}
 </div>
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('.merge-checkbox');
+            const btnMerge = document.getElementById('btn-merge-journals');
+            const mergeCount = document.getElementById('merge-count');
+
+            function updateMergeState() {
+                const checked = document.querySelectorAll('.merge-checkbox:checked');
+                const count = checked.length;
+                if (mergeCount) mergeCount.textContent = count;
+
+                if (count >= 2 && count <= 5) {
+                    btnMerge.disabled = false;
+                    btnMerge.classList.remove('btn-bm-warning');
+                    btnMerge.classList.add('btn-warning');
+                } else {
+                    btnMerge.disabled = true;
+                    btnMerge.classList.remove('btn-warning');
+                    btnMerge.classList.add('btn-bm-warning');
+                }
+
+                checkboxes.forEach(cb => {
+                    if (!cb.checked && count >= 5) {
+                        cb.disabled = true;
+                    } else {
+                        cb.disabled = false;
+                    }
+                });
+            }
+
+            checkboxes.forEach(cb => cb.addEventListener('change', updateMergeState));
+        });
+    </script>
+{% endblock %}
 
 <!-- Import CSV Modal -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">

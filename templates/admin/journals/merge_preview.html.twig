@@ -1,0 +1,151 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mesclar Revistas — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_journals_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Revistas</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Mesclar Registros</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Revistas / Periódicos
+    </h1>
+    <p class="bm-page-subtitle">Compare registros de periódicos lado a lado, selecione o registro Principal (Master) e defina qual título, ISSN e Qualis devem prevalecer.</p>
+</div>
+
+<form action="{{ path('app_admin_journals_merge_execute') }}" method="POST">
+    <input type="hidden" name="_token" value="{{ csrf_token('merge_journals') }}">
+    {% for j in journals %}
+        <input type="hidden" name="source_ids[]" value="{{ j.id }}">
+    {% endfor %}
+
+    <div class="bm-card mb-4 border-warning">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                </h5>
+                <p class="text-muted-bm mb-0" style="font-size:13px">A revista selecionada como Master será mantida. As demais serão mescladas e seus títulos serão convertidos em variações do Tesauro.</p>
+            </div>
+            <a href="{{ path('app_admin_journals_index') }}" class="btn btn-sm btn-bm-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Cancelar
+            </a>
+        </div>
+
+        <div class="row g-3 mt-2">
+            {% for j in journals %}
+                <div class="col">
+                    <div class="card bg-bm-card border-bm p-3 h-100 position-relative" style="border-radius:10px">
+                        <div class="form-check">
+                            <input class="form-check-input me-2" type="radio" name="master_id" value="{{ j.id }}" id="master_{{ j.id }}" {% if loop.first %}checked{% endif %} required>
+                            <label class="form-check-label fw-bold" for="master_{{ j.id }}" style="font-size:14px;color:var(--bm-text)">
+                                Registro #{{ j.id }}
+                            </label>
+                        </div>
+                        <div class="mt-2" style="font-size:13px;color:var(--bm-text)">
+                            <div class="fw-bold">{{ j.title }}</div>
+                            <small class="text-muted-bm">ISSN: {{ j.issn ?? 'Sem ISSN' }} | Qualis: {{ j.qualis ?? '—' }}</small>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="bm-card mb-4">
+        <h5 class="mb-3" style="font-weight:700">
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+        </h5>
+        
+        <div class="table-responsive">
+            <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th style="width:220px">Campo / Propriedade</th>
+                        {% for j in journals %}
+                            <th>
+                                <span class="badge bg-secondary me-1">#{{ j.id }}</span>
+                                {{ j.title|u.truncate(20, '...') }}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Title #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Título Oficial</td>
+                        {% for j in journals %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[title]" value="{{ j.title }}" id="title_{{ j.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="title_{{ j.id }}">{{ j.title }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# ISSN #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">ISSN</td>
+                        {% for j in journals %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[issn]" value="{{ j.issn }}" id="issn_{{ j.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label font-monospace text-accent" for="issn_{{ j.id }}">{{ j.issn ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Qualis #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Qualis</td>
+                        {% for j in journals %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[qualis]" value="{{ j.qualis }}" id="qualis_{{ j.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="qualis_{{ j.id }}">{{ j.qualis ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Variations Consolidation Preview -->
+    <div class="bm-card mb-4 border-info">
+        <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Títulos (Tesauro)
+        </h5>
+        <p class="text-muted-bm mb-3" style="font-size:13px">
+            Todos os títulos e variações anteriores serão unificados e mantidos no registro Master.
+        </p>
+
+        <div class="d-flex flex-wrap gap-2 p-3 bg-bm-card border-bm rounded-3" style="max-height:160px;overflow-y:auto">
+            {% for var in allVariations %}
+                <span class="badge bg-dark-subtle text-body border px-2 py-1" style="font-size:12px">
+                    <i class="bi bi-journal-text me-1"></i>{{ var }}
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-end gap-3 mb-5">
+        <a href="{{ path('app_admin_journals_index') }}" class="btn btn-bm-secondary px-4 py-2">
+            Cancelar
+        </a>
+        <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? A revista Master será atualizada e as outras serão removidas.');">
+            <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Revistas
+        </button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mesclar Países — Admin{% endblock %}
+
+{% block breadcrumb %}
+    <span>Admin</span>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <a href="{{ path('app_admin_geography_index') }}" style="color:var(--bm-text-muted);text-decoration:none">Geografia</a>
+    <span style="margin:0 6px;opacity:0.4">/</span>
+    <span class="current">Mesclar Países</span>
+{% endblock %}
+
+{% block body %}
+<div class="bm-page-header">
+    <h1 class="bm-page-title">
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Países
+    </h1>
+    <p class="bm-page-subtitle">Compare registros geográficos de países lado a lado, selecione o registro Principal (Master) e defina quais códigos ISO e datas de fundação/extinção devem ser mantidos.</p>
+</div>
+
+<form action="{{ path('app_admin_geography_merge_execute') }}" method="POST">
+    <input type="hidden" name="_token" value="{{ csrf_token('merge_geography') }}">
+    {% for c in countries %}
+        <input type="hidden" name="source_ids[]" value="{{ c.id }}">
+    {% endfor %}
+
+    <div class="bm-card mb-4 border-warning">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                </h5>
+                <p class="text-muted-bm mb-0" style="font-size:13px">O país selecionado como Master será mantido no sistema. Os demais serão mesclados e suas variações históricas serão unificadas no Tesauro.</p>
+            </div>
+            <a href="{{ path('app_admin_geography_index') }}" class="btn btn-sm btn-bm-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Cancelar
+            </a>
+        </div>
+
+        <div class="row g-3 mt-2">
+            {% for c in countries %}
+                <div class="col">
+                    <div class="card bg-bm-card border-bm p-3 h-100 position-relative" style="border-radius:10px">
+                        <div class="form-check">
+                            <input class="form-check-input me-2" type="radio" name="master_id" value="{{ c.id }}" id="master_{{ c.id }}" {% if loop.first %}checked{% endif %} required>
+                            <label class="form-check-label fw-bold" for="master_{{ c.id }}" style="font-size:14px;color:var(--bm-text)">
+                                Registro #{{ c.id }}
+                            </label>
+                        </div>
+                        <div class="mt-2" style="font-size:13px;color:var(--bm-text)">
+                            <div class="fw-bold">{{ c.commonName }}</div>
+                            <small class="text-muted-bm">ISO: {{ c.isoAlpha2 ?? '—' }} / {{ c.isoAlpha3 ?? '—' }}</small>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="bm-card mb-4">
+        <h5 class="mb-3" style="font-weight:700">
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+        </h5>
+        
+        <div class="table-responsive">
+            <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                <thead>
+                    <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                        <th style="width:220px">Campo / Propriedade</th>
+                        {% for c in countries %}
+                            <th>
+                                <span class="badge bg-secondary me-1">#{{ c.id }}</span>
+                                {{ c.commonName|u.truncate(20, '...') }}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Common Name #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Nome Comum / Usual</td>
+                        {% for c in countries %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[commonName]" value="{{ c.commonName }}" id="cn_{{ c.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="cn_{{ c.id }}">{{ c.commonName }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Official Name #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Nome Oficial Completo</td>
+                        {% for c in countries %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[officialName]" value="{{ c.officialName }}" id="on_{{ c.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="on_{{ c.id }}">{{ c.officialName ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# ISO Alpha-2 #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Código ISO Alpha-2</td>
+                        {% for c in countries %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[isoAlpha2]" value="{{ c.isoAlpha2 }}" id="iso2_{{ c.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label font-monospace text-accent fw-bold" for="iso2_{{ c.id }}">{{ c.isoAlpha2 ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# ISO Alpha-3 #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Código ISO Alpha-3</td>
+                        {% for c in countries %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[isoAlpha3]" value="{{ c.isoAlpha3 }}" id="iso3_{{ c.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label font-monospace text-accent" for="iso3_{{ c.id }}">{{ c.isoAlpha3 ?? '—' }}</label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    {# Foundation & Extinction Years #}
+                    <tr>
+                        <td class="fw-bold bg-bm-card">Período Histórico (Fundação / Extinção)</td>
+                        {% for c in countries %}
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fields[foundationYear]" value="{{ c.foundationYear }}" id="fy_{{ c.id }}" {% if loop.first %}checked{% endif %}>
+                                    <label class="form-check-label" for="fy_{{ c.id }}">
+                                        Fund: {{ c.foundationYear ?? '—' }} | Ext: {{ c.extinctionYear ?? '—' }}
+                                    </label>
+                                </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Variations Consolidation Preview -->
+    <div class="bm-card mb-4 border-info">
+        <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Nomes Geográficos (Tesauro)
+        </h5>
+        <p class="text-muted-bm mb-3" style="font-size:13px">
+            Todas as grafias e variações históricas dos países selecionados serão unificadas no registro Master.
+        </p>
+
+        <div class="d-flex flex-wrap gap-2 p-3 bg-bm-card border-bm rounded-3" style="max-height:160px;overflow-y:auto">
+            {% for var in allVariations %}
+                <span class="badge bg-dark-subtle text-body border px-2 py-1" style="font-size:12px">
+                    <i class="bi bi-globe me-1"></i>{{ var }}
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-end gap-3 mb-5">
+        <a href="{{ path('app_admin_geography_index') }}" class="btn btn-bm-secondary px-4 py-2">
+            Cancelar
+        </a>
+        <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? O país Master será atualizado e os outros serão removidos.');">
+            <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Países
+        </button>
+    </div>
+</form>
+{% endblock %}
