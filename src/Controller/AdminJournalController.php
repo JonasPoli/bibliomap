@@ -50,10 +50,11 @@ class AdminJournalController extends AbstractController
 
         $qb = $this->em->createQueryBuilder()
             ->select('q')
-            ->from(QualisJournal::class, 'q');
+            ->from(QualisJournal::class, 'q')
+            ->leftJoin('q.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('q.title LIKE :search OR q.issn LIKE :search')
+            $qb->andWhere('q.title LIKE :search OR q.issn LIKE :search OR q.qualis LIKE :search OR v.variationName LIKE :search')
                ->setParameter('search', '%' . $search . '%');
         }
 
@@ -62,18 +63,17 @@ class AdminJournalController extends AbstractController
                ->setParameter('qualis', $qualis);
         }
 
-        $countQb = clone $qb;
-        $totalResults = (int)$countQb->select('COUNT(q.id)')->getQuery()->getSingleScalarResult();
-        $totalPages = ceil($totalResults / $limit);
-
-        $journals = $qb->orderBy($sortField, $direction)
+        $query = $qb->orderBy($sortField, $direction)
             ->setFirstResult($offset)
             ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
+            ->getQuery();
+
+        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
+        $totalResults = count($paginator);
+        $totalPages = max(1, (int) ceil($totalResults / $limit));
 
         return $this->render('admin/journals/index.html.twig', [
-            'journals' => $journals,
+            'journals' => $paginator,
             'search' => $search,
             'qualis' => $qualis,
             'currentPage' => $page,

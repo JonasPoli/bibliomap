@@ -27,15 +27,18 @@ class AdminAuthorController extends AbstractController
     #[Route('', name: 'app_admin_authors_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        $search = $request->query->getString('search', '');
+        $search = trim($request->query->getString('search', ''));
         $status = $request->query->get('status', 'all');
+        $page   = max(1, $request->query->getInt('page', 1));
+        $limit  = 100;
 
         $qb = $this->em->createQueryBuilder()
             ->select('a')
-            ->from(AuthorIdentity::class, 'a');
+            ->from(AuthorIdentity::class, 'a')
+            ->leftJoin('a.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :search')
+            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :search OR a.orcid LIKE :search OR v.variationName LIKE :search')
                ->setParameter('search', '%' . $search . '%');
         }
 
@@ -45,15 +48,27 @@ class AdminAuthorController extends AbstractController
             $qb->andWhere('a.status = 0');
         }
 
-        $authors = $qb->orderBy('a.preferredName', 'ASC')
-            ->setMaxResults(250)
-            ->getQuery()
-            ->getResult();
+        $query = $qb->orderBy('a.preferredName', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
+        $totalItems = count($paginator);
+        $totalPages = max(1, (int) ceil($totalItems / $limit));
+
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
 
         return $this->render('admin/authors/index.html.twig', [
-            'authors' => $authors,
+            'authors' => $paginator,
             'search' => $search,
             'status' => $status,
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+            'limit' => $limit,
         ]);
     }
 

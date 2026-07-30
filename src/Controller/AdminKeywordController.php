@@ -26,16 +26,19 @@ class AdminKeywordController extends AbstractController
     #[Route('', name: 'app_admin_keywords_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        $search = $request->query->getString('search', '');
+        $search = trim($request->query->getString('search', ''));
         $status = $request->query->get('status', 'all');
         $type   = $request->query->get('type', 'all');
+        $page   = max(1, $request->query->getInt('page', 1));
+        $limit  = 100;
 
         $qb = $this->em->createQueryBuilder()
             ->select('k')
-            ->from(Keyword::class, 'k');
+            ->from(Keyword::class, 'k')
+            ->leftJoin('k.variations', 'v');
 
         if ($search !== '') {
-            $qb->andWhere('k.keywordOriginal LIKE :search OR k.keywordDisplay LIKE :search')
+            $qb->andWhere('k.keywordOriginal LIKE :search OR k.keywordDisplay LIKE :search OR k.keywordType LIKE :search OR v.variationName LIKE :search')
                ->setParameter('search', '%' . $search . '%');
         }
 
@@ -50,16 +53,28 @@ class AdminKeywordController extends AbstractController
                ->setParameter('type', $type);
         }
 
-        $keywords = $qb->orderBy('k.keywordOriginal', 'ASC')
-            ->setMaxResults(250)
-            ->getQuery()
-            ->getResult();
+        $query = $qb->orderBy('k.keywordOriginal', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
+        $totalItems = count($paginator);
+        $totalPages = max(1, (int) ceil($totalItems / $limit));
+
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
 
         return $this->render('admin/keywords/index.html.twig', [
-            'keywords' => $keywords,
+            'keywords' => $paginator,
             'search' => $search,
             'status' => $status,
             'type' => $type,
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+            'limit' => $limit,
         ]);
     }
 
