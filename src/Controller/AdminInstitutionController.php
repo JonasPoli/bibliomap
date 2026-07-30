@@ -32,14 +32,17 @@ class AdminInstitutionController extends AbstractController
     #[Route('', name: 'app_admin_institutions_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        $search = $request->query->getString('search', '');
+        $search = trim($request->query->getString('search', ''));
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = 100;
         
         $qb = $this->em->createQueryBuilder()
             ->select('i')
             ->from(Institution::class, 'i')
             ->leftJoin('i.country', 'co')
             ->leftJoin('i.state', 'st')
-            ->leftJoin('i.city', 'ci');
+            ->leftJoin('i.city', 'ci')
+            ->leftJoin('i.variations', 'v');
 
         if ($search !== '') {
             $orX = $qb->expr()->orX(
@@ -47,21 +50,42 @@ class AdminInstitutionController extends AbstractController
                 'i.shortName LIKE :search',
                 'i.sigla LIKE :search',
                 'i.razaoSocial LIKE :search',
-                'i.cnpj LIKE :search'
+                'i.cnpj LIKE :search',
+                'i.vantagepoint LIKE :search',
+                'v.variationName LIKE :search',
+                'co.commonName LIKE :search',
+                'st.officialName LIKE :search',
+                'ci.officialName LIKE :search'
             );
             if (is_numeric($search)) {
                 $orX->add('i.codigoIes = :searchInt');
+                $orX->add('i.codigoMantenedora = :searchInt');
                 $qb->setParameter('searchInt', (int) $search);
             }
             $qb->andWhere($orX)
                ->setParameter('search', '%' . $search . '%');
         }
 
-        $institutions = $qb->orderBy('i.officialName', 'ASC')->getQuery()->getResult();
+        $query = $qb->orderBy('i.officialName', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
+        $totalItems = count($paginator);
+        $totalPages = max(1, (int) ceil($totalItems / $limit));
+
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
 
         return $this->render('admin/institutions/index.html.twig', [
-            'institutions' => $institutions,
+            'institutions' => $paginator,
             'search' => $search,
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+            'limit' => $limit,
         ]);
     }
 
