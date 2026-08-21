@@ -587,35 +587,13 @@ class AdminAuthorController extends AbstractController
     public function exportThesaurus(Request $request): Response
     {
         $format = strtolower($request->query->get('format', 'the'));
-        $authors = $this->em->getRepository(AuthorIdentity::class)->findAll();
+        $filename = ($format === 'csv') ? 'thesauro_autores.csv' : 'thesauro_autores.the';
+        $sql = 'SELECT a.preferred_name AS header, v.original_name AS variation
+                FROM author_identity a
+                LEFT JOIN author_name_variant v ON v.author_identity_id = a.id
+                ORDER BY a.id ASC';
 
-        $data = [];
-        foreach ($authors as $a) {
-            $vars = [];
-            foreach ($a->getVariations() as $v) {
-                $vars[] = $v->getOriginalName();
-            }
-            $data[] = [
-                'header' => $a->getPreferredName(),
-                'variations' => $vars
-            ];
-        }
-
-        if ($format === 'csv') {
-            $content = $this->thesaurusService->generateCsvContent($data);
-            $mime = 'text/csv; charset=utf-8';
-            $filename = 'thesauro_autores.csv';
-        } else {
-            $content = $this->thesaurusService->generateTheContent($data);
-            $mime = 'text/plain; charset=utf-8';
-            $filename = 'thesauro_autores.the';
-        }
-
-        $response = new Response($content);
-        $response->headers->set('Content-Type', $mime);
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
-
-        return $response;
+        return $this->thesaurusService->streamExport($this->em->getConnection(), $sql, $format, $filename);
     }
 
     #[Route('/import-thesaurus', name: 'app_admin_authors_import_thesaurus', methods: ['POST'])]
@@ -658,7 +636,6 @@ class AdminAuthorController extends AbstractController
                     $author->setNormalizedName($normHeader);
                     $author->setStatus(1);
                     $this->em->persist($author);
-                    $this->em->flush();
                     $authorsMap[$normHeader] = $author;
                     $newAuthors++;
                 }
@@ -671,6 +648,9 @@ class AdminAuthorController extends AbstractController
                 foreach ($entry['variations'] as $varName) {
                     $normVar = StringNormalizer::normalizeString($varName, true);
                     if ($normVar === '') continue;
+
+                    $varName = mb_substr($varName, 0, 500, 'UTF-8');
+                    $normVar = mb_substr($normVar, 0, 500, 'UTF-8');
 
                     if (!isset($existingVars[$normVar])) {
                         $v = new AuthorNameVariant();

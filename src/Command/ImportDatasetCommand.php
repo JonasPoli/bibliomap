@@ -15,6 +15,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+use Symfony\Component\Console\Input\InputOption;
+
 #[AsCommand(
     name: 'app:import:dataset',
     description: 'Process a pending dataset import in the background',
@@ -33,12 +35,14 @@ class ImportDatasetCommand extends Command
     protected function configure(): void
     {
         $this->addArgument('datasetId', InputArgument::REQUIRED, 'Dataset ID to process');
+        $this->addOption('skip-enrichment', null, InputOption::VALUE_NONE, 'Skip post-import enrichment');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $datasetId = (int) $input->getArgument('datasetId');
+        $skipEnrichment = (bool) $input->getOption('skip-enrichment');
 
         $dataset = $this->datasetRepo->find($datasetId);
         if (!$dataset) {
@@ -87,7 +91,7 @@ class ImportDatasetCommand extends Command
                 $dataset->setDuplicatedCount($currentStats['skipped']);
                 $dataset->setErrorCount($currentStats['errors']);
                 $this->em->flush();
-            });
+            }, $skipEnrichment);
 
             // Update dataset with final results
             $dataset->setImportedCount($stats['imported']);
@@ -119,9 +123,11 @@ class ImportDatasetCommand extends Command
             return Command::SUCCESS;
 
         } catch (\Throwable $e) {
-            $dataset->setStatus(Dataset::STATUS_ERROR);
-            $dataset->setErrorMessage(substr($e->getMessage(), 0, 1000));
-            $this->em->flush();
+            try {
+                $dataset->setStatus(Dataset::STATUS_ERROR);
+                $dataset->setErrorMessage(substr($e->getMessage(), 0, 1000));
+                $this->em->flush();
+            } catch (\Throwable) {}
 
             $io->error('Erro durante importação: ' . $e->getMessage());
             return Command::FAILURE;

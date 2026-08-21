@@ -68,10 +68,17 @@ class ClassificationController extends AbstractController
             return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
         }
 
+        $countries = $this->em->getRepository(\App\Entity\Country::class)->findBy([], ['commonName' => 'ASC']);
+        $natureOptions = ['Pública', 'Privada', 'Empresa', 'Governo', 'Ensino/Pesquisa', 'Internacional'];
+        $continentes = ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania'];
+
         return $this->render('classification/group_form.html.twig', [
-            'project' => $project,
-            'group'   => new ClassificationGroup(),
-            'mode'    => 'new',
+            'project'       => $project,
+            'group'         => new ClassificationGroup(),
+            'mode'          => 'new',
+            'countries'     => $countries,
+            'natureOptions' => $natureOptions,
+            'continentes'   => $continentes,
         ]);
     }
 
@@ -100,10 +107,17 @@ class ClassificationController extends AbstractController
             return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
         }
 
+        $countries = $this->em->getRepository(\App\Entity\Country::class)->findBy([], ['commonName' => 'ASC']);
+        $natureOptions = ['Pública', 'Privada', 'Empresa', 'Governo', 'Ensino/Pesquisa', 'Internacional'];
+        $continentes = ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania'];
+
         return $this->render('classification/group_form.html.twig', [
-            'project' => $project,
-            'group'   => $group,
-            'mode'    => 'edit',
+            'project'       => $project,
+            'group'         => $group,
+            'mode'          => 'edit',
+            'countries'     => $countries,
+            'natureOptions' => $natureOptions,
+            'continentes'   => $continentes,
         ]);
     }
 
@@ -121,6 +135,8 @@ class ClassificationController extends AbstractController
                 $this->em->remove($group);
                 $this->em->flush();
                 $this->addFlash('warning', "Grupo \"$name\" removido.");
+            } else {
+                $this->addFlash('danger', 'Token de segurança inválido para exclusão.');
             }
         }
 
@@ -369,6 +385,36 @@ class ClassificationController extends AbstractController
         $group->setIcon($request->request->get('icon', 'bi-collection'));
         $group->setPosition((int) $request->request->get('position', 0));
 
+        $matchFields = $request->request->all('match_fields');
+        if (empty($matchFields)) {
+            $matchFields = ['title', 'abstract', 'author_keywords', 'indexed_keywords'];
+        }
+        $group->setMatchFields($matchFields);
+
+        $startYear = $request->request->get('start_year');
+        $group->setStartYear($startYear !== null && $startYear !== '' ? (int)$startYear : null);
+
+        $endYear = $request->request->get('end_year');
+        $group->setEndYear($endYear !== null && $endYear !== '' ? (int)$endYear : null);
+
+        $natures = $request->request->all('institution_nature');
+        $group->setInstitutionNature(!empty($natures) ? array_values($natures) : null);
+
+        $continente = trim($request->request->get('continente', ''));
+        $group->setContinente($continente !== '' ? $continente : null);
+
+        $countries = $request->request->all('country_ids');
+        $group->setCountryIds(!empty($countries) ? array_values($countries) : null);
+
+        $authorsRaw = trim($request->request->get('authors_filter', ''));
+        $authors = array_filter(array_map('trim', explode(',', $authorsRaw)));
+        $group->setAuthorsFilter(!empty($authors) ? array_values($authors) : null);
+
+        $qualis = $request->request->all('qualis_filter');
+        $group->setQualisFilter(!empty($qualis) ? array_values(array_map('strtoupper', $qualis)) : null);
+
+        $group->setUseThesaurus((bool)$request->request->get('use_thesaurus', 1));
+
         // Rebuild rules from comma-separated terms
         foreach ($group->getRules() as $r) {
             $this->em->remove($r);
@@ -377,7 +423,6 @@ class ClassificationController extends AbstractController
 
         $termsRaw = $request->request->get('terms', '');
         $terms    = array_filter(array_map('trim', explode(',', $termsRaw)));
-        $position = 0;
         foreach ($terms as $termStr) {
             $rule = new ClassificationRule();
             $rule->setTerm($termStr);
@@ -386,5 +431,209 @@ class ClassificationController extends AbstractController
         }
 
         return $group;
+    }
+
+    // ─── Export Groups CSV ───────────────────────────────────────────────────
+
+    #[Route('/groups/export-csv', name: 'groups_export_csv', methods: ['GET'])]
+    public function exportGroupsCsv(BibliometricProject $project): Response
+    {
+        $this->denyAccessUnlessGranted('view', $project);
+
+        $groups = $this->groupRepo->findByProject($project->getId());
+
+        $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
+        $csv .= "nome;tipo;cor;icone;posicao;termos;campos_match;ano_inicio;ano_fim;qualis;natureza_instituicao;continente;paises;autores;usar_tesauro\r\n";
+
+        foreach ($groups as $g) {
+            $terms = [];
+            foreach ($g->getRules() as $r) {
+                $terms[] = $r->getTerm();
+            }
+            $termsStr = implode('; ', $terms);
+
+            $matchFieldsStr = implode('; ', $g->getMatchFields() ?? []);
+            $qualisStr = implode('; ', $g->getQualisFilter() ?? []);
+            $natureStr = implode('; ', $g->getInstitutionNature() ?? []);
+            $countriesStr = implode('; ', $g->getCountryIds() ?? []);
+            $authorsStr = implode('; ', $g->getAuthorsFilter() ?? []);
+
+            $fields = [
+                $g->getName(),
+                $g->getType(),
+                $g->getColor(),
+                $g->getIcon(),
+                $g->getPosition(),
+                $termsStr,
+                $matchFieldsStr,
+                $g->getStartYear() ?? '',
+                $g->getEndYear() ?? '',
+                $qualisStr,
+                $natureStr,
+                $g->getContinente() ?? '',
+                $countriesStr,
+                $authorsStr,
+                $g->isUseThesaurus() ? '1' : '0',
+            ];
+
+            $escaped = array_map(function($val) {
+                $v = str_replace('"', '""', (string)$val);
+                return '"' . $v . '"';
+            }, $fields);
+
+            $csv .= implode(';', $escaped) . "\r\n";
+        }
+
+        $filename = 'grupos_classificacao_projeto_' . $project->getId() . '_' . date('Ymd_His') . '.csv';
+
+        return new Response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    // ─── Import Groups CSV ───────────────────────────────────────────────────
+
+    #[Route('/groups/import-csv', name: 'groups_import_csv', methods: ['POST'])]
+    public function importGroupsCsv(BibliometricProject $project, Request $request): Response
+    {
+        $this->denyAccessUnlessGranted('edit', $project);
+
+        if (!$this->isCsrfTokenValid('groups_import_' . $project->getId(), $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
+        }
+
+        $file = $request->files->get('csv_file');
+        if (!$file || !$file->isValid()) {
+            $this->addFlash('danger', 'Por favor, selecione um arquivo CSV válido.');
+            return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
+        }
+
+        $handle = fopen($file->getPathname(), 'r');
+        if (!$handle) {
+            $this->addFlash('danger', 'Erro ao ler o arquivo enviado.');
+            return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
+        }
+
+        // Read header
+        $header = fgetcsv($handle, 0, ';');
+        if (!$header) {
+            fclose($handle);
+            $this->addFlash('danger', 'O arquivo CSV está vazio ou em formato inválido.');
+            return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
+        }
+
+        // Strip UTF-8 BOM if present on first header item
+        if (isset($header[0])) {
+            $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
+        }
+
+        $importedCount = 0;
+        while (($row = fgetcsv($handle, 0, ';')) !== false) {
+            if (empty($row) || count($row) < 1 || trim($row[0]) === '') {
+                continue;
+            }
+
+            $name        = trim($row[0]);
+            $type        = trim($row[1] ?? ClassificationGroup::TYPE_NORMAL);
+            $color       = trim($row[2] ?? '#4f8ef7');
+            $icon        = trim($row[3] ?? 'bi-collection');
+            $position    = (int)trim($row[4] ?? 0);
+            $termsRaw    = trim($row[5] ?? '');
+            $matchRaw    = trim($row[6] ?? '');
+            $startYear   = trim($row[7] ?? '');
+            $endYear     = trim($row[8] ?? '');
+            // Check if column 9 is qualis or nature (backwards compatible)
+            $col9        = trim($row[9] ?? '');
+            $col10       = trim($row[10] ?? '');
+            $col11       = trim($row[11] ?? '');
+            $col12       = trim($row[12] ?? '');
+            $col13       = trim($row[13] ?? '');
+            $col14       = trim($row[14] ?? '');
+
+            if (count($row) >= 15) {
+                $qualisRaw   = $col9;
+                $natureRaw   = $col10;
+                $continente  = $col11;
+                $countryRaw  = $col12;
+                $authorsRaw  = $col13;
+                $useThesaurus= $col14;
+            } else {
+                $qualisRaw   = '';
+                $natureRaw   = $col9;
+                $continente  = $col10;
+                $countryRaw  = $col11;
+                $authorsRaw  = $col12;
+                $useThesaurus= $col13;
+            }
+
+            $group = new ClassificationGroup();
+            $group->setProject($project);
+            $group->setName($name);
+            $group->setType(in_array($type, [ClassificationGroup::TYPE_NORMAL, ClassificationGroup::TYPE_VALIDATOR, ClassificationGroup::TYPE_NOISE, ClassificationGroup::TYPE_UNCLASSIFIED]) ? $type : ClassificationGroup::TYPE_NORMAL);
+            $group->setColor($color ?: '#4f8ef7');
+            $group->setIcon($icon ?: 'bi-collection');
+            $group->setPosition($position);
+
+            if ($matchRaw !== '') {
+                $mFields = array_filter(array_map('trim', explode(';', $matchRaw)));
+                $group->setMatchFields(array_values($mFields));
+            } else {
+                $group->setMatchFields(['title', 'abstract', 'author_keywords', 'indexed_keywords']);
+            }
+
+            $group->setStartYear($startYear !== '' ? (int)$startYear : null);
+            $group->setEndYear($endYear !== '' ? (int)$endYear : null);
+
+            if ($qualisRaw !== '') {
+                $qualis = array_filter(array_map('strtoupper', array_map('trim', explode(';', $qualisRaw))));
+                $group->setQualisFilter(array_values($qualis));
+            }
+
+            if ($natureRaw !== '') {
+                $natures = array_filter(array_map('trim', explode(';', $natureRaw)));
+                $group->setInstitutionNature(array_values($natures));
+            }
+
+            $group->setContinente($continente !== '' ? $continente : null);
+
+            if ($countryRaw !== '') {
+                $countries = array_filter(array_map('trim', explode(';', $countryRaw)));
+                $group->setCountryIds(array_values($countries));
+            }
+
+            if ($authorsRaw !== '') {
+                $authors = array_filter(array_map('trim', explode(';', $authorsRaw)));
+                $group->setAuthorsFilter(array_values($authors));
+            }
+
+            $group->setUseThesaurus($useThesaurus !== '0');
+
+            // Add terms rules
+            if ($termsRaw !== '') {
+                // Split by ';' or ','
+                $tList = preg_split('/[;,]/', $termsRaw);
+                foreach ($tList as $tStr) {
+                    $tStr = trim($tStr);
+                    if ($tStr !== '') {
+                        $rule = new ClassificationRule();
+                        $rule->setTerm($tStr);
+                        $rule->setGroup($group);
+                        $group->addRule($rule);
+                    }
+                }
+            }
+
+            $this->em->persist($group);
+            $importedCount++;
+        }
+
+        fclose($handle);
+        $this->em->flush();
+
+        $this->addFlash('success', sprintf('Sucesso! %d grupo(s) importado(s) a partir do arquivo CSV.', $importedCount));
+
+        return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
     }
 }

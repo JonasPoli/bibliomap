@@ -18,13 +18,13 @@ class AuthorNameVariant
     #[ORM\JoinColumn(name: 'author_identity_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?AuthorIdentity $authorIdentity = null;
 
-    #[ORM\Column(name: 'original_name', length: 255)]
+    #[ORM\Column(name: 'original_name', length: 500)]
     private string $originalName = '';
 
-    #[ORM\Column(name: 'display_name', length: 255)]
+    #[ORM\Column(name: 'display_name', length: 500)]
     private string $displayName = '';
 
-    #[ORM\Column(name: 'normalized_name', length: 255)]
+    #[ORM\Column(name: 'normalized_name', length: 500)]
     private string $normalizedName = '';
 
     #[ORM\Column(length: 100)]

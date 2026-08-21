@@ -178,7 +178,7 @@ class ImportController extends AbstractController
             foreach ($createdDatasets as $dataset) {
                 $logFile = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
                 $cmd = sprintf(
-                    'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
+                    'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --skip-enrichment --env=%s --no-debug >> %s 2>&1 < /dev/null &',
                     escapeshellarg($phpBinary),
                     escapeshellarg($projectDir),
                     $dataset->getId(),
@@ -251,7 +251,7 @@ class ImportController extends AbstractController
         $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
 
         $cmd = sprintf(
-            'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --env=%s --no-debug >> %s 2>&1 < /dev/null &',
+            'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --skip-enrichment --env=%s --no-debug >> %s 2>&1 < /dev/null &',
             escapeshellarg($phpBinary),
             escapeshellarg($projectDir),
             $dataset->getId(),

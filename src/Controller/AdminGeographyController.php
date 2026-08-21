@@ -1214,35 +1214,13 @@ class AdminGeographyController extends AbstractController
     public function exportThesaurus(Request $request): Response
     {
         $format = strtolower($request->query->get('format', 'the'));
-        $countries = $this->em->getRepository(Country::class)->findAll();
+        $filename = ($format === 'csv') ? 'thesauro_geografia.csv' : 'thesauro_geografia.the';
+        $sql = 'SELECT c.common_name AS header, v.variation_name AS variation
+                FROM paises c
+                LEFT JOIN pais_variacoes_nome v ON v.country_id = c.id
+                ORDER BY c.id ASC';
 
-        $data = [];
-        foreach ($countries as $c) {
-            $vars = [];
-            foreach ($c->getVariations() as $v) {
-                $vars[] = $v->getVariationName();
-            }
-            $data[] = [
-                'header' => $c->getCommonName(),
-                'variations' => $vars
-            ];
-        }
-
-        if ($format === 'csv') {
-            $content = $this->thesaurusService->generateCsvContent($data);
-            $mime = 'text/csv; charset=utf-8';
-            $filename = 'thesauro_geografia.csv';
-        } else {
-            $content = $this->thesaurusService->generateTheContent($data);
-            $mime = 'text/plain; charset=utf-8';
-            $filename = 'thesauro_geografia.the';
-        }
-
-        $response = new Response($content);
-        $response->headers->set('Content-Type', $mime);
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
-
-        return $response;
+        return $this->thesaurusService->streamExport($this->em->getConnection(), $sql, $format, $filename);
     }
 
     #[Route('/import-thesaurus', name: 'app_admin_geography_import_thesaurus', methods: ['POST'])]
@@ -1291,7 +1269,6 @@ class AdminGeographyController extends AbstractController
                     $country->setSigla(strtoupper(substr($normHeader, 0, 2)));
                     $country->setStatus(true);
                     $this->em->persist($country);
-                    $this->em->flush();
                     $countriesMap[$normHeader] = $country;
                     $newCountries++;
                 }
@@ -1304,6 +1281,9 @@ class AdminGeographyController extends AbstractController
                 foreach ($entry['variations'] as $varName) {
                     $normVar = DocumentEnrichmentService::normalize($varName);
                     if ($normVar === '') continue;
+
+                    $varName = mb_substr($varName, 0, 500, 'UTF-8');
+                    $normVar = mb_substr($normVar, 0, 500, 'UTF-8');
 
                     if (!isset($existingVars[$normVar])) {
                         $v = new CountryVariation();

@@ -11,12 +11,18 @@
         <p class="bm-page-subtitle">Crie grupos, defina termos de classificação e aplique o motor automático ao corpus.</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ path('app_classification_groups_export_csv', {id: project.id}) }}" class="btn btn-bm-secondary" title="Exportar cadastro de grupos em CSV">
+            <i class="bi bi-file-earmark-arrow-down me-1"></i> Exportar Grupos (CSV)
+        </a>
+        <button type="button" class="btn btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#modalImportGroupsCsv" title="Importar grupos de um arquivo CSV">
+            <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Grupos (CSV)
+        </button>
         {% if hasResult %}
         <a href="{{ path('app_classification_results', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-list-ul me-1"></i> Ver Resultados
         </a>
         <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary">
-            <i class="bi bi-download me-1"></i> Exportar CSV
+            <i class="bi bi-download me-1"></i> Exportar Resultados
         </a>
         <a href="{{ path('app_classification_export_vosviewer', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-diagram-3 me-1"></i> VOSviewer
@@ -142,7 +148,7 @@
                             </a>
                             <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir"
                                     style="font-size:12px;padding:4px 10px"
-                                    onclick="confirmDelete({{ group.id }}, '{{ group.name|e('js') }}')">
+                                    onclick="confirmDelete({{ group.id }}, '{{ group.name|e('js') }}', '{{ csrf_token('clf_group_del_' ~ group.id) }}')">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -247,19 +253,19 @@
 </div>
 
 {# Delete confirmation modal #}
-<div class="modal fade" id="deleteModal" tabindex="-1">
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content" style="background:var(--bm-card-bg);border:1px solid var(--bm-border)">
             <div class="modal-header" style="border-color:var(--bm-border)">
                 <h5 class="modal-title" style="color:var(--bm-text)">Excluir Grupo</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" style="color:var(--bm-text-muted)">
                 Tem certeza que deseja excluir o grupo <strong id="deleteGroupName" style="color:var(--bm-text)"></strong>?
                 Todos os resultados deste grupo também serão removidos.
             </div>
             <div class="modal-footer" style="border-color:var(--bm-border)">
-                <button class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <form id="deleteForm" method="post">
                     <input type="hidden" name="_token" id="deleteToken">
                     <button type="submit" class="btn btn-danger">Excluir</button>
@@ -268,14 +274,52 @@
         </div>
     </div>
 </div>
+
+{# ── Modal Import Groups CSV ────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalImportGroupsCsv" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background:var(--bm-card-bg);border:1px solid var(--bm-border)">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" style="color:var(--bm-text)">
+                    <i class="bi bi-file-earmark-arrow-up text-accent me-1"></i> Importar Grupos de Classificação (CSV)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ path('app_classification_groups_import_csv', {id: project.id}) }}" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('groups_import_' ~ project.id) }}">
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label fw-bold" style="font-size:13px">Selecione o arquivo CSV:</label>
+                        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <div class="p-3 rounded mb-2" style="background:var(--bm-bg);border:1px solid var(--bm-border);font-size:12px;color:var(--bm-text-muted)">
+                        <strong style="color:var(--bm-text)"><i class="bi bi-info-circle text-accent me-1"></i> Estrutura esperada do cabeçalho CSV:</strong><br>
+                        <code class="d-block text-accent my-1" style="font-size:11px;word-break:break-all">nome;tipo;cor;icone;posicao;termos;campos_match;ano_inicio;ano_fim;qualis;natureza_instituicao;continente;paises;autores;usar_tesauro</code>
+                        <div class="mt-2" style="line-height:1.5">
+                            • <strong>termos</strong>: separados por ponto e vírgula ou vírgula (ex: <code>machine learning; deep learning</code>)<br>
+                            • <strong>usar_tesauro</strong>: <code>1</code> (sim) ou <code>0</code> (não)<br>
+                            • <strong>tipo</strong>: <code>normal</code>, <code>validator</code>, <code>noise</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-bm-primary">
+                        <i class="bi bi-upload me-1"></i> Importar CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
 <script>
-function confirmDelete(groupId, groupName) {
+function confirmDelete(groupId, groupName, token) {
     document.getElementById('deleteGroupName').textContent = groupName;
     document.getElementById('deleteForm').action = '/projects/{{ project.id }}/classification/groups/' + groupId + '/delete';
-    document.getElementById('deleteToken').value = '{{ csrf_token("clf_group_del_" ~ "__ID__") }}'.replace('__ID__', groupId);
+    document.getElementById('deleteToken').value = token;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
 

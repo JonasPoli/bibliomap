@@ -41,7 +41,7 @@ class DocumentImportService
      * @param iterable<BibliographicRecordDTO> $records  Generator or array
      * @param \Closure|null $onProgress  Called after every batch with current $stats
      */
-    public function importAll(iterable $records, Dataset $dataset, ?\Closure $onProgress = null): array
+    public function importAll(iterable $records, Dataset $dataset, ?\Closure $onProgress = null, bool $skipEnrichment = false): array
     {
         $stats      = ['imported' => 0, 'skipped' => 0, 'errors' => 0];
         $projectId  = $dataset->getProject()->getId();
@@ -272,13 +272,15 @@ class DocumentImportService
         $res = $normalizer->normalizeAuthor($name);
 
         if (!$res['valid']) {
-            $this->conn()->insert('import_error', [
-                'project_id'     => $projectId,
-                'entity_type'    => 'author',
-                'original_value' => $name,
-                'reason'         => $res['reason'],
-                'created_at'     => $now,
-            ]);
+            try {
+                $this->conn()->insert('import_error', [
+                    'project_id'     => $projectId,
+                    'entity_type'    => 'author',
+                    'original_value' => $name,
+                    'reason'         => $res['reason'],
+                    'created_at'     => $now,
+                ]);
+            } catch (\Throwable) {}
             return null;
         }
 
@@ -347,13 +349,15 @@ class DocumentImportService
         $res = $normalizer->normalizeKeyword($term);
 
         if (!$res['valid']) {
-            $this->conn()->insert('import_error', [
-                'project_id'     => $projectId,
-                'entity_type'    => 'keyword',
-                'original_value' => $term,
-                'reason'         => $res['reason'],
-                'created_at'     => $now,
-            ]);
+            try {
+                $this->conn()->insert('import_error', [
+                    'project_id'     => $projectId,
+                    'entity_type'    => 'keyword',
+                    'original_value' => $term,
+                    'reason'         => $res['reason'],
+                    'created_at'     => $now,
+                ]);
+            } catch (\Throwable) {}
             return null;
         }
 

@@ -680,35 +680,13 @@ class AdminInstitutionController extends AbstractController
     public function exportThesaurus(Request $request): Response
     {
         $format = strtolower($request->query->get('format', 'the'));
-        $institutions = $this->em->getRepository(Institution::class)->findAll();
+        $filename = ($format === 'csv') ? 'thesauro_instituicoes.csv' : 'thesauro_instituicoes.the';
+        $sql = 'SELECT i.official_name AS header, v.variation_name AS variation
+                FROM instituicoes_ensino i
+                LEFT JOIN instituicao_variacoes_nome v ON v.institution_id = i.id
+                ORDER BY i.id ASC';
 
-        $data = [];
-        foreach ($institutions as $inst) {
-            $vars = [];
-            foreach ($inst->getVariations() as $v) {
-                $vars[] = $v->getVariationName();
-            }
-            $data[] = [
-                'header' => $inst->getOfficialName(),
-                'variations' => $vars
-            ];
-        }
-
-        if ($format === 'csv') {
-            $content = $this->thesaurusService->generateCsvContent($data);
-            $mime = 'text/csv; charset=utf-8';
-            $filename = 'thesauro_instituicoes.csv';
-        } else {
-            $content = $this->thesaurusService->generateTheContent($data);
-            $mime = 'text/plain; charset=utf-8';
-            $filename = 'thesauro_instituicoes.the';
-        }
-
-        $response = new Response($content);
-        $response->headers->set('Content-Type', $mime);
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
-
-        return $response;
+        return $this->thesaurusService->streamExport($this->em->getConnection(), $sql, $format, $filename);
     }
 
     #[Route('/import-thesaurus', name: 'app_admin_institutions_import_thesaurus', methods: ['POST'])]
@@ -753,7 +731,6 @@ class AdminInstitutionController extends AbstractController
                     $inst->setOfficialName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
                     $inst->setStatus(true);
                     $this->em->persist($inst);
-                    $this->em->flush();
                     $instsMap[$normHeader] = $inst;
                     $newInsts++;
                 }
@@ -766,6 +743,9 @@ class AdminInstitutionController extends AbstractController
                 foreach ($entry['variations'] as $varName) {
                     $normVar = DocumentEnrichmentService::normalize($varName);
                     if ($normVar === '') continue;
+
+                    $varName = mb_substr($varName, 0, 500, 'UTF-8');
+                    $normVar = mb_substr($normVar, 0, 500, 'UTF-8');
 
                     if (!isset($existingVars[$normVar])) {
                         $v = new InstitutionVariation();

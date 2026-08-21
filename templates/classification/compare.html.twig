@@ -1,0 +1,380 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Comparativo entre Grupos — {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-columns-gap text-accent me-2"></i> Relatórios Comparativos entre Grupos Temáticos
+        </h1>
+        <p class="bm-page-subtitle">Analise volume, evolução temporal, sobreposição de palavras-chave, perfil geográfico e de impacto entre grupos.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary">
+            <i class="bi bi-folder me-1"></i> Gerenciar Grupos
+        </a>
+        <a href="{{ path('app_classification_results', {id: project.id}) }}" class="btn btn-bm-secondary">
+            <i class="bi bi-list-task me-1"></i> Ver Resultados
+        </a>
+        <button id="btnExportCsv" class="btn btn-bm-primary" onclick="exportComparisonCsv()">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </button>
+    </div>
+</div>
+
+{# ── Group Selector Bar ──────────────────────────────────────────────────── #}
+<div class="bm-card mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="fw-bold m-0" style="color:var(--bm-text)">
+            <i class="bi bi-check2-square text-accent me-1"></i> Selecione os Grupos para Comparar
+        </h6>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllGroups(true)">Selecionar Todos</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="selectAllGroups(false)">Limpar</button>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-3" id="groupSelectorContainer" style="font-size:13px">
+        {% for g in groups %}
+            <div class="form-check">
+                <input class="form-check-input group-chk" type="checkbox" value="{{ g.id }}" id="chk_group_{{ g.id }}"
+                       {{ g.type == 'normal' ? 'checked' : '' }} onchange="loadComparisonData()">
+                <label class="form-check-label d-flex align-items-center gap-1" for="chk_group_{{ g.id }}">
+                    <span style="width:10px;height:10px;border-radius:50%;background:{{ g.color ?: '#4f8ef7' }}"></span>
+                    {{ g.name }}
+                    <span class="badge text-bg-secondary" style="font-size:10px">{{ g.typeLabel }}</span>
+                </label>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Summary Cards ───────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4" id="summaryCardsRow">
+    <div class="col-md-3">
+        <div class="bm-card text-center p-3">
+            <div class="text-muted" style="font-size:12px">Total de Grupos Analisados</div>
+            <div class="h2 fw-bold text-accent m-0" id="cardTotalGroups">0</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="bm-card text-center p-3">
+            <div class="text-muted" style="font-size:12px">Corpus Total do Projeto</div>
+            <div class="h2 fw-bold m-0" id="cardTotalDocs">0</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="bm-card text-center p-3">
+            <div class="text-muted" style="font-size:12px">Doc. Classificados no Top Tema</div>
+            <div class="h2 fw-bold text-success m-0" id="cardTopGroupDocs">0</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="bm-card text-center p-3">
+            <div class="text-muted" style="font-size:12px">Média de Citações Geral</div>
+            <div class="h2 fw-bold text-warning m-0" id="cardAvgCitations">0</div>
+        </div>
+    </div>
+</div>
+
+{# ── Comparative Panels ───────────────────────────────────────────────────── #}
+<div class="row g-4 mb-4">
+    {# Panel 1: Summary Table #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+                <i class="bi bi-bar-chart-line text-accent me-1"></i> Volume e Citações por Grupo
+            </h6>
+            <div class="table-responsive">
+                <table class="table table-sm text-center align-middle" style="font-size:13px">
+                    <thead>
+                        <tr class="table-dark">
+                            <th class="text-start">Grupo</th>
+                            <th>Docs</th>
+                            <th>% Corpus</th>
+                            <th>Total Citações</th>
+                            <th>Média Citações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        <tr><td colspan="5" class="text-muted">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# Panel 2: Temporal Evolution #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+                <i class="bi bi-graph-up text-accent me-1"></i> Evolução Temporal Comparada
+            </h6>
+            <div style="position:relative;height:260px">
+                <canvas id="chartTemporal"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    {# Panel 3: Overlap & Jaccard Index #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-2" style="color:var(--bm-text)">
+                <i class="bi bi-intersect text-accent me-1"></i> Sobreposição Temática &amp; Índice de Jaccard
+            </h6>
+            <p style="font-size:11.5px;color:var(--bm-text-muted)">Grau de semelhança entre pares de grupos com base no Tesauro Global.</p>
+            <div class="table-responsive">
+                <table class="table table-sm text-center align-middle" style="font-size:12.5px">
+                    <thead>
+                        <tr class="table-dark">
+                            <th class="text-start">Par de Grupos</th>
+                            <th>Interseção</th>
+                            <th>União</th>
+                            <th>Índice Jaccard</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overlapTableBody">
+                        <tr><td colspan="4" class="text-muted">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# Panel 4: Geographic Profile #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+                <i class="bi bi-globe2 text-accent me-1"></i> Perfil Geográfico Comparado (Países)
+            </h6>
+            <div id="geographicContainer" style="font-size:12.5px">
+                <div class="text-muted">Carregando…</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    {# Panel 5: Institutional Nature #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+                <i class="bi bi-building text-accent me-1"></i> Perfil Institucional &amp; Natureza Jurídica
+            </h6>
+            <div id="institutionalContainer" style="font-size:12.5px">
+                <div class="text-muted">Carregando…</div>
+            </div>
+        </div>
+    </div>
+
+    {# Panel 6: Qualis Impact #}
+    <div class="col-lg-6">
+        <div class="bm-card h-100">
+            <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+                <i class="bi bi-award text-accent me-1"></i> Estratos Qualis Predominantes por Grupo
+            </h6>
+            <div id="qualisContainer" style="font-size:12.5px">
+                <div class="text-muted">Carregando…</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let temporalChart = null;
+
+function getSelectedGroupIds() {
+    return Array.from(document.querySelectorAll('.group-chk:checked')).map(c => c.value);
+}
+
+function selectAllGroups(flag) {
+    document.querySelectorAll('.group-chk').forEach(c => c.checked = flag);
+    loadComparisonData();
+}
+
+function loadComparisonData() {
+    const ids = getSelectedGroupIds();
+    if (ids.length === 0) {
+        document.getElementById('summaryTableBody').innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum grupo selecionado.</td></tr>';
+        return;
+    }
+
+    fetch(`{{ path('app_classification_compare_data', {id: project.id}) }}?groups=${ids.join(',')}`)
+        .then(res => res.json())
+        .then(data => {
+            renderSummary(data.summary);
+            renderTemporal(data.temporal);
+            renderOverlap(data.overlap);
+            renderGeographic(data.geographic);
+            renderInstitutional(data.institutions);
+            renderQualis(data.qualis);
+        })
+        .catch(err => console.error(err));
+}
+
+function renderSummary(summary) {
+    const groups = summary.groups || [];
+    document.getElementById('cardTotalGroups').textContent = groups.length;
+    document.getElementById('cardTotalDocs').textContent = summary.totalProjectDocs || 0;
+
+    let topDocs = 0;
+    let sumCit = 0;
+    let sumDocs = 0;
+
+    const tbody = document.getElementById('summaryTableBody');
+    tbody.innerHTML = '';
+
+    groups.forEach(g => {
+        if (g.doc_count > topDocs) topDocs = g.doc_count;
+        sumCit += g.total_citations;
+        sumDocs += g.doc_count;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="text-start fw-bold" style="color:${g.color || 'var(--bm-text)'}">
+                <i class="bi ${g.icon || 'bi-collection'} me-1"></i> ${g.group_name}
+            </td>
+            <td><span class="badge text-bg-primary">${g.doc_count}</span></td>
+            <td>${g.percentage}%</td>
+            <td>${g.total_citations}</td>
+            <td>${g.avg_citations}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('cardTopGroupDocs').textContent = topDocs;
+    document.getElementById('cardAvgCitations').textContent = sumDocs > 0 ? (sumCit / sumDocs).toFixed(1) : 0;
+}
+
+function renderTemporal(temporal) {
+    const years = temporal.years || [];
+    const series = temporal.series || [];
+
+    const datasets = series.map(s => {
+        const data = years.map(y => s.years[y] || 0);
+        return {
+            label: s.name,
+            borderColor: s.color || '#4f8ef7',
+            backgroundColor: s.color || '#4f8ef7',
+            data: data,
+            fill: false,
+            tension: 0.2
+        };
+    });
+
+    if (temporalChart) temporalChart.destroy();
+
+    const ctx = document.getElementById('chartTemporal').getContext('2d');
+    temporalChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: years, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+}
+
+function renderOverlap(overlap) {
+    const pairs = overlap.pairwiseJaccard || [];
+    const tbody = document.getElementById('overlapTableBody');
+    tbody.innerHTML = '';
+
+    if (pairs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Selecione ao menos 2 grupos para comparar sobreposição.</td></tr>';
+        return;
+    }
+
+    pairs.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="text-start fw-bold">${p.groupA} <span class="text-muted">&amp;</span> ${p.groupB}</td>
+            <td><span class="badge text-bg-info">${p.intersection}</span></td>
+            <td>${p.union}</td>
+            <td><span class="badge text-bg-warning">${(p.jaccard * 100).toFixed(1)}%</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderGeographic(geo) {
+    const container = document.getElementById('geographicContainer');
+    container.innerHTML = '';
+
+    Object.values(geo).forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'mb-3 p-2 rounded';
+        div.style.background = 'rgba(255,255,255,0.02)';
+        div.style.border = '1px solid var(--bm-border)';
+
+        const topCountries = Object.entries(g.countries).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        const countriesHtml = topCountries.map(([c, count]) => `<span class="badge text-bg-secondary me-1">${c}: ${count}</span>`).join('');
+
+        div.innerHTML = `
+            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div>${countriesHtml || '<span class="text-muted">Sem dados de país</span>'}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function renderInstitutional(inst) {
+    const container = document.getElementById('institutionalContainer');
+    container.innerHTML = '';
+
+    Object.values(inst).forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'mb-3 p-2 rounded';
+        div.style.background = 'rgba(255,255,255,0.02)';
+        div.style.border = '1px solid var(--bm-border)';
+
+        const topNatures = Object.entries(g.natures).sort((a,b) => b[1] - a[1]).slice(0, 4);
+        const naturesHtml = topNatures.map(([n, count]) => `<span class="badge text-bg-info me-1">${n}: ${count}</span>`).join('');
+
+        div.innerHTML = `
+            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div>${naturesHtml || '<span class="text-muted">Sem dados de instituição</span>'}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function renderQualis(qualis) {
+    const container = document.getElementById('qualisContainer');
+    container.innerHTML = '';
+
+    Object.values(qualis).forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'mb-3 p-2 rounded';
+        div.style.background = 'rgba(255,255,255,0.02)';
+        div.style.border = '1px solid var(--bm-border)';
+
+        const topQualis = Object.entries(g.qualis).sort((a,b) => b[1] - a[1]);
+        const qualisHtml = topQualis.map(([q, count]) => `<span class="badge text-bg-warning me-1">${q}: ${count}</span>`).join('');
+
+        div.innerHTML = `
+            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div>${qualisHtml || '<span class="text-muted">Sem dados de Qualis</span>'}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function exportComparisonCsv() {
+    const ids = getSelectedGroupIds();
+    window.location.href = `{{ path('app_classification_compare_export_csv', {id: project.id}) }}?groups=${ids.join(',')}`;
+}
+
+document.addEventListener('DOMContentLoaded', loadComparisonData);
+</script>
+{% endblock %}

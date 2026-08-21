@@ -289,7 +289,7 @@ const growth   = payload.growth; // {groupId: {year: n, …}}
 const journals = payload.journals;// {groupId: [{name, n}, …]}
 const years    = payload.years;  // [2010, 2011, …]
 
-// Assign colors: use group.color if present, else palette
+// Use the exact color defined by the user for each group (g.color), fallback to palette if missing
 const groupColors = groups.map((g, i) =>
     g.color && g.color !== '#000000' && g.color !== '' ? g.color : PALETTE[i % PALETTE.length]
 );
@@ -418,7 +418,7 @@ new Chart(document.getElementById('chartAccel'), {
         labels: accelData.map(x => shortLabel(x.g.name)),
         datasets: [{
             data: accelData.map(x => x.rate),
-            backgroundColor: accelData.map(x => x.rate > 150 ? '#10b981' : x.rate > 50 ? '#6366f1' : '#f59e0b'),
+            backgroundColor: accelData.map(x => groupColors[groups.indexOf(x.g)]),
             borderRadius: 5
         }]
     },

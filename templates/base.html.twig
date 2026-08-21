@@ -281,10 +281,6 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_documents_search' %}active{% endif %}">
                     <i class="bi bi-search"></i> Busca de Trabalhos
                 </a>
-                <a href="{{ path('app_classification_index', {id: project.id}) }}"
-                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_classification' %}active{% endif %}">
-                    <i class="bi bi-collection"></i> Classificação Temática
-                </a>
                 <a href="{{ path('app_report_keywords', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_keywords' %}active{% endif %}">
                     <i class="bi bi-tags"></i> Palavras-chave
@@ -322,6 +318,10 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_three_fields' %}active{% endif %}">
                     <i class="bi bi-bezier2"></i> Gráfico de Três Campos
                 </a>
+                <a href="{{ path('app_matrix_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_matrix' %}active{% endif %}">
+                    <i class="bi bi-grid-3x3"></i> Matrizes Bibliométricas
+                </a>
                 <div class="bm-nav-section" style="margin-top:8px">Relatórios</div>
                 <a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_report_keyword_evolution' %}active{% endif %}">
@@ -335,7 +335,20 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_general' %}active{% endif %}">
                     <i class="bi bi-file-earmark-bar-graph"></i> Relatório Geral
                 </a>
+                <div class="bm-nav-section" style="margin-top:8px">Classificação Temática</div>
+                <a href="{{ path('app_classification_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_classification_index' or app.request.attributes.get('_route') starts with 'app_classification_group' %}active{% endif %}">
+                    <i class="bi bi-folder-check"></i> Gerenciar Grupos
+                </a>
+                <a href="{{ path('app_classification_compare_index', {id: project.id}) }}"
+                   class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_classification_compare' %}active{% endif %}">
+                    <i class="bi bi-columns-gap"></i> Comparar Grupos
+                </a>
                 {% if has_classification_results(project.id) %}
+                    <a href="{{ path('app_classification_results', {id: project.id}) }}"
+                       class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_classification_results' %}active{% endif %}">
+                        <i class="bi bi-list-task"></i> Ver Resultados
+                    </a>
                     <a href="{{ path('app_report_classification', {id: project.id}) }}"
                        class="bm-nav-link {% if app.request.attributes.get('_route') == 'app_report_classification' %}active{% endif %}">
                         <i class="bi bi-grid-3x3-gap"></i> Rel. de Classificação

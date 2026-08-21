@@ -165,7 +165,8 @@
 {% endmacro %}
 {% import _self as p %}
 {{ p.pagination(page, totalPages, project, activeGroupId) }}
-<div style="display:flex;flex-direction:column;gap:10px">
+
+<div style="display:flex;flex-direction:column;gap:12px">
 {% for clf in documents %}
 {% set doc = clf.document %}
 {% set kws = doc.documentKeywords %}
@@ -173,32 +174,113 @@
 <div class="bm-card doc-card" style="padding:16px 20px" data-id="{{ doc.id }}">
     <div class="d-flex align-items-start gap-3">
         <div style="flex:1;min-width:0">
-            {# Title + links #}
+            {# 1. Title + Clipboard copy button #}
             <div class="d-flex align-items-start gap-2 mb-1 flex-wrap">
-                <div style="font-weight:600;font-size:13.5px;color:var(--bm-text);line-height:1.4;flex:1">
+                <div style="font-weight:700;font-size:14px;color:var(--bm-text);line-height:1.4;flex:1">
                     {{ doc.title }}
+                    <button type="button" class="btn btn-sm btn-link p-0 text-muted ms-1" 
+                            style="vertical-align: middle; text-decoration: none;"
+                            onclick="copyReducedTitle(this, '{{ authorsStr|escape('js') }}', '{{ doc.year|escape('js') }}', '{{ doc.title|escape('js') }}')" 
+                            title="Copiar nome reduzido: Autores - Ano - Título">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
                 </div>
-                <div class="d-flex gap-1 flex-shrink-0">
-                    {% if doc.doi %}
-                    <a href="https://doi.org/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px" title="DOI">
-                        <i class="bi bi-box-arrow-up-right"></i> DOI
-                    </a>
-                    <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px" title="Sci-Hub">
-                        <i class="bi bi-key"></i>
-                    </a>
+            </div>
+
+            {# 2. Main Metadata Row (Authors, Year, Source, Type, Citations) #}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="font-size:12px;color:var(--bm-text-muted)">
+                {% if authorsStr %}
+                    <span><i class="bi bi-people me-1"></i>{{ authorsStr|slice(0,140) ~ (authorsStr|length > 140 ? '…' : '') }}</span>
+                {% endif %}
+                
+                {% if doc.year %}
+                    <span>· <i class="bi bi-calendar-event me-1"></i><strong style="color:var(--bm-accent)">{{ doc.year }}</strong></span>
+                {% endif %}
+
+                {% if doc.sourceTitle %}
+                    <span>· <i class="bi bi-journal-text me-1"></i><em>{{ doc.sourceTitle|slice(0,70) }}</em></span>
+                {% endif %}
+
+                {% if doc.documentType %}
+                    <span>· <span class="badge bg-secondary" style="font-size:10px;font-weight:600">{{ doc.documentType }}</span></span>
+                {% endif %}
+
+                {% if doc.citedBy is not null %}
+                    <span>· <span class="badge rounded-pill" style="background:rgba(240,136,62,0.15);color:var(--bm-warning);font-size:11px;font-weight:700"><i class="bi bi-quote me-1"></i>{{ doc.citedBy }} citações</span></span>
+                {% endif %}
+
+                {% if doc.publisher %}
+                    <span>· <i class="bi bi-building me-1"></i>{{ doc.publisher }}</span>
+                {% endif %}
+            </div>
+
+            {# 3. Action Links Bar (Qualis badge, DOI, Sci-Hub, URL, BibTeX) #}
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-2" style="font-size:12px">
+                {# Qualis Badge #}
+                {% if doc.qualis %}
+                    {% set qColor = '#8b949e' %}
+                    {% set qBg = 'rgba(255,255,255,0.05)' %}
+                    {% if doc.qualis in ['A1', 'A2'] %}
+                        {% set qColor = '#2ea043' %}
+                        {% set qBg = 'rgba(56,139,60,0.15)' %}
+                    {% elseif doc.qualis in ['A3', 'A4'] %}
+                        {% set qColor = '#58a6ff' %}
+                        {% set qBg = 'rgba(56,139,253,0.15)' %}
+                    {% elseif doc.qualis in ['B1', 'B2'] %}
+                        {% set qColor = '#d29922' %}
+                        {% set qBg = 'rgba(187,128,9,0.15)' %}
+                    {% elseif doc.qualis in ['B3', 'B4'] %}
+                        {% set qColor = '#db6d28' %}
+                        {% set qBg = 'rgba(219,109,40,0.15)' %}
+                    {% elseif doc.qualis == 'C' %}
+                        {% set qColor = '#f85149' %}
+                        {% set qBg = 'rgba(248,81,73,0.15)' %}
                     {% endif %}
-                </div>
+                    <span class="badge rounded-pill" style="background:{{ qBg }};color:{{ qColor }};font-size:11px;font-weight:700;border:1px solid {{ qColor }}44" title="Estrato Qualis CAPES">
+                        <i class="bi bi-award-fill me-1"></i>Qualis {{ doc.qualis }}
+                    </span>
+                {% endif %}
+
+                {# DOI & Sci-Hub Links #}
+                {% if doc.doi %}
+                    <a href="https://doi.org/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;font-weight:600;border-radius:4px" title="Acessar via DOI">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> DOI
+                    </a>
+                    <a href="https://sci-hub.box/{{ doc.doi }}" target="_blank" class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size:11px;font-weight:600;border-radius:4px" title="Buscar no Sci-Hub">
+                        <i class="bi bi-key me-1"></i> Sci-Hub
+                    </a>
+                {% endif %}
+
+                {# Direct URL #}
+                {% if doc.url and not doc.doi %}
+                    <a href="{{ doc.url }}" target="_blank" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size:11px;font-weight:600;border-radius:4px" title="Acessar URL Direta">
+                        <i class="bi bi-link-45deg me-1"></i> URL
+                    </a>
+                {% endif %}
+
+                {# BibTeX Button #}
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" 
+                        onclick="showBibtexFromElement(this)"
+                        data-title="{{ doc.title|escape('html_attr') }}"
+                        data-authors="{{ authorsStr|escape('html_attr') }}"
+                        data-year="{{ doc.year }}"
+                        data-source="{{ doc.sourceTitle|escape('html_attr') }}"
+                        data-doi="{{ doc.doi|escape('html_attr') }}"
+                        data-url="{{ doc.url|escape('html_attr') }}"
+                        data-issn="{{ doc.issn|escape('html_attr') }}"
+                        data-isbn="{{ doc.isbn|escape('html_attr') }}"
+                        data-volume="{{ doc.volume|escape('html_attr') }}"
+                        data-issue="{{ doc.issue|escape('html_attr') }}"
+                        data-page-start="{{ doc.pageStart|escape('html_attr') }}"
+                        data-page-end="{{ doc.pageEnd|escape('html_attr') }}"
+                        data-publisher="{{ doc.publisher|escape('html_attr') }}"
+                        data-abstract="{{ doc.abstractText|escape('html_attr') }}"
+                        style="font-size:11px;border-radius:4px" title="Gerar citação BibTeX para Zotero">
+                    <i class="bi bi-journal-code me-1"></i> BibTeX
+                </button>
             </div>
 
-            {# Authors / Year / Source #}
-            <div style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:8px">
-                {{ authorsStr ? authorsStr|slice(0,120) ~ (authorsStr|length > 120 ? '…' : '') : '—' }}
-                {% if doc.year %} · <strong style="color:var(--bm-accent)">{{ doc.year }}</strong>{% endif %}
-                {% if doc.sourceTitle %} · <em>{{ doc.sourceTitle|slice(0,60) }}</em>{% endif %}
-                {% if doc.citedBy %} · <span style="color:var(--bm-warning)"><i class="bi bi-quote"></i> {{ doc.citedBy }}</span>{% endif %}
-            </div>
-
-            {# Multi-group badges — show all groups this document belongs to #}
+            {# 4. Multi-group badges — show all groups this document belongs to #}
             {% set otherGroups = docGroupNames[doc.id] ?? [] %}
             {% if otherGroups|length > 1 %}
             <div class="mb-2 d-flex flex-wrap gap-1 align-items-center">
@@ -209,17 +291,17 @@
             </div>
             {% endif %}
 
-            {# Matched term badge #}
+            {# 5. Matched term badge #}
             {% if clf.matchedTerm %}
             <div class="mb-2">
                 <span style="font-size:10.5px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:4px;padding:2px 8px;font-family:monospace;color:var(--bm-accent)">
-                    <i class="bi bi-lightning-fill"></i> {{ clf.matchedTerm }}
+                    <i class="bi bi-lightning-fill"></i> Termo match: {{ clf.matchedTerm }}
                 </span>
                 {% if clf.manualOverride %}<span class="badge text-bg-warning ms-1" style="font-size:9px">Manual</span>{% endif %}
             </div>
             {% endif %}
 
-            {# Keywords chips #}
+            {# 6. Keywords chips #}
             {% if kws|length > 0 %}
             <div class="d-flex flex-wrap gap-1 mb-2">
                 {% for dk in kws|slice(0, 20) %}
@@ -232,11 +314,11 @@
             </div>
             {% endif %}
 
-            {# Abstract (collapsible) #}
+            {# 7. Abstract (collapsible) #}
             {% if doc.abstractText %}
             <details class="abstract-details">
                 <summary style="font-size:11.5px;color:var(--bm-text-muted);cursor:pointer;user-select:none;margin-bottom:4px">
-                    <i class="bi bi-chevron-right" style="font-size:10px"></i> Resumo
+                    <i class="bi bi-chevron-right" style="font-size:10px"></i> Resumo do Trabalho
                 </summary>
                 <div class="abstract-text" style="font-size:12px;color:var(--bm-text-muted);line-height:1.6;margin-top:6px;padding:10px;background:rgba(0,0,0,0.15);border-radius:6px;border-left:3px solid var(--bm-border)">
                     {{ doc.abstractText }}
@@ -271,12 +353,134 @@
 {% endif %}
 
 {% endif %}{# hasResult #}
+
+<!-- Modal BibTeX para Zotero -->
+<div class="modal fade" id="bibtexModal" tabindex="-1" aria-labelledby="bibtexModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-bm-card border-bm text-bm" style="background:var(--bm-card-bg); border:1px solid var(--bm-border); border-radius:12px;">
+            <div class="modal-header border-bottom border-bm py-3 border-0 pb-0">
+                <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
+                    <i class="bi bi-code-slash me-2 text-accent"></i>
+                    Referência BibTeX para Zotero
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted" style="font-size:13px">
+                    Copie o código BibTeX abaixo e cole no Zotero (usando a opção <em>"Importar do Clipboard / Área de Transferência"</em>).
+                </p>
+                <div style="position:relative">
+                    <pre id="bibtexCode" class="p-3" style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;font-family:monospace;font-size:12.5px;color:var(--bm-text);white-space:pre-wrap;max-height:350px;overflow-y:auto;text-align:left"></pre>
+                    <button type="button" class="btn btn-sm btn-bm-primary" onclick="copyBibtexToClipboard()" style="position:absolute;top:10px;right:10px;background:var(--bm-accent);border:none;font-weight:600;padding:4px 12px;font-size:12px">
+                        <i class="bi bi-clipboard me-1"></i> Copiar
+                    </button>
+                </div>
+                <div id="copySuccessAlert" class="text-success mt-2" style="font-size:12px;display:none;font-weight:600">
+                    <i class="bi bi-check-circle-fill me-1"></i> Copiado com sucesso para a área de transferência!
+                </div>
+            </div>
+            <div class="modal-footer border-top border-bm py-3 border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-bm-secondary px-4" data-bs-dismiss="modal" style="font-size:13px;font-weight:600">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block javascripts %}
 <script>
 const csrfToken  = '{{ csrf_token("clf_move_" ~ project.id) }}';
 const projectId  = {{ project.id }};
+
+let currentBibtexText = '';
+
+function showBibtexFromElement(btn) {
+    const title = btn.dataset.title || 'Sem título';
+    const authorsStr = btn.dataset.authors || 'Autor desconhecido';
+    const year = btn.dataset.year || '0000';
+    const source = btn.dataset.source || '';
+    const doi = btn.dataset.doi || '';
+    const url = btn.dataset.url || '';
+    const issn = btn.dataset.issn || '';
+    const isbn = btn.dataset.isbn || '';
+    const volume = btn.dataset.volume || '';
+    const issue = btn.dataset.issue || '';
+    const pageStart = btn.dataset.pageStart || '';
+    const pageEnd = btn.dataset.pageEnd || '';
+    const publisher = btn.dataset.publisher || '';
+    const abstractText = btn.dataset.abstract || '';
+
+    let firstAuthor = 'Unknown';
+    if (authorsStr && authorsStr !== 'Autor desconhecido') {
+        const parts = authorsStr.split(';');
+        if (parts.length > 0) {
+            const first = parts[0].trim();
+            const commaIndex = first.indexOf(',');
+            if (commaIndex !== -1) {
+                firstAuthor = first.substring(0, commaIndex).trim().replace(/[^a-zA-Z]/g, '');
+            } else {
+                firstAuthor = first.replace(/[^a-zA-Z]/g, '');
+            }
+        }
+    }
+    const citeKey = `${firstAuthor.toLowerCase()}${year}`;
+
+    let bib = `@article{${citeKey},\n`;
+    bib += `  author = {${authorsStr.replace(/;/g, ' and')}},\n`;
+    bib += `  title = {${title}},\n`;
+    if (source) bib += `  journal = {${source}},\n`;
+    bib += `  year = {${year}},\n`;
+    if (volume) bib += `  volume = {${volume}},\n`;
+    if (issue) bib += `  number = {${issue}},\n`;
+    if (pageStart || pageEnd) {
+        bib += `  pages = {${pageStart}${pageStart && pageEnd ? '--' : ''}${pageEnd}},\n`;
+    }
+    if (doi) bib += `  doi = {${doi}},\n`;
+    if (url) bib += `  url = {${url}},\n`;
+    if (publisher) bib += `  publisher = {${publisher}},\n`;
+    if (issn) bib += `  issn = {${issn}},\n`;
+    if (isbn) bib += `  isbn = {${isbn}},\n`;
+    if (abstractText) bib += `  abstract = {${abstractText}},\n`;
+    bib += `}`;
+
+    currentBibtexText = bib;
+    document.getElementById('bibtexCode').textContent = bib;
+    document.getElementById('copySuccessAlert').style.display = 'none';
+
+    const modal = new bootstrap.Modal(document.getElementById('bibtexModal'));
+    modal.show();
+}
+
+function copyBibtexToClipboard() {
+    navigator.clipboard.writeText(currentBibtexText).then(() => {
+        const alert = document.getElementById('copySuccessAlert');
+        alert.style.display = 'block';
+        setTimeout(() => { alert.style.display = 'none'; }, 3000);
+    });
+}
+
+function copyReducedTitle(btn, authors, year, title) {
+    const cleanTitle = (title || '').replace(/[:\/]/g, '');
+    const cleanYear = String(year || '—');
+    const cleanAuthors = String(authors || 'Autor desconhecido');
+    const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
+    let reducedAuthors = cleanAuthors;
+    if (cleanAuthors.length > maxAuthorsLen) {
+        reducedAuthors = cleanAuthors.slice(0, Math.max(0, maxAuthorsLen));
+    }
+    const textToCopy = `${reducedAuthors} - ${cleanYear} - ${cleanTitle}`;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        const icon = btn.querySelector('i');
+        if (icon) {
+            icon.className = 'bi bi-check2 text-success';
+            setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 1500);
+        }
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+    });
+}
 
 document.querySelectorAll('.move-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
@@ -320,7 +524,7 @@ document.querySelectorAll('.abstract-details').forEach(details => {
         const card     = this.closest('.doc-card');
         const termBadge = card.querySelector('[style*="bi-lightning-fill"]');
         if (!termBadge) return;
-        const term = termBadge.textContent.trim().replace('⚡', '').trim();
+        const term = termBadge.textContent.trim().replace('⚡', '').replace('Termo match:', '').trim();
         if (!term) return;
         const abs = this.querySelector('.abstract-text');
         const re  = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');

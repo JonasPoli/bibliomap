@@ -19,10 +19,10 @@ class KeywordVariation
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Keyword $keyword = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 500)]
     private string $variationName = '';
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 500)]
     private string $normalizedName = '';
 
     #[ORM\Column(length: 100, nullable: true)]

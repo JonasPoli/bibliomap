@@ -43,6 +43,46 @@ class ClassificationGroup
     #[ORM\Column(options: ['default' => 0])]
     private int $position = 0;
 
+    /** @var string[] */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $matchFields = ['title', 'abstract', 'author_keywords', 'indexed_keywords'];
+
+    #[ORM\Column(nullable: true)]
+    private ?int $startYear = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $endYear = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $institutionNature = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $continente = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $countryIds = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $stateIds = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $cityIds = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $authorsFilter = null;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $qualisFilter = null;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $useThesaurus = true;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -59,7 +99,45 @@ class ClassificationGroup
         $this->rules           = new ArrayCollection();
         $this->classifications = new ArrayCollection();
         $this->createdAt       = new \DateTimeImmutable();
+        $this->matchFields     = ['title', 'abstract', 'author_keywords', 'indexed_keywords'];
+        $this->useThesaurus    = true;
     }
+
+    public function getMatchFields(): array
+    {
+        return $this->matchFields ?: ['title', 'abstract', 'author_keywords', 'indexed_keywords'];
+    }
+    public function setMatchFields(?array $v): static { $this->matchFields = $v; return $this; }
+
+    public function getStartYear(): ?int { return $this->startYear; }
+    public function setStartYear(?int $v): static { $this->startYear = $v; return $this; }
+
+    public function getEndYear(): ?int { return $this->endYear; }
+    public function setEndYear(?int $v): static { $this->endYear = $v; return $this; }
+
+    public function getInstitutionNature(): ?array { return $this->institutionNature; }
+    public function setInstitutionNature(?array $v): static { $this->institutionNature = $v; return $this; }
+
+    public function getContinente(): ?string { return $this->continente; }
+    public function setContinente(?string $v): static { $this->continente = $v; return $this; }
+
+    public function getCountryIds(): ?array { return $this->countryIds; }
+    public function setCountryIds(?array $v): static { $this->countryIds = $v; return $this; }
+
+    public function getStateIds(): ?array { return $this->stateIds; }
+    public function setStateIds(?array $v): static { $this->stateIds = $v; return $this; }
+
+    public function getCityIds(): ?array { return $this->cityIds; }
+    public function setCityIds(?array $v): static { $this->cityIds = $v; return $this; }
+
+    public function getAuthorsFilter(): ?array { return $this->authorsFilter; }
+    public function setAuthorsFilter(?array $v): static { $this->authorsFilter = $v; return $this; }
+
+    public function getQualisFilter(): ?array { return $this->qualisFilter; }
+    public function setQualisFilter(?array $v): static { $this->qualisFilter = $v; return $this; }
+
+    public function isUseThesaurus(): bool { return $this->useThesaurus; }
+    public function setUseThesaurus(bool $v): static { $this->useThesaurus = $v; return $this; }
 
     public function getId(): ?int { return $this->id; }
 

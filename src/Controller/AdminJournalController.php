@@ -313,35 +313,13 @@ class AdminJournalController extends AbstractController
     public function exportThesaurus(Request $request): Response
     {
         $format = strtolower($request->query->get('format', 'the'));
-        $journals = $this->em->getRepository(QualisJournal::class)->findAll();
+        $filename = ($format === 'csv') ? 'thesauro_revistas.csv' : 'thesauro_revistas.the';
+        $sql = 'SELECT j.title AS header, v.variation_name AS variation
+                FROM qualis_journal j
+                LEFT JOIN qualis_journal_variacoes_nome v ON v.journal_id = j.id
+                ORDER BY j.id ASC';
 
-        $data = [];
-        foreach ($journals as $j) {
-            $vars = [];
-            foreach ($j->getVariations() as $v) {
-                $vars[] = $v->getVariationName();
-            }
-            $data[] = [
-                'header' => $j->getTitle(),
-                'variations' => $vars
-            ];
-        }
-
-        if ($format === 'csv') {
-            $content = $this->thesaurusService->generateCsvContent($data);
-            $mime = 'text/csv; charset=utf-8';
-            $filename = 'thesauro_revistas.csv';
-        } else {
-            $content = $this->thesaurusService->generateTheContent($data);
-            $mime = 'text/plain; charset=utf-8';
-            $filename = 'thesauro_revistas.the';
-        }
-
-        $response = new Response($content);
-        $response->headers->set('Content-Type', $mime);
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
-
-        return $response;
+        return $this->thesaurusService->streamExport($this->em->getConnection(), $sql, $format, $filename);
     }
 
     #[Route('/import-thesaurus', name: 'app_admin_journals_import_thesaurus', methods: ['POST'])]
@@ -383,7 +361,6 @@ class AdminJournalController extends AbstractController
                     $journal->setTitle(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
                     $journal->setNormalizedIssn('custom_' . substr(md5($normHeader), 0, 10));
                     $this->em->persist($journal);
-                    $this->em->flush();
                     $journalsMap[$normHeader] = $journal;
                     $newJournals++;
                 }
@@ -396,6 +373,9 @@ class AdminJournalController extends AbstractController
                 foreach ($entry['variations'] as $varName) {
                     $normVar = DocumentEnrichmentService::normalize($varName);
                     if ($normVar === '') continue;
+
+                    $varName = mb_substr($varName, 0, 500, 'UTF-8');
+                    $normVar = mb_substr($normVar, 0, 500, 'UTF-8');
 
                     if (!isset($existingVars[$normVar])) {
                         $var = new JournalVariation();

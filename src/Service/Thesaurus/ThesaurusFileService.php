@@ -149,4 +149,69 @@ class ThesaurusFileService
 
         return $csv->toString();
     }
+
+    /**
+     * Streams thesaurus export directly to HTTP response output (CSV or VantagePoint .the)
+     * with O(1) memory footprint to avoid 512MB RAM memory exhaustion on large datasets.
+     */
+    public function streamExport(
+        \Doctrine\DBAL\Connection $conn,
+        string $querySql,
+        string $format,
+        string $filename
+    ): \Symfony\Component\HttpFoundation\StreamedResponse {
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($conn, $querySql, $format) {
+            @set_time_limit(600);
+
+            try {
+                $pdo = $conn->getNativeConnection();
+                if ($pdo instanceof \PDO) {
+                    $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+                }
+            } catch (\Throwable) {}
+
+            $out = fopen('php://output', 'w');
+            $stmt = $conn->executeQuery($querySql);
+
+            if ($format === 'csv') {
+                // UTF-8 BOM
+                fwrite($out, "\xEF\xBB\xBF");
+                fputcsv($out, ['preferred_name', 'variant_name'], ';', '"', "\\");
+
+                while ($row = $stmt->fetchAssociative()) {
+                    $header = trim($row['header'] ?? '');
+                    $variation = trim($row['variation'] ?? '');
+                    if ($header !== '' && $variation !== '') {
+                        fputcsv($out, [$header, $variation], ';', '"', "\\");
+                    }
+                }
+            } else {
+                // VantagePoint .the format
+                $currentHeaderKey = null;
+                while ($row = $stmt->fetchAssociative()) {
+                    $header = trim($row['header'] ?? '');
+                    $variation = trim($row['variation'] ?? '');
+                    if ($header === '') continue;
+
+                    $headerKey = mb_strtolower($header, 'UTF-8');
+                    if ($currentHeaderKey !== $headerKey) {
+                        fwrite($out, "**#" . $headerKey . "\r\n");
+                        $currentHeaderKey = $headerKey;
+                    }
+
+                    if ($variation !== '') {
+                        fwrite($out, "100 1 ^" . mb_strtolower($variation, 'UTF-8') . "$\r\n");
+                    }
+                }
+            }
+
+            fclose($out);
+        });
+
+        $mime = ($format === 'csv') ? 'text/csv; charset=utf-8' : 'text/plain; charset=utf-8';
+        $response->headers->set('Content-Type', $mime);
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
+
+        return $response;
+    }
 }

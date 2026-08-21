@@ -503,35 +503,13 @@ class AdminKeywordController extends AbstractController
     public function exportThesaurus(Request $request): Response
     {
         $format = strtolower($request->query->get('format', 'the'));
-        $keywords = $this->em->getRepository(Keyword::class)->findAll();
+        $filename = ($format === 'csv') ? 'thesauro_palavras_chave.csv' : 'thesauro_palavras_chave.the';
+        $sql = 'SELECT k.keyword_original AS header, v.variation_name AS variation
+                FROM keyword k
+                LEFT JOIN palavra_chave_variacoes_nome v ON v.keyword_id = k.id
+                ORDER BY k.id ASC';
 
-        $data = [];
-        foreach ($keywords as $k) {
-            $vars = [];
-            foreach ($k->getVariations() as $v) {
-                $vars[] = $v->getVariationName();
-            }
-            $data[] = [
-                'header' => $k->getKeywordOriginal(),
-                'variations' => $vars
-            ];
-        }
-
-        if ($format === 'csv') {
-            $content = $this->thesaurusService->generateCsvContent($data);
-            $mime = 'text/csv; charset=utf-8';
-            $filename = 'thesauro_palavras_chave.csv';
-        } else {
-            $content = $this->thesaurusService->generateTheContent($data);
-            $mime = 'text/plain; charset=utf-8';
-            $filename = 'thesauro_palavras_chave.the';
-        }
-
-        $response = new Response($content);
-        $response->headers->set('Content-Type', $mime);
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
-
-        return $response;
+        return $this->thesaurusService->streamExport($this->em->getConnection(), $sql, $format, $filename);
     }
 
     #[Route('/import-thesaurus', name: 'app_admin_keywords_import_thesaurus', methods: ['POST'])]
@@ -575,7 +553,6 @@ class AdminKeywordController extends AbstractController
                     $keyword->setKeywordType(Keyword::TYPE_AUTHOR);
                     $keyword->setStatus(1);
                     $this->em->persist($keyword);
-                    $this->em->flush();
                     $keywordsMap[$normHeader] = $keyword;
                     $newKeywords++;
                 }
@@ -588,6 +565,9 @@ class AdminKeywordController extends AbstractController
                 foreach ($entry['variations'] as $varName) {
                     $normVar = StringNormalizer::normalizeString($varName, true);
                     if ($normVar === '') continue;
+
+                    $varName = mb_substr($varName, 0, 500, 'UTF-8');
+                    $normVar = mb_substr($normVar, 0, 500, 'UTF-8');
 
                     if (!isset($existingVars[$normVar])) {
                         $v = new KeywordVariation();

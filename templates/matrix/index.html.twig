@@ -1,0 +1,477 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Matrizes Bibliométricas — {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="bm-page-title">
+            <i class="bi bi-grid-3x3 text-accent me-2"></i> Painel de Matrizes Bibliométricas
+        </h1>
+        <p class="bm-page-subtitle">Gere matrizes de co-ocorrência e matrizes cruzadas entre quaisquer 2 dimensões com suporte ao Tesauro Global.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#modalSaveMatrix">
+            <i class="bi bi-bookmark-plus me-1"></i> Salvar Matriz
+        </button>
+        <button id="btnExportCsv" class="btn btn-bm-primary" onclick="exportMatrixCsv()">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </button>
+    </div>
+</div>
+
+{% for label, messages in app.flashes %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ label == 'success' ? 'success' : 'warning' }} bm-alert mb-3">
+        {{ msg|raw }}
+    </div>
+    {% endfor %}
+{% endfor %}
+
+{# ── Matrix Controls Bar ─────────────────────────────────────────────────── #}
+<div class="bm-card mb-4" style="border:1px solid var(--bm-border)">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label fw-bold" for="rowDimension" style="font-size:13px">
+                <i class="bi bi-arrows-vertical text-accent me-1"></i> Eixo Linhas (Eixo X)
+            </label>
+            <select id="rowDimension" class="form-select form-select-sm">
+                {% for catName, dims in categories %}
+                    <optgroup label="{{ catName }}">
+                        {% for d in dims %}
+                            <option value="{{ d.key }}" {{ d.key == 'keyword_author' ? 'selected' : '' }}>{{ d.label }}</option>
+                        {% endfor %}
+                    </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold" for="columnDimension" style="font-size:13px">
+                <i class="bi bi-arrows-left-right text-accent me-1"></i> Eixo Colunas (Eixo Y)
+            </label>
+            <select id="columnDimension" class="form-select form-select-sm">
+                {% for catName, dims in categories %}
+                    <optgroup label="{{ catName }}">
+                        {% for d in dims %}
+                            <option value="{{ d.key }}" {{ d.key == 'country' ? 'selected' : '' }}>{{ d.label }}</option>
+                        {% endfor %}
+                    </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-semibold" for="minWeight" style="font-size:12px">Frequência Mínima</label>
+            <input type="number" id="minWeight" class="form-control form-control-sm" value="1" min="1" max="100">
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-semibold" for="maxLimit" style="font-size:12px">Limite (N x M)</label>
+            <select id="maxLimit" class="form-select form-select-sm">
+                <option value="15">15 x 15</option>
+                <option value="30" selected>30 x 30</option>
+                <option value="50">50 x 50</option>
+                <option value="100">100 x 100</option>
+                <option value="250">250 x 250</option>
+                <option value="500">500 x 500</option>
+                <option value="1000">1000 x 1000</option>
+                <option value="2000">2000 x 2000 (Máximo)</option>
+            </select>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-center">
+            <div class="form-check form-switch m-0" style="font-size:12px">
+                <input class="form-check-input" type="checkbox" id="useThesaurus" value="1" checked>
+                <label class="form-check-label fw-bold" for="useThesaurus" style="color:var(--bm-accent)">
+                    <i class="bi bi-journal-check me-1"></i> Tesauro Global
+                </label>
+            </div>
+        </div>
+
+        {# Action Trigger Button #}
+        <div class="col-12 mt-3 pt-2 border-top border-secondary border-opacity-10">
+            <button id="btnGenerateMatrix" type="button" class="btn btn-bm-primary btn-lg w-100 fw-bold" onclick="generateMatrix()" style="font-size:15px;padding:10px">
+                <i class="bi bi-play-circle-fill me-2"></i> Gerar Matriz Bibliométrica
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ── Initial Guidance Panel ──────────────────────────────────────────────── #}
+<div id="matrixInitialState" class="bm-card text-center p-5 mb-4">
+    <div class="mb-3 text-accent" style="font-size:3rem">
+        <i class="bi bi-cpu-fill"></i>
+    </div>
+    <h5 class="fw-bold" style="color:var(--bm-text)">Pronto para Gerar a Matriz Bibliométrica</h5>
+    <p class="text-muted mx-auto" style="max-width:600px;font-size:13.5px">
+        Escolha as duas dimensões desejadas no painel acima (ex: <strong>Autores x Palavras-chave</strong>, <strong>País x Instituição</strong>, <strong>Grupo Temático x Ano</strong>) e clique no botão verde <strong>"Gerar Matriz Bibliométrica"</strong> para iniciar o processamento.
+    </p>
+</div>
+
+{# ── Interactive Processing Loading Panel ────────────────────────────────── #}
+<div id="matrixLoadingPane" class="bm-card p-5 text-center mb-4" style="display:none">
+    <div class="spinner-border text-primary mb-3" role="status" style="width:3rem;height:3rem">
+        <span class="visually-hidden">Processando…</span>
+    </div>
+    <h5 class="fw-bold mb-2" style="color:var(--bm-text)">
+        ⏳ Processando Matriz Bibliométrica...
+    </h5>
+    <p id="loadingDetailsText" class="text-muted mb-3" style="font-size:14px">
+        Varrendo documentos e aplicando Tesauro Global…
+    </p>
+    <div class="progress mx-auto mb-3" style="height:8px;max-width:420px">
+        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width:100%"></div>
+    </div>
+    <div class="d-flex justify-content-center gap-3 align-items-center">
+        <span id="loadingTimerText" class="badge text-bg-dark border border-secondary font-monospace" style="font-size:13px;padding:6px 12px">⏱️ 0.0s</span>
+        <span class="text-muted" style="font-size:12.5px"><i class="bi bi-info-circle me-1"></i> Extraindo metadados, aplicando conceitos e cruzando co-ocorrências</span>
+    </div>
+</div>
+
+{# ── Processing Summary Report Card ─────────────────────────────────────── #}
+<div id="matrixReportCard" class="bm-card mb-4" style="display:none;background:rgba(79,142,247,0.04);border:1px solid rgba(79,142,247,0.2)">
+    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom border-secondary border-opacity-10 pb-2">
+        <h6 class="fw-bold m-0" style="color:var(--bm-accent)">
+            <i class="bi bi-file-earmark-check-fill me-1"></i> Relatório de Processamento da Matriz
+        </h6>
+        <span class="badge text-bg-success" style="font-size:11px">Concluído com Sucesso</span>
+    </div>
+    <div class="row g-3 text-center" style="font-size:12.5px">
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Tempo Total</div>
+            <div class="fw-bold text-accent h5 m-0 font-monospace" id="reportTime">0 ms</div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Artigos Analisados</div>
+            <div class="fw-bold h5 m-0" id="reportTotalDocs">0</div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Dimensão Matriz</div>
+            <div class="fw-bold h5 m-0" id="statDimensions">0 x 0</div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Total Conexões</div>
+            <div class="fw-bold h5 m-0" id="statTotalPairs">0</div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Células Ativas</div>
+            <div class="fw-bold text-success h5 m-0" id="statActiveCells">0</div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="text-muted mb-1">Densidade</div>
+            <div class="fw-bold text-warning h5 m-0" id="statDensity">0%</div>
+        </div>
+    </div>
+</div>
+
+{# ── Main Matrix Display Pane ────────────────────────────────────────────── #}
+<div id="matrixResultsPane" class="bm-card mb-4" style="display:none">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold m-0" id="matrixTitle" style="color:var(--bm-text)">
+            Matriz Cruzada
+        </h5>
+        <div style="font-size:11.5px;color:var(--bm-text-muted)">
+            Valores representam a frequência de co-ocorrência em documentos do projeto.
+        </div>
+    </div>
+
+    <div class="table-responsive" style="max-height:600px;overflow:auto">
+        <table class="table table-bordered table-sm text-center align-middle" id="matrixTable" style="font-size:11.5px;min-width:600px">
+            <thead id="matrixHead" class="table-dark" style="position:sticky;top:0;z-index:2">
+            </thead>
+            <tbody id="matrixBody">
+            </tbody>
+            <tfoot id="matrixFoot" class="table-dark" style="position:sticky;bottom:0;z-index:2">
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{# ── Saved Matrices Section ──────────────────────────────────────────────── #}
+<div class="bm-card">
+    <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
+        <i class="bi bi-bookmarks text-accent me-1"></i> Matrizes Salvas do Projeto
+    </h6>
+    {% if savedMatrices is empty %}
+        <div class="text-muted" style="font-size:13px">Nenhuma matriz salva ainda neste projeto. Monte a matriz acima e clique em "Salvar Matriz".</div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" style="font-size:12.5px">
+                <thead>
+                    <tr class="table-dark">
+                        <th>Nome</th>
+                        <th>Dimensões</th>
+                        <th>Tesauro</th>
+                        <th>Criado em</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in savedMatrices %}
+                        <tr>
+                            <td class="fw-bold">{{ m.name }}</td>
+                            <td><span class="badge text-bg-primary">{{ m.rowDimension }}</span> x <span class="badge text-bg-info">{{ m.columnDimension }}</span></td>
+                            <td>{{ m.useThesaurus ? '✅ Sim' : '❌ Não' }}</td>
+                            <td class="text-muted">{{ m.createdAt|date('d/m/Y H:i') }}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-bm-secondary" onclick="loadSavedMatrix('{{ m.rowDimension }}', '{{ m.columnDimension }}', {{ m.minCellWeight }}, {{ m.maxRows }}, {{ m.useThesaurus ? 1 : 0 }})">
+                                    <i class="bi bi-play-fill me-1"></i> Carregar & Gerar
+                                </button>
+                                <form action="{{ path('app_matrix_delete', {id: project.id, matrixId: m.id}) }}" method="post" class="d-inline" onsubmit="return confirm('Deseja remover esta matriz salva?')">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('matrix_del_' ~ m.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+{# ── Save Matrix Modal ───────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalSaveMatrix" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background:var(--bm-card-bg);border:1px solid var(--bm-border)">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" style="color:var(--bm-text)">Salvar Configuração de Matriz</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formSaveMatrix">
+                    <input type="hidden" name="_token" value="{{ csrf_token('matrix_save_' ~ project.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label" for="matrixName">Nome da Matriz <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="matrixName" name="name" placeholder="Ex: Matriz Palavras-Chave x Países" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="matrixDesc">Descrição (opcional)</label>
+                        <textarea class="form-control" id="matrixDesc" name="description" rows="2" placeholder="Descreva o propósito ou contexto desta matriz…"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-bm-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-bm-primary" onclick="submitSaveMatrix()">Salvar Presets</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+let currentMatrixData = null;
+let loadingTimerInterval = null;
+
+function showLoadingState(rowLabel, colLabel, useThesaurus) {
+    document.getElementById('matrixInitialState').style.display = 'none';
+    document.getElementById('matrixResultsPane').style.display = 'none';
+    document.getElementById('matrixReportCard').style.display = 'none';
+    document.getElementById('matrixLoadingPane').style.display = 'block';
+
+    const btn = document.getElementById('btnGenerateMatrix');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processando Matriz…';
+
+    const startTime = Date.now();
+    if (loadingTimerInterval) clearInterval(loadingTimerInterval);
+
+    document.getElementById('loadingDetailsText').innerHTML = `
+        <i class="bi bi-gear-wide-connected text-accent me-1"></i> Cruzando <strong>${rowLabel}</strong> vs <strong>${colLabel}</strong>
+        <span class="badge ${useThesaurus ? 'text-bg-success' : 'text-bg-secondary'} ms-1" style="font-size:11px">${useThesaurus ? 'Tesauro Global Ativo' : 'Tesauro Desativado'}</span>
+    `;
+
+    document.getElementById('loadingTimerText').textContent = '⏱️ 0.0s';
+
+    loadingTimerInterval = setInterval(() => {
+        const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
+        document.getElementById('loadingTimerText').textContent = `⏱️ ${seconds}s`;
+    }, 100);
+}
+
+function hideLoadingState() {
+    if (loadingTimerInterval) clearInterval(loadingTimerInterval);
+    document.getElementById('matrixLoadingPane').style.display = 'none';
+    document.getElementById('matrixResultsPane').style.display = 'block';
+
+    const btn = document.getElementById('btnGenerateMatrix');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Gerar Matriz Bibliométrica';
+}
+
+function generateMatrix() {
+    const rowSelect = document.getElementById('rowDimension');
+    const colSelect = document.getElementById('columnDimension');
+    const row = rowSelect.value;
+    const col = colSelect.value;
+    const rowLabel = rowSelect.options[rowSelect.selectedIndex].text;
+    const colLabel = colSelect.options[colSelect.selectedIndex].text;
+    const minWeight = document.getElementById('minWeight').value;
+    const maxLimit = document.getElementById('maxLimit').value;
+    const useThesaurus = document.getElementById('useThesaurus').checked;
+
+    showLoadingState(rowLabel, colLabel, useThesaurus);
+
+    const url = `{{ path('app_matrix_generate', {id: project.id}) }}?row=${row}&col=${col}&minWeight=${minWeight}&maxRows=${maxLimit}&maxCols=${maxLimit}&useThesaurus=${useThesaurus ? 1 : 0}`;
+
+    fetch(url)
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Falha HTTP ' + res.status);
+            }
+            return res.json();
+        })
+        .then(data => {
+            currentMatrixData = data;
+            hideLoadingState();
+            renderMatrix(data);
+        })
+        .catch(err => {
+            hideLoadingState();
+            console.error(err);
+            alert('Erro ao carregar a matriz bibliométrica: ' + err.message);
+        });
+}
+
+function renderMatrix(data) {
+    // Show report card with processing metadata
+    const reportCard = document.getElementById('matrixReportCard');
+    reportCard.style.display = 'block';
+
+    const secFormatted = data.processingTimeMs ? (data.processingTimeMs >= 1000 ? (data.processingTimeMs / 1000).toFixed(2) + ' s' : data.processingTimeMs + ' ms') : 'N/A';
+
+    document.getElementById('reportTime').textContent = secFormatted;
+    document.getElementById('reportTotalDocs').textContent = data.totalDocuments || 0;
+    document.getElementById('statDimensions').textContent = `${data.rows.length} x ${data.cols.length}`;
+    document.getElementById('statTotalPairs').textContent = data.totalPairs;
+    document.getElementById('statActiveCells').textContent = data.activeCells;
+    document.getElementById('statDensity').textContent = `${data.density}%`;
+
+    document.getElementById('matrixTitle').innerHTML = `
+        <i class="bi bi-grid-3x3 text-accent me-2"></i> ${data.rowDimension} <span class="text-muted">vs</span> ${data.colDimension}
+    `;
+
+    const head = document.getElementById('matrixHead');
+    const body = document.getElementById('matrixBody');
+    const foot = document.getElementById('matrixFoot');
+
+    head.innerHTML = '';
+    body.innerHTML = '';
+    foot.innerHTML = '';
+
+    if (data.rows.length === 0 || data.cols.length === 0) {
+        body.innerHTML = '<tr><td class="text-muted p-4">Nenhum dado encontrado para a combinação selecionada.</td></tr>';
+        return;
+    }
+
+    // Find max cell weight for heatmap opacity calculation
+    let maxWeight = 1;
+    data.rows.forEach(r => {
+        data.cols.forEach(c => {
+            const val = data.matrix[r][c] || 0;
+            if (val > maxWeight) maxWeight = val;
+        });
+    });
+
+    // Render Table Header
+    const trHead = document.createElement('tr');
+    trHead.innerHTML = `<th class="text-start" style="min-width:180px">${data.rowDimension} \\ ${data.colDimension}</th>`;
+    data.cols.forEach(c => {
+        const th = document.createElement('th');
+        th.style.maxWidth = '120px';
+        th.style.wordBreak = 'break-word';
+        th.textContent = c;
+        trHead.appendChild(th);
+    });
+    trHead.innerHTML += '<th class="table-primary">Total</th>';
+    head.appendChild(trHead);
+
+    // Render Table Body
+    data.rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="text-start fw-bold" style="background:var(--bm-bg)">${r}</td>`;
+
+        data.cols.forEach(c => {
+            const val = data.matrix[r][c] || 0;
+            const td = document.createElement('td');
+            if (val > 0) {
+                const alpha = Math.min(0.85, (val / maxWeight) * 0.7 + 0.15);
+                td.style.backgroundColor = `rgba(79, 142, 247, ${alpha})`;
+                td.style.color = alpha > 0.4 ? '#ffffff' : 'var(--bm-text)';
+                td.style.fontWeight = 'bold';
+                td.textContent = val;
+            } else {
+                td.style.color = 'var(--bm-text-muted)';
+                td.textContent = '-';
+            }
+            tr.appendChild(td);
+        });
+
+        tr.innerHTML += `<td class="fw-bold table-primary">${data.rowTotals[r] || 0}</td>`;
+        body.appendChild(tr);
+    });
+
+    // Render Table Footer
+    const trFoot = document.createElement('tr');
+    trFoot.innerHTML = '<td class="text-start fw-bold">Total Geral</td>';
+    data.cols.forEach(c => {
+        trFoot.innerHTML += `<td class="fw-bold">${data.colTotals[c] || 0}</td>`;
+    });
+    trFoot.innerHTML += `<td class="fw-bold text-warning">${data.totalPairs}</td>`;
+    foot.appendChild(trFoot);
+}
+
+function loadSavedMatrix(row, col, minWeight, maxLimit, useThesaurus) {
+    document.getElementById('rowDimension').value = row;
+    document.getElementById('columnDimension').value = col;
+    document.getElementById('minWeight').value = minWeight;
+    document.getElementById('maxLimit').value = maxLimit;
+    document.getElementById('useThesaurus').checked = (useThesaurus === 1);
+    generateMatrix();
+}
+
+function submitSaveMatrix() {
+    const name = document.getElementById('matrixName').value.trim();
+    if (!name) {
+        alert('Digite um nome para a matriz.');
+        return;
+    }
+
+    const formData = new FormData(document.getElementById('formSaveMatrix'));
+    formData.append('rowDimension', document.getElementById('rowDimension').value);
+    formData.append('columnDimension', document.getElementById('columnDimension').value);
+    formData.append('minCellWeight', document.getElementById('minWeight').value);
+    formData.append('maxRows', document.getElementById('maxLimit').value);
+    formData.append('maxCols', document.getElementById('maxLimit').value);
+    formData.append('useThesaurus', document.getElementById('useThesaurus').checked ? 1 : 0);
+
+    fetch(`{{ path('app_matrix_save', {id: project.id}) }}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert(res.error || 'Erro ao salvar matriz.');
+        }
+    });
+}
+
+function exportMatrixCsv() {
+    const row = document.getElementById('rowDimension').value;
+    const col = document.getElementById('columnDimension').value;
+    const minWeight = document.getElementById('minWeight').value;
+    const maxLimit = document.getElementById('maxLimit').value;
+    const useThesaurus = document.getElementById('useThesaurus').checked ? 1 : 0;
+
+    window.location.href = `{{ path('app_matrix_export_csv', {id: project.id}) }}?row=${row}&col=${col}&minWeight=${minWeight}&maxRows=${maxLimit}&maxCols=${maxLimit}&useThesaurus=${useThesaurus}`;
+}
+</script>
+{% endblock %}

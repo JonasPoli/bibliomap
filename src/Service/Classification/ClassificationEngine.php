@@ -47,17 +47,45 @@ class ClassificationEngine
         $normalGroups  = array_filter($allGroups, fn($g) => $g->getType() === ClassificationGroup::TYPE_NORMAL);
         $uncGroup      = $this->findOrCreateUnclassified($project, $allGroups);
 
-        // Build term lists indexed by group
+        // Build term lists indexed by group, expanding with Thesaurus if enabled
         $validatorTerms = $this->buildTermMap($validators);
         $noiseTermMap   = $this->buildTermMap($noiseGroups);
         $normalTermMap  = $this->buildTermMap($normalGroups);
 
+        // Pre-fetch document metadata for institutional and geographic filtering
+        $conn = $this->em->getConnection();
+        $docMeta = [];
+        $metaRows = $conn->fetchAllAssociative(
+            'SELECT d.id AS doc_id,
+                    d.qualis AS qualis,
+                    GROUP_CONCAT(DISTINCT LOWER(da.original_name) SEPARATOR "|") AS authors,
+                    GROUP_CONCAT(DISTINCT LOWER(c.common_name) SEPARATOR "|") AS countries,
+                    GROUP_CONCAT(DISTINCT LOWER(c.sigla) SEPARATOR "|") AS country_siglas,
+                    GROUP_CONCAT(DISTINCT LOWER(c.continente) SEPARATOR "|") AS continents,
+                    GROUP_CONCAT(DISTINCT LOWER(COALESCE(i.natureza, i.institution_type)) SEPARATOR "|") AS natures
+             FROM document d
+             LEFT JOIN document_author da ON da.document_id = d.id
+             LEFT JOIN documento_instituicoes di ON di.document_id = d.id
+             LEFT JOIN instituicoes_ensino i ON i.id = di.institution_id
+             LEFT JOIN paises c ON c.id = i.country_id
+             WHERE d.project_id = ?
+             GROUP BY d.id',
+            [$project->getId()]
+        );
+        foreach ($metaRows as $m) {
+            $docMeta[$m['doc_id']] = [
+                'qualis'         => $m['qualis'] ?? null,
+                'authors'        => array_filter(explode('|', $m['authors'] ?? '')),
+                'countries'      => array_filter(array_merge(explode('|', $m['countries'] ?? ''), explode('|', $m['country_siglas'] ?? ''))),
+                'continents'     => array_filter(explode('|', $m['continents'] ?? '')),
+                'natures'        => array_filter(explode('|', $m['natures'] ?? '')),
+            ];
+        }
+
         // Get temporal filter
         $minYear = $project->getClassificationMinYear();
 
-        // 3. Fetch all documents for the project via raw SQL for performance
-        //    Include both keyword_display and original_term for full coverage (Keywords Plus)
-        $conn = $this->em->getConnection();
+        // 3. Fetch all documents for the project via raw SQL
         $docs = $conn->fetchAllAssociative(
             'SELECT d.id, d.title, d.abstract_text, d.year,
                     GROUP_CONCAT(DISTINCT COALESCE(k.keyword_display, dk.original_term) SEPARATOR " ") AS keywords,
@@ -77,39 +105,31 @@ class ClassificationEngine
         $now = new \DateTimeImmutable();
 
         foreach ($docs as $row) {
-            // Build the full text for analysis — mirrors classifica.php's approach:
-            // TI + DE + ID + AB  (title + author_keywords + keywords_plus + abstract)
-            $text = strtolower(
-                ($row['title'] ?? '') . ' ' .
-                ($row['abstract_text'] ?? '') . ' ' .
-                ($row['keywords'] ?? '') . ' ' .
-                ($row['keywords_original'] ?? '')
-            );
+            $docId   = (int)$row['id'];
+            $docYear = $row['year'] !== null ? (int)$row['year'] : null;
+            $meta    = $docMeta[$docId] ?? ['authors' => [], 'countries' => [], 'continents' => [], 'natures' => []];
 
             $assignedGroups = [];
             $isNoise = false;
 
-            // Step A: Temporal filter — year < minYear → noise
-            if ($minYear !== null) {
-                $year = $row['year'] ?? null;
-                if ($year !== null && (int)$year > 0 && (int)$year < $minYear) {
-                    $noiseGroup = reset($noiseGroups) ?: null;
-                    if ($noiseGroup) {
-                        $assignedGroups[] = ['group' => $noiseGroup, 'term' => 'year<' . $minYear];
-                    }
-                    $isNoise = true;
+            // Step A: Global temporal filter — year < minYear → noise
+            if ($minYear !== null && $docYear !== null && $docYear > 0 && $docYear < $minYear) {
+                $noiseGroup = reset($noiseGroups) ?: null;
+                if ($noiseGroup) {
+                    $assignedGroups[] = ['group' => $noiseGroup, 'term' => 'year<' . $minYear];
                 }
+                $isNoise = true;
             }
 
             // Step B: Check noise terms
             if (!$isNoise) {
                 foreach ($noiseTermMap as $groupId => $terms) {
+                    $group = $this->findGroupById($allGroups, $groupId);
+                    $text  = $this->buildDocumentText($row, $group?->getMatchFields() ?? ['title', 'abstract', 'author_keywords', 'indexed_keywords']);
+
                     foreach ($terms as $term) {
                         if ($term !== '' && str_contains($text, $term)) {
-                            $assignedGroups[] = [
-                                'group' => $this->findGroupById($allGroups, $groupId),
-                                'term' => $term,
-                            ];
+                            $assignedGroups[] = ['group' => $group, 'term' => $term];
                             $isNoise = true;
                             break 2;
                         }
@@ -121,6 +141,9 @@ class ClassificationEngine
             if (!$isNoise && !empty($validatorTerms)) {
                 $passedValidation = false;
                 foreach ($validatorTerms as $groupId => $terms) {
+                    $group = $this->findGroupById($allGroups, $groupId);
+                    $text  = $this->buildDocumentText($row, $group?->getMatchFields() ?? ['title', 'abstract', 'author_keywords', 'indexed_keywords']);
+
                     foreach ($terms as $term) {
                         if ($term !== '' && str_contains($text, $term)) {
                             $passedValidation = true;
@@ -129,7 +152,6 @@ class ClassificationEngine
                     }
                 }
                 if (!$passedValidation) {
-                    // Fails validation → route to first noise group
                     $noiseGroup = reset($noiseGroups) ?: null;
                     if ($noiseGroup) {
                         $assignedGroups[] = ['group' => $noiseGroup, 'term' => null];
@@ -140,12 +162,84 @@ class ClassificationEngine
 
             // Step D: Match ALL normal groups (multi-classification)
             if (!$isNoise) {
-                foreach ($normalTermMap as $groupId => $terms) {
+                foreach ($normalGroups as $group) {
+                    // Check Group-specific Qualis strata
+                    if (!empty($group->getQualisFilter())) {
+                        $gQualis = array_map('strtoupper', $group->getQualisFilter());
+                        $docQualis = !empty($meta['qualis']) ? strtoupper($meta['qualis']) : null;
+                        if (!$docQualis || !in_array($docQualis, $gQualis, true)) {
+                            continue;
+                        }
+                    }
+
+                    // Check Group-specific year range
+                    if ($group->getStartYear() !== null && ($docYear === null || $docYear < $group->getStartYear())) {
+                        continue;
+                    }
+                    if ($group->getEndYear() !== null && ($docYear === null || $docYear > $group->getEndYear())) {
+                        continue;
+                    }
+
+                    // Check Group-specific Continent
+                    if ($group->getContinente()) {
+                        $gCont = strtolower($group->getContinente());
+                        if (!in_array($gCont, $meta['continents'], true)) {
+                            continue;
+                        }
+                    }
+
+                    // Check Group-specific Countries
+                    if (!empty($group->getCountryIds())) {
+                        $gCountries = array_map('strtolower', $group->getCountryIds());
+                        $hasCountry = false;
+                        foreach ($meta['countries'] as $dc) {
+                            if (in_array($dc, $gCountries, true)) {
+                                $hasCountry = true;
+                                break;
+                            }
+                        }
+                        if (!$hasCountry) continue;
+                    }
+
+                    // Check Group-specific Institution Nature
+                    if (!empty($group->getInstitutionNature())) {
+                        $gNatures = array_map('strtolower', $group->getInstitutionNature());
+                        $hasNature = false;
+                        foreach ($meta['natures'] as $dn) {
+                            foreach ($gNatures as $gn) {
+                                if (str_contains($dn, $gn)) {
+                                    $hasNature = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                        if (!$hasNature) continue;
+                    }
+
+                    // Check Group-specific Authors filter
+                    if (!empty($group->getAuthorsFilter())) {
+                        $gAuthors = array_map('strtolower', $group->getAuthorsFilter());
+                        $hasAuthor = false;
+                        foreach ($meta['authors'] as $da) {
+                            foreach ($gAuthors as $ga) {
+                                if (str_contains($da, $ga)) {
+                                    $hasAuthor = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                        if (!$hasAuthor) continue;
+                    }
+
+                    // Check term matching with specific matchFields & optional Thesaurus expansion
+                    $text = $this->buildDocumentText($row, $group->getMatchFields());
+                    $terms = $normalTermMap[$group->getId()] ?? [];
+
                     foreach ($terms as $term) {
                         if ($term !== '' && str_contains($text, $term)) {
                             $assignedGroups[] = [
-                                'group' => $this->findGroupById($allGroups, $groupId),
-                                'term' => $term,
+                                'group' => $group,
+                                'term'  => $term,
                             ];
                             break; // Found a match for this group, move to next group
                         }
@@ -205,14 +299,107 @@ class ClassificationEngine
         return $stats;
     }
 
+    /**
+     * Build text for document matching based on group matchFields.
+     * @param string[] $fields
+     */
+    private function buildDocumentText(array $row, array $fields): string
+    {
+        $parts = [];
+        if (in_array('title', $fields, true)) {
+            $parts[] = $row['title'] ?? '';
+        }
+        if (in_array('abstract', $fields, true)) {
+            $parts[] = $row['abstract_text'] ?? '';
+        }
+        if (in_array('author_keywords', $fields, true)) {
+            $parts[] = $row['keywords'] ?? '';
+        }
+        if (in_array('indexed_keywords', $fields, true)) {
+            $parts[] = $row['keywords_original'] ?? '';
+        }
+
+        return strtolower(implode(' ', array_filter($parts)));
+    }
+
     /** @param ClassificationGroup[] $groups */
     private function buildTermMap(array $groups): array
     {
         $map = [];
         foreach ($groups as $g) {
-            $map[$g->getId()] = $g->getTerms();
+            $terms = $g->getTerms();
+            if ($g->isUseThesaurus()) {
+                $terms = $this->expandTermsWithThesaurus($terms);
+            }
+            $map[$g->getId()] = $terms;
         }
         return $map;
+    }
+
+    /**
+     * Expands rule terms using Thesaurus concepts & labels and keyword variations.
+     * @param string[] $terms
+     * @return string[]
+     */
+    private function expandTermsWithThesaurus(array $terms): array
+    {
+        $conn = $this->em->getConnection();
+        $expanded = [];
+
+        foreach ($terms as $term) {
+            $tNorm = strtolower(trim($term));
+            if ($tNorm === '') continue;
+
+            $expanded[] = $tNorm;
+
+            try {
+                // Find concepts linked in thesaurus_label or thesaurus_concept
+                $conceptIds = $conn->fetchFirstColumn(
+                    'SELECT concept_id FROM thesaurus_label WHERE LOWER(label) = ? OR LOWER(normalized_label) = ?',
+                    [$tNorm, $tNorm]
+                );
+
+                if (empty($conceptIds)) {
+                    $conceptIds = $conn->fetchFirstColumn(
+                        'SELECT id FROM thesaurus_concept WHERE LOWER(preferred_label) = ? OR LOWER(normalized_label) = ?',
+                        [$tNorm, $tNorm]
+                    );
+                }
+
+                if (!empty($conceptIds)) {
+                    $synonyms = $conn->fetchFirstColumn(
+                        'SELECT label FROM thesaurus_label WHERE concept_id IN (?)',
+                        [$conceptIds],
+                        [\Doctrine\DBAL\ArrayParameterType::INTEGER]
+                    );
+                    foreach ($synonyms as $syn) {
+                        $sNorm = strtolower(trim($syn));
+                        if ($sNorm !== '') $expanded[] = $sNorm;
+                    }
+                }
+
+                // Check keyword variations
+                $kwIds = $conn->fetchFirstColumn(
+                    'SELECT id FROM keyword WHERE LOWER(keyword_display) = ? OR LOWER(keyword_normalized) = ?',
+                    [$tNorm, $tNorm]
+                );
+                if (!empty($kwIds)) {
+                    $vars = $conn->fetchFirstColumn(
+                        'SELECT raw_variation FROM keyword_variation WHERE keyword_id IN (?)',
+                        [$kwIds],
+                        [\Doctrine\DBAL\ArrayParameterType::INTEGER]
+                    );
+                    foreach ($vars as $v) {
+                        $vNorm = strtolower(trim($v));
+                        if ($vNorm !== '') $expanded[] = $vNorm;
+                    }
+                }
+            } catch (\Throwable) {
+                // Keep original term if query fails
+            }
+        }
+
+        return array_values(array_unique($expanded));
     }
 
     /** @param ClassificationGroup[] $groups */
