@@ -21,7 +21,6 @@ final class Version20260821161312 extends AbstractMigration
     {
         // this up() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE author_name_variant CHANGE original_name original_name VARCHAR(500) NOT NULL, CHANGE display_name display_name VARCHAR(500) NOT NULL, CHANGE normalized_name normalized_name VARCHAR(500) NOT NULL');
-        $this->addSql('DROP INDEX IDX_CLF_GROUP_PROJECT ON classification_group');
         $this->addSql('ALTER TABLE classification_group CHANGE qualis_filter qualis_filter JSON DEFAULT NULL');
         $this->addSql('ALTER TABLE instituicao_variacoes_nome CHANGE variation_name variation_name VARCHAR(500) NOT NULL, CHANGE normalized_name normalized_name VARCHAR(500) NOT NULL');
         $this->addSql('ALTER TABLE pais_variacoes_nome CHANGE variation_name variation_name VARCHAR(500) NOT NULL, CHANGE normalized_name normalized_name VARCHAR(500) NOT NULL');
