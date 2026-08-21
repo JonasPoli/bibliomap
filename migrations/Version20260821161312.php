@@ -46,8 +46,32 @@ final class Version20260821161312 extends AbstractMigration
         $this->addSql('ALTER TABLE palavra_chave_variacoes_nome CHANGE variation_name variation_name VARCHAR(500) NOT NULL, CHANGE normalized_name normalized_name VARCHAR(500) NOT NULL');
         $this->addSql('ALTER TABLE qualis_journal CHANGE title title VARCHAR(500) NOT NULL');
         $this->addSql('ALTER TABLE qualis_journal_variacoes_nome CHANGE variation_name variation_name VARCHAR(500) NOT NULL, CHANGE normalized_name normalized_name VARCHAR(500) NOT NULL');
-        $this->addSql('ALTER TABLE saved_matrix CHANGE created_at created_at DATETIME NOT NULL');
-        $this->addSql('ALTER TABLE thesaurus_match CHANGE confidence confidence DOUBLE PRECISION DEFAULT 1 NOT NULL');
+
+        if (!$sm->tablesExist(['saved_matrix'])) {
+            $this->addSql('CREATE TABLE saved_matrix (
+                id INT AUTO_INCREMENT NOT NULL,
+                project_id INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                description LONGTEXT DEFAULT NULL,
+                row_dimension VARCHAR(100) NOT NULL,
+                column_dimension VARCHAR(100) NOT NULL,
+                min_cell_weight INT DEFAULT 1 NOT NULL,
+                max_rows INT DEFAULT 30 NOT NULL,
+                max_cols INT DEFAULT 30 NOT NULL,
+                use_thesaurus TINYINT(1) DEFAULT 1 NOT NULL,
+                options JSON DEFAULT NULL,
+                created_at DATETIME NOT NULL,
+                INDEX IDX_SAVED_MATRIX_PROJECT (project_id),
+                PRIMARY KEY(id),
+                CONSTRAINT FK_SAVED_MATRIX_PROJECT FOREIGN KEY (project_id) REFERENCES bibliometric_project (id) ON DELETE CASCADE
+            ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        } else {
+            $this->addSql('ALTER TABLE saved_matrix CHANGE created_at created_at DATETIME NOT NULL');
+        }
+
+        if ($sm->tablesExist(['thesaurus_match'])) {
+            $this->addSql('ALTER TABLE thesaurus_match CHANGE confidence confidence DOUBLE PRECISION DEFAULT 1 NOT NULL');
+        }
     }
 
     public function down(Schema $schema): void
