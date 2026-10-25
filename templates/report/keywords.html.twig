@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.keywords.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -22,6 +23,7 @@
     <h1 class="bm-page-title">
         <i class="bi bi-tags me-2" style="color:var(--bm-accent)"></i>
         Análise de Palavras-Chave
+        {{ help('report.keywords.page') }}
     </h1>
     <p class="bm-page-subtitle">Principais termos, ocorrências, nuvem de palavras e segmentação por origem (Autor vs Indexada)</p>
 </div>
@@ -35,7 +37,7 @@
             <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                 <div>
                     <div class="bm-stat-value">{{ kpis.total_keywords|number_format(0, ',', '.') }}</div>
-                    <div class="bm-stat-label">Total de Termos Únicos</div>
+                    <div class="bm-stat-label">Total de Termos Únicos {{ help('report.keywords.kpi_total') }}</div>
                 </div>
                 <div style="width:38px;height:38px;border-radius:9px;background:rgba(79,142,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
                     <i class="bi bi-tags-fill" style="font-size:16px;color:var(--bm-accent)"></i>
@@ -53,7 +55,7 @@
             <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                 <div>
                     <div class="bm-stat-value" style="color:var(--bm-accent)">{{ kpis.author_keywords|number_format(0, ',', '.') }}</div>
-                    <div class="bm-stat-label">Palavras-Chave de Autores</div>
+                    <div class="bm-stat-label">Palavras-Chave de Autores {{ help('report.keywords.kpi_author') }}</div>
                 </div>
                 <div style="width:38px;height:38px;border-radius:9px;background:rgba(79,142,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
                     <i class="bi bi-person-badge-fill" style="font-size:16px;color:var(--bm-accent)"></i>
@@ -72,7 +74,7 @@
             <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                 <div>
                     <div class="bm-stat-value" style="color:#a855f7">{{ kpis.indexed_keywords|number_format(0, ',', '.') }}</div>
-                    <div class="bm-stat-label">Palavras-Chave Indexadas</div>
+                    <div class="bm-stat-label">Palavras-Chave Indexadas {{ help('report.keywords.kpi_indexed') }}</div>
                 </div>
                 <div style="width:38px;height:38px;border-radius:9px;background:rgba(168,85,247,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
                     <i class="bi bi-database-fill-gear" style="font-size:16px;color:#a855f7"></i>
@@ -85,75 +87,9 @@
     </div>
 </div>
 
-<!-- Collapsible Explanation Box -->
-<div style="margin-bottom:20px">
-    <button onclick="toggleKwInfo()" id="btn-kw-info"
-        style="background:none;border:none;padding:0;font-size:12px;color:var(--bm-accent);cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600">
-        <i class="bi bi-info-circle"></i> Entender a diferença entre os tipos de palavras-chave
-        <i class="bi bi-chevron-down" id="kw-info-chevron" style="font-size:10px;transition:transform 0.2s"></i>
-    </button>
-    <div id="kw-info-box" style="display:none;margin-top:10px">
-        <div class="bm-card" style="border-color:rgba(79,142,247,0.25);background:rgba(79,142,247,0.03)">
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="d-flex gap-3">
-                        <div style="width:40px;height:40px;border-radius:9px;background:rgba(79,142,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                            <i class="bi bi-person-badge-fill" style="font-size:18px;color:var(--bm-accent)"></i>
-                        </div>
-                        <div>
-                            <div style="font-weight:700;font-size:13.5px;color:var(--bm-text);margin-bottom:5px">
-                                Palavras-chave de Autores
-                                <span class="badge ms-1" style="font-size:9.5px;background:rgba(79,142,247,0.15);color:var(--bm-accent);vertical-align:middle">Author Keywords</span>
-                            </div>
-                            <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6;margin:0 0 8px">
-                                São os termos que <strong style="color:var(--bm-text)">o próprio pesquisador escolheu</strong> para descrever seu trabalho ao submetê-lo para publicação. No Scopus correspondem ao campo <em>"Author Keywords"</em>.
-                            </p>
-                            <div style="padding:8px 10px;background:var(--bm-bg);border-radius:6px;border:1px solid var(--bm-border)">
-                                <div style="font-size:10px;font-weight:700;color:var(--bm-accent);margin-bottom:3px">💡 Quando usar</div>
-                                <div style="font-size:12px;color:var(--bm-text-muted)">
-                                    Ideal para análises de co-ocorrência, mapas temáticos e identificar tendências de pesquisa <em>na perspectiva dos próprios autores</em>. Revelam <strong>fronteiras emergentes</strong> do campo.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex gap-3">
-                        <div style="width:40px;height:40px;border-radius:9px;background:rgba(168,85,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                            <i class="bi bi-database-fill-gear" style="font-size:18px;color:#a855f7"></i>
-                        </div>
-                        <div>
-                            <div style="font-weight:700;font-size:13.5px;color:var(--bm-text);margin-bottom:5px">
-                                Palavras-chave Indexadas
-                                <span class="badge ms-1" style="font-size:9.5px;background:rgba(168,85,247,0.15);color:#a855f7;vertical-align:middle">Index Keywords</span>
-                            </div>
-                            <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6;margin:0 0 8px">
-                                São termos atribuídos <strong style="color:var(--bm-text)">pela própria base de dados</strong> (Scopus, Web of Science, PubMed) a partir de vocabulários controlados como <em>INSPEC Thesaurus</em> ou <em>MeSH</em>. O autor não os define.
-                            </p>
-                            <div style="padding:8px 10px;background:var(--bm-bg);border-radius:6px;border:1px solid var(--bm-border)">
-                                <div style="font-size:10px;font-weight:700;color:#a855f7;margin-bottom:3px">💡 Quando usar</div>
-                                <div style="font-size:12px;color:var(--bm-text-muted)">
-                                    Ideal para comparações entre bases e para mapear <em>vocabulário padronizado</em> do campo. Revelam a <strong>estrutura conceitual consolidada</strong>.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div style="margin-top:14px;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.2);font-size:12px;color:var(--bm-text-muted)">
-                <i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-success)"></i>
-                <strong style="color:var(--bm-success)">Dica bibliométrica:</strong>
-                Comparar palavras-chave de autores com as indexadas pode revelar onde o campo está evoluindo —
-                termos frequentes nos autores mas ausentes no indexador indicam conceitos <em>novos ainda não padronizados</em>.
-            </div>
-        </div>
-    </div>
-</div>
-
-
 <!-- View toggle -->
 <div class="d-flex align-items-center gap-2 mb-3">
-    <span style="font-size:13px;color:var(--bm-text-muted);font-weight:500">Visualização:</span>
+    <span style="font-size:13px;color:var(--bm-text-muted);font-weight:500">Visualização: {{ help('report.keywords.view_toggle') }}</span>
     <button class="btn btn-sm" id="btn-barchart" onclick="showView('barchart')"
         style="font-size:12px;border-radius:6px;border:1px solid var(--bm-accent);color:var(--bm-accent);background:rgba(79,142,247,0.1)">
         <i class="bi bi-bar-chart me-1"></i> Gráfico de Barras
@@ -174,7 +110,7 @@
         <div class="bm-card h-100">
             <!-- Bar chart segmented -->
             <div id="segmented-barchart-container">
-                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos por Origem</h5>
+                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos por Origem {{ help('report.keywords.bar_by_origin') }}</h5>
                 <div style="position:relative;height:320px">
                     <canvas id="chart-kws"></canvas>
                 </div>
@@ -182,7 +118,7 @@
 
             <!-- Word Cloud segmented -->
             <div id="segmented-wordcloud-container" style="display:none">
-                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras por Origem</h5>
+                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras por Origem {{ help('report.keywords.wordcloud') }}</h5>
                 <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Azul = Palavras de Autores · Roxo = Palavras Indexadas</p>
                 <div id="wordcloud-container" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
                     <canvas id="canvas-wordcloud" style="width:100%;height:100%"></canvas>
@@ -191,8 +127,8 @@
 
             <!-- Treemap segmented -->
             <div id="segmented-treemap-container" style="display:none">
-                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Arvore por Origem</h5>
-                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">O tamanho da caixa indica a frequencia. Azul = Autor · Roxo = Indexada</p>
+                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Árvore por Origem {{ help('report.keywords.treemap') }}</h5>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">O tamanho da caixa indica a frequência. Azul = Autor · Roxo = Indexada</p>
                 <div style="position:relative;height:320px">
                     <div id="chart-treemap" style="width:100%;height:100%"></div>
                 </div>
@@ -205,7 +141,7 @@
         <div class="bm-card h-100">
             <!-- Bar chart consolidated -->
             <div id="consolidated-barchart-container">
-                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos Consolidados (Soma)</h5>
+                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos Consolidados (Soma) {{ help('report.keywords.bar_consolidated') }}</h5>
                 <div style="position:relative;height:320px">
                     <canvas id="chart-kws-consolidated"></canvas>
                 </div>
@@ -213,7 +149,7 @@
 
             <!-- Word Cloud consolidated -->
             <div id="consolidated-wordcloud-container" style="display:none">
-                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras Consolidada</h5>
+                <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras Consolidada {{ help('report.keywords.wordcloud') }}</h5>
                 <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
                 <div id="wordcloud-container-consolidated" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
                     <canvas id="canvas-wordcloud-consolidated" style="width:100%;height:100%"></canvas>
@@ -222,7 +158,7 @@
 
             <!-- Treemap consolidated -->
             <div id="consolidated-treemap-container" style="display:none">
-                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Arvore Consolidado</h5>
+                <h5 class="card-title mb-2" style="font-weight:700">Mapa de Árvore Consolidado {{ help('report.keywords.treemap') }}</h5>
                 <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
                 <div style="position:relative;height:320px">
                     <div id="chart-treemap-consolidated" style="width:100%;height:100%"></div>
@@ -243,13 +179,15 @@
                     {% else %}
                         Tabela de Termos
                     {% endif %}
+                    {{ help('report.keywords.table') }}
                 </h5>
                 <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <select id="type-filter" class="form-select form-select-sm" style="width:110px;font-size:12px" onchange="filterTable()">
-                        <option value="">Todos Origem</option>
+                    <select id="type-filter" class="form-select form-select-sm" style="width:150px;font-size:12px" onchange="filterTable()" aria-label="Filtrar por origem">
+                        <option value="">Todas as origens</option>
                         <option value="author">Autores</option>
                         <option value="indexed">Indexadas</option>
                     </select>
+                    {{ help('report.keywords.type_filter') }}
                     <form method="get" action="{{ path('app_report_keywords', {id: project.id}) }}" class="d-flex gap-2 align-items-center mb-0">
                         <div class="input-group input-group-sm">
                             <input type="text" name="q" value="{{ app.request.query.get('q') }}" class="form-control" placeholder="Buscar termo..." style="max-width:150px" autocomplete="off">
@@ -257,6 +195,7 @@
                                 <i class="bi bi-search"></i>
                             </button>
                         </div>
+                        {{ help('report.keywords.search') }}
                         {% if app.request.query.get('q') %}
                             <a href="{{ path('app_report_keywords', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="text-decoration:none; white-space:nowrap; padding:6px 12px">
                                 Limpar
@@ -270,18 +209,18 @@
                     <thead class="sticky-top bg-bm-card border-bottom border-bm">
                         <tr>
                             <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortKeywordsTable(0, 'string')">
-                                Palavra-Chave / Termo <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Palavra-Chave / Termo {{ help('report.keywords.col_term') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
                             <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none" onclick="sortKeywordsTable(1, 'string')">
-                                Origem <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Origem {{ help('report.keywords.col_origin') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortKeywordsTable(2, 'number')">
-                                Ocorrencias <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Ocorrências {{ help('report.keywords.col_occurrences') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortKeywordsTable(3, 'string')">
-                                Periodo <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                                Período {{ help('report.keywords.col_period') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                             </th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Acoes</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações {{ help('report.keywords.col_actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
@@ -289,7 +228,11 @@
                             <tr>
                                 <td colspan="5" class="text-center py-5 text-muted">
                                     <i class="bi bi-tag-fill d-block fs-3 mb-2" style="color:var(--bm-text-muted)"></i>
-                                    Nenhuma palavra-chave encontrada com o termo pesquisado.
+                                    {% if app.request.query.get('q') %}
+                                        Nenhuma palavra-chave encontrada com o termo pesquisado.
+                                    {% else %}
+                                        Este projeto ainda não tem palavras-chave importadas.
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% else %}
@@ -356,7 +299,7 @@
                         <table class="table table-hover align-middle border-bm mb-0" style="font-size:12.5px">
                             <thead class="sticky-top bg-bm-card border-bottom border-bm">
                                 <tr>
-                                    <th style="color:var(--bm-text-muted);font-weight:600;min-width:350px">Autores - Ano - Nome do Trabalho (copiar para nome de arquivo)</th>
+                                    <th style="color:var(--bm-text-muted);font-weight:600;min-width:350px">Autores - Ano - Nome do Trabalho (copiar para nome de arquivo) {{ help('report.keywords.works_filename') }}</th>
                                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
                                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Citações</th>
                                     <th style="color:var(--bm-text-muted);font-weight:600">Tipo</th>
@@ -387,6 +330,7 @@
                 <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
                     <i class="bi bi-code-slash me-2 text-accent"></i>
                     Referência BibTeX para Zotero
+                    {{ help('report.keywords.bibtex') }}
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
             </div>
@@ -521,6 +465,13 @@ function showView(view) {
     }
 }
 
+// Tamanho da fonte proporcional à frequência relativa ao termo mais frequente (10–60px).
+// A fórmula anterior (freq*4+10, limitada a 60) deixava todas as palavras do mesmo tamanho em corpus grandes.
+function cloudSize(freq, list) {
+    const max = Math.max(1, ...list.map(k => Number(k.freq) || 0));
+    return Math.round(10 + 50 * Math.sqrt((Number(freq) || 0) / max));
+}
+
 function buildWordCloud() {
     const cl     = getColors();
     
@@ -531,10 +482,7 @@ function buildWordCloud() {
     canvas.height = container.clientHeight || 320;
 
     const segmentedList = listData.slice(0, 80);
-    const words = segmentedList.map(k => [
-        k.term,
-        Math.max(10, Math.min(60, k.freq * 4 + 10))
-    ]);
+    const words = segmentedList.map(k => [k.term, cloudSize(k.freq, segmentedList)]);
 
     WordCloud(canvas, {
         list: words,
@@ -561,10 +509,7 @@ function buildWordCloud() {
     canvasCons.height = containerCons.clientHeight || 320;
 
     const consolidatedList = getConsolidatedData(80);
-    const wordsCons = consolidatedList.map(k => [
-        k.term,
-        Math.max(10, Math.min(60, k.freq * 4 + 10))
-    ]);
+    const wordsCons = consolidatedList.map(k => [k.term, cloudSize(k.freq, consolidatedList)]);
 
     WordCloud(canvasCons, {
         list: wordsCons,
@@ -1142,13 +1087,5 @@ function copyBibtexToClipboard() {
 }
 
 rebuildChart();
-
-function toggleKwInfo() {
-    const box     = document.getElementById('kw-info-box');
-    const chevron = document.getElementById('kw-info-chevron');
-    const open    = box.style.display === 'none';
-    box.style.display     = open ? 'block' : 'none';
-    chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
-}
 </script>
 {% endblock %}

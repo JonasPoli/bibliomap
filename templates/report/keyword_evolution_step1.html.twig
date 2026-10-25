@@ -131,7 +131,7 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
 <div class="step-header">
     <div class="step-badge">1</div>
     <div>
-        <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave</h1>
+        <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave {{ help('report.kwevo.page') }}</h1>
         <p class="bm-page-subtitle" style="margin:0">Selecione as palavras-chave e o período que deseja analisar</p>
     </div>
 </div>
@@ -141,15 +141,18 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
     <!-- Keywords list -->
     <div class="kw-list-wrap">
         <div class="kw-list-toolbar">
-            <input type="text" id="kw-search" class="kw-search" placeholder="🔍  Filtrar palavras-chave…" oninput="filterKeywords()">
+            <input type="text" id="kw-search" class="kw-search" placeholder="🔍  Filtrar palavras-chave…" oninput="filterKeywords()" aria-label="Filtrar palavras-chave">
+            {{ help('report.kwevo.keyword_list') }}
             <div class="kw-filter-btns">
                 <button type="button" class="filter-btn active" onclick="filterType('all',this)">Todas</button>
                 <button type="button" class="filter-btn" onclick="filterType('author',this)">Autores</button>
                 <button type="button" class="filter-btn" onclick="filterType('indexed',this)">Indexadas</button>
+                {{ help('report.kwevo.type_filter') }}
             </div>
             <div style="display:flex;gap:8px">
                 <button type="button" class="filter-btn" onclick="selectVisible()">Marcar visíveis</button>
                 <button type="button" class="filter-btn" onclick="clearAll()">Limpar</button>
+                {{ help('report.kwevo.select_visible') }}
             </div>
             <span class="selection-counter" id="sel-counter">0 selecionadas</span>
         </div>
@@ -167,14 +170,22 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
                 </div>
                 <span class="kw-count">{{ kw.doc_count }}</span>
             </label>
+            {% else %}
+            <div style="padding:32px 18px;text-align:center;color:var(--bm-text-muted);font-size:13px">
+                <i class="bi bi-tags d-block mb-2" style="font-size:28px"></i>
+                Este projeto ainda não tem palavras-chave importadas.
+            </div>
             {% endfor %}
+            <div id="kw-no-match" style="display:none;padding:24px 18px;text-align:center;color:var(--bm-text-muted);font-size:13px">
+                Nenhuma palavra-chave corresponde ao filtro.
+            </div>
         </div>
     </div>
 
     <!-- Year range -->
     <div class="year-row">
         <div class="year-group">
-            <span class="year-label">📅 Ano inicial</span>
+            <span class="year-label">📅 Ano inicial {{ help('report.kwevo.year_from') }}</span>
             <select name="year_from" id="year_from" class="year-select" onchange="validateYears()">
                 {% for year in years %}
                     <option value="{{ year }}">{{ year }}</option>
@@ -183,7 +194,7 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
         </div>
         <div style="padding-bottom:10px;color:var(--bm-text-muted);font-size:20px">→</div>
         <div class="year-group">
-            <span class="year-label">📅 Ano final</span>
+            <span class="year-label">📅 Ano final {{ help('report.kwevo.year_to') }}</span>
             <select name="year_to" id="year_to" class="year-select" onchange="validateYears()">
                 {% for year in years|reverse %}
                     <option value="{{ year }}">{{ year }}</option>
@@ -202,9 +213,12 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
         <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary">
             <i class="bi bi-arrow-left me-1"></i> Voltar
         </a>
-        <button type="submit" class="btn-next" id="btn-next" disabled>
-            Ver gráfico <i class="bi bi-arrow-right"></i>
-        </button>
+        <div style="display:flex;align-items:center;gap:10px">
+            {{ help('report.kwevo.next') }}
+            <button type="submit" class="btn-next" id="btn-next" disabled>
+                Ver gráfico <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
     </div>
 
 </form>
@@ -225,13 +239,18 @@ function updateCounter() {
 
 function filterKeywords() {
     const q = document.getElementById('kw-search').value.toLowerCase().trim();
-    document.querySelectorAll('.kw-item').forEach(item => {
+    let visible = 0;
+    const items = document.querySelectorAll('.kw-item');
+    items.forEach(item => {
         const term   = item.dataset.term;
         const type   = item.dataset.type;
         const matchT = activeType === 'all' || type === activeType;
         const matchQ = !q || term.includes(q);
         item.style.display = (matchT && matchQ) ? '' : 'none';
+        if (matchT && matchQ) visible++;
     });
+    const noMatch = document.getElementById('kw-no-match');
+    if (noMatch) noMatch.style.display = (items.length > 0 && visible === 0) ? 'block' : 'none';
 }
 
 function filterType(type, btn) {

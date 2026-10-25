@@ -25,6 +25,7 @@
     <h1 class="bm-page-title">
         <i class="bi bi-geo-alt-fill text-accent me-2"></i>
         Relatório Geográfico e Institucional
+        {{ help('report.geography.page') }}
     </h1>
     <p class="bm-page-subtitle">Indicadores estatísticos de produção científica por continentes, regiões, estados, cidades e perfis institucionais.</p>
 </div>
@@ -33,7 +34,8 @@
 <div class="bm-card mb-4 py-3">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div style="font-size:14px;font-weight:600">
-            <i class="bi bi-funnel me-1"></i> Filtrar Relatório por País
+            <i class="bi bi-funnel me-1"></i> <label for="filter-country" class="mb-0">Filtrar Relatório por País</label>
+            {{ help('report.geography.country_filter') }}
         </div>
         <div class="d-flex align-items-center gap-2">
             <select id="filter-country" class="form-select form-select-sm" style="width:240px;font-size:13px">
@@ -57,7 +59,7 @@
                     0%
                 {% endif %}
             </div>
-            <div class="bm-stat-label">Taxa de Cobertura Geográfica</div>
+            <div class="bm-stat-label">Taxa de Cobertura Geográfica {{ help('report.geography.coverage') }}</div>
             <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
                 {{ mapped_docs }} de {{ total_docs }} artigos vinculados
             </div>
@@ -69,9 +71,12 @@
                 <i class="bi bi-lightbulb-fill text-warning me-2"></i>
                 Caso a taxa de cobertura esteja baixa, você pode cadastrar novas variações ou instituições e rodar o sincronismo de novo.
             </div>
-            <a href="{{ path('app_project_sync_geography', {id: project.id}) }}" class="btn btn-sm btn-bm-primary" style="text-decoration:none">
-                <i class="bi-arrow-repeat me-1"></i> Ir para Sincronismo
-            </a>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <a href="{{ path('app_project_sync_geography', {id: project.id}) }}" class="btn btn-sm btn-bm-primary" style="text-decoration:none">
+                    <i class="bi bi-arrow-repeat me-1"></i> Ir para Sincronismo
+                </a>
+                {{ help('report.geography.sync') }}
+            </div>
         </div>
     </div>
 </div>
@@ -79,6 +84,12 @@
 {% if mapped_docs == 0 %}
     <div class="bm-card text-center py-5">
         <i class="bi bi-exclamation-triangle text-warning mb-3" style="font-size:48px"></i>
+        {% if selected_country_id %}
+        <h4 style="font-weight:700">Nenhum documento mapeado para o país selecionado</h4>
+        <p class="text-muted-bm mx-auto mb-4" style="max-width:500px;font-size:13.5px">
+            Escolha outro país no filtro acima ou volte para "Todos os países".
+        </p>
+        {% else %}
         <h4 style="font-weight:700">Nenhum artigo reconciliado ainda</h4>
         <p class="text-muted-bm mx-auto mb-4" style="max-width:500px;font-size:13.5px">
             Parece que o sincronismo geográfico não foi rodado para este projeto ou nenhuma variação foi encontrada. Vá para a página de sincronismo para associar os dados.
@@ -86,6 +97,7 @@
         <a href="{{ path('app_project_sync_geography', {id: project.id}) }}" class="btn-bm-primary btn" style="text-decoration:none">
             Executar Sincronismo Geográfico
         </a>
+        {% endif %}
     </div>
 {% else %}
     <!-- Row 1: Continents & Regions Charts -->
@@ -93,7 +105,7 @@
         <!-- Continents Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Produção por Continente</h5>
+                <h5 style="font-weight:700" class="mb-3">Produção por Continente {{ help('report.geography.continents') }}</h5>
                 <div style="position:relative;height:260px" class="d-flex align-items-center justify-content-center">
                     <canvas id="chart-continents"></canvas>
                 </div>
@@ -103,7 +115,7 @@
         <!-- Regions Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Produção por Região (Brasil)</h5>
+                <h5 style="font-weight:700" class="mb-3">Produção por Região (Brasil) {{ help('report.geography.regions') }}</h5>
                 {% if regions is empty %}
                     <div class="text-center py-5 text-muted-bm">Nenhum dado de região disponível.</div>
                 {% else %}
@@ -120,7 +132,7 @@
         <div class="row g-4 mb-4">
             <div class="col-12">
                 <div class="bm-card">
-                    <h5 style="font-weight:700" class="mb-3">Mapa de Produção por Região (Brasil)</h5>
+                    <h5 style="font-weight:700" class="mb-3">Mapa de Produção por Região (Brasil) {{ help('report.geography.regions_map') }}</h5>
                     <div id="regions-map" style="width:100%;height:400px;border-radius:8px;border:1px solid var(--bm-border)"></div>
                 </div>
             </div>
@@ -132,7 +144,7 @@
         <!-- States Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Top 15 Estados / Províncias</h5>
+                <h5 style="font-weight:700" class="mb-3">Top 15 Estados / Províncias {{ help('report.geography.states') }}</h5>
                 {% if states is empty %}
                     <div class="text-center py-5 text-muted-bm">Nenhum estado mapeado.</div>
                 {% else %}
@@ -146,7 +158,7 @@
         <!-- Cities Chart -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Top 15 Cidades</h5>
+                <h5 style="font-weight:700" class="mb-3">Top 15 Cidades {{ help('report.geography.cities') }}</h5>
                 {% if cities is empty %}
                     <div class="text-center py-5 text-muted-bm">Nenhuma cidade mapeada.</div>
                 {% else %}
@@ -163,7 +175,7 @@
         <div class="row g-4 mb-4">
             <div class="col-12">
                 <div class="bm-card">
-                    <h5 style="font-weight:700" class="mb-3">Mapa de Cidades Mapeadas</h5>
+                    <h5 style="font-weight:700" class="mb-3">Mapa de Cidades Mapeadas {{ help('report.geography.cities_map') }}</h5>
                     <div id="cities-map" style="width:100%;height:450px;border-radius:8px;border:1px solid var(--bm-border)"></div>
                 </div>
             </div>
@@ -175,7 +187,7 @@
         <!-- Nature -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Natureza das Instituições</h5>
+                <h5 style="font-weight:700" class="mb-3">Natureza das Instituições {{ help('report.geography.nature') }}</h5>
                 {% if nature is empty %}
                     <div class="text-center py-5 text-muted-bm">Sem dados institucionais de natureza.</div>
                 {% else %}
@@ -189,7 +201,7 @@
         <!-- Types -->
         <div class="col-xl-6">
             <div class="bm-card h-100">
-                <h5 style="font-weight:700" class="mb-3">Tipos de Instituições Acadêmicas</h5>
+                <h5 style="font-weight:700" class="mb-3">Tipos de Instituições Acadêmicas {{ help('report.geography.types') }}</h5>
                 {% if types is empty %}
                     <div class="text-center py-5 text-muted-bm">Sem dados de tipos de instituições.</div>
                 {% else %}
@@ -204,10 +216,13 @@
     <!-- Detailed Statistics Table -->
     <div class="bm-card">
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <h5 style="font-weight:700" class="m-0">Estatísticas Detalhadas por Cidade</h5>
-            <a href="{{ path('app_report_geography_cities_export', {id: project.id}) }}" class="btn btn-sm btn-outline-success">
-                <i class="bi bi-download me-1"></i> Exportar Cidades (CSV)
-            </a>
+            <h5 style="font-weight:700" class="m-0">Estatísticas Detalhadas por Cidade (Top 15) {{ help('report.geography.city_table') }}</h5>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ path('app_report_geography_cities_export', {id: project.id}) }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-download me-1"></i> Exportar Cidades (CSV)
+                </a>
+                {{ help('report.geography.cities_export') }}
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13.5px">
@@ -215,7 +230,7 @@
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
                         <th>Cidade</th>
                         <th>Estado / País</th>
-                        <th style="text-align:right">Artigos Mapeados</th>
+                        <th style="text-align:right">Documentos</th>
                         <th style="text-align:right">Citações Recebidas</th>
                         <th style="text-align:right">Média de Citações</th>
                     </tr>
@@ -249,7 +264,30 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Filtro de país: precisa funcionar mesmo quando o filtro atual não tem documentos mapeados.
+(function () {
+    const filterSel = document.getElementById('filter-country');
+    if (!filterSel) return;
+    filterSel.addEventListener('change', function () {
+        const url = new URL(window.location.href);
+        if (this.value) {
+            url.searchParams.set('countryId', this.value);
+        } else {
+            url.searchParams.delete('countryId');
+        }
+        window.location.href = url.toString();
+    });
+})();
+
 {% if mapped_docs > 0 %}
+// Dados compartilhados por buildCharts() e buildMaps()
+const continentsData = {{ continents|json_encode|raw }};
+const regionsData    = {{ regions|json_encode|raw }};
+const statesData     = {{ states|json_encode|raw }};
+const citiesData     = {{ cities|json_encode|raw }};
+const natureData     = {{ nature|json_encode|raw }};
+const typesData      = {{ types|json_encode|raw }};
+
 function isThemeLight() {
     return document.documentElement.getAttribute('data-bs-theme') === 'light';
 }
@@ -398,7 +436,6 @@ function buildCharts() {
     Chart.defaults.borderColor = configColors.grid;
 
     // 1. Continents Chart
-    const continentsData = {{ continents|json_encode|raw }};
     if (document.getElementById('chart-continents')) {
         charts.continents = new Chart(document.getElementById('chart-continents'), {
             type: 'doughnut',
@@ -422,7 +459,6 @@ function buildCharts() {
     }
 
     // 2. Regions Chart
-    const regionsData = {{ regions|json_encode|raw }};
     if (document.getElementById('chart-regions') && regionsData.length > 0) {
         charts.regions = new Chart(document.getElementById('chart-regions'), {
             type: 'bar',
@@ -447,7 +483,6 @@ function buildCharts() {
     }
 
     // 3. States Chart
-    const statesData = {{ states|json_encode|raw }};
     if (document.getElementById('chart-states') && statesData.length > 0) {
         charts.states = new Chart(document.getElementById('chart-states'), {
             type: 'bar',
@@ -473,7 +508,6 @@ function buildCharts() {
     }
 
     // 4. Cities Chart
-    const citiesData = {{ cities|json_encode|raw }};
     if (document.getElementById('chart-cities') && citiesData.length > 0) {
         charts.cities = new Chart(document.getElementById('chart-cities'), {
             type: 'bar',
@@ -499,7 +533,6 @@ function buildCharts() {
     }
 
     // 5. Nature Chart
-    const natureData = {{ nature|json_encode|raw }};
     if (document.getElementById('chart-nature') && natureData.length > 0) {
         charts.nature = new Chart(document.getElementById('chart-nature'), {
             type: 'pie',
@@ -523,7 +556,6 @@ function buildCharts() {
     }
 
     // 6. Types Chart
-    const typesData = {{ types|json_encode|raw }};
     if (document.getElementById('chart-types') && typesData.length > 0) {
         charts.types = new Chart(document.getElementById('chart-types'), {
             type: 'doughnut',
@@ -681,20 +713,6 @@ window.addEventListener('bm-theme-changed', () => {
     buildCharts();
     buildMaps();
 });
-
-const filterSel = document.getElementById('filter-country');
-if (filterSel) {
-    filterSel.addEventListener('change', function() {
-        const val = this.value;
-        const url = new URL(window.location.href);
-        if (val) {
-            url.searchParams.set('countryId', val);
-        } else {
-            url.searchParams.delete('countryId');
-        }
-        window.location.href = url.toString();
-    });
-}
 {% endif %}
 </script>
 {% endblock %}

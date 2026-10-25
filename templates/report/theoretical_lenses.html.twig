@@ -18,26 +18,31 @@
             <h1 class="bm-page-title">
                 <i class="bi bi-mortarboard me-2 text-accent"></i>
                 Lentes Teóricas (Referencial Teórico)
+                {{ help('report.lenses.page') }}
             </h1>
-            <p class="bm-page-subtitle">Text-mining semântico do seu corpus cruzado com os clássicos e contemporâneos do seu campo de pesquisa</p>
+            <p class="bm-page-subtitle">Busca de termos de cada teórico nos títulos, resumos e referências do seu corpus</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="badge me-2" style="background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.25);font-size:12px;padding:6px 14px;height:34px;display:inline-flex;align-items:center;">
                 <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
             </span>
+            {{ help('report.lenses.total_docs') }}
             <a href="{{ path('app_report_theoretical_lenses_recalculate', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;text-decoration:none;font-size:13px;padding:6px 14px;">
                 <i class="bi bi-arrow-clockwise"></i> Recalcular
             </a>
+            {{ help('report.lenses.recalculate') }}
             <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
-                <i class="bi bi-plus-circle"></i> + Nova Lente
+                <i class="bi bi-plus-circle"></i> Nova Lente
             </button>
+            {{ help('report.lenses.add') }}
 
-            <select id="researchFieldFilter" class="form-select form-select-sm" style="width: auto; min-width: 170px; height:34px; background-color: var(--bm-card-bg); color: var(--bm-text); border-color: var(--bm-border); border-radius:8px; font-weight: 500;">
+            <select id="researchFieldFilter" aria-label="Filtrar por área de pesquisa" class="form-select form-select-sm" style="width: auto; min-width: 170px; height:34px; background-color: var(--bm-card-bg); color: var(--bm-text); border-color: var(--bm-border); border-radius:8px; font-weight: 500;">
                 <option value="">Todas as Áreas</option>
                 {% for field in research_fields %}
                     <option value="{{ field }}">{{ field }}</option>
                 {% endfor %}
             </select>
+            {{ help('report.lenses.field_filter') }}
         </div>
     </div>
 </div>
@@ -57,14 +62,15 @@
 <div class="alert d-flex align-items-start gap-3 mb-4 border-bm" style="background:rgba(79,142,247,0.06);border-radius:12px;padding:16px;color:var(--bm-text)">
     <i class="bi bi-lightbulb-fill text-accent fs-4" style="flex-shrink:0;margin-top:2px"></i>
     <div style="font-size:13.5px;line-height:1.5">
-        <strong>Como este relatório apoia sua dissertação ou tese?</strong> <br>
-        Nas pós-graduações, adotar uma <strong>Lente Teórica</strong> (ou referencial de base) fornece os conceitos fundamentais para analisar seu objeto de estudo.
-        Este módulo faz um mapeamento automático nos títulos e resumos em busca de termos e pensadores (<strong>Citação Direta</strong>) e varre a lista de <strong>Referências Bibliográficas</strong> em busca de cocitações aos clássicos da literatura acadêmica.
+        <strong>Como ler este relatório:</strong>
+        <strong>Citação Direta</strong> = documentos cujo título ou resumo contém os termos do teórico;
+        <strong>nas Referências</strong> = documentos cuja bibliografia menciona o teórico ou seus termos.
+        É uma busca por palavras: confirme lendo os trabalhos antes de adotar a lente.
     </div>
 </div>
 
 <!-- Top Matches Row -->
-<h4 id="topMatchesTitle" style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:16px;letter-spacing:-0.2px">📊 Ranking de Relevância Teórica no seu Corpus</h4>
+<h4 id="topMatchesTitle" style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:16px;letter-spacing:-0.2px">📊 Ranking de Relevância Teórica no seu Corpus {{ help('report.lenses.ranking') }}</h4>
 <div class="row g-3 mb-4">
     {% set count = 0 %}
     {% for key, t in theorists %}
@@ -93,7 +99,7 @@
                         <strong>{{ t.match_count }}</strong> diretas &nbsp;·&nbsp; <strong>{{ t.ref_match_count }}</strong> nas refs
                     </span>
                     <span class="badge" style="background:{{ t.match_count > 0 or t.ref_match_count > 0 ? t.color : 'var(--bm-border)' }};color:white;font-size:10.5px;padding:4px 8px">
-                        {{ (t.match_count > 0 or t.ref_match_count > 0) ? (((t.match_count + t.ref_match_count) / total_docs) * 100)|round(1) ~ '%' : 'Sugestão Teórica' }}
+                        {{ (t.match_count > 0 or t.ref_match_count > 0) ? (total_docs > 0 ? (((t.match_count + t.ref_match_count) / total_docs) * 100)|round(1) ~ '%' : '—') : 'Sugestão Teórica' }}
                     </span>
                 </div>
             </div>
@@ -135,7 +141,7 @@
                                 </div>
                                 
                                 <div class="p-2 border border-bm rounded-2" style="background:rgba(255,255,255,0.02);font-size:11.5px;color:var(--bm-text-muted)">
-                                    <strong>Palavras de mineração buscadas:</strong> <br>
+                                    <strong>Palavras de mineração buscadas:</strong> {% if loop.first and loop.parent.loop.first %}{{ help('report.lenses.terms') }}{% endif %} <br>
                                     <code style="color:var(--bm-accent)">{{ t.terms|join(', ') }}</code>
                                 </div>
                             </div>
@@ -153,6 +159,7 @@
                                             Citação nas Referências ({{ t.ref_match_count }})
                                         </button>
                                     </li>
+                                    {% if loop.first and loop.parent.loop.first %}<li class="nav-item d-flex align-items-center" role="presentation">{{ help('report.lenses.tabs') }}</li>{% endif %}
                                 </ul>
                                 
                                 <div class="tab-content" id="lens-tabs-content-{{ t.id }}">
@@ -257,7 +264,7 @@
 
 <!-- Academic Guidance Card -->
 <div class="bm-card mt-5 border border-bm" style="background:linear-gradient(135deg, rgba(79,142,247,0.05) 0%, rgba(168,85,247,0.05) 100%)">
-    <h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:12px">🛠️ Guia Prático: Como redigir o Referencial Teórico na sua Dissertação</h4>
+    <h4 style="font-size:16px;font-weight:700;color:var(--bm-text);margin-bottom:12px">🛠️ Guia Prático: Como redigir o Referencial Teórico na sua Dissertação {{ help('report.lenses.guide') }}</h4>
     <div class="row g-3" style="font-size:13px;line-height:1.5">
         <div class="col-md-4">
             <div class="p-3 bg-bm-card border border-bm rounded-3">
@@ -295,22 +302,22 @@
                     
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label for="nameInput" class="form-label" style="font-weight: 600;">Nome do Autor / Pensador *</label>
+                            <label for="nameInput" class="form-label" style="font-weight: 600;">Nome do Autor / Pensador * {{ help('report.lenses.form_name') }}</label>
                             <input type="text" class="form-control" id="nameInput" name="name" required placeholder="Ex: Zygmunt Bauman" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
                         </div>
                         <div class="col-md-6">
-                            <label for="researchFieldInput" class="form-label" style="font-weight: 600;">Área de Pesquisa *</label>
-                            <input type="text" class="form-control" id="researchFieldInput" name="research_field" required placeholder="Ex: Saúde Coletiva, Administração, Educação" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
+                            <label for="researchFieldInput" class="form-label" style="font-weight: 600;">Área de Pesquisa * {{ help('report.lenses.form_field') }}</label>
+                            <input type="text" class="form-control" id="researchFieldInput" name="research_field" required list="researchFieldOptions" placeholder="Ex: Saúde Coletiva, Administração, Educação" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label for="categoryInput" class="form-label" style="font-weight: 600;">Categoria / Corrente Teórica *</label>
+                            <label for="categoryInput" class="form-label" style="font-weight: 600;">Categoria / Corrente Teórica * {{ help('report.lenses.form_category') }}</label>
                             <input type="text" class="form-control" id="categoryInput" name="category" required placeholder="Ex: Sociologia Líquida, Epidemiologia Crítica" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
                         </div>
                         <div class="col-md-6">
-                            <label for="colorInput" class="form-label" style="font-weight: 600;">Cor Temática (Identidade)</label>
+                            <label for="colorInput" class="form-label" style="font-weight: 600;">Cor Temática (Identidade) {{ help('report.lenses.form_color') }}</label>
                             <div class="d-flex align-items-center gap-2">
                                 <input type="color" class="form-control form-control-color" id="colorInput" name="color" value="#4f8ef7" title="Escolha uma cor de tema" style="width: 48px; height: 38px; padding: 2px; background: none; border: 1px solid var(--bm-border); border-radius: 6px;">
                                 <span style="font-size: 12px; color: var(--bm-text-muted);">Layout personalizado no relatório.</span>
@@ -319,16 +326,16 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="termsInput" class="form-label" style="font-weight: 600;">Palavras-Chave de Mineração (Separadas por vírgula) *</label>
+                        <label for="termsInput" class="form-label" style="font-weight: 600;">Palavras-Chave de Mineração (Separadas por vírgula) * {{ help('report.lenses.form_terms') }}</label>
                         <textarea class="form-control" id="termsInput" name="terms" rows="2" required placeholder="Ex: bauman, modernidade liquida, liquido, amor liquido, individualizacao" style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;"></textarea>
                         <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
-                            Termos de texto buscados nas publicações do seu corpus.
+                            Buscados como palavra inteira no título, resumo e referências. Inclua o sobrenome do autor e traduções.
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-12">
-                            <label for="iconInput" class="form-label" style="font-weight: 600;">Ícone Representativo</label>
+                            <label for="iconInput" class="form-label" style="font-weight: 600;">Ícone Representativo {{ help('report.lenses.form_icon') }}</label>
                             <select class="form-select" id="iconInput" name="icon" style="background-color: var(--bm-card-bg); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;">
                                 <option value="bi-mortarboard" selected>🎓 Mortarboard (Acadêmico Geral)</option>
                                 <option value="bi-diagram-3-fill">🌐 Diagram (Redes, Sistemas, Atores)</option>
@@ -345,9 +352,16 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="descriptionInput" class="form-label" style="font-weight: 600;">Conexão com a Linha de Pesquisa (Descrição Acadêmica) *</label>
+                        <label for="descriptionInput" class="form-label" style="font-weight: 600;">Conexão com a Linha de Pesquisa (Descrição Acadêmica) * {{ help('report.lenses.form_description') }}</label>
                         <textarea class="form-control" id="descriptionInput" name="description" rows="4" required placeholder="Explique como essa lente teórica ajuda a enxergar e analisar o seu objeto de estudo específico..." style="background-color: rgba(255,255,255,0.03); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 8px;"></textarea>
                     </div>
+
+                    <div style="font-size: 12px; color: var(--bm-text-muted);">
+                        <i class="bi bi-info-circle me-1"></i>A lente fica disponível para todos os projetos. Depois de salvar, clique em <strong>Recalcular</strong> para incluí-la no resultado.
+                    </div>
+                    <datalist id="researchFieldOptions">
+                        {% for field in research_fields %}<option value="{{ field }}"></option>{% endfor %}
+                    </datalist>
 
                 </div>
                 <div class="modal-footer border-bm" style="border-top: 1px solid var(--bm-border);">

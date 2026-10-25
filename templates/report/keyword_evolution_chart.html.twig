@@ -16,6 +16,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.kwevo.export_csv') }}
 <a href="{{ path('app_report_keyword_evolution', {id: project.id}) }}" class="btn-bm-secondary" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-arrow-left me-1"></i> Voltar
 </a>
@@ -102,7 +103,7 @@
     <div style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;background:var(--bm-gradient);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">📈</div>
         <div>
-            <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave</h1>
+            <h1 class="bm-page-title" style="margin:0">Evolução de Palavras-Chave {{ help('report.kwevo.chart_page') }}</h1>
             <p class="bm-page-subtitle" style="margin:0">
                 {{ yearFrom }}–{{ yearTo }} ·
                 {{ selectedKeywords|length }} palavra{{ selectedKeywords|length != 1 ? 's' : '' }}-chave selecionada{{ selectedKeywords|length != 1 ? 's' : '' }}
@@ -114,7 +115,7 @@
 <div class="chart-outer" id="chart-outer">
     <div class="chart-toolbar">
         <div>
-            <div class="chart-title">Ocorrências por ano</div>
+            <div class="chart-title">Ocorrências por ano (nº de documentos)</div>
             <div class="chart-subtitle">
                 Palavras-chave selecionadas · {{ yearFrom }} a {{ yearTo }}
             </div>
@@ -129,6 +130,7 @@
             <button class="ctrl-btn" id="btn-line" onclick="setChartType('line',this)">
                 <i class="bi bi-graph-up me-1"></i>Linha
             </button>
+            {{ help('report.kwevo.chart_mode') }}
         </div>
     </div>
 
@@ -146,6 +148,7 @@
 
     <!-- Selected keywords pills -->
     <div class="kw-pills" id="kw-pills"></div>
+    <div id="kw-missing" style="display:none;margin-top:12px;font-size:12px;color:var(--ch-text-muted)"></div>
 </div>
 {% endblock %}
 
@@ -301,19 +304,44 @@ async function loadData() {
     params.set('year_from', YEAR_FROM);
     params.set('year_to', YEAR_TO);
 
-    const r = await fetch(`${DATA_URL}?${params}`);
-    rawData = await r.json();
+    const loading = document.getElementById('chart-loading');
+    try {
+        const r = await fetch(`${DATA_URL}?${params}`);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        rawData = await r.json();
+    } catch (e) {
+        loading.innerHTML = '<i class="bi bi-exclamation-triangle" style="color:var(--bm-danger)"></i> Não foi possível carregar os dados. Volte e refaça a seleção.';
+        return;
+    }
 
-    document.getElementById('chart-loading').style.display = 'none';
+    if (!rawData.keywords || rawData.keywords.length === 0) {
+        loading.innerHTML = '<i class="bi bi-info-circle"></i> Nenhuma das palavras-chave selecionadas aparece em documentos de ' + YEAR_FROM + ' a ' + YEAR_TO + '.';
+        return;
+    }
+    loading.style.display = 'none';
 
-    // Build keyword pills with year legend colors
+    // Build keyword pills with series colors (textContent: termos vêm dos arquivos importados)
     const pills = document.getElementById('kw-pills');
-    pills.innerHTML = rawData.keywords.map((kw, i) =>
-        `<div class="kw-pill">
-            <div class="pill-dot" style="background:${YEAR_PALETTE[i % YEAR_PALETTE.length]}"></div>
-            ${kw.term}
-         </div>`
-    ).join('');
+    pills.innerHTML = '';
+    rawData.keywords.forEach((kw, i) => {
+        const pill = document.createElement('div');
+        pill.className = 'kw-pill';
+        const dot = document.createElement('div');
+        dot.className = 'pill-dot';
+        dot.style.background = YEAR_PALETTE[i % YEAR_PALETTE.length];
+        pill.appendChild(dot);
+        pill.appendChild(document.createTextNode(kw.term));
+        pills.appendChild(pill);
+    });
+
+    // Termos selecionados sem nenhuma ocorrência no período não geram série: avisa o usuário
+    const found = new Set(rawData.keywords.map(k => String(k.term).toLowerCase()));
+    const missing = KW_TERMS.filter(t => !found.has(String(t).toLowerCase()));
+    if (missing.length) {
+        const box = document.getElementById('kw-missing');
+        box.textContent = 'Sem ocorrências no período: ' + missing.join(', ');
+        box.style.display = 'block';
+    }
 
     rebuildChart();
 }

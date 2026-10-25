@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.institutions.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -22,6 +23,7 @@
     <h1 class="bm-page-title">
         <i class="bi bi-building me-2" style="color:var(--bm-accent)"></i>
         Análise de Instituições
+        {{ help('report.institutions.page') }}
     </h1>
     <p class="bm-page-subtitle">Indicadores de impacto e produtividade das instituições e universidades vinculadas</p>
 </div>
@@ -31,19 +33,19 @@
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.total_institutions|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Instituições Mapeadas</div>
+            <div class="bm-stat-label">Total de Instituições Mapeadas {{ help('report.institutions.kpi_total') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value" title="{{ kpis.top_institution }}">{{ kpis.top_institution|slice(0, 20) }}{{ kpis.top_institution|length > 20 ? '…' : '' }}</div>
-            <div class="bm-stat-label">Instituição Mais Produtiva</div>
+            <div class="bm-stat-label">Instituição Mais Produtiva {{ help('report.institutions.kpi_top') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.top_institution_docs }}</div>
-            <div class="bm-stat-label">Artigos da Instituição Principal</div>
+            <div class="bm-stat-label">Documentos da Instituição Principal {{ help('report.institutions.kpi_top_docs') }}</div>
         </div>
     </div>
 </div>
@@ -52,7 +54,7 @@
     <!-- Chart Column -->
     <div class="col-xl-6">
         <div class="bm-card h-100">
-            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Instituições mais Produtivas</h5>
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Instituições mais Produtivas {{ help('report.institutions.top10_chart') }}</h5>
             <div style="position:relative;height:340px">
                 <canvas id="chart-institutions"></canvas>
             </div>
@@ -63,8 +65,8 @@
     <div class="col-xl-6">
         <div class="bm-card h-100 d-flex flex-column">
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Institucional</h5>
-                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar instituição…" style="width:200px" oninput="filterTable()">
+                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Institucional {{ help('report.institutions.table') }}</h5>
+                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar instituição…" aria-label="Buscar instituição" style="width:200px" oninput="filterTable()">
             </div>
             
             <div class="table-responsive flex-grow-1" style="max-height:340px;overflow-y:auto">
@@ -72,12 +74,22 @@
                     <thead class="sticky-top bg-bm-card border-bottom border-bm">
                         <tr>
                             <th style="color:var(--bm-text-muted);font-weight:600">Instituição / Afiliada</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações Totais</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Documentos {{ help('report.institutions.col_articles') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações Totais {{ help('report.institutions.col_citations') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit. {{ help('report.institutions.col_avg') }}</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
+                        {% if list is empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5" style="color:var(--bm-text-muted)">
+                                <i class="bi bi-building d-block fs-3 mb-2"></i>
+                                Nenhuma instituição reconhecida neste projeto. Rode o
+                                <a href="{{ path('app_project_sync_geography', {id: project.id}) }}">sincronismo geográfico</a>
+                                para ligar as afiliações ao catálogo de instituições.
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% for ic in list %}
                         <tr class="institution-row" data-inst="{{ ic.institution|lower }}">
                             <td style="font-weight:600;color:var(--bm-text)" title="{{ ic.institution }}">{{ ic.institution|slice(0, 50) }}{{ ic.institution|length > 50 ? '…' : '' }}</td>

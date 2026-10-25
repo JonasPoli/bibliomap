@@ -21,9 +21,10 @@
 
         <h2 style="font-size: 20px; font-weight: 700; color: var(--bm-text); margin-bottom: 8px;">
             Mapeando Referencial Teórico
+            {{ help('report.lenses.loading_page') }}
         </h2>
         <p style="font-size: 13.5px; color: var(--bm-text-muted); line-height: 1.6; max-width: 500px; margin: 0 auto 30px;">
-            Minerando o corpus textual de documentos e formatos de citações bibliográficas contra mais de 5.500 autores consagrados.
+            Procurando, em títulos, resumos e referências de cada documento, os termos de todas as lentes teóricas cadastradas.
         </p>
 
         <!-- Progress Container -->
@@ -32,7 +33,10 @@
                 <span id="status-text" style="font-size: 13px; font-weight: 600; color: var(--bm-text);">
                     <i class="bi bi-hourglass-split me-1 text-accent"></i>Inicializando...
                 </span>
-                <span id="percent-text" style="font-size: 13px; font-weight: 700; color: var(--bm-accent);">0%</span>
+                <span class="d-flex align-items-center gap-2">
+                    {{ help('report.lenses.loading_progress') }}
+                    <span id="percent-text" style="font-size: 13px; font-weight: 700; color: var(--bm-accent);">0%</span>
+                </span>
             </div>
 
             <!-- Progress Bar -->
@@ -42,14 +46,20 @@
 
             <!-- Steps logs -->
             <div id="steps-container" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 11.5px; color: var(--bm-text-muted); border-top: 1px solid var(--bm-border); padding-top: 16px;">
-                <div id="step-init" class="step-log active"><i class="bi bi-circle me-2"></i>Passo 1: Carregando 5.513 lentes teóricas da base...</div>
+                <div id="step-init" class="step-log active"><i class="bi bi-circle me-2"></i>Passo 1: Carregando as lentes teóricas cadastradas...</div>
                 <div id="step-process" class="step-log"><i class="bi bi-circle me-2"></i>Passo 2: Processando mineração do corpus (lotes)...</div>
                 <div id="step-finish" class="step-log"><i class="bi bi-circle me-2"></i>Passo 3: Mapeando formatos de citações acadêmicas e gerando painel...</div>
             </div>
         </div>
 
         <div style="font-size: 12px; color: var(--bm-text-muted);">
-            <i class="bi bi-shield-fill-check text-success me-1"></i>O processo é executado em lotes rápidos e seguros para evitar timeouts de servidor.
+            <i class="bi bi-shield-fill-check text-success me-1"></i>O processo é executado em lotes de 200 documentos. Mantenha esta página aberta até o fim.
+        </div>
+        <div id="retry-box" style="display:none;margin-top:16px">
+            <a href="{{ path('app_report_theoretical_lenses_loading', {id: project.id}) }}" class="btn btn-sm btn-bm-primary" style="text-decoration:none">
+                <i class="bi bi-arrow-repeat me-1"></i> Tentar novamente
+            </a>
+            <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary ms-2" style="text-decoration:none">Voltar ao projeto</a>
         </div>
     </div>
 </div>
@@ -114,7 +124,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 batchSize: batchSize
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
         .then(data => {
             if (data.status === 'initialized') {
                 totalDocs = data.totalDocs;
@@ -158,11 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 console.error("Erro inesperado no retorno do lote:", data);
                 statusText.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Ocorreu um erro no processamento.</span>';
+                document.getElementById('retry-box').style.display = 'block';
             }
         })
         .catch(error => {
             console.error("Erro na requisição AJAX de lote:", error);
-            statusText.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Erro de conexão com o servidor.</span>';
+            statusText.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Erro de comunicação com o servidor.</span>';
+            document.getElementById('retry-box').style.display = 'block';
         });
     }
 

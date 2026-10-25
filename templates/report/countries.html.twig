@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.countries.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -22,8 +23,9 @@
     <h1 class="bm-page-title">
         <i class="bi bi-globe2 me-2" style="color:var(--bm-accent)"></i>
         Análise de Países
+        {{ help('report.countries.page') }}
     </h1>
-    <p class="bm-page-subtitle">Indicadores de produtividade, citações e cooperação por nação</p>
+    <p class="bm-page-subtitle">Documentos e citações por país e continente, a partir das afiliações dos autores</p>
 </div>
 
 <!-- KPI Cards -->
@@ -31,19 +33,19 @@
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.total_countries|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Países Mapeados</div>
+            <div class="bm-stat-label">Total de Países Mapeados {{ help('report.countries.kpi_total') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value" title="{{ kpis.top_country }}">{{ kpis.top_country }}</div>
-            <div class="bm-stat-label">País Mais Produtivo</div>
+            <div class="bm-stat-label">País Mais Produtivo {{ help('report.countries.kpi_top') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.top_country_docs }}</div>
-            <div class="bm-stat-label">Artigos do País Principal</div>
+            <div class="bm-stat-label">Documentos do País Principal {{ help('report.countries.kpi_top_docs') }}</div>
         </div>
     </div>
 </div>
@@ -53,10 +55,13 @@
     <h5 style="font-weight:700" class="mb-3">
         <i class="bi bi-pie-chart-fill text-accent me-2"></i>
         Produção Científica por Continente
+        {{ help('report.countries.continents') }}
     </h5>
+    {# O mapa de continentes depende do continente de cada país; só é exibido quando esse dado vem na lista. #}
+    {% set hasCountryContinent = list|filter(c => c.continent is defined and c.continent)|length > 0 %}
     <div class="row g-4 align-items-center">
         <!-- Chart & Table -->
-        <div class="col-lg-6">
+        <div class="{{ hasCountryContinent ? 'col-lg-6' : 'col-12' }}">
             <div class="row align-items-center">
                 <div class="col-sm-6">
                     <div style="position:relative;height:240px">
@@ -69,7 +74,7 @@
                             <thead class="bg-bm-card border-bottom border-bm text-muted-bm">
                                 <tr>
                                     <th>Continente</th>
-                                    <th style="text-align:right">Artigos</th>
+                                    <th style="text-align:right">Documentos</th>
                                     <th style="text-align:right">Citações</th>
                                 </tr>
                             </thead>
@@ -88,9 +93,11 @@
             </div>
         </div>
         <!-- Continent Map -->
+        {% if hasCountryContinent %}
         <div class="col-lg-6">
             <div id="continents-map" style="width:100%;height:250px;border-radius:8px;border:1px solid var(--bm-border)"></div>
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -104,7 +111,7 @@
         <div class="bm-card d-flex flex-column" style="min-height:480px">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0" style="font-weight:700">Mapa de Intensidade (Original)</h5>
+                    <h5 class="mb-0" style="font-weight:700">Mapa de Intensidade (Linear) {{ help('report.countries.map_linear') }}</h5>
                     <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Linear</span>
                 </div>
             </div>
@@ -118,7 +125,7 @@
         <div class="bm-card d-flex flex-column" style="min-height:500px">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0" style="font-weight:700">Mapa de Calor (Escala de 100+ Níveis)</h5>
+                    <h5 class="mb-0" style="font-weight:700">Mapa de Calor (Escala Logarítmica) {{ help('report.countries.map_log') }}</h5>
                     <span class="badge rounded-pill" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:10px;font-weight:600">Logarítmico (100+ Tons)</span>
                 </div>
             </div>
@@ -127,7 +134,7 @@
             
             <!-- Legend -->
             <div class="d-flex align-items-center gap-3 justify-content-center mt-2 flex-wrap">
-                <span style="font-size:11px;color:var(--bm-text-muted);font-weight:600">Poucos Artigos (1)</span>
+                <span style="font-size:11px;color:var(--bm-text-muted);font-weight:600">Poucos documentos (1)</span>
                 <div style="width: 300px; height: 12px; background: linear-gradient(to right, #facc15, #10b981, #8b5cf6); border-radius: 4px; border: 1px solid var(--bm-border)"></div>
                 <span style="font-size:11px;color:var(--bm-text-muted);font-weight:600">Mais Produtivo (<span class="max-docs-label"></span>)</span>
             </div>
@@ -140,7 +147,7 @@
     <!-- Bar chart -->
     <div class="col-xl-6">
         <div class="bm-card h-100">
-            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Países mais Produtivos</h5>
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Países mais Produtivos {{ help('report.countries.top10_chart') }}</h5>
             <div style="position:relative;height:300px">
                 <canvas id="chart-countries"></canvas>
             </div>
@@ -151,8 +158,8 @@
     <div class="col-xl-6">
         <div class="bm-card h-100 d-flex flex-column">
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Nacional</h5>
-                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar país…" style="width:200px" oninput="filterTable()">
+                <h5 class="card-title mb-0" style="font-weight:700">Tabela de Produção Nacional {{ help('report.countries.table') }}</h5>
+                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar país…" aria-label="Buscar país" style="width:200px" oninput="filterTable()">
             </div>
             <div class="table-responsive flex-grow-1" style="max-height:300px;overflow-y:auto">
                 <table class="table table-hover align-middle border-bm mb-0" id="countries-table" style="font-size:13px">
@@ -160,15 +167,25 @@
                         <tr>
                             <th style="color:var(--bm-text-muted);font-weight:600">#</th>
                             <th style="color:var(--bm-text-muted);font-weight:600">País</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Artigos</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% Total</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Documentos {{ help('report.countries.col_articles') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações {{ help('report.countries.col_citations') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit. {{ help('report.countries.col_avg') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% vínculos {{ help('report.countries.col_share') }}</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
                         {% set totalDocs = 0 %}
                         {% for c in list %}{% set totalDocs = totalDocs + c.doc_count %}{% endfor %}
+                        {% if list is empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5" style="color:var(--bm-text-muted)">
+                                <i class="bi bi-globe2 d-block fs-3 mb-2"></i>
+                                Nenhum país reconhecido neste projeto. Rode o
+                                <a href="{{ path('app_project_sync_geography', {id: project.id}) }}">sincronismo geográfico</a>
+                                para ligar as afiliações aos países.
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% for c in list %}
                         <tr class="country-row" data-country="{{ c.country|lower }}">
                             <td style="color:var(--bm-text-muted);font-size:11px">{{ loop.index }}</td>
@@ -544,7 +561,8 @@ function rebuildContinentsChart() {
     if (!ctx) return;
 
     const cl = getColors();
-    const palette = ['#8b5cf6', '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#ec4899', '#6b7280'];
+    // 10 cores: o cadastro tem mais de 7 rótulos de continente (ex.: "Ásia/Europa", "América Central")
+    const palette = ['#8b5cf6', '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#ec4899', '#6b7280', '#14b8a6', '#eab308', '#a16207'];
     chartContinents = new Chart(ctx.getContext('2d'), {
         type: 'doughnut',
         data: {

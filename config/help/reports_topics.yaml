@@ -1,0 +1,689 @@
+# Ajuda contextual ("?") — relatórios de palavras-chave, evolução de termos, glossário,
+# países, instituições, geografia e lentes teóricas.
+# Formato: title, what, how, not, example. Uso no Twig: {{ help('report.keywords.page') }}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Análise de Palavras-Chave (report/keywords.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.keywords.page:
+  title: "Análise de Palavras-Chave"
+  what: "Mostra os termos mais frequentes do corpus, separados pela origem (palavra de autor ou indexada pela base), em gráfico de barras, nuvem, treemap e tabela."
+  how: "Leia os indicadores no topo, compare o gráfico **por origem** com o **consolidado** e use a tabela para buscar um termo e abrir os trabalhos que o usam. A tabela traz os 150 termos mais frequentes (até 300 quando há busca)."
+  not: "Não analisa título nem resumo, só os campos de palavras-chave. Não mostra relações entre termos: para isso use a rede de coocorrência e o mapa temático."
+  example: "Numa revisão sobre inteligência artificial na agricultura com 10.452 documentos, \"artificial intelligence\" aparece em 3.489 documentos como palavra de autor. Como é o próprio termo de busca, ele deve ser deixado de lado ao interpretar os temas."
+
+report.keywords.export_csv:
+  title: "Exportar CSV de palavras-chave"
+  what: "Baixa um arquivo CSV (separado por ponto e vírgula, compatível com Excel) com termo, origem, frequência, primeiro e último ano."
+  how: "Clique em **Exportar CSV**. Sem busca, saem os 150 termos mais frequentes. Com uma busca ativa, sai o resultado da busca (até 300)."
+  not: "Não exporta todas as palavras-chave do projeto nem a lista de documentos de cada termo. O filtro de origem da tabela (Autores/Indexadas) não é aplicado ao arquivo."
+  example: "Exporte os 150 termos e, no Excel, filtre os que têm frequência ≥ 100 para montar a tabela \"Palavras-chave mais frequentes\" da dissertação."
+
+report.keywords.kpi_total:
+  title: "Total de termos únicos"
+  what: "Número de termos distintos do projeto: palavras de autor distintas **mais** palavras indexadas distintas. Grafias agrupadas num mesmo conceito (tesauro ou fusão) contam como um termo."
+  how: "Use para ter noção do tamanho do vocabulário. Compare com o número de documentos: muitos termos por documento indicam um campo pouco padronizado e pedem tratamento de sinônimos."
+  not: "Não é a soma de ocorrências. Um termo que aparece tanto como palavra de autor quanto como indexada conta duas vezes."
+  example: "35.119 termos únicos = 24.263 de autor + 10.856 indexados, num corpus de 10.452 documentos."
+
+report.keywords.kpi_author:
+  title: "Palavras-chave de autores"
+  what: "Termos distintos escolhidos pelos próprios autores ao submeter o trabalho (Author Keywords no Scopus, campo DE no WoS, OT no PubMed)."
+  how: "Prefira este tipo para coocorrência, mapa temático e tendências na visão dos pesquisadores: costumam revelar temas emergentes antes do vocabulário controlado."
+  not: "Não são padronizadas: sinônimos, plurais e siglas aparecem separados até serem agrupados no tratamento de palavras-chave."
+  example: "\"machine learning\" e \"ML\" contam como dois termos de autor até que o administrador os funda num mesmo conceito."
+
+report.keywords.kpi_indexed:
+  title: "Palavras-chave indexadas"
+  what: "Termos atribuídos pela base de dados, não pelo autor: Index Keywords no Scopus, Keywords Plus (campo ID) no WoS, MeSH no PubMed e Fields of Study no Lens."
+  how: "Use para comparar com as palavras de autor e enxergar o vocabulário consolidado. Termos frequentes entre autores e ausentes nas indexadas costumam ser conceitos novos."
+  not: "Não têm a mesma natureza em todas as bases: o Keywords Plus do WoS é gerado a partir dos títulos das referências citadas, e não de um tesauro. Evite misturar bases ao comparar."
+  example: "Num corpus do PubMed sobre telessaúde, \"Telemedicine\" (MeSH) aparece como indexada em 900 documentos, enquanto os autores usam \"telehealth\", \"mHealth\" e \"eHealth\"."
+
+report.keywords.view_toggle:
+  title: "Tipo de visualização"
+  what: "Troca, ao mesmo tempo, os dois painéis entre gráfico de barras, nuvem de palavras e mapa de árvore (treemap)."
+  how: "Barras para comparar números exatos; nuvem para uma visão rápida em apresentações; treemap para ver o peso relativo de cada termo."
+  not: "Não muda os dados nem a tabela, apenas a forma de desenhar os mesmos termos."
+  example: "Use as barras no texto da dissertação e a nuvem no slide de abertura da defesa."
+
+report.keywords.bar_by_origin:
+  title: "Top 15 termos por origem"
+  what: "Os 15 termos mais frequentes, em azul (autor) e roxo (indexada). A barra mostra em quantos documentos o termo aparece."
+  how: "Passe o mouse sobre a barra para ver o número exato. Um mesmo termo pode aparecer duas vezes, uma para cada origem."
+  not: "Não soma as duas origens (veja o painel consolidado). Não mede citações nem importância do termo, só frequência."
+  example: "\"precision agriculture\" aparece com 420 documentos como palavra de autor e 610 como indexada: o indexador usa o termo mais do que os próprios autores."
+
+report.keywords.bar_consolidated:
+  title: "Top 15 termos consolidados (soma)"
+  what: "Junta as duas origens de um mesmo termo somando a frequência de autor com a frequência indexada."
+  how: "Use para ver quais assuntos dominam o corpus independentemente de quem atribuiu o termo."
+  not: "A soma não é o número de documentos distintos: um documento que traz o termo como palavra de autor **e** como indexada conta duas vezes. Só considera os 150 termos carregados na tabela."
+  example: "\"deep learning\" com 1.086 (autor) + 300 (indexada) aparece com 1.386 no consolidado, mesmo que parte desses documentos seja a mesma."
+
+report.keywords.wordcloud:
+  title: "Nuvem de palavras"
+  what: "Desenha os 80 termos mais frequentes com tamanho proporcional à frequência. Na versão por origem, azul = autor e roxo = indexada; na consolidada, as origens são somadas."
+  how: "Use como visão geral rápida ou ilustração. Para números, volte ao gráfico de barras ou à tabela."
+  not: "Não serve como evidência quantitativa: a posição e a cor das palavras não têm significado além da origem, e o tamanho é aproximado."
+  example: "No slide de abertura da defesa, a nuvem consolidada mostra de relance que \"machine learning\", \"remote sensing\" e \"crop yield\" dominam o corpus."
+
+report.keywords.treemap:
+  title: "Mapa de árvore (treemap)"
+  what: "Mostra os 40 termos mais frequentes como retângulos: a área de cada caixa é proporcional ao número de documentos."
+  how: "Passe o mouse sobre a caixa para ver o termo e a frequência. Compare as áreas para perceber o peso relativo dos temas."
+  not: "Não agrupa os termos por tema nem por cluster: caixas vizinhas não são termos relacionados."
+  example: "No treemap consolidado, \"artificial intelligence\" ocupa quase um quarto da área, o que mostra o quanto o termo de busca pesa no corpus."
+
+report.keywords.table:
+  title: "Tabela de termos"
+  what: "Lista os 150 termos mais frequentes do projeto (ou até 300 resultados de uma busca), com origem, ocorrências e período."
+  how: "Clique no cabeçalho de uma coluna para ordenar. Use o seletor de origem para filtrar o que já está na tela e a busca para procurar no projeto inteiro."
+  not: "Não mostra todos os termos do projeto: termos raros só aparecem quando você os busca."
+  example: "Para saber se \"agroecology\" aparece no corpus, digite \"agroeco\" na busca, mesmo que o termo não esteja entre os 150 mais frequentes."
+
+report.keywords.type_filter:
+  title: "Filtro de origem"
+  what: "Mostra só as palavras de autor, só as indexadas ou todas, entre as linhas já carregadas na tabela."
+  how: "Escolha a origem no seletor. O filtro é imediato e não recarrega a página."
+  not: "Não busca novos termos no banco e não afeta gráficos nem o CSV exportado."
+  example: "Selecione \"Indexadas\" para ver o vocabulário controlado que o Scopus atribuiu aos 150 termos principais."
+
+report.keywords.search:
+  title: "Buscar termo"
+  what: "Procura no projeto inteiro as palavras-chave que contêm o texto digitado e mostra até 300 resultados."
+  how: "Digite parte do termo e pressione Enter ou a lupa. Use **Limpar** para voltar à lista dos 150 mais frequentes."
+  not: "A busca é feita na grafia original de cada variante, não no rótulo do conceito agrupado. Não procura em títulos nem resumos (use a Busca de Documentos)."
+  example: "Buscar \"drone\" traz \"drones\", \"drone imagery\" e \"UAV drone\" com suas frequências."
+
+report.keywords.col_term:
+  title: "Palavra-chave / termo"
+  what: "Nome do termo. Se a palavra foi agrupada com sinônimos (tesauro ou fusão de variantes), aparece o rótulo do conceito, e as frequências das variantes já estão somadas."
+  how: "Clique no cabeçalho para ordenar em ordem alfabética."
+  not: "Não mostra as variantes agrupadas; para vê-las, use o Glossário de Termos."
+  example: "\"Internet of Things\" pode reunir \"IoT\", \"internet of things (IoT)\" e \"internet-of-things\" numa única linha."
+
+report.keywords.col_origin:
+  title: "Origem"
+  what: "Indica se o termo veio das palavras de **autor** ou das **indexadas** pela base de dados."
+  how: "Clique no cabeçalho para ordenar e agrupar as origens."
+  not: "Não indica a base de origem (Scopus, WoS…) do documento."
+  example: "\"remote sensing\" pode aparecer em duas linhas: uma \"Autor\" e outra \"Indexada\"."
+
+report.keywords.col_occurrences:
+  title: "Ocorrências"
+  what: "Número de documentos distintos do projeto em que o termo aparece com aquela origem."
+  how: "Clique no cabeçalho para ordenar. Compare com o total de documentos para ter a proporção."
+  not: "Não conta repetições dentro do mesmo documento e não soma autor + indexada."
+  example: "Ocorrências = 1.284 para \"machine learning\" (autor) significa 1.284 documentos com esse termo entre as palavras de autor."
+
+report.keywords.col_period:
+  title: "Período"
+  what: "Ano do documento mais antigo e do mais recente que usam o termo."
+  how: "Use para identificar termos antigos e termos recentes. Para ver a curva ano a ano, use a Evolução de Palavras-Chave."
+  not: "Não mostra a frequência em cada ano. Documentos sem ano são ignorados."
+  example: "\"deep learning\" 2017–2026 indica um tema recente; \"expert system\" 1991–2015 sugere um tema que saiu de uso."
+
+report.keywords.col_actions:
+  title: "Ver trabalhos"
+  what: "Abre a lista de todos os documentos do projeto que contêm o termo, com autores, ano, citações, tipo, fonte, DOI e BibTeX."
+  how: "Clique em **Ver trabalhos**. Na janela, use o ícone de prancheta para copiar um nome de arquivo pronto e o botão BibTeX para levar a referência ao Zotero."
+  not: "A lista inclui o termo em qualquer origem (autor ou indexada), por isso pode ter mais documentos que o número da coluna Ocorrências."
+  example: "Ao clicar em \"digital twin\" (45 ocorrências como autor), a janela pode listar 52 trabalhos porque inclui também os que só têm o termo indexado."
+
+report.keywords.works_filename:
+  title: "Nome do trabalho para arquivo"
+  what: "Mostra cada trabalho no formato \"Autores - Ano - Título\", sem caracteres proibidos em nomes de arquivo (: e /)."
+  how: "Clique no ícone de prancheta ao lado do nome para copiar uma versão com até 250 caracteres (a lista de autores é cortada se for longa) e cole ao salvar o PDF."
+  not: "Não baixa o PDF nem renomeia arquivos automaticamente."
+  example: "Copie \"Silva, J.; Souza, M. - 2023 - Sensoriamento remoto na soja\" e use como nome do PDF na sua pasta do Zotero."
+
+report.keywords.bibtex:
+  title: "Referência BibTeX"
+  what: "Gera uma referência BibTeX (@article) com os dados do documento salvos no projeto: autores, título, periódico, ano, volume, páginas, DOI, ISSN e resumo."
+  how: "Clique em **Copiar** e, no Zotero, use Arquivo > Importar da área de transferência."
+  not: "Não consulta o DOI na internet: campos ausentes no arquivo importado ficam de fora. Sempre gera o tipo @article, mesmo para livros e anais."
+  example: "Copiar o BibTeX de um artigo de 2022 do periódico \"Computers and Electronics in Agriculture\" e colar no Zotero para citá-lo no Word."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Evolução de Palavras-Chave (keyword_evolution_step1 / keyword_evolution_chart)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.kwevo.page:
+  title: "Evolução de palavras-chave"
+  what: "Compara, ano a ano, em quantos documentos cada palavra-chave escolhida aparece."
+  how: "Marque as palavras-chave na lista, escolha o ano inicial e o final e clique em **Ver gráfico**."
+  not: "Não normaliza pelo total de documentos de cada ano: um aumento pode refletir só o crescimento do corpus. Não detecta tendências sozinho; você escolhe os termos."
+  example: "Numa revisão sobre IA na agricultura, compare \"machine learning\", \"deep learning\" e \"computer vision\" de 2010 a 2025 para mostrar a virada para deep learning a partir de 2017."
+
+report.kwevo.keyword_list:
+  title: "Lista de palavras-chave"
+  what: "Mostra até 300 palavras-chave mais frequentes do projeto. A barra e o número indicam em quantos documentos cada uma aparece (todos os anos)."
+  how: "Clique na linha para marcar. Use o campo de filtro para achar um termo e os botões Todas/Autores/Indexadas para filtrar pela origem."
+  not: "Termos fora dos 300 mais frequentes não aparecem. Se o mesmo termo estiver como autor e como indexado, as duas linhas geram a mesma série no gráfico, que soma as duas origens."
+  example: "Digite \"vision\" no filtro para achar \"computer vision\" (autor, 512 documentos) e marque."
+
+report.kwevo.type_filter:
+  title: "Filtro por origem"
+  what: "Mostra na lista só palavras de autor, só indexadas ou todas."
+  how: "Clique em Todas, Autores ou Indexadas. As marcações já feitas são mantidas."
+  not: "Não muda o que será contado no gráfico."
+  example: "Clique em \"Autores\" para escolher só termos definidos pelos pesquisadores."
+
+report.kwevo.select_visible:
+  title: "Marcar visíveis / Limpar"
+  what: "**Marcar visíveis** marca de uma vez todas as linhas que estão aparecendo após o filtro. **Limpar** desmarca tudo."
+  how: "Filtre primeiro (por exemplo, \"learning\") e depois clique em Marcar visíveis."
+  not: "Cuidado: com a lista sem filtro, marca as 300 palavras e o gráfico fica ilegível. O ideal é comparar de 3 a 8 termos."
+  example: "Filtre \"learning\" e marque de uma vez \"machine learning\", \"deep learning\" e \"transfer learning\"."
+
+report.kwevo.year_from:
+  title: "Ano inicial"
+  what: "Primeiro ano do eixo horizontal do gráfico. A lista mostra apenas os anos existentes no projeto."
+  how: "Escolha um ano menor que o ano final; caso contrário, o botão Ver gráfico fica desabilitado."
+  not: "Não filtra outras telas do projeto. Documentos sem ano nunca entram no gráfico."
+  example: "Ano inicial 2010 para ignorar os poucos documentos dos anos 1990."
+
+report.kwevo.year_to:
+  title: "Ano final"
+  what: "Último ano do eixo do gráfico (incluído na contagem)."
+  how: "Escolha um ano maior que o inicial. Anos sem ocorrência aparecem com zero."
+  not: "O ano corrente costuma estar incompleto nas bases e pode dar a falsa impressão de queda."
+  example: "Use 2025 em vez de 2026 se a coleta foi feita em março de 2026."
+
+report.kwevo.next:
+  title: "Ver gráfico"
+  what: "Gera o gráfico de evolução com as palavras e o período escolhidos."
+  how: "Fica habilitado quando há ao menos uma palavra marcada e o ano inicial é menor que o final."
+  not: "Não salva a seleção: para mudar os termos, volte a esta tela e marque de novo."
+  example: "Marque 4 termos, escolha 2015 → 2025 e clique para ver as barras por ano."
+
+report.kwevo.chart_page:
+  title: "Gráfico de evolução"
+  what: "Mostra, para cada ano do período, em quantos documentos cada palavra-chave escolhida aparece."
+  how: "Alterne entre Agrupado, Empilhado e Linha. Passe o mouse sobre um ano para ver os valores e, nas barras, o total do ano."
+  not: "Os números são absolutos, não percentuais do ano. Palavras sem nenhuma ocorrência no período não aparecem no gráfico."
+  example: "Em 2024, \"deep learning\" aparece em 210 documentos e \"machine learning\" em 180: o primeiro passou o segundo a partir de 2021."
+
+report.kwevo.chart_mode:
+  title: "Tipo de gráfico"
+  what: "**Agrupado**: barras lado a lado por ano. **Empilhado**: barras somadas por ano. **Linha**: uma curva por termo."
+  how: "Use Linha para tendências, Agrupado para comparar termos num mesmo ano e Empilhado para ver o volume total do conjunto."
+  not: "No empilhado, o total do ano soma ocorrências: um documento com dois dos termos conta duas vezes."
+  example: "No modo Linha, a curva de \"blockchain\" sobe em 2018 e cai após 2022, sugerindo um tema em declínio."
+
+report.kwevo.export_csv:
+  title: "Exportar CSV da evolução"
+  what: "Baixa uma tabela com uma linha por palavra-chave, uma coluna por ano do período e uma coluna Total."
+  how: "Clique em **Exportar CSV**; o arquivo usa ponto e vírgula e abre direto no Excel."
+  not: "A coluna Total soma os anos do período escolhido, não o projeto inteiro. Não inclui palavras sem nenhuma ocorrência no período."
+  example: "Exporte de 2015 a 2025 e crie no Excel um gráfico de linhas com a formatação da sua instituição."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Glossário de Termos (report/glossary.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.glossary.page:
+  title: "Glossário de termos"
+  what: "Lista os conceitos do tesauro de palavras-chave usados neste projeto. Cada conceito reúne as variações de grafia, sinônimos e traduções de um mesmo termo."
+  how: "Navegue pelas letras ou busque um conceito. Cada cartão mostra o rótulo preferido, as variações, o número de documentos e de citações."
+  not: "Só mostra palavras-chave já ligadas ao tesauro pelo tratamento de palavras-chave feito pelo administrador. Não define o significado dos termos."
+  example: "No glossário, \"Internet of Things\" agrupa \"IoT\" e \"internet das coisas\": use isso na seção de método para mostrar como os sinônimos foram unificados."
+
+report.glossary.kpi_concepts:
+  title: "Conceitos consolidados"
+  what: "Número de conceitos do tesauro que têm ao menos uma palavra-chave em documentos deste projeto (respeitando a busca e a letra escolhidas)."
+  how: "Compare com o total de termos únicos da Análise de Palavras-Chave para ver quanto do vocabulário já foi tratado."
+  not: "Não inclui palavras-chave ainda sem conceito no tesauro."
+  example: "320 conceitos consolidados num projeto com 35 mil termos únicos indicam que o tratamento cobriu só os termos mais frequentes."
+
+report.glossary.kpi_variants:
+  title: "Variações terminológicas"
+  what: "Soma, para os conceitos listados, das palavras-chave distintas do projeto ligadas a cada um."
+  how: "Quanto maior em relação aos conceitos, mais grafias diferentes foram unificadas."
+  not: "A mesma grafia como palavra de autor e como indexada conta como duas variações, pois são registros diferentes."
+  example: "\"remote sensing\" com 4 variantes: \"Remote Sensing\" (autor), \"remote sensing\" (indexada), \"remote-sensing\" e \"sensoriamento remoto\"."
+
+report.glossary.kpi_letters:
+  title: "Letras no alfabeto"
+  what: "Quantas letras iniciais diferentes têm conceitos neste projeto. Corresponde aos botões de letra abaixo."
+  how: "Use apenas como referência de navegação."
+  not: "Não é um indicador bibliométrico."
+  example: "18 letras indica que não há conceitos começando com K, Q, W etc."
+
+report.glossary.kpi_avg:
+  title: "Média de variações por conceito"
+  what: "Variações terminológicas ÷ conceitos consolidados."
+  how: "Valores altos indicam um vocabulário disperso que se beneficiou da unificação."
+  not: "Não mede a qualidade do tesauro: um conceito com muitas variações pode ter agrupado termos indevidamente."
+  example: "Média 2,4: em geral, cada conceito juntou duas ou três grafias."
+
+report.glossary.search:
+  title: "Buscar conceito"
+  what: "Filtra os conceitos cujo rótulo preferido ou rótulo normalizado contém o texto digitado."
+  how: "Digite parte do termo e pressione Enter. A busca respeita a letra selecionada; use o X para limpar."
+  not: "Não procura nas variações (sinônimos) de cada conceito."
+  example: "Buscar \"learning\" traz \"machine learning\", \"deep learning\" e \"federated learning\"."
+
+report.glossary.letters:
+  title: "Filtro por letra"
+  what: "Mostra só os conceitos cujo rótulo preferido começa com a letra escolhida."
+  how: "Clique numa letra; clique em **Todos** para remover o filtro. A busca digitada é mantida."
+  not: "Não considera a letra inicial das variações."
+  example: "Clique em \"S\" para revisar \"smart farming\", \"soil moisture\" e \"sustainability\"."
+
+report.glossary.concepts:
+  title: "Cartões de conceito"
+  what: "Cada cartão mostra o rótulo preferido do conceito, as variações cadastradas no tesauro (em azul as do tipo preferido, em cinza sinônimos e variantes), o número de documentos do projeto, o número de variantes e a soma de citações."
+  how: "Use para conferir se as unificações fazem sentido antes de citar números de palavras-chave na pesquisa."
+  not: "Não permite editar o tesauro; correções são feitas pelo administrador. A soma de citações pode contar duas vezes um documento que tem duas variantes do mesmo conceito."
+  example: "O cartão \"precision agriculture\" com 610 documentos e as variações \"precision farming\" e \"agricultura de precisão\"."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Análise de Países (report/countries.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.countries.page:
+  title: "Análise de países"
+  what: "Mostra quantos documentos e citações cada país tem no corpus, com mapas, gráfico e tabela. O país vem das afiliações dos autores e das instituições reconhecidas no sincronismo geográfico."
+  how: "Comece pelos indicadores, veja a distribuição por continente e use os mapas e a tabela para comparar países."
+  not: "A contagem é **inteira por documento**: um artigo com autores do Brasil e de Portugal conta 1 para cada país. Não é contagem fracionada, não usa só o autor correspondente e não calcula colaboração internacional (SCP/MCP)."
+  example: "Numa revisão sobre IA na agricultura, a China aparece com 1.878 documentos e os Estados Unidos com 1.654, mas os EUA têm média maior de citações (24,2 contra 17)."
+
+report.countries.export_csv:
+  title: "Exportar CSV de países"
+  what: "Baixa um CSV com país, número de documentos, citações e média de citações de todos os países do projeto."
+  how: "Clique em **Exportar CSV**; o arquivo usa ponto e vírgula e abre no Excel. Os cabeçalhos estão em inglês."
+  not: "Não inclui a tabela de continentes nem a lista de documentos de cada país."
+  example: "Exporte e gere no Excel o quadro \"Os 20 países mais produtivos\" para o capítulo de resultados."
+
+report.countries.kpi_total:
+  title: "Total de países mapeados"
+  what: "Quantidade de países diferentes que aparecem em pelo menos um documento do projeto."
+  how: "Use para dizer quão internacional é o corpus."
+  not: "Documentos cujas afiliações não foram reconhecidas no sincronismo geográfico ficam de fora."
+  example: "160 países mapeados num corpus de 10.452 documentos."
+
+report.countries.kpi_top:
+  title: "País mais produtivo"
+  what: "País com mais documentos no projeto (em caso de empate, o com mais citações)."
+  how: "Combine com a média de citações da tabela antes de concluir que o país lidera o campo."
+  not: "Não indica o país mais influente: volume não é impacto."
+  example: "China é o mais produtivo, mas os EUA recebem mais citações no total."
+
+report.countries.kpi_top_docs:
+  title: "Documentos do país principal"
+  what: "Número de documentos com ao menos um autor afiliado ao país mais produtivo."
+  how: "Divida pelo total de documentos do projeto para obter a participação do país."
+  not: "Não é o número de artigos só desse país: inclui coautorias com outros países."
+  example: "1.878 documentos com autores chineses ≈ 18% dos 10.452 documentos do corpus."
+
+report.countries.continents:
+  title: "Produção por continente"
+  what: "Número de documentos com ao menos um autor de cada continente e as citações correspondentes."
+  how: "Use o gráfico de rosca para a proporção e a tabela para os números exatos."
+  not: "Um documento com autores de dois continentes conta nos dois, por isso a soma passa do total de documentos. Dentro de um mesmo continente o documento conta uma vez só, mesmo com vários países. Países transcontinentais (Rússia, Turquia) aparecem em \"Europa/Ásia\"."
+  example: "Ásia com 5.351 documentos e Europa com 2.943 mostram que o campo é liderado por grupos asiáticos."
+
+report.countries.map_linear:
+  title: "Mapa de intensidade (linear)"
+  what: "Pinta cada país de azul com intensidade proporcional ao número de documentos em relação ao país líder."
+  how: "Passe o mouse sobre um país para ver documentos, citações e média."
+  not: "Na escala linear, países com poucos documentos ficam quase iguais aos sem documentos. Use o mapa logarítmico para ver essas diferenças."
+  example: "China e Índia aparecem em azul forte; o Brasil, com 300 documentos, fica em azul claro."
+
+report.countries.map_log:
+  title: "Mapa de calor (escala logarítmica)"
+  what: "Pinta os países de amarelo (poucos documentos) a verde e roxo (muitos), em escala logarítmica."
+  how: "Use para enxergar diferenças entre países com produção pequena e média; o máximo da legenda é o país líder."
+  not: "As cores não são proporcionais aos números: a escala logarítmica comprime os valores altos."
+  example: "Países com 10 e 100 documentos ficam com cores bem diferentes, o que no mapa linear seria imperceptível."
+
+report.countries.top10_chart:
+  title: "Top 10 países mais produtivos"
+  what: "Barras de documentos (eixo da esquerda) e de citações totais (eixo da direita) dos 10 países com mais documentos."
+  how: "Compare as duas barras de cada país: citações altas em relação aos documentos indicam maior impacto médio."
+  not: "Os dois eixos têm escalas diferentes; não compare a altura de uma barra de documentos com a de citações."
+  example: "Os EUA têm menos documentos que a China, mas a barra de citações é maior."
+
+report.countries.table:
+  title: "Tabela de produção nacional"
+  what: "Todos os países do projeto com documentos, citações, média de citações e percentual."
+  how: "Digite no campo de busca para filtrar países pelo nome (em português)."
+  not: "Não permite abrir os documentos de cada país."
+  example: "Busque \"bra\" para ver a linha do Brasil e compará-la com a Argentina."
+
+report.countries.col_articles:
+  title: "Documentos (artigos)"
+  what: "Número de documentos do projeto com ao menos uma afiliação no país (contagem inteira)."
+  how: "Use para ranquear produtividade."
+  not: "Inclui todos os tipos de documento importados (artigos, revisões, anais etc.), não só artigos."
+  example: "Brasil = 300 significa 300 documentos com ao menos um autor brasileiro."
+
+report.countries.col_citations:
+  title: "Citações"
+  what: "Soma das citações (campo \"cited by\" do arquivo importado) dos documentos do país."
+  how: "Use junto com a média para avaliar impacto."
+  not: "As citações vêm da base no momento da exportação e não são atualizadas. Um documento em coautoria soma suas citações para cada país."
+  example: "Um artigo sino-americano com 100 citações soma 100 para a China e 100 para os EUA."
+
+report.countries.col_avg:
+  title: "Média de citações"
+  what: "Citações ÷ documentos do país."
+  how: "Compare países com volumes parecidos; é um indicador simples de impacto médio."
+  not: "Países com poucos documentos têm médias instáveis: um único artigo muito citado distorce o valor."
+  example: "Um país com 2 documentos e 400 citações tem média 200, mas isso não indica liderança no campo."
+
+report.countries.col_share:
+  title: "% dos vínculos"
+  what: "Documentos do país ÷ soma dos documentos de todos os países da tabela."
+  how: "Use para comparar a participação relativa entre países."
+  not: "Não é o percentual do total de documentos do projeto: como um documento conta para cada país dos autores, o denominador é maior que o número de documentos. Para a participação real, divida a coluna Documentos pelo total do projeto."
+  example: "China: 1.878 ÷ 16.609 vínculos = 11,3%, embora a China esteja em 18% dos 10.452 documentos."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Análise de Instituições (report/institutions.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.institutions.page:
+  title: "Análise de instituições"
+  what: "Mostra quantos documentos e citações cada instituição tem no corpus. A instituição vem das afiliações dos autores reconhecidas no catálogo de instituições durante o sincronismo geográfico."
+  how: "Veja a instituição líder, compare no gráfico as 10 mais produtivas e procure qualquer instituição na tabela."
+  not: "A contagem é **inteira por documento**: um artigo com autores de três universidades conta 1 para cada. Não é contagem fracionada. Afiliações não reconhecidas no catálogo (ou reconhecidas só como organização) não aparecem."
+  example: "Numa revisão sobre IA na agricultura, a China Agricultural University lidera com 124 documentos, mas a Univ Florida, com 120, tem média de 34 citações contra 19,8."
+
+report.institutions.export_csv:
+  title: "Exportar CSV de instituições"
+  what: "Baixa um CSV com instituição, documentos, citações e média de citações de todas as instituições do projeto."
+  how: "Clique em **Exportar CSV**; o arquivo usa ponto e vírgula e abre no Excel."
+  not: "Não inclui país, cidade nem tipo da instituição (veja o Relatório Geográfico)."
+  example: "Exporte para listar as 15 instituições mais produtivas num quadro do capítulo de resultados."
+
+report.institutions.kpi_total:
+  title: "Total de instituições mapeadas"
+  what: "Quantidade de instituições do catálogo ligadas a pelo menos um documento do projeto."
+  how: "Use para descrever a dispersão institucional do campo."
+  not: "Se uma universidade aparece com dois nomes no catálogo, ela é contada duas vezes; peça a unificação ao administrador."
+  example: "4.537 instituições num corpus de 10.452 documentos indicam um campo muito disperso."
+
+report.institutions.kpi_top:
+  title: "Instituição mais produtiva"
+  what: "Instituição com mais documentos no projeto (em caso de empate, a com mais citações). Passe o mouse para ver o nome completo."
+  how: "Confira na tabela a média de citações antes de afirmar liderança."
+  not: "Não indica a instituição mais influente."
+  example: "China Agricultural University lidera em volume, com 124 documentos."
+
+report.institutions.kpi_top_docs:
+  title: "Documentos da instituição principal"
+  what: "Número de documentos com ao menos um autor afiliado à instituição líder."
+  how: "Divida pelo total de documentos do projeto para ter a participação."
+  not: "Inclui coautorias com outras instituições."
+  example: "124 documentos ≈ 1,2% do corpus de 10.452."
+
+report.institutions.top10_chart:
+  title: "Top 10 instituições mais produtivas"
+  what: "Barras de documentos (eixo da esquerda) e citações totais (eixo da direita) das 10 instituições com mais documentos."
+  how: "Passe o mouse para ver os valores e o nome; os rótulos longos são cortados em 25 caracteres."
+  not: "Os eixos têm escalas diferentes: não compare a altura de uma barra de documentos com a de citações."
+  example: "Univ Florida tem barra de citações bem acima das vizinhas, sinal de maior impacto médio."
+
+report.institutions.table:
+  title: "Tabela de produção institucional"
+  what: "Todas as instituições do projeto com documentos, citações totais e média de citações, em ordem de produtividade."
+  how: "Digite no campo de busca para filtrar pelo nome. Passe o mouse sobre um nome cortado para vê-lo inteiro."
+  not: "Não abre os documentos da instituição nem mostra o país."
+  example: "Busque \"embrapa\" para ver a produção da Embrapa no corpus."
+
+report.institutions.col_articles:
+  title: "Documentos (artigos)"
+  what: "Número de documentos do projeto com ao menos um autor afiliado à instituição (contagem inteira)."
+  how: "Use para ranquear produtividade institucional."
+  not: "Inclui todos os tipos de documento importados, não só artigos."
+  example: "USP = 45 significa 45 documentos com ao menos um autor da USP."
+
+report.institutions.col_citations:
+  title: "Citações totais"
+  what: "Soma das citações (\"cited by\" do arquivo importado) dos documentos da instituição."
+  how: "Combine com a média para avaliar impacto."
+  not: "Citações de um documento em coautoria contam inteiras para cada instituição. Não são atualizadas após a importação."
+  example: "Um artigo com 80 citações assinado por USP e Unicamp soma 80 para cada uma."
+
+report.institutions.col_avg:
+  title: "Média de citações"
+  what: "Citações totais ÷ documentos da instituição."
+  how: "Compare instituições com número de documentos parecido."
+  not: "Instável para instituições com poucos documentos."
+  example: "Uma instituição com 1 documento e 300 citações tem média 300, o que não a torna líder."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Relatório Geográfico e Institucional (report/geography_report.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.geography.page:
+  title: "Relatório geográfico e institucional"
+  what: "Distribui os documentos por continente, região do Brasil, estado, cidade e perfil das instituições (natureza e tipo), a partir das afiliações reconhecidas no sincronismo geográfico."
+  how: "Confira primeiro a taxa de cobertura. Depois use o filtro de país para focar um país e leia os gráficos de cima para baixo."
+  not: "Contagem inteira: um documento com autores de duas cidades conta para as duas. Não mostra colaboração entre locais."
+  example: "Numa revisão sobre extensão rural, filtre \"Brasil\" para ver que o Sudeste concentra 80 documentos e quais cidades lideram."
+
+report.geography.country_filter:
+  title: "Filtrar por país"
+  what: "Restringe continentes, regiões, estados, cidades, natureza/tipo de instituição e a cobertura ao país escolhido."
+  how: "Escolha o país na lista; a página recarrega com o filtro. Escolha \"Todos os países\" para voltar."
+  not: "Não filtra os documentos em si: os números ainda contam documentos em coautoria com outros países. A tabela exportada em CSV ignora o filtro."
+  example: "Escolha \"Brasil\" para ver a distribuição por regiões, estados e cidades brasileiras."
+
+report.geography.coverage:
+  title: "Taxa de cobertura geográfica"
+  what: "Percentual de documentos do projeto com ao menos um país ou instituição reconhecidos (com filtro: ligados ao país escolhido)."
+  how: "Abaixo de ~70%, os gráficos podem estar enviesados. Cadastre variações de nomes e rode o sincronismo de novo."
+  not: "Não indica se os vínculos estão corretos, só se existem."
+  example: "92,4% de cobertura: 9.660 de 10.452 documentos têm localização reconhecida."
+
+report.geography.sync:
+  title: "Ir para o sincronismo geográfico"
+  what: "Abre a tela que relê as afiliações dos documentos e as liga a países, estados, cidades e instituições do catálogo."
+  how: "Use quando a cobertura estiver baixa ou após cadastrar novas variações de nome de instituição."
+  not: "O link só abre a tela; o sincronismo não roda automaticamente."
+  example: "Depois de cadastrar \"Univ Fed Vicosa\" como variação da UFV, rode o sincronismo e volte aqui para ver Viçosa no mapa."
+
+report.geography.continents:
+  title: "Produção por continente"
+  what: "Número de documentos com ao menos um autor de cada continente."
+  how: "Use a rosca para comparar proporções; passe o mouse para ver o número."
+  not: "Um documento com autores de dois continentes conta nos dois. Países transcontinentais (Rússia, Turquia) aparecem como \"Europa/Ásia\"."
+  example: "Com filtro \"Brasil\", aparece só a América do Sul, com o total de documentos com autores brasileiros."
+
+report.geography.regions:
+  title: "Produção por região (Brasil)"
+  what: "Número de documentos com ao menos uma afiliação em cada região brasileira, a partir dos estados reconhecidos."
+  how: "Compare as barras; passe o mouse para os números."
+  not: "Só aparecem documentos com estado identificado; afiliações apenas com o país \"Brasil\" ficam de fora."
+  example: "Sudeste com 80 documentos e Sul com 35 mostram a concentração da pesquisa no eixo São Paulo–Minas."
+
+report.geography.regions_map:
+  title: "Mapa de produção por região"
+  what: "Pinta os estados brasileiros com a cor da sua região; quanto mais forte, mais documentos a região tem."
+  how: "Passe o mouse sobre um estado para ver o total da região."
+  not: "A intensidade é da região inteira, não do estado: todos os estados do Nordeste ficam com a mesma cor."
+  example: "O Sudeste aparece em roxo forte e o Norte em verde claro."
+
+report.geography.states:
+  title: "Top 15 estados / províncias"
+  what: "Os 15 estados (de qualquer país) com mais documentos."
+  how: "Use o filtro de país para ver só estados brasileiros."
+  not: "Mostra no máximo 15; os demais não aparecem nesta tela."
+  example: "São Paulo (SP) lidera com 52 documentos, seguido de Minas Gerais (MG)."
+
+report.geography.cities:
+  title: "Top 15 cidades"
+  what: "As 15 cidades com mais documentos, a partir das cidades das instituições reconhecidas."
+  how: "Para a lista completa, use **Exportar Cidades (CSV)**."
+  not: "Não inclui cidades de afiliações não reconhecidas."
+  example: "Campinas aparece à frente do Rio de Janeiro pela força da Unicamp e da Embrapa no tema."
+
+report.geography.cities_map:
+  title: "Mapa de cidades"
+  what: "Marca as cidades do Top 15 com círculos proporcionais ao número de documentos."
+  how: "Passe o mouse sobre o círculo para ver documentos e citações."
+  not: "Só desenha cidades com coordenadas conhecidas (principalmente capitais e polos universitários brasileiros); as demais não aparecem no mapa, mas estão no gráfico e na tabela."
+  example: "Círculos maiores em São Paulo, Campinas e Viçosa."
+
+report.geography.nature:
+  title: "Natureza das instituições"
+  what: "Documentos por natureza da instituição (por exemplo, Pública ou Privada), conforme o cadastro de instituições."
+  how: "Use para discutir o papel do setor público na produção do campo."
+  not: "Um documento com instituições públicas e privadas conta nos dois grupos. A maioria das instituições do catálogo ainda não tem natureza cadastrada e fica de fora, então o gráfico cobre só parte do corpus."
+  example: "168 documentos com instituições públicas contra 18 com privadas."
+
+report.geography.types:
+  title: "Tipos de instituições"
+  what: "Documentos por tipo de instituição (universidade, instituto de pesquisa etc.), conforme o cadastro."
+  how: "Passe o mouse sobre as fatias para ver os números."
+  not: "Instituições sem tipo cadastrado (hoje, a grande maioria do catálogo) ficam de fora; um documento pode contar em mais de um tipo."
+  example: "Universidades respondem pela maior fatia, seguidas de institutos federais."
+
+report.geography.city_table:
+  title: "Estatísticas por cidade"
+  what: "Tabela das 15 cidades com mais documentos, com estado/país, documentos, citações e média de citações (citações ÷ documentos)."
+  how: "Use para citar números exatos; a média ajuda a comparar impacto entre cidades."
+  not: "Mostra só o Top 15. Citações de documentos em coautoria contam inteiras para cada cidade."
+  example: "Viçosa: 12 documentos, 240 citações, média 20."
+
+report.geography.cities_export:
+  title: "Exportar cidades (CSV)"
+  what: "Baixa um CSV com **todas** as cidades do projeto: cidade, estado, sigla, país, continente, documentos e citações."
+  how: "Clique e abra no Excel ou num programa de mapas (QGIS) para fazer o seu próprio mapa."
+  not: "Ignora o filtro de país da tela: sempre exporta todas as cidades."
+  example: "Exporte e use no QGIS para um mapa de pontos das cidades brasileiras no capítulo de resultados."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lentes Teóricas (theoretical_lenses / theoretical_lenses_loading)
+# ─────────────────────────────────────────────────────────────────────────────
+
+report.lenses.page:
+  title: "Lentes teóricas"
+  what: "Procura, em cada documento, os termos associados a cada teórico cadastrado (Latour, Bourdieu, Foucault…): primeiro no título e resumo, depois na lista de referências. Mostra quais referenciais aparecem no seu corpus."
+  how: "Veja o ranking no topo, filtre pela sua área e abra cada cartão para ver até 5 documentos de exemplo em cada aba."
+  not: "É busca de palavras, não interpretação: um termo genérico (ex.: \"simetria\") pode gerar falsos positivos. Não substitui a leitura dos trabalhos nem a escolha fundamentada do referencial."
+  example: "Numa dissertação sobre chatbots na extensão rural, a lente Bruno Latour aparece em 12 documentos pelo título/resumo (\"actor-network\") e em 30 pelas referências."
+
+report.lenses.total_docs:
+  title: "Documentos minerados"
+  what: "Número de documentos do projeto no momento do último cálculo."
+  how: "Se você importou ou excluiu documentos depois, clique em **Recalcular**."
+  not: "Não é o número de documentos com alguma lente encontrada."
+  example: "\"Mineração de 127 documentos\" num projeto que hoje tem 180 indica que o resultado está desatualizado."
+
+report.lenses.recalculate:
+  title: "Recalcular"
+  what: "Apaga o resultado guardado e refaz a mineração de todos os documentos contra todas as lentes cadastradas."
+  how: "Use depois de importar documentos ou cadastrar uma nova lente. O processamento é feito em lotes e pode levar alguns minutos em corpus grandes."
+  not: "Não altera documentos nem lentes. O resultado não se atualiza sozinho: sem recalcular, a página mostra o cálculo anterior."
+  example: "Após cadastrar a lente \"Paulo Freire\", clique em Recalcular para ver em quantos documentos ela aparece."
+
+report.lenses.add:
+  title: "Nova lente"
+  what: "Abre o formulário para cadastrar um novo teórico/referencial com os termos que serão buscados."
+  how: "Preencha nome, área, corrente, termos e descrição e salve. Depois clique em **Recalcular** para incluí-la no resultado."
+  not: "A lente fica disponível para **todos** os projetos e usuários do sistema, não só para este projeto. Não é possível editar ou excluir a lente por esta tela."
+  example: "Cadastre \"Paulo Freire\" com os termos \"freire, educação dialógica, pedagogia do oprimido, extensão ou comunicação\"."
+
+report.lenses.field_filter:
+  title: "Filtro por área de pesquisa"
+  what: "Mostra só as lentes da área escolhida (por exemplo, CTS, Educação, Saúde Coletiva), no ranking e na lista."
+  how: "Escolha a área; a filtragem é imediata e não recarrega a página."
+  not: "Não refaz a mineração nem muda os números."
+  example: "Escolha \"CTS\" para focar Latour, Callon e Jasanoff."
+
+report.lenses.ranking:
+  title: "Ranking de relevância teórica"
+  what: "As três primeiras lentes, ordenadas por número de documentos com termos no título/resumo e, em empate, nas referências. O percentual é (diretas + nas referências) ÷ documentos minerados."
+  how: "Use como ponto de partida para investigar quais referenciais já dialogam com o seu corpus."
+  not: "O percentual soma as duas contagens: um documento encontrado nas duas abas conta duas vezes, por isso pode passar de 100%. Sem nenhuma correspondência, aparece \"Sugestão Teórica\" (apenas as primeiras lentes da lista, sem relação com o corpus)."
+  example: "Bourdieu com 40 diretas + 25 nas referências num corpus de 500 documentos mostra 13%."
+
+report.lenses.terms:
+  title: "Palavras de mineração"
+  what: "Termos procurados para esta lente. A busca ignora maiúsculas, exige palavra inteira e diferencia acentos."
+  how: "Confira se os termos fazem sentido para o seu campo; termos genéricos geram falsos positivos."
+  not: "Não procura variações automaticamente: \"liquida\" não encontra \"líquida\", e \"habitus\" não encontra \"habitual\"."
+  example: "A lente Latour busca \"actor-network\", \"ator-rede\" e \"actant\", entre outros."
+
+report.lenses.tabs:
+  title: "Citação direta × citação nas referências"
+  what: "**Citação direta**: documentos cujo título ou resumo contém um dos termos da lente. **Nas referências**: documentos cuja lista de referências contém o nome/formato de citação do autor ou um dos termos."
+  how: "Cada aba mostra até 5 documentos de exemplo; o número entre parênteses é o total encontrado."
+  not: "\"Citação direta\" não significa que o documento cita o autor, só que usa o termo. A aba de referências só funciona se o arquivo importado trouxer as referências (WoS texto, PubMed MEDLINE, Lens, Scopus completo)."
+  example: "Um artigo que menciona \"actor-network theory\" no resumo entra em Citação Direta; outro que lista \"Latour, B. (2005)\" na bibliografia entra em Referências."
+
+report.lenses.guide:
+  title: "Guia prático do referencial teórico"
+  what: "Roteiro em três passos para usar a lente escolhida na dissertação ou tese: justificar, construir o capítulo teórico e aplicar na análise."
+  how: "Use como lista de verificação ao escrever."
+  not: "Não é norma da sua instituição; confira o regimento do programa."
+  example: "No capítulo 2, apresente os conceitos de campo e habitus antes de usá-los para analisar os dados do capítulo 4."
+
+report.lenses.form_name:
+  title: "Nome do autor / pensador"
+  what: "Nome exibido no cartão da lente."
+  how: "Use o nome pelo qual o autor é conhecido."
+  not: "O nome não é buscado automaticamente: inclua o sobrenome também no campo de termos."
+  example: "Zygmunt Bauman"
+
+report.lenses.form_field:
+  title: "Área de pesquisa"
+  what: "Área usada no filtro \"Todas as Áreas\" do relatório."
+  how: "Reaproveite o nome de uma área já existente para agrupar as lentes."
+  not: "Grafias diferentes (\"Educação\" e \"Educacao\") viram áreas separadas."
+  example: "Saúde Coletiva"
+
+report.lenses.form_category:
+  title: "Categoria / corrente teórica"
+  what: "Agrupa as lentes em blocos no relatório."
+  how: "Use o nome da corrente ou escola de pensamento."
+  not: "Não influencia a busca."
+  example: "Sociologia Líquida"
+
+report.lenses.form_color:
+  title: "Cor temática"
+  what: "Cor da barra lateral, do ícone e do selo do cartão da lente."
+  how: "Escolha uma cor que diferencie a lente das demais."
+  not: "É apenas visual."
+  example: "Roxo para lentes de CTS, verde para lentes de educação."
+
+report.lenses.form_terms:
+  title: "Palavras-chave de mineração"
+  what: "Termos procurados no título, no resumo e nas referências de cada documento. São gravados em minúsculas."
+  how: "Separe por vírgulas. Inclua o sobrenome do autor, conceitos-chave e traduções (inglês e português)."
+  not: "Não aceita curingas nem ignora acentos. Termos muito comuns (\"rede\", \"poder\") geram muitos falsos positivos."
+  example: "bauman, liquid modernity, modernidade líquida, amor líquido, individualização"
+
+report.lenses.form_icon:
+  title: "Ícone representativo"
+  what: "Ícone exibido no cartão da lente."
+  how: "Escolha o que melhor lembra a ideia central da teoria."
+  not: "É apenas visual."
+  example: "Olho para teorias de poder e vigilância (Foucault)."
+
+report.lenses.form_description:
+  title: "Conexão com a linha de pesquisa"
+  what: "Texto exibido no cartão explicando por que e como a lente ajuda a analisar o objeto de estudo."
+  how: "Escreva 2 a 4 frases ligando a teoria ao seu objeto."
+  not: "Não é usado na busca."
+  example: "\"A modernidade líquida ajuda a interpretar a instabilidade dos vínculos de trabalho em plataformas digitais.\""
+
+report.lenses.loading_page:
+  title: "Processando lentes teóricas"
+  what: "Executa a mineração das lentes em lotes de 200 documentos e, ao final, guarda o resultado e abre o relatório."
+  how: "Mantenha a página aberta até 100%; o redirecionamento é automático. Em corpus grandes pode levar alguns minutos."
+  not: "Se você fechar a aba no meio, nada é salvo e o processo recomeça na próxima visita."
+  example: "Um projeto com 10 mil documentos é processado em cerca de 50 lotes."
+
+report.lenses.loading_progress:
+  title: "Progresso da mineração"
+  what: "Mostra quantos documentos já foram processados e em que passo o cálculo está."
+  how: "Se aparecer erro, clique em **Tentar novamente** para recomeçar do início."
+  not: "O percentual é aproximado: os passos inicial e final ocupam os primeiros 5% e os últimos 10%."
+  example: "\"Processados 2.400 de 10.452 documentos...\" equivale a cerca de 25%."
