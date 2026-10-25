@@ -56,9 +56,9 @@
     </div>
     <div class="col-12 col-md-4">
         <div class="bm-stat-card">
-            <div style="font-size:11px;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Registros na prévia {{ help('import.preview.preview_count') }}</div>
-            <div class="bm-stat-value">{{ previewRecords|length|number_format }}</div>
-            <div style="font-size:11px;color:var(--bm-text-muted)">primeiros registros lidos (máx. 10) — o total é contado ao importar</div>
+            <div style="font-size:11px;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Registros no arquivo {{ help('import.preview.preview_count') }}</div>
+            <div class="bm-stat-value">{{ totalRows is not null ? totalRows|number_format : '—' }}</div>
+            <div style="font-size:11px;color:var(--bm-text-muted)">prévia abaixo: primeiros {{ previewRecords|length }} registros</div>
         </div>
     </div>
 </div>

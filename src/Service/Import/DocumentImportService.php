@@ -6,6 +6,7 @@ use App\DTO\BibliographicRecordDTO;
 use App\Entity\Dataset;
 use App\Service\Import\StringNormalizer;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\ConnectionException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -58,6 +59,9 @@ class DocumentImportService
         // Pre-load existing DOIs and hashes for O(1) deduplication (one query each)
         $existingDois   = $this->loadMap('SELECT doi, id FROM document WHERE project_id = ? AND doi IS NOT NULL', $projectId);
         $existingHashes = $this->loadMap('SELECT hash, id FROM document WHERE project_id = ? AND hash IS NOT NULL', $projectId);
+        // Documentos já gravados por uma execução anterior desta mesma importação
+        // (reexecução após falha): contam como importados, não como duplicados.
+        $ownDocIds = $this->loadSet('SELECT id FROM document WHERE dataset_id = ?', $datasetId);
 
         // Batch accumulators
         $docsBatch        = [];
@@ -66,8 +70,29 @@ class DocumentImportService
         $skipsBatch       = [];
 
         foreach ($records as $dto) {
+            // null = registro que o leitor não conseguiu interpretar
+            if (!$dto instanceof BibliographicRecordDTO || (!$dto->title && !$dto->doi && !$dto->externalId)) {
+                $stats['errors']++;
+                continue;
+            }
+
             try {
                 $hash = $this->computeHash($dto);
+
+                $matchedId = null;
+                if ($dto->doi && isset($existingDois[$dto->doi])) {
+                    $matchedId = $existingDois[$dto->doi];
+                } elseif ($hash && isset($existingHashes[$hash])) {
+                    $matchedId = $existingHashes[$hash];
+                }
+                if (is_int($matchedId) && isset($ownDocIds[$matchedId])) {
+                    $stats['imported']++;
+                    // Repetições deste registro no arquivo passam a contar como duplicadas
+                    if ($dto->doi) $existingDois[$dto->doi] = true;
+                    if ($hash)     $existingHashes[$hash]   = true;
+                    unset($ownDocIds[$matchedId]);
+                    continue;
+                }
 
                 if ($dto->doi && isset($existingDois[$dto->doi])) {
                     $stats['skipped']++;
@@ -161,12 +186,8 @@ class DocumentImportService
 
                 if (count($docsBatch) >= self::BATCH_SIZE) {
                     $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
-                    // Reconcile: some records may have been rejected by the DB unique constraint
-                    $dbSkipped = $result['skipped'];
-                    if ($dbSkipped > 0) {
-                        $stats['imported'] -= $dbSkipped;
-                        $stats['skipped']  += $dbSkipped;
-                    }
+                    // Reconcile: some records may have been rejected by the DB
+                    $this->reconcile($stats, $result);
                     $docsBatch        = [];
                     $authorLinksBatch = [];
                     $kwLinksBatch     = [];
@@ -178,6 +199,9 @@ class DocumentImportService
                     }
                 }
 
+            } catch (ConnectionException $e) {
+                // Banco fora do ar: seguir registro a registro só geraria erros em série
+                throw $e;
             } catch (\Throwable $e) {
                 $stats['errors']++;
                 $this->logger->error('Import error: ' . $e->getMessage(), [
@@ -190,11 +214,7 @@ class DocumentImportService
         // Final partial batch
         if ($docsBatch) {
             $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
-            $dbSkipped = $result['skipped'];
-            if ($dbSkipped > 0) {
-                $stats['imported'] -= $dbSkipped;
-                $stats['skipped']  += $dbSkipped;
-            }
+            $this->reconcile($stats, $result);
             if ($onProgress !== null) {
                 $onProgress($stats);
             }
@@ -204,14 +224,25 @@ class DocumentImportService
             $this->flushSkipsBatch($skipsBatch);
         }
 
-        // Run automated geographical and institutional enrichment after import
-        try {
-            $this->enrichmentService->enrichProject($projectId);
-        } catch (\Throwable $e) {
-            $this->logger->error('Failed to run geographical enrichment after import: ' . $e->getMessage());
+        // Enriquecimento geográfico/institucional reprocessa o projeto inteiro:
+        // quem importa vários arquivos em sequência pede para pular e roda uma vez no fim.
+        if (!$skipEnrichment) {
+            try {
+                $this->enrichmentService->enrichProject($projectId);
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to run geographical enrichment after import: ' . $e->getMessage());
+            }
         }
 
         return $stats;
+    }
+
+    /** Ajusta as contagens com o que o banco recusou ao gravar o lote. */
+    private function reconcile(array &$stats, array $result): void
+    {
+        $stats['imported'] -= $result['skipped'] + $result['errors'];
+        $stats['skipped']  += $result['skipped'];
+        $stats['errors']   += $result['errors'];
     }
 
     // ── Private: SQL helpers ──────────────────────────────────────────────────
@@ -392,13 +423,14 @@ class DocumentImportService
      * Insert a batch of documents + their author/keyword links inside a transaction.
      * Handles DB-level unique constraint violations gracefully (counts as skipped).
      *
-     * @return array{inserted: int, skipped: int}
+     * @return array{inserted: int, skipped: int, errors: int}
      */
     private function flushBatch(array $docs, array $authorLinks, array $kwLinks, string $now): array
     {
         $conn = $this->conn();
         $inserted = 0;
         $skipped  = 0;
+        $errors   = 0;
 
         // Insert one by one within a transaction so a duplicate on one row
         // doesn't roll back the entire batch
@@ -471,15 +503,21 @@ class DocumentImportService
                     ]);
                 } catch (\Throwable) {}
             } catch (\Throwable $e) {
-                $conn->rollBack();
+                try {
+                    $conn->rollBack();
+                } catch (\Throwable) {}
+                if ($e instanceof ConnectionException) {
+                    throw $e;
+                }
                 $this->logger->warning('Batch insert failed: ' . $e->getMessage(), [
                     'hash' => $docRow['hash'] ?? '?',
                 ]);
-                $skipped++;
+                // Falha de gravação é erro, não duplicado
+                $errors++;
             }
         }
 
-        return ['inserted' => $inserted, 'skipped' => $skipped];
+        return ['inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors];
     }
 
     private function loadMap(string $sql, int $projectId): array

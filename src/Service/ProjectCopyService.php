@@ -18,6 +18,8 @@ use Symfony\Component\String\Slugger\SluggerInterface;
  *  3. DBAL – bulk INSERT documents with CASE WHEN dataset remapping
  *  4. DBAL – build old_doc_id → new_doc_id map (ORDER BY trick on sequential IDs)
  *  5. DBAL – batch INSERT document_author + document_keyword using the mapping
+ *  6. DBAL – vínculos geográficos/institucionais, classificação temática,
+ *            matrizes salvas e duplicados ignorados (sem eles os relatórios da cópia saem vazios)
  *
  * Author and Keyword rows are global (no project FK) → reused as-is.
  */
@@ -60,7 +62,21 @@ class ProjectCopyService
             if (!empty($docMap)) {
                 $this->bulkCloneDocumentAuthors($docMap);
                 $this->bulkCloneDocumentKeywords($docMap);
+
+                // Vínculos gerados pela sincronização (mapas, instituições)
+                $this->bulkCloneDocumentLinks('documento_paises', ['country_id'], $docMap);
+                $this->bulkCloneDocumentLinks('documento_estados', ['state_id'], $docMap);
+                $this->bulkCloneDocumentLinks('documento_cidades', ['city_id'], $docMap);
+                $this->bulkCloneDocumentLinks('documento_instituicoes', ['institution_id', 'link_type'], $docMap);
             }
+
+            // ── 5. Classificação temática, matrizes salvas, duplicados ────────
+            $groupMap = $this->cloneClassificationGroups($source->getId(), $newProject->getId());
+            if (!empty($docMap)) {
+                $this->cloneDocumentClassifications($source->getId(), $newProject->getId(), $docMap, $groupMap);
+            }
+            $this->cloneSavedMatrices($source->getId(), $newProject->getId());
+            $this->cloneDatasetSkips($datasetMap, $docMap);
 
             $this->em->commit();
             return $newProject;
@@ -96,6 +112,7 @@ class ProjectCopyService
             ->setDatabaseSources($source->getDatabaseSources())
             ->setStartYear($source->getStartYear())
             ->setEndYear($source->getEndYear())
+            ->setClassificationMinYear($source->getClassificationMinYear())
             ->setStatus($source->getStatus())
             ->setVisibility(BibliometricProject::VISIBILITY_PRIVATE);
     }
@@ -192,7 +209,8 @@ class ProjectCopyService
                  year, document_type, doi, pmid, isbn, issn, url, language,
                  source_title, volume, issue, page_start, page_end, publisher,
                  cited_by, local_citations, open_access_status, publication_stage,
-                 external_id, source, hash, countries, institutions, `references`, created_at)
+                 external_id, source, hash, countries, institutions, `references`,
+                 qualis, qualis_journal_id, created_at)
              SELECT
                 :newProjectId,
                 {$caseWhen},
@@ -200,7 +218,8 @@ class ProjectCopyService
                 year, document_type, doi, pmid, isbn, issn, url, language,
                 source_title, volume, issue, page_start, page_end, publisher,
                 cited_by, local_citations, open_access_status, publication_stage,
-                external_id, source, hash, countries, institutions, `references`, NOW()
+                external_id, source, hash, countries, institutions, `references`,
+                qualis, qualis_journal_id, NOW()
              FROM document
              WHERE project_id = :oldProjectId
              ORDER BY id ASC",
@@ -261,7 +280,7 @@ class ProjectCopyService
         $oldDocIds = array_keys($docMap);
 
         $rows = $this->dbal->fetchAllAssociative(
-            'SELECT document_id, keyword_id
+            'SELECT document_id, keyword_id, original_term
              FROM document_keyword
              WHERE document_id IN (' . implode(',', $oldDocIds) . ')
              ORDER BY document_id',
@@ -273,15 +292,174 @@ class ProjectCopyService
             $values = [];
             $params = [];
             foreach ($chunk as $row) {
-                $values[] = '(?, ?)';
+                $values[] = '(?, ?, ?)';
                 $params[] = $docMap[$row['document_id']];
                 $params[] = $row['keyword_id'];
+                $params[] = $row['original_term']; // NOT NULL na tabela
             }
             $this->dbal->executeStatement(
-                'INSERT INTO document_keyword (document_id, keyword_id) VALUES '
+                'INSERT INTO document_keyword (document_id, keyword_id, original_term) VALUES '
                 . implode(', ', $values),
                 $params,
             );
         }
+    }
+
+    /**
+     * Copia uma tabela de vínculo documento → X trocando apenas o document_id.
+     *
+     * @param string[]       $columns  colunas copiadas como estão (além de document_id)
+     * @param array<int,int> $docMap   old_document_id => new_document_id
+     */
+    private function bulkCloneDocumentLinks(string $table, array $columns, array $docMap): void
+    {
+        $cols = implode(', ', $columns);
+        $rows = $this->dbal->fetchAllAssociative(
+            "SELECT document_id, {$cols} FROM {$table} WHERE document_id IN (" . implode(',', array_keys($docMap)) . ')'
+        );
+
+        $placeholders = '(' . implode(', ', array_fill(0, count($columns) + 1, '?')) . ')';
+        foreach (array_chunk($rows, self::BATCH) as $chunk) {
+            $values = [];
+            $params = [];
+            foreach ($chunk as $row) {
+                $values[] = $placeholders;
+                $params[] = $docMap[$row['document_id']];
+                foreach ($columns as $col) {
+                    $params[] = $row[$col];
+                }
+            }
+            $this->dbal->executeStatement(
+                "INSERT INTO {$table} (document_id, {$cols}) VALUES " . implode(', ', $values),
+                $params,
+            );
+        }
+    }
+
+    /**
+     * Copia os grupos de classificação temática (com seus termos).
+     *
+     * @return array<int,int>  old_group_id => new_group_id
+     */
+    private function cloneClassificationGroups(int $oldProjectId, int $newProjectId): array
+    {
+        $map = [];
+        $groups = $this->dbal->fetchAllAssociative(
+            'SELECT * FROM classification_group WHERE project_id = ? ORDER BY id',
+            [$oldProjectId],
+        );
+        foreach ($groups as $group) {
+            $oldId = (int) $group['id'];
+            unset($group['id']);
+            $group['project_id'] = $newProjectId;
+            $this->dbal->insert('classification_group', $this->quoteKeys($group));
+            $newId = (int) $this->dbal->lastInsertId();
+            $map[$oldId] = $newId;
+
+            $this->dbal->executeStatement(
+                'INSERT INTO classification_rule (group_id, term, created_at)
+                 SELECT ?, term, created_at FROM classification_rule WHERE group_id = ? ORDER BY id',
+                [$newId, $oldId],
+            );
+        }
+        return $map;
+    }
+
+    /**
+     * @param array<int,int> $docMap    old_document_id => new_document_id
+     * @param array<int,int> $groupMap  old_group_id    => new_group_id
+     */
+    private function cloneDocumentClassifications(int $oldProjectId, int $newProjectId, array $docMap, array $groupMap): void
+    {
+        $rows = $this->dbal->fetchAllAssociative(
+            'SELECT document_id, group_id, matched_term, run_at, manual_override
+             FROM document_classification WHERE project_id = ?',
+            [$oldProjectId],
+        );
+
+        foreach (array_chunk($rows, self::BATCH) as $chunk) {
+            $values = [];
+            $params = [];
+            foreach ($chunk as $row) {
+                if (!isset($docMap[$row['document_id']])) {
+                    continue;
+                }
+                $values[] = '(?, ?, ?, ?, ?, ?)';
+                $params[] = $docMap[$row['document_id']];
+                $params[] = $row['group_id'] !== null ? ($groupMap[$row['group_id']] ?? null) : null;
+                $params[] = $newProjectId;
+                $params[] = $row['matched_term'];
+                $params[] = $row['run_at'];
+                $params[] = $row['manual_override'];
+            }
+            if ($values) {
+                $this->dbal->executeStatement(
+                    'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override) VALUES '
+                    . implode(', ', $values),
+                    $params,
+                );
+            }
+        }
+    }
+
+    private function cloneSavedMatrices(int $oldProjectId, int $newProjectId): void
+    {
+        $rows = $this->dbal->fetchAllAssociative(
+            'SELECT * FROM saved_matrix WHERE project_id = ? ORDER BY id',
+            [$oldProjectId],
+        );
+        foreach ($rows as $row) {
+            unset($row['id']);
+            $row['project_id'] = $newProjectId;
+            $this->dbal->insert('saved_matrix', $this->quoteKeys($row));
+        }
+    }
+
+    /**
+     * Lista de "duplicados ignorados" de cada importação, para a cópia bater com as contagens do dataset.
+     *
+     * @param array<int,int> $datasetMap  old_dataset_id  => new_dataset_id
+     * @param array<int,int> $docMap      old_document_id => new_document_id
+     */
+    private function cloneDatasetSkips(array $datasetMap, array $docMap): void
+    {
+        if (empty($datasetMap)) {
+            return;
+        }
+        $rows = $this->dbal->fetchAllAssociative(
+            'SELECT dataset_id, title, doi, hash, reason, matched_document_id, created_at
+             FROM dataset_skip WHERE dataset_id IN (' . implode(',', array_map('intval', array_keys($datasetMap))) . ')
+             ORDER BY id',
+        );
+
+        foreach (array_chunk($rows, self::BATCH) as $chunk) {
+            $values = [];
+            $params = [];
+            foreach ($chunk as $row) {
+                $values[] = '(?, ?, ?, ?, ?, ?, ?)';
+                $params[] = $datasetMap[$row['dataset_id']];
+                $params[] = $row['title'];
+                $params[] = $row['doi'];
+                $params[] = $row['hash'];
+                $params[] = $row['reason'];
+                $params[] = $row['matched_document_id'] !== null ? ($docMap[$row['matched_document_id']] ?? null) : null;
+                $params[] = $row['created_at'];
+            }
+            $this->dbal->executeStatement(
+                'INSERT INTO dataset_skip (dataset_id, title, doi, hash, reason, matched_document_id, created_at) VALUES '
+                . implode(', ', $values),
+                $params,
+            );
+        }
+    }
+
+    /** Colunas como `references`/`position` exigem crase no insert do DBAL. */
+    private function quoteKeys(array $row): array
+    {
+        $quoted = [];
+        foreach ($row as $col => $val) {
+            $quoted['`' . $col . '`'] = $val;
+        }
+        return $quoted;
     }
 }

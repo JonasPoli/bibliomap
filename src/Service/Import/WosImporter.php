@@ -131,7 +131,7 @@ class WosImporter implements BibliographicImporterInterface
      * Streaming generator — yields ONE DTO at a time.
      * Use for full imports to avoid memory exhaustion.
      *
-     * @return \Generator<BibliographicRecordDTO>
+     * @return \Generator<BibliographicRecordDTO|null>  null = registro malformado
      */
     public function parseStream(string $filePath): \Generator
     {
@@ -139,7 +139,8 @@ class WosImporter implements BibliographicImporterInterface
             try {
                 yield $this->mapToInternalRecord($raw);
             } catch (\Throwable) {
-                // skip malformed records silently
+                // Registro malformado: entrega null para a importação contá-lo como erro.
+                yield null;
             }
         }
     }

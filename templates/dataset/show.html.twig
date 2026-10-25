@@ -13,12 +13,14 @@
 {% endblock %}
 
 {% block topbar_actions %}
+    {% if is_granted('edit', project) %}
     <a href="{{ path('app_datasets_edit', {projectId: project.id, id: dataset.id}) }}" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
         <i class="bi bi-pencil me-1"></i>Editar metadados
     </a>
     <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="font-size:13px;padding:6px 14px">
         <i class="bi bi-upload me-1"></i>Nova importação
     </a>
+    {% endif %}
 {% endblock %}
 
 {% block body %}
@@ -40,8 +42,8 @@
                     {% if dataset.description %}
                         <p style="font-size:13px;color:var(--bm-text-muted);margin:0;line-height:1.5">{{ dataset.description }}</p>
                     {% else %}
-                        <p style="font-size:12px;color:var(--bm-text-muted);margin:0;font-style:italic">Sem descrição —
-                            <a href="{{ path('app_datasets_edit', {projectId: project.id, id: dataset.id}) }}" style="color:var(--bm-accent)">adicionar</a>
+                        <p style="font-size:12px;color:var(--bm-text-muted);margin:0;font-style:italic">Sem descrição{% if is_granted('edit', project) %} —
+                            <a href="{{ path('app_datasets_edit', {projectId: project.id, id: dataset.id}) }}" style="color:var(--bm-accent)">adicionar</a>{% endif %}
                         </p>
                     {% endif %}
                 </div>
@@ -381,6 +383,7 @@
 </div>
 
 {# Zona de perigo #}
+{% if is_granted('edit', project) %}
 <div class="bm-card mt-3" style="border-color:rgba(248,81,73,0.3)">
     <h3 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 6px">Remover esta importação {{ help('dataset.show.delete') }}</h3>
     <p style="font-size:13px;color:var(--bm-text-muted);margin:0 0 12px">
@@ -394,5 +397,6 @@
         </button>
     </form>
 </div>
+{% endif %}
 
 {% endblock %}

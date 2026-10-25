@@ -11,9 +11,11 @@
 {% endblock %}
 
 {% block topbar_actions %}
+    {% if is_granted('edit', project) %}
     <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary">
         <i class="bi bi-upload me-1"></i>Nova importação
     </a>
+    {% endif %}
 {% endblock %}
 
 {% block body %}
@@ -31,9 +33,11 @@
         <p style="color:var(--bm-text-muted);font-size:14px;margin:0 0 28px;max-width:360px;margin-left:auto;margin-right:auto">
             Importe o arquivo exportado do Scopus (CSV), Web of Science (TXT), Lens.org (CSV) ou PubMed (CSV/NBIB) para começar a análise bibliométrica.
         </p>
+        {% if is_granted('edit', project) %}
         <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="display:inline-flex;align-items:center;gap:8px">
             <i class="bi bi-upload"></i>Importar primeira base
         </a>
+        {% endif %}
     </div>
 {% else %}
 
@@ -142,6 +146,7 @@
                 {% endif %}
 
                 {# Actions #}
+                {% if is_granted('edit', project) %}
                 <div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">
                     <a href="{{ path('app_datasets_edit', {projectId: project.id, id: dataset.id}) }}"
                        class="btn-bm-secondary" style="font-size:12px;padding:5px 10px" title="Editar">
@@ -152,6 +157,7 @@
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
+                {% endif %}
             </div>
         {% endfor %}
     </div>
@@ -159,7 +165,7 @@
 {% endif %}
 
 {# Delete modal forms (hidden) #}
-{% for dataset in datasets %}
+{% for dataset in is_granted('edit', project) ? datasets : [] %}
     <form id="delete-form-{{ dataset.id }}" method="post"
           action="{{ path('app_datasets_delete', {projectId: project.id, id: dataset.id}) }}" style="display:none">
         <input type="hidden" name="_token" value="{{ csrf_token('delete_dataset_' ~ dataset.id) }}">

@@ -105,7 +105,7 @@ class PubmedNbibImporter implements BibliographicImporterInterface
      * Streaming generator — yields ONE DTO at a time.
      * Keeps memory consumption minimal.
      *
-     * @return \Generator<BibliographicRecordDTO>
+     * @return \Generator<BibliographicRecordDTO|null>  null = registro malformado
      */
     public function parseStream(string $filePath): \Generator
     {
@@ -113,7 +113,8 @@ class PubmedNbibImporter implements BibliographicImporterInterface
             try {
                 yield $this->mapToInternalRecord($raw);
             } catch (\Throwable) {
-                // skip malformed records silently in stream
+                // Registro malformado: entrega null para a importação contá-lo como erro.
+                yield null;
             }
         }
     }

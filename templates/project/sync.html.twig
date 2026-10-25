@@ -45,6 +45,7 @@
                 </div>
             </div>
             
+            {% if is_granted('edit', project) %}
             <form action="{{ path('app_project_sync_run', {id: project.id}) }}" method="POST" onsubmit="showLoading()">
                 <input type="hidden" name="_token" value="{{ csrf_token('sync_data_' ~ project.id) }}">
                 <div class="d-flex align-items-center gap-2">
@@ -54,6 +55,7 @@
                     {{ help('sync.run') }}
                 </div>
             </form>
+            {% endif %}
         </div>
 
         <div class="bm-card" id="loading-card" style="display:none">

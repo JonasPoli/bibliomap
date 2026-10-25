@@ -14,8 +14,8 @@ class NormalizationService
 
     /**
      * Find similar author suggestions.
-     * Uses a fast grouping heuristic (by surname first letter + initial of first name)
-     * to avoid O(N^2) comparison.
+     * Uses a fast grouping heuristic (4 primeiras letras do sobrenome + inicial do prenome,
+     * ver authorBlockKey) to avoid O(N^2) comparison.
      */
     public function findSimilarAuthors(int $projectId, float $minSimilarity = 0.85): array
     {
@@ -39,15 +39,7 @@ class NormalizationService
 
         $groups = [];
         foreach ($authors as $auth) {
-            $name = $auth['name'];
-            
-            // Extract pseudo-surname and first letter of first name by splitting the name
-            $parts = array_filter(explode(' ', trim($name)));
-            $surname = strtolower(end($parts) ?: '');
-            $firstLetter = strtolower(substr(reset($parts) ?: '', 0, 1));
-
-            $key = substr($surname, 0, 4) . '|' . $firstLetter;
-            $groups[$key][] = $auth;
+            $groups[self::authorBlockKey($auth['name'])][] = $auth;
         }
 
         $suggestions = [];
@@ -82,6 +74,41 @@ class NormalizationService
         usort($suggestions, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
 
         return array_slice($suggestions, 0, 5000);
+    }
+
+    /**
+     * Chave de bloco para comparar autores: 4 primeiras letras do sobrenome + inicial do prenome.
+     * Os nomes gravados vêm como "Sobrenome, Prenome/Iniciais" (WoS, Scopus); também aceita
+     * "Sobrenome JA" (iniciais no fim, sem vírgula) e "Prenome Sobrenome" (Lens).
+     * Assim "Silva, J" e "Silva, JA" caem no mesmo bloco e são comparados.
+     */
+    public static function authorBlockKey(string $name): string
+    {
+        $name = trim($name);
+        if (str_contains($name, ',')) {
+            [$surname, $given] = array_map('trim', explode(',', $name, 2));
+        } else {
+            $parts = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [''];
+            $last  = end($parts);
+            if (count($parts) > 1 && preg_match('/^(\p{Lu}[.\-]?){1,4}$/u', $last)) {
+                $given   = array_pop($parts);
+                $surname = implode(' ', $parts);
+            } elseif (count($parts) > 1) {
+                $surname = array_pop($parts);
+                $given   = $parts[0];
+            } else {
+                $surname = $parts[0];
+                $given   = '';
+            }
+        }
+
+        // Minúsculas, sem acentos e só letras/dígitos (transliterador criado uma vez: é caro)
+        static $tr = null;
+        $tr ??= \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC; Lower');
+        $surname = preg_replace('/[^\p{L}\p{N}]+/u', '', (string) $tr->transliterate($surname));
+        $given   = preg_replace('/[^\p{L}\p{N}]+/u', '', (string) $tr->transliterate($given));
+
+        return mb_substr($surname, 0, 4) . '|' . mb_substr($given, 0, 1);
     }
 
     /**
@@ -371,11 +398,13 @@ class NormalizationService
                         $keep    = $k1['doc_count'] >= $k2['doc_count'] ? $k1 : $k2;
                         $discard = $keep['id'] === $k1['id'] ? $k2 : $k1;
 
+                        // 100% fica reservado a termos idênticos após normalização: o par
+                        // singular/plural mostra a similaridade real e não entra em "Mesclar 100%".
                         $suggestions[] = [
                             'keep'       => $keep,
                             'discard'    => $discard,
-                            'similarity' => $isPluralMatch ? 100.0 : round($sim * 100, 1),
-                            'match_type' => 'same_type',
+                            'similarity' => round($sim * 100, 1),
+                            'match_type' => $isPluralMatch ? 'plural' : 'same_type',
                         ];
                     }
                 }
@@ -833,7 +862,7 @@ class NormalizationService
 
             // 4. Move document keywords
             $discardKws = $conn->fetchAllAssociative(
-                'SELECT keyword_id FROM document_keyword WHERE document_id = ?',
+                'SELECT keyword_id, original_term FROM document_keyword WHERE document_id = ?',
                 [$discardId]
             );
             foreach ($discardKws as $dk) {
@@ -843,8 +872,9 @@ class NormalizationService
                 );
                 if (!$exists) {
                     $conn->insert('document_keyword', [
-                        'document_id' => $keepId,
-                        'keyword_id'  => $dk['keyword_id']
+                        'document_id'   => $keepId,
+                        'keyword_id'    => $dk['keyword_id'],
+                        'original_term' => $dk['original_term'], // NOT NULL: sem ele o merge falhava
                     ]);
                 }
             }

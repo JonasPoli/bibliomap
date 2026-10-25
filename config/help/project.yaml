@@ -13,9 +13,20 @@ project.index.page:
   how: |-
     Clique em um cartão para abrir o projeto. Use **Novo Projeto** (canto superior) para começar um estudo novo. O cartão mostra status, data da última alteração, nº de bases marcadas, documentos, período e arquivos importados.
   not: |-
-    Projetos **arquivados** não aparecem aqui. Projetos de outros usuários também não, mesmo que sejam públicos (você só os acessa pelo link).
+    Projetos **arquivados** não aparecem aqui: use o botão **Arquivados** no topo da lista para vê-los e reativá-los. Projetos de outros usuários também não, mesmo que sejam públicos (você só os acessa pelo link).
   example: |-
     Uma doutoranda mantém dois projetos: "Extensão universitária — Scopus/WoS 2000–2024" para a tese e "Teste — string ampliada" para experimentar outra busca, sem misturar os documentos dos dois.
+
+project.index.archived:
+  title: "Projetos arquivados"
+  what: |-
+    Lista os seus projetos arquivados. Nada foi apagado: documentos, importações e relatórios continuam no banco.
+  how: |-
+    Clique em **Reativar projeto** no cartão para que ele volte a "Meus Projetos". O status é recalculado: "Pronto para análise" se houver documentos, senão "Rascunho".
+  not: |-
+    Não exclui nem restaura dados; só muda o projeto de lista. Para apagar de vez, abra o projeto e use Excluir na edição.
+  example: |-
+    O projeto "Teste — string ampliada", arquivado em 2023, é reativado para comparar com a busca nova; ele volta à lista como "Pronto para análise".
 
 project.status:
   title: "Status do projeto"
@@ -151,9 +162,9 @@ project.edit.archive:
   what: |-
     Tira o projeto da lista "Meus Projetos" sem apagar nada. Documentos, importações e relatórios continuam no banco.
   how: |-
-    Clique em **Arquivar projeto** e confirme. O projeto continua acessível pelo link direto (guarde-o).
+    Clique em **Arquivar projeto** e confirme. O projeto continua acessível pelo link direto e aparece em **Meus Projetos › Arquivados**, onde pode ser reativado.
   not: |-
-    Hoje não há botão para desarquivar pela interface; para reativar, peça ao administrador. Também não libera espaço nem reduz limites.
+    Não apaga nada, não libera espaço nem reduz limites.
   example: |-
     Terminado o artigo de 2023, arquive o projeto "Teste — string ampliada" para deixar a lista só com os projetos da tese.
 
@@ -304,7 +315,7 @@ dataset.index.kpi_records:
   how: |-
     Compare com "Documentos únicos": a diferença é o que foi pulado como duplicado ou deu erro.
   not: |-
-    Em arquivos CSV a contagem é feita por linhas do arquivo; resumos com quebra de linha podem inflar este número. Use "Documentos únicos" como número oficial.
+    Não é o número de documentos: inclui duplicados e registros com erro. Use "Documentos únicos" como número oficial.
   example: |-
     Dois arquivos com 1.000 e 800 registros somam 1.800 registros totais.
 
@@ -394,9 +405,9 @@ dataset.show.records_total:
   what: |-
     Quantidade de registros contados no arquivo antes da importação.
   how: |-
-    WoS: conta os marcadores de fim de registro (ER). CSV: conta as linhas menos o cabeçalho.
+    WoS: conta os marcadores de fim de registro (ER). PubMed NBIB: conta as linhas "PMID-". CSV: conta os registros lidos pelo leitor de CSV (um resumo com quebra de linha continua sendo um registro só).
   not: |-
-    Em CSV com resumos que têm quebras de linha, o número pode ficar maior que o real. Não é o número de documentos gravados.
+    Não é o número de documentos gravados.
   example: |-
     Um lote do WoS de 1 a 500 deve mostrar 500.
 
@@ -407,7 +418,7 @@ dataset.show.imported:
   how: |-
     São os que aparecem na aba Documentos importados e entram em todas as análises.
   not: |-
-    Não inclui registros que já existiam no projeto (vindos de outro arquivo), que contam como duplicados.
+    Não inclui registros que já existiam no projeto (vindos de outro arquivo), que contam como duplicados. Se a importação foi reexecutada após uma falha, os documentos que a tentativa anterior já tinha gravado contam aqui, não como duplicados.
   example: |-
     O segundo arquivo do Scopus tinha 2.000 registros, 1.950 importados: os outros 50 já estavam no primeiro arquivo.
 
@@ -425,7 +436,7 @@ dataset.show.duplicates:
 dataset.show.errors:
   title: "Erros"
   what: |-
-    Registros que falharam ao serem gravados (dado inválido ou falha de banco durante a importação).
+    Registros que o leitor não conseguiu interpretar, sem título, DOI e identificador, ou que falharam ao serem gravados. Se o banco cair no meio, a importação para e fica com status Erro.
   how: |-
     Se houver muitos erros, verifique se o arquivo é o formato certo e reenvie. A mensagem técnica, quando existir, aparece abaixo das contagens.
   not: |-

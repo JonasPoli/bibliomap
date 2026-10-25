@@ -80,22 +80,23 @@ class LensCsvImporter implements BibliographicImporterInterface
             try {
                 yield $this->mapToInternalRecord($record);
             } catch (\Throwable) {
-                // skip malformed rows silently
+                // Registro malformado: entrega null para a importação contá-lo como erro.
+                yield null;
             }
         }
     }
 
     public function countRows(string $filePath): int
     {
-        $handle = fopen($filePath, 'r');
-        if (!$handle) return 0;
-        $count = 0;
-        while (!feof($handle)) {
-            fgets($handle);
-            $count++;
+        // Conta registros CSV, não linhas físicas: campos entre aspas (ex.: resumo)
+        // podem conter quebras de linha. Mesma leitura usada por parseStream().
+        try {
+            $reader = Reader::from($filePath);
+            $reader->setHeaderOffset(0);
+            return count($reader);
+        } catch (\Throwable) {
+            return 0;
         }
-        fclose($handle);
-        return max(0, $count - 1);
     }
 
     public function mapToInternalRecord(array $rawRecord): BibliographicRecordDTO
@@ -149,10 +150,8 @@ class LensCsvImporter implements BibliographicImporterInterface
             $dto->indexedKeywords = array_filter(array_map('trim', explode(';', $fieldsRaw)));
         }
 
-        $country = $this->get($rawRecord, 'Source Country');
-        if ($country) {
-            $dto->countries = [ucfirst(strtolower(trim($country)))];
-        }
+        // "Source Country" é o país do periódico, não dos autores: não serve para
+        // mapas/redes de países. O CSV do Lens não traz afiliações, então fica vazio.
 
         return $dto;
     }

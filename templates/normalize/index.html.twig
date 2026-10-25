@@ -147,8 +147,9 @@
     <div class="info-card">
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
-            Autores com nomes quase iguais e as mesmas iniciais (ex.: <b>WILSON, PN</b> e <b>Wilson, PN</b>).
+            Autores com nomes quase iguais, mesmo início de sobrenome e mesma inicial do prenome (ex.: <b>WILSON, PN</b> e <b>Wilson, PN</b>; <b>Alexander, B</b> e <b>Alexander, BH</b>).
             A mesclagem passa os artigos do autor da direita para o da esquerda e remove o cadastro duplicado — sem desfazer.
+            <br><b style="color:var(--bm-warning)">O cadastro de autores é compartilhado por todos os projetos do BiblioMap:</b> a mesclagem também vale para outros projetos (inclusive de outros usuários) que tenham esses autores.
             {{ help('normalize.authors.about') }}
         </div>
     </div>
@@ -158,6 +159,7 @@
         <div>
             Palavras-chave redundantes, plurais ou com pequenas variações de escrita.
             A mesclagem unifica as ocorrências em todos os artigos, melhorando rankings, nuvens e redes de coocorrência.
+            <br><b style="color:var(--bm-warning)">O cadastro de palavras-chave é compartilhado por todos os projetos do BiblioMap:</b> a mesclagem também vale para outros projetos (inclusive de outros usuários) que usem esses termos.
             {{ help('normalize.keywords.about') }}
         </div>
     </div>
@@ -493,7 +495,7 @@ function selectAllSuggestions(val) {
 
 /**
  * Select all checkboxes where similarity == 100 and immediately run batch merge.
- * Works for: exact case matches, singular/plural, cross-type identical terms.
+ * 100% = idênticos após normalização (só maiúsculas/minúsculas); singular/plural não entra.
  */
 async function mergeAllPerfect() {
     // First: select only the 100% ones
@@ -510,7 +512,7 @@ async function mergeAllPerfect() {
         return;
     }
 
-    if (!confirm(`Mesclar automaticamente ${count} par(es) com 100% de similaridade?\n\nEsta ação não pode ser desfeita.`)) {
+    if (!confirm(`Mesclar automaticamente ${count} par(es) com 100% de similaridade?\n\nEsta ação não pode ser desfeita e vale para todos os projetos que usam esses itens.`)) {
         // Deselect all if user cancels
         selectAllSuggestions(false);
         return;
@@ -537,7 +539,7 @@ async function runBatchMerge() {
     const checkedBoxes = Array.from(document.querySelectorAll('.merge-select-check:checked'));
     if (checkedBoxes.length === 0) return;
 
-    if (!confirm(`Deseja realmente mesclar os ${checkedBoxes.length} itens selecionados?`)) {
+    if (!confirm(`Deseja realmente mesclar os ${checkedBoxes.length} itens selecionados?\n\nAutores e palavras-chave são compartilhados: a mesclagem também vale para os outros projetos que os usam.`)) {
         return;
     }
 

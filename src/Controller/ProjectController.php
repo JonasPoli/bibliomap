@@ -24,12 +24,18 @@ class ProjectController extends AbstractController
     ) {}
 
     #[Route('', name: 'app_projects_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $projects = $this->projectRepo->findByUser($this->getUser()->getId());
+        $showArchived = $request->query->getBoolean('archived');
+        $archived = $this->projectRepo->findBy(
+            ['user' => $this->getUser(), 'status' => BibliometricProject::STATUS_ARCHIVED],
+            ['updatedAt' => 'DESC']
+        );
 
         return $this->render('project/index.html.twig', [
-            'projects' => $projects,
+            'projects'      => $showArchived ? $archived : $this->projectRepo->findByUser($this->getUser()->getId()),
+            'showArchived'  => $showArchived,
+            'archivedCount' => count($archived),
         ]);
     }
 
@@ -100,6 +106,26 @@ class ProjectController extends AbstractController
             $project->setStatus(BibliometricProject::STATUS_ARCHIVED);
             $this->em->flush();
             $this->addFlash('success', 'Projeto arquivado.');
+        }
+
+        return $this->redirectToRoute('app_projects_index');
+    }
+
+    #[Route('/{id}/unarchive', name: 'app_projects_unarchive', methods: ['POST'])]
+    public function unarchive(Request $request, BibliometricProject $project): Response
+    {
+        $this->denyAccessUnlessGranted('edit', $project);
+
+        if ($this->isCsrfTokenValid('unarchive' . $project->getId(), $request->getPayload()->getString('_token'))
+            && $project->getStatus() === BibliometricProject::STATUS_ARCHIVED) {
+            // O status anterior não é guardado ao arquivar: recalcula pelos documentos
+            $docs = (int) $this->em->getConnection()->fetchOne(
+                'SELECT COUNT(*) FROM document WHERE project_id = ?',
+                [$project->getId()]
+            );
+            $project->setStatus($docs > 0 ? BibliometricProject::STATUS_READY : BibliometricProject::STATUS_DRAFT);
+            $this->em->flush();
+            $this->addFlash('success', 'Projeto reativado.');
         }
 
         return $this->redirectToRoute('app_projects_index');

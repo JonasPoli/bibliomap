@@ -70,10 +70,19 @@ class ProjectSyncController extends AbstractController
     #[Route('/projects/{id}/sync/run', name: 'app_project_sync_run', methods: ['POST'])]
     public function run(int $id, Request $request): Response
     {
-        $project = $this->getProject($id);
+        $project = $this->getProject($id, 'edit');
 
         if (!$this->isCsrfTokenValid('sync_data_' . $project->getId(), $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_project_sync', ['id' => $id]);
+        }
+
+        // Mesma trava do enriquecimento pós-importação (app:import:dataset): duas
+        // execuções simultâneas apagariam/recriariam os vínculos uma da outra.
+        $conn = $this->em->getConnection();
+        $lockName = 'bibliomap_enrich_project_' . $project->getId();
+        if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 0)', [$lockName]) !== 1) {
+            $this->addFlash('warning', 'Já existe uma sincronização ou importação em andamento neste projeto. Tente novamente em alguns minutos.');
             return $this->redirectToRoute('app_project_sync', ['id' => $id]);
         }
 
@@ -92,6 +101,8 @@ class ProjectSyncController extends AbstractController
             $this->addFlash('success', 'Sincronização do projeto concluída com sucesso!');
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Ocorreu um erro durante a sincronização: ' . $e->getMessage());
+        } finally {
+            $conn->fetchOne('SELECT RELEASE_LOCK(?)', [$lockName]);
         }
 
         return $this->redirectToRoute('app_project_sync', ['id' => $id]);
@@ -182,12 +193,14 @@ class ProjectSyncController extends AbstractController
         return $this->getParameter('kernel.project_dir') . '/var/geography_sync_cache/project_' . $projectId . '.json';
     }
 
-    private function getProject(int $id): BibliometricProject
+    /** Leitura ('view') vale para projeto público; executar a sincronização ('edit') só o dono. */
+    private function getProject(int $id, string $attribute = 'view'): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($id);
-        if (!$project || $project->getUser() !== $this->getUser()) {
-            throw $this->createAccessDeniedException();
+        if (!$project) {
+            throw $this->createNotFoundException();
         }
+        $this->denyAccessUnlessGranted($attribute, $project);
         return $project;
     }
 }

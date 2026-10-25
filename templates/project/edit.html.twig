@@ -104,7 +104,7 @@
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                     <div style="flex:1; min-width:250px">
                         <h4 style="font-size:14px;font-weight:600;margin:0 0 4px">Arquivar este projeto {{ help('project.edit.archive') }}</h4>
-                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">O projeto sai da lista "Meus Projetos", mas nada é apagado e ele continua acessível pelo link direto.</p>
+                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">O projeto sai da lista "Meus Projetos" e vai para "Arquivados", de onde pode ser reativado. Nada é apagado.</p>
                     </div>
                     <form method="post" action="{{ path('app_projects_archive', {id: project.id}) }}"
                           onsubmit="return confirm('Tem certeza que deseja arquivar este projeto?')">

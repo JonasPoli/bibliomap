@@ -9,12 +9,14 @@
 {% endblock %}
 
 {% block topbar_actions %}
+    {% if is_granted('edit', project) %}
     <a href="{{ path('app_projects_edit', {id: project.id}) }}" class="btn-bm-secondary" style="font-size:13px;padding:6px 14px">
         <i class="bi bi-pencil me-1"></i>Editar
     </a>
     <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="font-size:13px;padding:6px 14px">
         <i class="bi bi-upload me-1"></i>Importar dados
     </a>
+    {% endif %}
 {% endblock %}
 
 {% block body %}
@@ -178,7 +180,7 @@
                     <div style="font-size:13.5px;font-weight:500;color:var(--bm-text);{{ step.done ? 'text-decoration:line-through;opacity:0.6' : '' }}">{{ step.label }}</div>
                     <div style="font-size:12px;color:var(--bm-text-muted)">{{ step.desc }}</div>
                 </div>
-                {% if not step.done %}
+                {% if not step.done and (i > 1 or is_granted('edit', project)) %}
                     <a href="{{ step.link }}" style="font-size:12px;color:var(--bm-accent);text-decoration:none;white-space:nowrap;font-weight:500">
                         Iniciar <i class="bi bi-arrow-right-short"></i>
                     </a>

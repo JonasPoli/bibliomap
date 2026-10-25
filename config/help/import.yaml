@@ -11,9 +11,9 @@ import.index.page:
   what: |-
     Traz para o projeto os registros exportados de uma base científica. Cada arquivo vira uma "importação"; os registros viram documentos, com autores, palavras-chave, periódico, ano, citações e afiliações.
   how: |-
-    1) Exporte da base no formato indicado (veja o guia abaixo). 2) Arraste o arquivo aqui. 3) Com **um** arquivo, você vê uma prévia e confirma; com **vários**, eles entram direto na fila. O processamento roda em segundo plano.
+    1) Exporte da base no formato indicado (veja o guia abaixo). 2) Arraste o arquivo aqui. 3) Com **um** arquivo, você vê uma prévia e confirma; com **vários**, eles entram direto na fila e são processados um por vez, em segundo plano.
   not: |-
-    Não busca dados na internet nem nas bases por você. Formatos lidos hoje: **Scopus CSV**, **Web of Science TXT**, **Lens.org CSV** e **PubMed CSV/NBIB**. RIS, BibTeX, XLSX, JSON, OpenAlex e Crossref ainda não têm leitor e resultam em 0 documentos.
+    Não busca dados na internet nem nas bases por você. Formatos lidos hoje: **Scopus CSV**, **Web of Science TXT**, **Lens.org CSV** e **PubMed CSV/NBIB**. RIS, BibTeX, XLSX e JSON são recusados no envio; um CSV/TXT que não for reconhecido (ex.: OpenAlex, Crossref) termina com status **Erro**, sem criar documentos.
   example: |-
     Busca no Scopus com 1.540 resultados: exporte um único CSV com todos os campos, envie aqui, confira a prévia (base detectada: Scopus) e confirme.
 
@@ -33,7 +33,7 @@ import.index.next:
   what: |-
     Envia os arquivos ao servidor e detecta a base de origem.
   how: |-
-    **Um arquivo**: abre a prévia com os 10 primeiros registros para você conferir e confirmar. **Vários arquivos**: pula a prévia, cria uma importação por arquivo e as processa em segundo plano; você volta à página do projeto.
+    **Um arquivo**: abre a prévia com os 10 primeiros registros para você conferir e confirmar. **Vários arquivos**: pula a prévia, cria uma importação por arquivo e as processa uma de cada vez, em segundo plano; você volta à página do projeto. A sincronização de países e instituições roda uma vez, ao final do último arquivo.
   not: |-
     No envio múltiplo não há chance de corrigir a base detectada antes de importar. Se tiver dúvida sobre o formato, envie um arquivo por vez.
   example: |-
@@ -101,7 +101,7 @@ import.source.lens:
   how: |-
     Export › **CSV** › All fields. Baixe o arquivo pelo aviso de "Export complete".
   not: |-
-    O CSV do Lens não traz afiliações dos autores: relatórios de instituições ficam vazios para esses documentos, e o país gravado é o **país do periódico** (Source Country), não o dos autores.
+    O CSV do Lens não traz afiliações dos autores: relatórios de **países e instituições ficam vazios** para esses documentos. A coluna "Source Country" (país do periódico) não é usada como país do documento.
   example: |-
     Para um mapeamento de patentes e artigos sobre bioinsumos, use o Lens para os artigos e confira países no Scopus/WoS.
 
@@ -134,7 +134,7 @@ import.source.openalex:
   how: |-
     Enquanto não houver leitor, use o OpenAlex para conferir dados e importe os registros pelo Scopus, WoS, Lens ou PubMed.
   not: |-
-    **O BiblioMap ainda não lê o CSV do OpenAlex**: o arquivo é aceito no envio, mas a importação termina com 0 documentos.
+    **O BiblioMap ainda não lê o CSV do OpenAlex**: o arquivo não é reconhecido e a importação termina com status Erro, sem documentos.
   example: |-
     Precisa de cobertura aberta? Use o Lens.org (CSV), que é gratuito e já é lido pelo BiblioMap.
 
@@ -145,7 +145,7 @@ import.source.crossref:
   how: |-
     Na prática, exporte do Scopus ou WoS (que já trazem o DOI do Crossref) e importe esses arquivos.
   not: |-
-    **O BiblioMap ainda não lê CSV, JSON ou RIS do Crossref**: esses arquivos resultam em 0 documentos.
+    **O BiblioMap ainda não lê CSV, JSON ou RIS do Crossref**: JSON e RIS são recusados no envio e o CSV termina com status Erro, sem documentos.
   example: |-
     Para completar DOIs faltantes, use a busca do Crossref para consulta, mas importe os registros pela base de onde vieram.
 
@@ -156,7 +156,7 @@ import.source.other:
   how: |-
     Se a mesma busca puder ser feita no Scopus, WoS, Lens ou PubMed, exporte de lá. Para pedir um novo leitor, fale com o administrador informando base e formato.
   not: |-
-    **Ainda não há leitor para RIS, BibTeX, XLSX ou XML**: o envio é aceito, mas nenhum documento é criado.
+    **Ainda não há leitor para RIS, BibTeX, XLSX ou XML**: esses arquivos são recusados no envio.
   example: |-
     Uma busca no SciELO exportada em RIS não será lida hoje; a alternativa é buscar os mesmos artigos no Scopus (que indexa grande parte do SciELO).
 
@@ -167,7 +167,7 @@ import.index.supported_formats:
   how: |-
     Confira aqui antes de exportar. Se a sua base não está em "Lidos", exporte de uma base que esteja.
   not: |-
-    O botão de envio aceita outras extensões (RIS, BIB, XLSX, JSON), mas elas não têm leitor e geram 0 documentos.
+    Outras extensões (RIS, BIB, XLSX, JSON) são recusadas no envio, com aviso. Um CSV/TXT de base sem leitor termina com status Erro.
   example: |-
     Tem um .ris do Mendeley? Não importe; refaça a busca no Scopus e exporte em CSV.
 
@@ -215,20 +215,20 @@ import.preview.detected_source:
   how: |-
     Scopus, Lens e PubMed CSV são reconhecidos pelos nomes das colunas; WoS pelo cabeçalho "FN Clarivate"; PubMed NBIB pelas linhas "PMID-". Confiança de 100% indica que todas as marcas foram encontradas.
   not: |-
-    "Não detectada" quase sempre significa formato sem leitor (RIS, BibTeX, XLSX, OpenAlex...): nesse caso a importação vai gerar 0 documentos.
+    "Não detectada" quase sempre significa formato sem leitor (ex.: CSV do OpenAlex): nesse caso a importação termina com status Erro, sem documentos.
   example: |-
     Um CSV do Scopus com as colunas EID, Authors, Cited by e Author Keywords → "Scopus · Confiança 100%".
 
 import.preview.preview_count:
-  title: "Registros na prévia"
+  title: "Registros no arquivo"
   what: |-
-    Quantos registros foram lidos para montar esta prévia (no máximo 10).
+    Quantos registros o arquivo inteiro tem, contados pelo mesmo leitor que fará a importação (registros, não linhas).
   how: |-
-    O total real do arquivo é contado durante o processamento e aparece na tela seguinte.
+    Confira se bate com o total informado pela base na exportação. A tabela abaixo mostra só os 10 primeiros registros, como amostra.
   not: |-
-    Não é o total do arquivo.
+    Não é o número de documentos que serão criados: duplicados e registros com erro são descontados na importação. Aparece "—" quando o formato não foi detectado.
   example: |-
-    Um arquivo de 1.987 registros mostra "10" aqui; na tela de processamento aparece "Total no arquivo: 1.987".
+    Um CSV do Scopus de 1.987 registros mostra 1.987 aqui, mesmo que os resumos tenham quebras de linha.
 
 import.preview.table:
   title: "Primeiros registros lidos"
@@ -281,7 +281,7 @@ import.preview.source:
   how: |-
     Só troque se a detecção errou. Para CSV, escolher a base errada faz o arquivo ser lido com as colunas erradas (títulos e autores vazios).
   not: |-
-    Escolher OpenAlex, Crossref ou Outra não cria um leitor para esses formatos: o sistema tenta reconhecer o arquivo sozinho e, se não conseguir, importa 0 documentos.
+    Escolher OpenAlex, Crossref ou Outra não cria um leitor para esses formatos: o sistema tenta reconhecer o arquivo sozinho e, se não conseguir, a importação termina com status Erro.
   example: |-
     A prévia detectou Lens.org num CSV do Lens: mantenha. Se você marcar Scopus, os documentos ficarão sem título.
 
@@ -351,7 +351,7 @@ import.processing.progress:
   how: |-
     Os números são atualizados a cada lote de 200 registros, então a barra avança "aos saltos".
   not: |-
-    Não é uma estimativa de tempo. Em CSV com resumos multilinha o total pode estar superestimado e a barra não chegar a 100%.
+    Não é uma estimativa de tempo nem inclui a sincronização de países e instituições, que roda logo depois.
   example: |-
     Arquivo de 2.000 registros: a barra pula de 0% para 10%, 20%... a cada 200 registros.
 
@@ -362,7 +362,7 @@ import.processing.total:
   how: |-
     Aparece "contando…" enquanto o arquivo é lido pela primeira vez.
   not: |-
-    Em CSV é uma contagem de linhas: resumos com quebra de linha podem inflar o número.
+    Não é o número de documentos gravados. Em CSV conta registros, não linhas: resumos com quebra de linha não inflam o total.
   example: |-
     WoS lote 1–500 → 500.
 
@@ -395,7 +395,7 @@ import.processing.errors:
   how: |-
     Poucos erros podem ser ignorados. Muitos erros indicam arquivo corrompido ou formato errado: reexporte e importe de novo.
   not: |-
-    Os registros com erro não são listados nem reprocessados.
+    Os registros com erro não são listados nem reprocessados. Também contam aqui registros que o leitor não conseguiu interpretar ou sem título, DOI e identificador.
   example: |-
     0 erros é o normal; 4 em 500 costuma ser registro incompleto na própria base.
 
@@ -417,22 +417,22 @@ normalize.page:
 normalize.authors.about:
   title: "Autores similares"
   what: |-
-    Sugere pares de autores do projeto com nomes quase iguais. Só compara nomes com as **mesmas iniciais** e mesma **letra inicial do sobrenome**; a semelhança mínima é 85%.
+    Sugere pares de autores do projeto com nomes quase iguais. Só compara nomes com as **mesmas 4 primeiras letras do sobrenome** e a **mesma inicial do prenome** (ex.: "Silva, J" × "Silva, JA"); a semelhança mínima é 85%.
   how: |-
     O lado **Manter** é o que tem mais artigos. Ao mesclar, os artigos do autor da direita passam para o da esquerda, o nome descartado vira variação e o cadastro duplicado é apagado.
   not: |-
-    Pega sobretudo diferenças de maiúsculas, acentos e pequenos erros de digitação. **Não** compara "Silva, J" com "Silva, JA" (iniciais diferentes) e não distingue homônimos. Afeta o mesmo autor em outros projetos.
+    Pega diferenças de maiúsculas, acentos, iniciais a mais e pequenos erros de digitação. Não compara nomes com inicial do prenome diferente nem distingue homônimos ("Silva, J" pode ser outra pessoa que "Silva, JA": confira). **O cadastro de autores é compartilhado por todos os projetos**: a mesclagem vale também nos projetos de outros usuários que tenham o autor.
   example: |-
     "GONÇALVES, MA" (12 artigos) e "Goncalves, MA" (3 artigos) aparecem com 86% → mesclando, o autor passa a ter 15 artigos no ranking.
 
 normalize.keywords.about:
   title: "Palavras-chave similares"
   what: |-
-    Sugere pares de palavras-chave do mesmo tipo com grafia parecida (semelhança mínima de 85%) ou que diferem só por "s"/"es" no final. Compara apenas termos que começam com as mesmas 4 letras.
+    Sugere pares de palavras-chave do mesmo tipo com grafia parecida (semelhança mínima de 85%) ou que diferem só por "s"/"es" no final (estes com o percentual real, abaixo de 100%). Compara apenas termos que começam com as mesmas 4 letras.
   how: |-
     O lado **Manter** é o termo com mais ocorrências. Ao mesclar, todos os documentos passam a usar o termo mantido e o outro vira variação.
   not: |-
-    Não une sinônimos com grafias diferentes ("AI" x "artificial intelligence") nem termos já ligados ao tesauro. Afeta o mesmo termo em outros projetos.
+    Não une sinônimos com grafias diferentes ("AI" x "artificial intelligence") nem termos já ligados ao tesauro. **O cadastro de palavras-chave é compartilhado por todos os projetos**: a mesclagem vale também nos projetos de outros usuários que usem o termo.
   example: |-
     "smart farming" (41) e "smart-farming" (7) aparecem como 92% similares; mesclar soma 48 ocorrências em "smart farming".
 
@@ -461,11 +461,11 @@ normalize.duplicates.about:
 normalize.suggestions:
   title: "Sugestões e similaridade"
   what: |-
-    Quantidade de pares sugeridos na aba atual. O percentual de cada par vem da distância de edição entre os textos (quantas letras precisam mudar): 100% = iguais ignorando maiúsculas; 98% = iguais ignorando pontuação.
+    Quantidade de pares sugeridos na aba atual. O percentual de cada par vem da distância de edição entre os textos (quantas letras precisam mudar): 100% = idênticos ignorando só maiúsculas/minúsculas; 98% = iguais ignorando pontuação.
   how: |-
     Comece pelos pares de maior percentual (a lista já vem ordenada). Depois de mesclar, recarregue: novos pares podem aparecer.
   not: |-
-    Similaridade alta não garante que é o mesmo item. Para palavras-chave, pares singular/plural aparecem como 100% mesmo sem serem idênticos.
+    Similaridade alta não garante que é o mesmo item. Pares singular/plural aparecem com o percentual real (ex.: "farm" × "farms" = 80%); use **Selecionar singular/plural** para marcá-los.
   example: |-
     "Silva, J.A." x "Silva, JA" → 98%; "Sousa, JA" x "Souza, JA" → 89% (pode ser outra pessoa: confira).
 
@@ -505,13 +505,13 @@ normalize.select_plural:
 normalize.merge_perfect:
   title: "Mesclar 100% similares"
   what: |-
-    Seleciona todos os pares com similaridade de 100% e, após confirmação, mescla todos de uma vez.
+    Seleciona todos os pares com similaridade de 100% — termos idênticos ignorando maiúsculas/minúsculas — e, após confirmação, mescla todos de uma vez.
   how: |-
     Use como primeira limpeza rápida. Aparece uma confirmação com a quantidade de pares antes de executar.
   not: |-
-    **Não tem desfazer.** Em palavras-chave, 100% inclui pares singular/plural, não só grafias idênticas.
+    **Não tem desfazer** e vale para todos os projetos que usam esses itens. Não inclui pares singular/plural nem diferenças de pontuação: para esses, use os botões de seleção e revise.
   example: |-
-    Após importar 3 bases, 214 pares 100% (maiúsculas e plurais) são resolvidos em um clique.
+    "COVID-19" × "Covid-19" entra; "smart city" × "smart cities" não entra (use Selecionar singular/plural).
 
 normalize.merge_selected:
   title: "Mesclar selecionados"

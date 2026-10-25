@@ -29,7 +29,7 @@ class DatasetController extends AbstractController
     #[Route('', name: 'app_datasets_index', methods: ['GET'])]
     public function index(int $projectId): Response
     {
-        $project = $this->getProject($projectId);
+        $project = $this->getProject($projectId, 'view');
         $datasets = $this->datasetRepo->findBy(
             ['project' => $project],
             ['createdAt' => 'DESC']
@@ -47,7 +47,7 @@ class DatasetController extends AbstractController
     #[Route('/{id}', name: 'app_datasets_show', methods: ['GET'])]
     public function show(int $projectId, Dataset $dataset, Request $request): Response
     {
-        $project = $this->getProject($projectId);
+        $project = $this->getProject($projectId, 'view');
         $this->assertDatasetBelongs($dataset, $project);
 
         $page = max(1, (int) $request->query->get('page', 1));
@@ -163,12 +163,14 @@ class DatasetController extends AbstractController
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private function getProject(int $projectId): BibliometricProject
+    /** Listar/ver vale para projeto público ('view'); editar/excluir só o dono ('edit'). */
+    private function getProject(int $projectId, string $attribute = 'edit'): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($projectId);
-        if (!$project || $project->getUser() !== $this->getUser()) {
-            throw $this->createAccessDeniedException();
+        if (!$project) {
+            throw $this->createNotFoundException();
         }
+        $this->denyAccessUnlessGranted($attribute, $project);
         return $project;
     }
 

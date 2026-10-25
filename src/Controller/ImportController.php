@@ -62,7 +62,9 @@ class ImportController extends AbstractController
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
         }
 
-        $allowedExts = ['csv', 'txt', 'ris', 'bib', 'xlsx', 'json', 'nbib'];
+        // Só extensões com leitor (ImporterResolver); RIS, BibTeX, XLSX e JSON ainda não têm
+        $allowedExts = ['csv', 'txt', 'nbib'];
+        $unsupportedMsg = 'Formato não suportado: .%s. O BiblioMap lê Scopus/Lens.org/PubMed (CSV), Web of Science/PubMed (TXT) e PubMed (NBIB). RIS, BibTeX, XLSX e JSON ainda não têm leitor.';
 
         // If exactly one file, preserve the single file preview & confirm step
         if (count($uploadedFiles) === 1) {
@@ -70,7 +72,7 @@ class ImportController extends AbstractController
             $ext = strtolower($file->getClientOriginalExtension());
 
             if (!in_array($ext, $allowedExts)) {
-                $this->addFlash('danger', 'Formato não suportado. Use CSV, TXT, RIS, BibTeX, XLSX, JSON ou NBIB.');
+                $this->addFlash('danger', sprintf($unsupportedMsg, $ext));
                 return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
             }
 
@@ -105,7 +107,10 @@ class ImportController extends AbstractController
             $previewResult   = $previewImporter->parse($fullPath, 10);
             $previewRecords  = $previewResult->records;
             $headers         = $previewResult->headers;
-            $totalRows       = $previewResult->totalRead;
+            // totalRead para em 10 (limite da prévia): conta o arquivo inteiro
+            $totalRows       = $detected && method_exists($previewImporter, 'countRows')
+                ? $previewImporter->countRows($fullPath)
+                : null;
 
             $session = $request->getSession();
             $session->set('import_file', $fullPath);
@@ -131,7 +136,7 @@ class ImportController extends AbstractController
         foreach ($uploadedFiles as $file) {
             $ext = strtolower($file->getClientOriginalExtension());
             if (!in_array($ext, $allowedExts)) {
-                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado: formato não suportado.', $file->getClientOriginalName()));
+                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado. ' . $unsupportedMsg, $file->getClientOriginalName(), $ext));
                 continue;
             }
 
@@ -171,27 +176,14 @@ class ImportController extends AbstractController
             $project->setStatus(BibliometricProject::STATUS_IMPORTING);
             $this->em->flush();
 
-            $projectDir = $this->getParameter('kernel.project_dir');
-            $phpBinary  = $this->resolvePhpBinary($projectDir);
-            $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
-
-            foreach ($createdDatasets as $dataset) {
-                $logFile = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
-                $cmd = sprintf(
-                    'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --skip-enrichment --env=%s --no-debug >> %s 2>&1 < /dev/null &',
-                    escapeshellarg($phpBinary),
-                    escapeshellarg($projectDir),
-                    $dataset->getId(),
-                    escapeshellarg($appEnv),
-                    escapeshellarg($logFile)
-                );
-
-                try {
-                    $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
-                    $process->start();
-                } catch (\Throwable $e) {
-                    $this->addFlash('warning', 'O dataset foi criado, mas a execução em segundo plano não pôde ser iniciada para ' . $dataset->getOriginalFilename() . ': ' . $e->getMessage());
-                }
+            // Um único processo importa os arquivos em sequência e enriquece o projeto
+            // uma vez no fim. Um processo por arquivo em paralelo sobrecarregava o MySQL
+            // (conexões perdidas, importações parciais e contagens incoerentes).
+            $ids = array_map(fn (Dataset $d) => $d->getId(), $createdDatasets);
+            try {
+                $this->launchImport($ids);
+            } catch (\Throwable $e) {
+                $this->addFlash('warning', 'Os datasets foram criados, mas a execução em segundo plano não pôde ser iniciada: ' . $e->getMessage());
             }
 
             $this->addFlash('success', sprintf('%d arquivo(s) enviado(s) com sucesso e enfileirados para processamento!', count($createdDatasets)));
@@ -245,23 +237,8 @@ class ImportController extends AbstractController
         $session->remove('import_file');
         $session->remove('import_source');
 
-        $projectDir = $this->getParameter('kernel.project_dir');
-        $phpBinary  = $this->resolvePhpBinary($projectDir);
-        $logFile    = $projectDir . '/var/log/import_' . $dataset->getId() . '.log';
-        $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
-
-        $cmd = sprintf(
-            'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %d --skip-enrichment --env=%s --no-debug >> %s 2>&1 < /dev/null &',
-            escapeshellarg($phpBinary),
-            escapeshellarg($projectDir),
-            $dataset->getId(),
-            escapeshellarg($appEnv),
-            escapeshellarg($logFile)
-        );
-
         try {
-            $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
-            $process->start();
+            $this->launchImport([$dataset->getId()]);
         } catch (\Throwable $e) {
             $this->addFlash('warning', 'O registro foi criado com status pendente, mas a execução em segundo plano não pôde ser iniciada automaticamente: ' . $e->getMessage() . '. Para corrigir isso no RunCloud, edite as "disable_functions" nas configurações de PHP do seu servidor e garanta que TODAS as seguintes funções estejam habilitadas (removidas da lista): proc_open, proc_close, proc_get_status, proc_terminate, exec.');
         }
@@ -328,10 +305,38 @@ class ImportController extends AbstractController
     private function getProject(int $projectId): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($projectId);
-        if (!$project || $project->getUser() !== $this->getUser()) {
-            throw $this->createAccessDeniedException();
+        if (!$project) {
+            throw $this->createNotFoundException();
         }
+        // Importar é escrita: só o dono (ProjectVoter 'edit')
+        $this->denyAccessUnlessGranted('edit', $project);
         return $project;
+    }
+
+    /**
+     * Dispara app:import:dataset em segundo plano para os datasets, em sequência.
+     * Sem --skip-enrichment: o comando enriquece o projeto uma vez ao final.
+     *
+     * @param int[] $datasetIds
+     */
+    private function launchImport(array $datasetIds): void
+    {
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $phpBinary  = $this->resolvePhpBinary($projectDir);
+        $appEnv     = $_SERVER['APP_ENV'] ?? 'dev';
+        $logFile    = $projectDir . '/var/log/import_' . $datasetIds[0] . '.log';
+
+        $cmd = sprintf(
+            'nohup %s -d memory_limit=2048M -d max_execution_time=0 %s/bin/console app:import:dataset %s --env=%s --no-debug >> %s 2>&1 < /dev/null &',
+            escapeshellarg($phpBinary),
+            escapeshellarg($projectDir),
+            implode(' ', array_map('intval', $datasetIds)),
+            escapeshellarg($appEnv),
+            escapeshellarg($logFile)
+        );
+
+        $process = \Symfony\Component\Process\Process::fromShellCommandline($cmd);
+        $process->start();
     }
 
     private function resolvePhpBinary(string $projectDir): string

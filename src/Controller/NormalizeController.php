@@ -304,12 +304,14 @@ class NormalizeController extends AbstractController
         }
     }
 
+    /** Normalizar altera cadastros e documentos: só o dono (ProjectVoter 'edit'). */
     private function getProject(int $id): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($id);
-        if (!$project || $project->getUser() !== $this->getUser()) {
-            throw $this->createAccessDeniedException();
+        if (!$project) {
+            throw $this->createNotFoundException();
         }
+        $this->denyAccessUnlessGranted('edit', $project);
         return $project;
     }
 }

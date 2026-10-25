@@ -80,7 +80,7 @@ class ScopusCsvImporter implements BibliographicImporterInterface
      * Streaming generator — yields ONE DTO at a time.
      * Use this for full imports to avoid memory exhaustion.
      *
-     * @return \Generator<BibliographicRecordDTO>
+     * @return \Generator<BibliographicRecordDTO|null>  null = registro malformado
      */
     public function parseStream(string $filePath): \Generator
     {
@@ -91,7 +91,8 @@ class ScopusCsvImporter implements BibliographicImporterInterface
             try {
                 yield $this->mapToInternalRecord($record);
             } catch (\Throwable) {
-                // skip malformed rows silently in streaming mode
+                // Registro malformado: entrega null para a importação contá-lo como erro.
+                yield null;
             }
         }
     }
@@ -101,15 +102,15 @@ class ScopusCsvImporter implements BibliographicImporterInterface
      */
     public function countRows(string $filePath): int
     {
-        $handle = fopen($filePath, 'r');
-        if (!$handle) return 0;
-        $count = 0;
-        while (!feof($handle)) {
-            fgets($handle);
-            $count++;
+        // Conta registros CSV, não linhas físicas: campos entre aspas (ex.: resumo)
+        // podem conter quebras de linha. Mesma leitura usada por parseStream().
+        try {
+            $reader = Reader::from($filePath);
+            $reader->setHeaderOffset(0);
+            return count($reader);
+        } catch (\Throwable) {
+            return 0;
         }
-        fclose($handle);
-        return max(0, $count - 1); // minus header
     }
 
     public function mapToInternalRecord(array $rawRecord): BibliographicRecordDTO
