@@ -57,7 +57,7 @@
         Produção Científica por Continente
         {{ help('report.countries.continents') }}
     </h5>
-    {# O mapa de continentes depende do continente de cada país; só é exibido quando esse dado vem na lista. #}
+    {# O mapa de continentes usa o continente de cada país (c.continent); só é exibido quando esse dado vem na lista. #}
     {% set hasCountryContinent = list|filter(c => c.continent is defined and c.continent)|length > 0 %}
     <div class="row g-4 align-items-center">
         <!-- Chart & Table -->
@@ -170,12 +170,11 @@
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Documentos {{ help('report.countries.col_articles') }}</th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações {{ help('report.countries.col_citations') }}</th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit. {{ help('report.countries.col_avg') }}</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% vínculos {{ help('report.countries.col_share') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% documentos {{ help('report.countries.col_share') }}</th>
                         </tr>
                     </thead>
                     <tbody class="border-0">
-                        {% set totalDocs = 0 %}
-                        {% for c in list %}{% set totalDocs = totalDocs + c.doc_count %}{% endfor %}
+                        {% set totalDocs = total_docs %}
                         {% if list is empty %}
                         <tr>
                             <td colspan="6" class="text-center py-5" style="color:var(--bm-text-muted)">
@@ -643,6 +642,8 @@ function buildContinentsMap() {
         'ásia': '#10b981',
         'oceania': '#f59e0b',
         'áfrica': '#ec4899',
+        'américa central': '#06b6d4',
+        'europa/ásia': '#f97316',
     };
 
     const tooltip = document.getElementById('map-tooltip');

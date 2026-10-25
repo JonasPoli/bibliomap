@@ -54,6 +54,8 @@ class ClassificationEngine
 
         // Pre-fetch document metadata for institutional and geographic filtering
         $conn = $this->em->getConnection();
+        // GROUP_CONCAT corta em 1.024 bytes por padrão (documentos com muitas palavras-chave/autores)
+        $conn->executeStatement('SET SESSION group_concat_max_len = 1048576');
         $docMeta = [];
         $metaRows = $conn->fetchAllAssociative(
             'SELECT d.id AS doc_id,
@@ -86,10 +88,14 @@ class ClassificationEngine
         $minYear = $project->getClassificationMinYear();
 
         // 3. Fetch all documents for the project via raw SQL
+        // Palavras de autor (DE) e indexadas (ID / Keywords Plus) separadas pelo keyword_type,
+        // com a forma tratada e a original. "; " evita casar um termo juntando duas palavras-chave.
         $docs = $conn->fetchAllAssociative(
             'SELECT d.id, d.title, d.abstract_text, d.year,
-                    GROUP_CONCAT(DISTINCT COALESCE(k.keyword_display, dk.original_term) SEPARATOR " ") AS keywords,
-                    GROUP_CONCAT(DISTINCT dk.original_term SEPARATOR " ") AS keywords_original
+                    GROUP_CONCAT(DISTINCT CASE WHEN k.keyword_type = "author_keyword"
+                        THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term) END SEPARATOR " ; ") AS author_keywords,
+                    GROUP_CONCAT(DISTINCT CASE WHEN k.keyword_type = "indexed_keyword"
+                        THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term) END SEPARATOR " ; ") AS indexed_keywords
              FROM document d
              LEFT JOIN document_keyword dk ON dk.document_id = d.id
              LEFT JOIN keyword k ON k.id = dk.keyword_id
@@ -98,7 +104,9 @@ class ClassificationEngine
             [$project->getId()]
         );
 
-        $stats      = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0, 'multi' => 0];
+        // rejected_unassigned: reprovados (ano mínimo/validador) que foram para "Sem Classificação"
+        // porque o projeto não tem grupo Ruído — contam como sem grupo, não como ruído.
+        $stats      = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0, 'multi' => 0, 'rejected_unassigned' => 0];
         $batchSize  = 100;
         $count      = 0;
 
@@ -165,8 +173,8 @@ class ClassificationEngine
                 foreach ($normalGroups as $group) {
                     // Check Group-specific Qualis strata
                     if (!empty($group->getQualisFilter())) {
-                        $gQualis = array_map('strtoupper', $group->getQualisFilter());
-                        $docQualis = !empty($meta['qualis']) ? strtoupper($meta['qualis']) : null;
+                        $gQualis = array_map('mb_strtoupper', $group->getQualisFilter());
+                        $docQualis = !empty($meta['qualis']) ? mb_strtoupper($meta['qualis']) : null;
                         if (!$docQualis || !in_array($docQualis, $gQualis, true)) {
                             continue;
                         }
@@ -181,16 +189,13 @@ class ClassificationEngine
                     }
 
                     // Check Group-specific Continent
-                    if ($group->getContinente()) {
-                        $gCont = strtolower($group->getContinente());
-                        if (!in_array($gCont, $meta['continents'], true)) {
-                            continue;
-                        }
+                    if ($group->getContinente() && !self::continentMatches($group->getContinente(), $meta['continents'])) {
+                        continue;
                     }
 
                     // Check Group-specific Countries
                     if (!empty($group->getCountryIds())) {
-                        $gCountries = array_map('strtolower', $group->getCountryIds());
+                        $gCountries = array_map('mb_strtolower', $group->getCountryIds());
                         $hasCountry = false;
                         foreach ($meta['countries'] as $dc) {
                             if (in_array($dc, $gCountries, true)) {
@@ -203,7 +208,7 @@ class ClassificationEngine
 
                     // Check Group-specific Institution Nature
                     if (!empty($group->getInstitutionNature())) {
-                        $gNatures = array_map('strtolower', $group->getInstitutionNature());
+                        $gNatures = array_map('mb_strtolower', $group->getInstitutionNature());
                         $hasNature = false;
                         foreach ($meta['natures'] as $dn) {
                             foreach ($gNatures as $gn) {
@@ -218,7 +223,7 @@ class ClassificationEngine
 
                     // Check Group-specific Authors filter
                     if (!empty($group->getAuthorsFilter())) {
-                        $gAuthors = array_map('strtolower', $group->getAuthorsFilter());
+                        $gAuthors = array_map('mb_strtolower', $group->getAuthorsFilter());
                         $hasAuthor = false;
                         foreach ($meta['authors'] as $da) {
                             foreach ($gAuthors as $ga) {
@@ -282,12 +287,16 @@ class ClassificationEngine
                 }
             }
 
-            // Count noise and unclassified at document level
+            // Count noise and unclassified at document level (pelo grupo onde o documento ficou)
             $stats['total']++;
-            if ($isNoise) {
+            $onlyUnclassified = count($assignedGroups) === 1 && $assignedGroups[0]['group']?->getType() === ClassificationGroup::TYPE_UNCLASSIFIED;
+            if ($isNoise && !$onlyUnclassified) {
                 $stats['noise']++;
-            } elseif (count($assignedGroups) === 1 && $assignedGroups[0]['group']?->getType() === ClassificationGroup::TYPE_UNCLASSIFIED) {
+            } elseif ($onlyUnclassified) {
                 $stats['unclassified']++;
+                if ($isNoise) {
+                    $stats['rejected_unassigned']++;
+                }
             }
 
             $count++;
@@ -313,13 +322,13 @@ class ClassificationEngine
             $parts[] = $row['abstract_text'] ?? '';
         }
         if (in_array('author_keywords', $fields, true)) {
-            $parts[] = $row['keywords'] ?? '';
+            $parts[] = $row['author_keywords'] ?? '';
         }
         if (in_array('indexed_keywords', $fields, true)) {
-            $parts[] = $row['keywords_original'] ?? '';
+            $parts[] = $row['indexed_keywords'] ?? '';
         }
 
-        return strtolower(implode(' ', array_filter($parts)));
+        return mb_strtolower(implode(' ', array_filter($parts)));
     }
 
     /** @param ClassificationGroup[] $groups */
@@ -331,7 +340,8 @@ class ClassificationEngine
             if ($g->isUseThesaurus()) {
                 $terms = $this->expandTermsWithThesaurus($terms);
             }
-            $map[$g->getId()] = $terms;
+            // O texto do documento é comparado em minúsculas (mb_*: "Água" → "água")
+            $map[$g->getId()] = array_values(array_unique(array_map(fn($t) => mb_strtolower(trim($t)), $terms)));
         }
         return $map;
     }
@@ -347,7 +357,7 @@ class ClassificationEngine
         $expanded = [];
 
         foreach ($terms as $term) {
-            $tNorm = strtolower(trim($term));
+            $tNorm = mb_strtolower(trim($term));
             if ($tNorm === '') continue;
 
             $expanded[] = $tNorm;
@@ -373,7 +383,7 @@ class ClassificationEngine
                         [\Doctrine\DBAL\ArrayParameterType::INTEGER]
                     );
                     foreach ($synonyms as $syn) {
-                        $sNorm = strtolower(trim($syn));
+                        $sNorm = mb_strtolower(trim($syn));
                         if ($sNorm !== '') $expanded[] = $sNorm;
                     }
                 }
@@ -390,7 +400,7 @@ class ClassificationEngine
                         [\Doctrine\DBAL\ArrayParameterType::INTEGER]
                     );
                     foreach ($vars as $v) {
-                        $vNorm = strtolower(trim($v));
+                        $vNorm = mb_strtolower(trim($v));
                         if ($vNorm !== '') $expanded[] = $vNorm;
                     }
                 }
@@ -400,6 +410,25 @@ class ClassificationEngine
         }
 
         return array_values(array_unique($expanded));
+    }
+
+    /**
+     * Continente do grupo × continentes das instituições do documento (minúsculas, mb_*).
+     * Países transcontinentais ("Europa/Ásia") casam com Europa e com Ásia; escolher
+     * "Europa/Ásia" no grupo casa só com eles.
+     *
+     * @param string[] $docContinents
+     */
+    public static function continentMatches(string $groupContinent, array $docContinents): bool
+    {
+        $g = mb_strtolower(trim($groupContinent));
+        foreach ($docContinents as $dc) {
+            $dc = mb_strtolower(trim((string) $dc));
+            if ($dc === $g || in_array($g, array_map('trim', explode('/', $dc)), true)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** @param ClassificationGroup[] $groups */

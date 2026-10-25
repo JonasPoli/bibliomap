@@ -27,9 +27,12 @@
                 <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
             </span>
             {{ help('report.lenses.total_docs') }}
-            <a href="{{ path('app_report_theoretical_lenses_recalculate', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;text-decoration:none;font-size:13px;padding:6px 14px;">
-                <i class="bi bi-arrow-clockwise"></i> Recalcular
-            </a>
+            <form method="post" action="{{ path('app_report_theoretical_lenses_recalculate', {id: project.id}) }}" class="d-inline-flex m-0">
+                <input type="hidden" name="_token" value="{{ csrf_token('lenses_recalculate_' ~ project.id) }}">
+                <button type="submit" class="btn btn-sm btn-bm-secondary" style="height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;text-decoration:none;font-size:13px;padding:6px 14px;">
+                    <i class="bi bi-arrow-clockwise"></i> Recalcular
+                </button>
+            </form>
             {{ help('report.lenses.recalculate') }}
             <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
                 <i class="bi bi-plus-circle"></i> Nova Lente
@@ -99,7 +102,7 @@
                         <strong>{{ t.match_count }}</strong> diretas &nbsp;·&nbsp; <strong>{{ t.ref_match_count }}</strong> nas refs
                     </span>
                     <span class="badge" style="background:{{ t.match_count > 0 or t.ref_match_count > 0 ? t.color : 'var(--bm-border)' }};color:white;font-size:10.5px;padding:4px 8px">
-                        {{ (t.match_count > 0 or t.ref_match_count > 0) ? (total_docs > 0 ? (((t.match_count + t.ref_match_count) / total_docs) * 100)|round(1) ~ '%' : '—') : 'Sugestão Teórica' }}
+                        {{ (t.match_count > 0 or t.ref_match_count > 0) ? (total_docs > 0 ? ((t.doc_match_count / total_docs) * 100)|round(1) ~ '%' : '—') : 'Sugestão Teórica' }}
                     </span>
                 </div>
             </div>
@@ -292,6 +295,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content" style="background-color: var(--bm-card-bg); color: var(--bm-text); border: 1px solid var(--bm-border); border-radius: 16px;">
             <form action="{{ path('app_report_theoretical_lenses_add', {id: project.id}) }}" method="POST">
+                <input type="hidden" name="_token" value="{{ csrf_token('lens_add_' ~ project.id) }}">
                 <div class="modal-header border-bm" style="border-bottom: 1px solid var(--bm-border);">
                     <h5 class="modal-title" id="addLensModalLabel" style="font-weight: 700; color: var(--bm-text);">
                         <i class="bi bi-plus-circle-fill text-accent me-2"></i>Nova Lente Teórica / Referencial

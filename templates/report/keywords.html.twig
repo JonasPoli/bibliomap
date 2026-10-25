@@ -44,7 +44,7 @@
                 </div>
             </div>
             <div style="padding-top:10px;border-top:1px solid var(--bm-border);font-size:11.5px;color:var(--bm-text-muted);line-height:1.5">
-                Soma de <em>todos</em> os termos distintos — tanto os definidos pelos autores quanto os atribuídos pelo indexador da base de dados.
+                Termos distintos do projeto — definidos pelos autores ou atribuídos pelo indexador. Um termo presente nas duas origens conta uma vez.
             </div>
         </div>
     </div>
@@ -141,7 +141,7 @@
         <div class="bm-card h-100">
             <!-- Bar chart consolidated -->
             <div id="consolidated-barchart-container">
-                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos Consolidados (Soma) {{ help('report.keywords.bar_consolidated') }}</h5>
+                <h5 class="card-title mb-3" style="font-weight:700">Top 15 Termos Consolidados {{ help('report.keywords.bar_consolidated') }}</h5>
                 <div style="position:relative;height:320px">
                     <canvas id="chart-kws-consolidated"></canvas>
                 </div>
@@ -150,7 +150,7 @@
             <!-- Word Cloud consolidated -->
             <div id="consolidated-wordcloud-container" style="display:none">
                 <h5 class="card-title mb-2" style="font-weight:700">Nuvem de Palavras Consolidada {{ help('report.keywords.wordcloud') }}</h5>
-                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (documentos com o termo em qualquer origem)</p>
                 <div id="wordcloud-container-consolidated" style="width:100%;height:320px;overflow:hidden;border-radius:8px;background:transparent;position:relative">
                     <canvas id="canvas-wordcloud-consolidated" style="width:100%;height:100%"></canvas>
                 </div>
@@ -159,7 +159,7 @@
             <!-- Treemap consolidated -->
             <div id="consolidated-treemap-container" style="display:none">
                 <h5 class="card-title mb-2" style="font-weight:700">Mapa de Árvore Consolidado {{ help('report.keywords.treemap') }}</h5>
-                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (Soma de Autor + Indexada)</p>
+                <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Geral (documentos com o termo em qualquer origem)</p>
                 <div style="position:relative;height:320px">
                     <div id="chart-treemap-consolidated" style="width:100%;height:100%"></div>
                 </div>
@@ -240,9 +240,15 @@
                             <tr class="kw-row" data-term="{{ kw.term|lower }}" data-type="{{ kw.type }}">
                                 <td style="font-weight:600;color:var(--bm-text)">{{ kw.term }}</td>
                                 <td>
+                                    {% if kw.type == 'both' %}
+                                    <span class="badge" title="Autor: {{ kw.author_freq }} · Indexada: {{ kw.indexed_freq }} documentos" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:rgba(16,185,129,0.15);color:#10b981">
+                                        Ambas
+                                    </span>
+                                    {% else %}
                                     <span class="badge" style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.15)' : 'rgba(168,85,247,0.15)' }};color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }}">
                                         {{ kw.type == 'author' ? 'Autor' : 'Indexada' }}
                                     </span>
+                                    {% endif %}
                                 </td>
                                 <td style="text-align:right;font-weight:700" class="text-accent">{{ kw.freq }}</td>
                                 <td style="text-align:center;font-size:11px" class="text-muted-bm">{{ kw.first_year }}–{{ kw.last_year }}</td>
@@ -362,6 +368,11 @@
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
 <script>
 const listData = {{ list|json_encode|raw }};
+// Visão "por origem": cada conceito vira até duas entradas (autor e indexada) com a frequência daquela origem.
+const originData = listData.flatMap(k => [
+    ...(k.author_freq  > 0 ? [{ ...k, type: 'author',  freq: k.author_freq  }] : []),
+    ...(k.indexed_freq > 0 ? [{ ...k, type: 'indexed', freq: k.indexed_freq }] : []),
+]).sort((a, b) => b.freq - a.freq);
 let chartInstance  = null;
 let chartInstanceConsolidated = null;
 let wcInitialized  = false;
@@ -385,29 +396,13 @@ function getColors() {
     };
 }
 
+// Consolidado = documentos distintos com o conceito em qualquer origem (freq do servidor),
+// e não a soma autor + indexada, que contaria duas vezes o documento que tem as duas.
 function getConsolidatedData(limit = 80) {
-    const map = {};
-    listData.forEach(k => {
-        const term = k.term;
-        if (!map[term]) {
-            map[term] = {
-                id: k.id,
-                term: term,
-                freq: 0,
-                type: 'consolidated',
-                first_year: k.first_year,
-                last_year: k.last_year
-            };
-        }
-        map[term].freq += k.freq;
-        if (k.first_year && (!map[term].first_year || k.first_year < map[term].first_year)) {
-            map[term].first_year = k.first_year;
-        }
-        if (k.last_year && (!map[term].last_year || k.last_year > map[term].last_year)) {
-            map[term].last_year = k.last_year;
-        }
-    });
-    return Object.values(map).sort((a, b) => b.freq - a.freq).slice(0, limit);
+    return listData
+        .map(k => ({ ...k, type: 'consolidated' }))
+        .sort((a, b) => b.freq - a.freq)
+        .slice(0, limit);
 }
 
 window.addEventListener('bm-theme-changed', () => {
@@ -481,7 +476,7 @@ function buildWordCloud() {
     canvas.width  = container.clientWidth  || 500;
     canvas.height = container.clientHeight || 320;
 
-    const segmentedList = listData.slice(0, 80);
+    const segmentedList = originData.slice(0, 80);
     const words = segmentedList.map(k => [k.term, cloudSize(k.freq, segmentedList)]);
 
     WordCloud(canvas, {
@@ -537,12 +532,13 @@ function buildTreemap() {
         myTreemapChart = echarts.init(chartDom);
     }
 
-    const segmentedList = listData.slice(0, 40);
+    const segmentedList = originData.slice(0, 40);
     const data = segmentedList.map(k => {
         const itemColor = k.type === 'author' ? cl.authorColor : cl.indexedColor;
         return {
             name: k.term,
             value: k.freq,
+            origin: k.type,
             itemStyle: {
                 color: itemColor,
                 borderColor: 'var(--bm-card-bg)',
@@ -557,8 +553,7 @@ function buildTreemap() {
             formatter: function (info) {
                 const term = info.name;
                 const value = info.value;
-                const item = segmentedList.find(k => k.term === term);
-                const typeText = item && item.type === 'author' ? 'Palavra de Autor' : 'Palavra Indexada';
+                const typeText = info.data && info.data.origin === 'author' ? 'Palavra de Autor' : 'Palavra Indexada';
                 return `<div style="font-family:'Inter',sans-serif;font-size:12px;">` +
                        `<b>${term}</b><br/>` +
                        `Tipo: <b>${typeText}</b><br/>` +
@@ -677,7 +672,7 @@ function rebuildChart() {
     if (chartInstance) chartInstance.destroy();
     if (chartInstanceConsolidated) chartInstanceConsolidated.destroy();
 
-    const segmentedList = listData.slice(0, 15);
+    const segmentedList = originData.slice(0, 15);
     const consolidatedList = getConsolidatedData(15);
 
     // Segmented Chart
@@ -766,7 +761,7 @@ function filterTable() {
     const type = document.getElementById('type-filter').value;
     document.querySelectorAll('.kw-row').forEach(row => {
         const rowType = row.dataset.type;
-        const matchT  = !type || rowType === type;
+        const matchT  = !type || rowType === type || rowType === 'both';
         row.style.display = matchT ? '' : 'none';
     });
 }
@@ -997,9 +992,9 @@ function viewKeywordWorks(projectId, keywordId, keywordTerm) {
 
 function exportCSV() {
     const fullList = {{ list|json_encode|raw }};
-    let csv = "\uFEFFKeyword;Type;Frequency;First Year;Last Year\r\n";
+    let csv = "\uFEFFKeyword;Type;Frequency;Author Frequency;Indexed Frequency;First Year;Last Year\r\n";
     fullList.forEach(k => {
-        csv += `"${k.term}";${k.type};${k.freq};${k.first_year};${k.last_year}\r\n`;
+        csv += `"${k.term}";${k.type};${k.freq};${k.author_freq};${k.indexed_freq};${k.first_year};${k.last_year}\r\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);

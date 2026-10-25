@@ -73,6 +73,7 @@
 }
 .kw-type-author  { background: rgba(79,142,247,0.15); color: var(--bm-accent); }
 .kw-type-indexed { background: rgba(168,85,247,0.15); color: #a855f7; }
+.kw-type-both    { background: rgba(16,185,129,0.15); color: #10b981; }
 .kw-count { font-size: 12px; font-weight: 700; color: var(--bm-text-muted); min-width: 48px; text-align: right; }
 .kw-bar-wrap { width: 100px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; }
 .kw-bar-fill  { height: 100%; border-radius: 3px; background: var(--bm-accent); }
@@ -164,7 +165,7 @@ select.year-select:focus { outline: none; border-color: var(--bm-accent); }
                 <input type="checkbox" name="keywords[]" value="{{ kw.id }}"
                        class="kw-check" onchange="updateCounter()">
                 <span class="kw-term">{{ kw.term }}</span>
-                <span class="kw-type-badge kw-type-{{ kw.type }}">{{ kw.type == 'author' ? 'autor' : 'idx' }}</span>
+                <span class="kw-type-badge kw-type-{{ kw.type }}">{{ kw.type == 'both' ? 'ambas' : (kw.type == 'author' ? 'autor' : 'idx') }}</span>
                 <div class="kw-bar-wrap">
                     <div class="kw-bar-fill" style="width:{{ ((kw.doc_count / maxCount) * 100)|round }}%"></div>
                 </div>
@@ -244,7 +245,7 @@ function filterKeywords() {
     items.forEach(item => {
         const term   = item.dataset.term;
         const type   = item.dataset.type;
-        const matchT = activeType === 'all' || type === activeType;
+        const matchT = activeType === 'all' || type === activeType || type === 'both';
         const matchQ = !q || term.includes(q);
         item.style.display = (matchT && matchQ) ? '' : 'none';
         if (matchT && matchQ) visible++;

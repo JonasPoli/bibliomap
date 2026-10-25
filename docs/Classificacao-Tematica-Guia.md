@@ -10,11 +10,14 @@
 O motor processa cada documento do corpus em 4 etapas ordenadas:
 
 ```
-① Ruído      → documento com termo proibido → descartado
-② Validador  → documento SEM termo de IA → descartado  
-③ Temático   → primeiro grupo (por posição) com match → classificado
-④ Sem grupo  → nenhum match → aguarda revisão manual
+① Ruído      → ano abaixo do mínimo ou termo proibido → descartado (grupo Ruído)
+② Validador  → documento SEM termo de IA → descartado (grupo Ruído)
+③ Temático   → entra em TODOS os grupos temáticos cujos termos/filtros casarem
+④ Sem grupo  → nenhum match → "Sem Classificação" (revisão manual)
 ```
+
+Se o projeto não tiver grupo de Ruído, os documentos descartados em ① e ② vão para
+"Sem Classificação" (a mensagem ao final da execução informa quantos).
 
 ---
 
@@ -248,15 +251,17 @@ No painel principal, clique **"Executar Classificação"**.
 
 O motor irá processar todos os documentos do projeto em sequência:
 
-1. Verifica se o documento contém ao menos um termo do grupo **Validador de IA**
-   - Se **não** → vai para Ruído automaticamente
+1. Se houver ano mínimo e o documento for mais antigo → **Ruído**
 2. Verifica se o documento contém algum termo de **Ruído**
    - Se **sim** → descartado como falso positivo
-3. Percorre os 12 grupos temáticos **na ordem da posição**
-   - O primeiro grupo cujos termos derem match vence
-4. Documentos sem nenhum match → **"Sem Classificação"** (para revisão manual)
+3. Verifica se o documento contém ao menos um termo do grupo **Validador de IA**
+   - Se **não** → vai para Ruído (ou "Sem Classificação", se não existir grupo de Ruído)
+4. Testa **todos** os grupos temáticos
+   - O documento entra em **cada** grupo cujos termos e filtros casarem (multiclassificação);
+     a posição só define a ordem de exibição
+5. Documentos sem nenhum match → **"Sem Classificação"** (para revisão manual)
 
-> ⚠️ Re-executar sobrescreve os resultados anteriores, exceto movimentações manuais marcadas como Override.
+> ⚠️ Re-executar apaga e refaz **todos** os resultados do projeto, inclusive as movimentações manuais.
 
 ---
 

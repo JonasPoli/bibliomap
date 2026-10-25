@@ -410,6 +410,8 @@
 {% block javascripts %}
 <script>
 const csrfToken  = '{{ csrf_token("clf_move_" ~ project.id) }}';
+// Grupo aberto na tela: identifica qual classificação do documento está sendo movida
+const fromGroupId = '{{ activeGroupId == 'unclassified' ? 'unclassified' : (activeGroup ? activeGroup.id : '') }}';
 const projectId  = {{ project.id }};
 
 let currentBibtexText = '';
@@ -514,6 +516,7 @@ document.querySelectorAll('.move-btn').forEach(btn => {
         fd.append('_token',   csrfToken);
         fd.append('doc_id',   docId);
         fd.append('group_id', groupId === 'unclassified' ? '' : groupId);
+        fd.append('from_group_id', fromGroupId);
 
         try {
             const res = await fetch(`/projects/${projectId}/classification/move`, {method:'POST', body: fd});

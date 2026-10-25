@@ -199,9 +199,12 @@
                             <label class="form-label fw-bold" for="authors_filter" style="font-size:13px">
                                 <i class="bi bi-people text-accent me-1"></i> Autores (sobrenomes) {{ help('classification.form.authors') }}
                             </label>
+                            {# Separador ";" — um único nome com vírgula ganha ";" no fim para não ser quebrado ao salvar #}
+                            {% set authorsValue = group.authorsFilter ? group.authorsFilter|join('; ') : '' %}
+                            {% if group.authorsFilter and group.authorsFilter|length == 1 and ',' in group.authorsFilter|first %}{% set authorsValue = authorsValue ~ ';' %}{% endif %}
                             <input type="text" id="authors_filter" name="authors_filter" class="form-control form-control-sm"
-                                   value="{{ group.authorsFilter ? group.authorsFilter|join(', ') : '' }}"
-                                   placeholder="Ex: Molin, Amaral, Smith (só sobrenomes, separados por vírgula)">
+                                   value="{{ authorsValue }}"
+                                   placeholder="Ex: Molin; Amaral; Silva, J (separados por ponto e vírgula)">
                         </div>
                     </div>
 
@@ -227,7 +230,7 @@
                             </label>
                             <select id="continente" name="continente" class="form-select form-select-sm" onchange="filterCountriesByContinent(this.value)">
                                 <option value="">(Todos os continentes)</option>
-                                {% for c in continentes ?? ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania'] %}
+                                {% for c in continentes ?? ['África', 'América Central', 'América do Norte', 'América do Sul', 'Europa', 'Europa/Ásia', 'Oceania', 'Ásia'] %}
                                     <option value="{{ c }}" {{ group.continente == c ? 'selected' : '' }}>{{ c }}</option>
                                 {% endfor %}
                             </select>

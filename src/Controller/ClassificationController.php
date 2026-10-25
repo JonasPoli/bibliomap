@@ -70,7 +70,7 @@ class ClassificationController extends AbstractController
 
         $countries = $this->em->getRepository(\App\Entity\Country::class)->findBy([], ['commonName' => 'ASC']);
         $natureOptions = ['Pública', 'Privada', 'Empresa', 'Governo', 'Ensino/Pesquisa', 'Internacional'];
-        $continentes = ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania'];
+        $continentes = $this->continentOptions();
 
         return $this->render('classification/group_form.html.twig', [
             'project'       => $project,
@@ -109,7 +109,7 @@ class ClassificationController extends AbstractController
 
         $countries = $this->em->getRepository(\App\Entity\Country::class)->findBy([], ['commonName' => 'ASC']);
         $natureOptions = ['Pública', 'Privada', 'Empresa', 'Governo', 'Ensino/Pesquisa', 'Internacional'];
-        $continentes = ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania'];
+        $continentes = $this->continentOptions();
 
         return $this->render('classification/group_form.html.twig', [
             'project'       => $project,
@@ -166,6 +166,12 @@ class ClassificationController extends AbstractController
             $multiMsg = $stats['multi'] > 0
                 ? sprintf(', %d em múltiplos grupos', $stats['multi'])
                 : '';
+            if (($stats['rejected_unassigned'] ?? 0) > 0) {
+                $multiMsg .= sprintf(
+                    ' (%d reprovados no ano mínimo/validador foram para "Sem Classificação": o projeto não tem grupo Ruído)',
+                    $stats['rejected_unassigned']
+                );
+            }
             $this->addFlash('success', sprintf(
                 '✅ Classificação concluída! %d documentos processados — %d classificados, %d ruído, %d sem grupo%s.',
                 $stats['total'],
@@ -267,24 +273,45 @@ class ClassificationController extends AbstractController
 
         $docId   = (int) $request->request->get('doc_id');
         $groupId = $request->request->get('group_id');
+        $fromRaw = $request->request->get('from_group_id');
 
-        $clf = $this->classRepo->findOneBy(['document' => $docId, 'project' => $project->getId()]);
+        // Linha de origem: a do grupo que está aberto na tela (o documento pode estar em vários grupos)
+        $criteria = ['document' => $docId, 'project' => $project->getId()];
+        if ($fromRaw !== null && $fromRaw !== '') {
+            $criteria['group'] = $fromRaw === 'unclassified' ? null : (int) $fromRaw;
+        }
+        $clf = $this->classRepo->findOneBy($criteria);
         if (!$clf) {
             return new JsonResponse(['ok' => false, 'error' => 'Classificação não encontrada'], 404);
         }
 
         if ($groupId === null || $groupId === '' || $groupId === 'unclassified') {
-            $clf->setGroup(null);
+            // "Sem grupo" = o grupo "Sem Classificação" do motor (NULL só se ele não existir)
+            $target = $this->groupRepo->findOneBy(['project' => $project->getId(), 'type' => ClassificationGroup::TYPE_UNCLASSIFIED]);
         } else {
-            $group = $this->groupRepo->find((int) $groupId);
-            if (!$group || $group->getProject()->getId() !== $project->getId()) {
+            $target = $this->groupRepo->find((int) $groupId);
+            if (!$target || $target->getProject()->getId() !== $project->getId()) {
                 return new JsonResponse(['ok' => false, 'error' => 'Grupo inválido'], 400);
             }
-            $clf->setGroup($group);
         }
 
-        $clf->setManualOverride(true);
-        $this->em->flush();
+        $targetId = $target?->getId();
+        if ($clf->getGroup()?->getId() !== $targetId) {
+            $existing = $this->classRepo->findOneBy([
+                'document' => $docId,
+                'project'  => $project->getId(),
+                'group'    => $targetId,
+            ]);
+            if ($existing) {
+                // Já está no destino: só remove do grupo de origem (evita violar uniq_doc_group_classification)
+                $existing->setManualOverride(true);
+                $this->em->remove($clf);
+            } else {
+                $clf->setGroup($target);
+                $clf->setManualOverride(true);
+            }
+            $this->em->flush();
+        }
 
         return new JsonResponse(['ok' => true]);
     }
@@ -344,25 +371,24 @@ class ClassificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
-        // Fetch all documents with their non-noise, non-unclassified group names
+        // Uma linha por documento do projeto, na ordem de importação (id), para alinhar com o
+        // corpus. Sem grupo temático → nome do grupo em que ficou (Ruído / Sem Classificação).
         $rows = $this->em->getConnection()->fetchAllAssociative(
             'SELECT d.id AS doc_id,
-                    GROUP_CONCAT(DISTINCT g.name ORDER BY g.position SEPARATOR ";") AS group_names
-             FROM document_classification dc
-             JOIN document d ON d.id = dc.document_id
-             JOIN classification_group g ON g.id = dc.group_id
-             WHERE dc.project_id = ?
-               AND g.type = ?
+                    GROUP_CONCAT(DISTINCT CASE WHEN g.type = ? THEN g.name END ORDER BY g.position SEPARATOR ";") AS group_names,
+                    GROUP_CONCAT(DISTINCT CASE WHEN g.type <> ? THEN g.name END ORDER BY g.position SEPARATOR ";") AS other_names
+             FROM document d
+             LEFT JOIN document_classification dc ON dc.document_id = d.id AND dc.project_id = d.project_id
+             LEFT JOIN classification_group g ON g.id = dc.group_id
+             WHERE d.project_id = ?
              GROUP BY d.id
              ORDER BY d.id',
-            [$project->getId(), ClassificationGroup::TYPE_NORMAL]
+            [ClassificationGroup::TYPE_NORMAL, ClassificationGroup::TYPE_NORMAL, $project->getId()]
         );
 
         $content = "label\n";
         foreach ($rows as $r) {
-            if (!empty($r['group_names'])) {
-                $content .= $r['group_names'] . "\n";
-            }
+            $content .= ($r['group_names'] ?: ($r['other_names'] ?: 'Sem Classificação')) . "\n";
         }
 
         $filename = 'vosviewer-categorias-' . $project->getId() . '.txt';
@@ -374,6 +400,46 @@ class ClassificationController extends AbstractController
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Continentes reais do cadastro de países (inclui "América Central" e "Europa/Ásia"). */
+    private function continentOptions(): array
+    {
+        return $this->em->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT continente FROM paises WHERE continente IS NOT NULL AND continente <> \'\' ORDER BY continente'
+        );
+    }
+
+    /**
+     * Separa o filtro de autores. Separador oficial: ";" ou quebra de linha, para que
+     * "Silva, J" fique inteiro. Entrada antiga só com vírgulas continua aceita, mas
+     * iniciais soltas (ex.: "J", "ME", "J.R.") voltam a se juntar ao sobrenome anterior.
+     *
+     * @return string[]
+     */
+    public static function parseAuthorsFilter(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return [];
+        }
+
+        if (preg_match('/[;\r\n]/', $raw)) {
+            $parts = preg_split('/[;\r\n]+/', $raw);
+        } else {
+            $parts = [];
+            foreach (explode(',', $raw) as $piece) {
+                $piece = trim($piece);
+                // Iniciais em maiúsculas (até 3 letras, com ou sem pontos) pertencem ao nome anterior
+                if ($parts !== [] && preg_match('/^(?:\p{Lu}\.?\s*){1,3}$/u', $piece)) {
+                    $parts[count($parts) - 1] .= ', ' . $piece;
+                } else {
+                    $parts[] = $piece;
+                }
+            }
+        }
+
+        return array_values(array_filter(array_map('trim', $parts), fn($a) => $a !== ''));
+    }
 
     private function buildGroupFromRequest(Request $request, BibliometricProject $project, ClassificationGroup $group): ClassificationGroup
     {
@@ -406,14 +472,14 @@ class ClassificationController extends AbstractController
         $countries = $request->request->all('country_ids');
         $group->setCountryIds(!empty($countries) ? array_values($countries) : null);
 
-        $authorsRaw = trim($request->request->get('authors_filter', ''));
-        $authors = array_filter(array_map('trim', explode(',', $authorsRaw)));
-        $group->setAuthorsFilter(!empty($authors) ? array_values($authors) : null);
+        $authors = self::parseAuthorsFilter((string) $request->request->get('authors_filter', ''));
+        $group->setAuthorsFilter(!empty($authors) ? $authors : null);
 
         $qualis = $request->request->all('qualis_filter');
         $group->setQualisFilter(!empty($qualis) ? array_values(array_map('strtoupper', $qualis)) : null);
 
-        $group->setUseThesaurus((bool)$request->request->get('use_thesaurus', 1));
+        // Checkbox desmarcado não é enviado: ausente = desligado (o formulário também manda hidden 0)
+        $group->setUseThesaurus($request->request->getBoolean('use_thesaurus'));
 
         // Rebuild rules from comma-separated terms
         foreach ($group->getRules() as $r) {
@@ -529,7 +595,16 @@ class ClassificationController extends AbstractController
             $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         }
 
+        // Grupos existentes por nome: reimportar o CSV atualiza em vez de duplicar
+        $existingByName = [];
+        foreach ($this->groupRepo->findByProject($project->getId()) as $g) {
+            $existingByName[mb_strtolower(trim($g->getName()))] = $g;
+        }
+        $validTypes = [ClassificationGroup::TYPE_NORMAL, ClassificationGroup::TYPE_VALIDATOR, ClassificationGroup::TYPE_NOISE, ClassificationGroup::TYPE_UNCLASSIFIED];
+
         $importedCount = 0;
+        $updatedCount  = 0;
+        $invalidTypes  = [];
         while (($row = fgetcsv($handle, 0, ';')) !== false) {
             if (empty($row) || count($row) < 1 || trim($row[0]) === '') {
                 continue;
@@ -568,10 +643,30 @@ class ClassificationController extends AbstractController
                 $useThesaurus= $col13;
             }
 
-            $group = new ClassificationGroup();
-            $group->setProject($project);
+            $key   = mb_strtolower($name);
+            $group = $existingByName[$key] ?? null;
+            if ($group) {
+                // Atualiza: as regras (termos) são substituídas pelas do arquivo
+                foreach ($group->getRules() as $r) {
+                    $this->em->remove($r);
+                }
+                $group->getRules()->clear();
+                $updatedCount++;
+            } else {
+                $group = new ClassificationGroup();
+                $group->setProject($project);
+                $existingByName[$key] = $group;
+                $importedCount++;
+            }
             $group->setName($name);
-            $group->setType(in_array($type, [ClassificationGroup::TYPE_NORMAL, ClassificationGroup::TYPE_VALIDATOR, ClassificationGroup::TYPE_NOISE, ClassificationGroup::TYPE_UNCLASSIFIED]) ? $type : ClassificationGroup::TYPE_NORMAL);
+            if ($type === '') {
+                $type = ClassificationGroup::TYPE_NORMAL;
+            }
+            if (!in_array($type, $validTypes, true)) {
+                $invalidTypes[] = sprintf('"%s" (tipo "%s")', $name, $type);
+                $type = ClassificationGroup::TYPE_NORMAL;
+            }
+            $group->setType($type);
             $group->setColor($color ?: '#4f8ef7');
             $group->setIcon($icon ?: 'bi-collection');
             $group->setPosition($position);
@@ -586,27 +681,20 @@ class ClassificationController extends AbstractController
             $group->setStartYear($startYear !== '' ? (int)$startYear : null);
             $group->setEndYear($endYear !== '' ? (int)$endYear : null);
 
-            if ($qualisRaw !== '') {
-                $qualis = array_filter(array_map('strtoupper', array_map('trim', explode(';', $qualisRaw))));
-                $group->setQualisFilter(array_values($qualis));
-            }
+            // Coluna vazia limpa o filtro (importante ao atualizar um grupo existente)
+            $qualis = array_filter(array_map('strtoupper', array_map('trim', explode(';', $qualisRaw))));
+            $group->setQualisFilter($qualis ? array_values($qualis) : null);
 
-            if ($natureRaw !== '') {
-                $natures = array_filter(array_map('trim', explode(';', $natureRaw)));
-                $group->setInstitutionNature(array_values($natures));
-            }
+            $natures = array_filter(array_map('trim', explode(';', $natureRaw)));
+            $group->setInstitutionNature($natures ? array_values($natures) : null);
 
             $group->setContinente($continente !== '' ? $continente : null);
 
-            if ($countryRaw !== '') {
-                $countries = array_filter(array_map('trim', explode(';', $countryRaw)));
-                $group->setCountryIds(array_values($countries));
-            }
+            $countries = array_filter(array_map('trim', explode(';', $countryRaw)));
+            $group->setCountryIds($countries ? array_values($countries) : null);
 
-            if ($authorsRaw !== '') {
-                $authors = array_filter(array_map('trim', explode(';', $authorsRaw)));
-                $group->setAuthorsFilter(array_values($authors));
-            }
+            $authors = array_filter(array_map('trim', explode(';', $authorsRaw)));
+            $group->setAuthorsFilter($authors ? array_values($authors) : null);
 
             $group->setUseThesaurus($useThesaurus !== '0');
 
@@ -626,13 +714,20 @@ class ClassificationController extends AbstractController
             }
 
             $this->em->persist($group);
-            $importedCount++;
         }
 
         fclose($handle);
         $this->em->flush();
 
-        $this->addFlash('success', sprintf('Sucesso! %d grupo(s) importado(s) a partir do arquivo CSV.', $importedCount));
+        $this->addFlash('success', sprintf('Sucesso! %d grupo(s) criado(s) e %d atualizado(s) (mesmo nome) a partir do arquivo CSV.', $importedCount, $updatedCount));
+        if ($invalidTypes) {
+            $this->addFlash('warning', sprintf(
+                'Tipo inválido em %d linha(s), importada(s) como grupo normal: %s. Tipos aceitos: %s.',
+                count($invalidTypes),
+                implode(', ', array_slice($invalidTypes, 0, 10)),
+                implode(', ', $validTypes)
+            ));
+        }
 
         return $this->redirectToRoute('app_classification_index', ['id' => $project->getId()]);
     }

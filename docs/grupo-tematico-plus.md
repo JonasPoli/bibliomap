@@ -20,11 +20,11 @@ No formulário de criação/edição de grupos (`/projects/{id}/classification/g
 
 ### 1.3 Filtro Geográfico e Institucional
 - **Natureza Jurídica / Tipo:** Permite selecionar o perfil das instituições (`Pública`, `Privada`, `Empresa`, `Governo`, `Ensino/Pesquisa`, `Internacional`).
-- **Continente / Região:** Permite restringir o grupo a continentes específicos (`América do Sul`, `Europa`, `Ásia`, etc.).
+- **Continente / Região:** Permite restringir o grupo a um continente do cadastro de países (`América do Sul`, `América Central`, `Europa`, `Ásia`, `Europa/Ásia` etc.). Países transcontinentais (`Europa/Ásia`) casam tanto com `Europa` quanto com `Ásia`.
 - **Filtro de Países de Afiliação:** Seletor interativo com busca em tempo real (*Live Search*), badges removíveis e seleção em lote.
 
 ### 1.4 Filtro de Autoria
-- Permite especificar uma lista de autores (`authorsFilter`) para restringir a inclusão no grupo aos trabalhos publicados por esses pesquisadores.
+- Permite especificar uma lista de autores (`authorsFilter`), separados por `;` ou quebra de linha (ex.: `Molin; Silva, J`), para restringir a inclusão no grupo aos trabalhos publicados por esses pesquisadores. Listas antigas só com vírgulas continuam aceitas.
 
 ### 1.5 Integração com o Tesauro Global
 - Quando o toggle **"Utilizar Tesauro Global"** está ativo, o motor (`ClassificationEngine`) expande automaticamente os termos pesquisados buscando todos os seus sinônimos e variações gramaticais cadastradas no Tesauro Global (`ThesaurusConcept`, `ThesaurusLabel`).
@@ -55,18 +55,18 @@ Localizado no menu principal em **Classificação Temática > Comparar Grupos** 
 
 ## 3. Exportação de Relatórios em CSV
 
-No painel de comparação (`/projects/{id}/classification/compare`), o botão **"Exportar CSV Comparativo"** faz o download imediato de um arquivo `.csv` contendo todas as 6 visões comparativas compiladas em UTF-8 com BOM (pronto para abertura direta no Microsoft Excel).
+No painel de comparação (`/projects/{id}/classification/compare`), o botão **"Exportar CSV Comparativo"** baixa um `.csv` (UTF-8 com BOM, pronto para o Excel) com **apenas a visão 1 — Resumo de Volume e Citações**: ID e nome do grupo, tipo, total de documentos, % do corpus, total de citações e média de citações. As demais visões aparecem só na tela.
 
-## 3. Exportação e Importação de Grupos em CSV
+## 4. Exportação e Importação de Grupos em CSV
 
 Na página de gerenciamento de grupos (`/projects/{id}/classification`), o usuário conta com recursos para backup, transferência e importação em lote de cadastros de grupos:
 
 - **Exportar Grupos (CSV):** Faz o download de um arquivo `.csv` codificado em UTF-8 com BOM contendo todos os grupos e suas regras configuradas (nome, tipo, cor, ícone, posição, termos, campos bibliográficos, datas, instituição, países, autores e toggle do Tesauro).
-- **Importar Grupos (CSV):** Permite enviar uma planilha `.csv` para cadastrar automaticamente múltiplos grupos no projeto com todos os seus termos e filtros avançados.
+- **Importar Grupos (CSV):** Permite enviar uma planilha `.csv` para cadastrar automaticamente múltiplos grupos no projeto com todos os seus termos e filtros avançados. Um grupo com o **mesmo nome** de um já existente é **atualizado** (termos e filtros substituídos) em vez de duplicado. Tipo inválido vira `normal` e é avisado na tela (tipos aceitos: `normal`, `validator`, `noise`, `unclassified`).
 
 ---
 
-## 4. Estrutura de Código e Arquivos
+## 5. Estrutura de Código e Arquivos
 
 - **Controller de Classificação:** [`ClassificationController.php`](file:///Volumes/Dados/work/bibliomap/src/Controller/ClassificationController.php) (`exportGroupsCsv`, `importGroupsCsv`)
 - **Controller de Comparação:** [`GroupComparisonController.php`](file:///Volumes/Dados/work/bibliomap/src/Controller/GroupComparisonController.php)

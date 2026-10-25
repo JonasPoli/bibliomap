@@ -40,9 +40,10 @@ class ReportController extends AbstractController
         $keywords = $this->conn->fetchAllAssociative(
             'SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' 
-                         WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' 
-                         ELSE k.keyword_type 
+                    CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN \'both\'
+                         WHEN MAX(k.keyword_type) = \'author_keyword\' THEN \'author\'
+                         WHEN MAX(k.keyword_type) = \'indexed_keyword\' THEN \'indexed\'
+                         ELSE MAX(k.keyword_type)
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
@@ -50,7 +51,8 @@ class ReportController extends AbstractController
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
+             -- Um item por conceito (o gráfico soma as duas origens pelo mesmo id)
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
@@ -448,11 +450,16 @@ class ReportController extends AbstractController
             [$project->getId()]
         );
 
+        // Base do "% de documentos": todos os documentos do projeto (um documento com
+        // 2 países conta para os dois, por isso a coluna não soma 100%)
+        $totalDocs = (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document WHERE project_id = ?', [$project->getId()]);
+
         return $this->render('report/countries.html.twig', [
             'project'    => $project,
             'list'       => $data['list'],
             'kpis'       => $data['kpis'],
             'continents' => $continents,
+            'total_docs' => $totalDocs,
         ]);
     }
 
@@ -499,7 +506,12 @@ class ReportController extends AbstractController
 
         if (file_exists($cacheFile)) {
             $cachedData = json_decode(file_get_contents($cacheFile), true);
-            if (is_array($cachedData)) {
+            // Cache de versão anterior (sem doc_match_count) é recalculado
+            $stale = is_array($cachedData) && array_filter(
+                $cachedData['theorists'] ?? [],
+                fn($t) => !array_key_exists('doc_match_count', $t)
+            );
+            if (is_array($cachedData) && !$stale) {
                 return $this->render('report/theoretical_lenses.html.twig', [
                     'project'         => $project,
                     'theorists'       => $cachedData['theorists'],
@@ -523,16 +535,24 @@ class ReportController extends AbstractController
         ]);
     }
 
-    #[Route('/theoretical-lenses/recalculate', name: 'app_report_theoretical_lenses_recalculate', methods: ['GET'])]
-    public function theoreticalLensesRecalculate(int $id): Response
+    #[Route('/theoretical-lenses/recalculate', name: 'app_report_theoretical_lenses_recalculate', methods: ['POST'])]
+    public function theoreticalLensesRecalculate(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
-        $cacheDir = $this->getParameter('kernel.project_dir') . '/var/theoretical_lenses_cache';
-        $cacheFile = $cacheDir . '/project_' . $id . '.json';
+        if (!$this->isCsrfTokenValid('lenses_recalculate_' . $id, $request->request->get('_token'))) {
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $id]);
+        }
+        $this->clearTheoreticalLensesCache($id);
+        return $this->redirectToRoute('app_report_theoretical_lenses_loading', ['id' => $id]);
+    }
+
+    private function clearTheoreticalLensesCache(int $id): void
+    {
+        $cacheFile = $this->getParameter('kernel.project_dir') . '/var/theoretical_lenses_cache/project_' . $id . '.json';
         if (file_exists($cacheFile)) {
             unlink($cacheFile);
         }
-        return $this->redirectToRoute('app_report_theoretical_lenses_loading', ['id' => $id]);
     }
 
     #[Route('/theoretical-lenses/process-batch', name: 'app_report_theoretical_lenses_process_batch', methods: ['POST'])]
@@ -567,6 +587,8 @@ class ReportController extends AbstractController
                     'docs' => [],
                     'ref_match_count' => 0,
                     'ref_docs' => [],
+                    // Documentos distintos com o termo no título/resumo OU nas referências (base do %)
+                    'doc_match_count' => 0,
                     'terms_lower' => array_map('strtolower', $terms),
                     'citations_lower' => array_map('strtolower', $citations),
                 ];
@@ -598,6 +620,7 @@ class ReportController extends AbstractController
             'SELECT d.id, d.title, d.abstract_text, d.year, d.references, d.doi, d.url
              FROM document d
              WHERE d.project_id = ?
+             ORDER BY d.id
              LIMIT ' . (int)$batchSize . ' OFFSET ' . (int)$offset,
             [$id]
         );
@@ -819,6 +842,10 @@ class ReportController extends AbstractController
                     }
                 }
                 
+                if ($directMatched || $refMatched) {
+                    $t['doc_match_count']++;
+                }
+
                 if ($refMatched) {
                     $t['ref_match_count']++;
                     if (count($t['ref_docs']) < 5) {
@@ -850,6 +877,11 @@ class ReportController extends AbstractController
     public function addTheoreticalLens(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
+
+        if (!$this->isCsrfTokenValid('lens_add_' . $id, $request->request->get('_token'))) {
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $project->getId()]);
+        }
 
         $name = trim($request->request->get('name', ''));
         $category = trim($request->request->get('category', ''));
@@ -886,6 +918,9 @@ class ReportController extends AbstractController
         $this->em->persist($lens);
         $this->em->flush();
 
+        // A nova lente precisa entrar na mineração: descarta o resultado guardado deste projeto
+        $this->clearTheoreticalLensesCache($id);
+
         $this->addFlash('success', sprintf('Lente teórica de "%s" cadastrada com sucesso!', $name));
 
         return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $project->getId()]);
@@ -918,6 +953,8 @@ class ReportController extends AbstractController
         $letter = trim($request->query->get('letter', ''));
 
         // Get all thesaurus concepts used in this project's keywords
+        // Citações: soma uma vez por (conceito, documento); somar sobre as linhas
+        // variante × documento contaria em dobro o documento com duas variantes.
         $sql = "
             SELECT 
                 tc.id,
@@ -925,14 +962,25 @@ class ReportController extends AbstractController
                 tc.normalized_label,
                 COUNT(DISTINCT dk.document_id) AS doc_count,
                 COUNT(DISTINCT k.id) AS variant_count,
-                SUM(COALESCE(d.cited_by, 0)) AS total_citations
+                COALESCE(MAX(cc.total_citations), 0) AS total_citations
             FROM thesaurus_concept tc
+            LEFT JOIN (
+                SELECT t.cid, SUM(t.cit) AS total_citations
+                FROM (
+                    SELECT DISTINCT k2.thesaurus_concept_id AS cid, d2.id, COALESCE(d2.cited_by, 0) AS cit
+                    FROM keyword k2
+                    JOIN document_keyword dk2 ON dk2.keyword_id = k2.id
+                    JOIN document d2 ON d2.id = dk2.document_id AND d2.project_id = ?
+                    WHERE k2.thesaurus_concept_id IS NOT NULL
+                ) t
+                GROUP BY t.cid
+            ) cc ON cc.cid = tc.id
             JOIN keyword k ON k.thesaurus_concept_id = tc.id
             JOIN document_keyword dk ON dk.keyword_id = k.id
             JOIN document d ON d.id = dk.document_id AND d.project_id = ?
             WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
         ";
-        $params = [$id];
+        $params = [$id, $id];
 
         if ($search !== '') {
             $sql .= " AND (tc.preferred_label LIKE ? OR tc.normalized_label LIKE ?)";
@@ -971,6 +1019,7 @@ class ReportController extends AbstractController
              JOIN keyword k ON k.thesaurus_concept_id = tc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+             WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
              ORDER BY letter",
             [$id]
         );

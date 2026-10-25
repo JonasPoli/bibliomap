@@ -24,8 +24,8 @@ class GroupComparisonService
 
         $sql = 'SELECT g.id AS group_id, g.name AS group_name, g.color, g.icon, g.type,
                        COUNT(DISTINCT dc.document_id) AS doc_count,
-                       COALESCE(SUM(d.cited_by), 0) AS total_citations,
-                       ROUND(COALESCE(AVG(d.cited_by), 0), 2) AS avg_citations
+                       COALESCE(SUM(COALESCE(d.cited_by, 0)), 0) AS total_citations,
+                       ROUND(COALESCE(AVG(COALESCE(d.cited_by, 0)), 0), 2) AS avg_citations
                 FROM classification_group g
                 LEFT JOIN document_classification dc ON dc.group_id = g.id AND dc.project_id = g.project_id
                 LEFT JOIN document d ON d.id = dc.document_id
@@ -226,7 +226,28 @@ class GroupComparisonService
             $count = (int)$r['doc_count'];
 
             $byGroup[$gId]['countries'][$cnt] = ($byGroup[$gId]['countries'][$cnt] ?? 0) + $count;
-            $byGroup[$gId]['continents'][$cont] = ($byGroup[$gId]['continents'][$cont] ?? 0) + $count;
+        }
+
+        // Continente contado por documento distinto: somar as linhas por país contaria
+        // várias vezes o documento com instituições de 2 países do mesmo continente.
+        $contRows = $conn->fetchAllAssociative(
+            'SELECT dc.group_id, COALESCE(c.continente, "Não Informado") AS continente,
+                    COUNT(DISTINCT dc.document_id) AS doc_count
+             FROM document_classification dc
+             JOIN documento_instituicoes di ON di.document_id = dc.document_id
+             JOIN instituicoes_ensino i ON i.id = di.institution_id
+             LEFT JOIN paises c ON c.id = i.country_id
+             WHERE dc.project_id = ? AND dc.group_id IN (?)
+             GROUP BY dc.group_id, continente
+             ORDER BY dc.group_id, doc_count DESC',
+            [$projectId, $groupIds],
+            [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
+        );
+        foreach ($contRows as $r) {
+            $gId = (int)$r['group_id'];
+            if (isset($byGroup[$gId])) {
+                $byGroup[$gId]['continents'][$r['continente']] = (int)$r['doc_count'];
+            }
         }
 
         return $byGroup;
@@ -273,7 +294,26 @@ class GroupComparisonService
             $count = (int)$r['doc_count'];
 
             $byGroup[$gId]['institutions'][$inst] = ($byGroup[$gId]['institutions'][$inst] ?? 0) + $count;
-            $byGroup[$gId]['natures'][$nat] = ($byGroup[$gId]['natures'][$nat] ?? 0) + $count;
+        }
+
+        // Natureza contada por documento distinto (não instituição por instituição)
+        $natRows = $conn->fetchAllAssociative(
+            'SELECT dc.group_id, COALESCE(i.natureza, i.institution_type, "Não Informado") AS natureza,
+                    COUNT(DISTINCT dc.document_id) AS doc_count
+             FROM document_classification dc
+             JOIN documento_instituicoes di ON di.document_id = dc.document_id
+             JOIN instituicoes_ensino i ON i.id = di.institution_id
+             WHERE dc.project_id = ? AND dc.group_id IN (?)
+             GROUP BY dc.group_id, natureza
+             ORDER BY dc.group_id, doc_count DESC',
+            [$projectId, $groupIds],
+            [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
+        );
+        foreach ($natRows as $r) {
+            $gId = (int)$r['group_id'];
+            if (isset($byGroup[$gId])) {
+                $byGroup[$gId]['natures'][$r['natureza']] = (int)$r['doc_count'];
+            }
         }
 
         return $byGroup;

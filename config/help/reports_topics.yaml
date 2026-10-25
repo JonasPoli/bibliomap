@@ -22,10 +22,10 @@ report.keywords.export_csv:
 
 report.keywords.kpi_total:
   title: "Total de termos únicos"
-  what: "Número de termos distintos do projeto: palavras de autor distintas **mais** palavras indexadas distintas. Grafias agrupadas num mesmo conceito (tesauro ou fusão) contam como um termo."
+  what: "Número de termos (conceitos) distintos do projeto, de autor ou indexados. Grafias agrupadas num mesmo conceito (tesauro ou fusão) contam como um termo."
   how: "Use para ter noção do tamanho do vocabulário. Compare com o número de documentos: muitos termos por documento indicam um campo pouco padronizado e pedem tratamento de sinônimos."
-  not: "Não é a soma de ocorrências. Um termo que aparece tanto como palavra de autor quanto como indexada conta duas vezes."
-  example: "35.119 termos únicos = 24.263 de autor + 10.856 indexados, num corpus de 10.452 documentos."
+  not: "Não é a soma de ocorrências nem a soma dos dois cartões ao lado: um termo que aparece tanto como palavra de autor quanto como indexada conta uma vez aqui e uma vez em cada cartão."
+  example: "Num projeto com 887 termos de autor e 525 indexados, 59 aparecem nas duas origens: o total é 1.353, e não 1.412."
 
 report.keywords.kpi_author:
   title: "Palavras-chave de autores"
@@ -51,20 +51,20 @@ report.keywords.view_toggle:
 report.keywords.bar_by_origin:
   title: "Top 15 termos por origem"
   what: "Os 15 termos mais frequentes, em azul (autor) e roxo (indexada). A barra mostra em quantos documentos o termo aparece."
-  how: "Passe o mouse sobre a barra para ver o número exato. Um mesmo termo pode aparecer duas vezes, uma para cada origem."
+  how: "Passe o mouse sobre a barra para ver o número exato. Um mesmo termo pode aparecer duas vezes, uma para cada origem (a coluna Origem da tabela mostra \"Ambas\")."
   not: "Não soma as duas origens (veja o painel consolidado). Não mede citações nem importância do termo, só frequência."
   example: "\"precision agriculture\" aparece com 420 documentos como palavra de autor e 610 como indexada: o indexador usa o termo mais do que os próprios autores."
 
 report.keywords.bar_consolidated:
-  title: "Top 15 termos consolidados (soma)"
-  what: "Junta as duas origens de um mesmo termo somando a frequência de autor com a frequência indexada."
+  title: "Top 15 termos consolidados"
+  what: "Junta as duas origens de um mesmo termo: a barra é o número de documentos distintos que têm o termo como palavra de autor, indexada ou as duas."
   how: "Use para ver quais assuntos dominam o corpus independentemente de quem atribuiu o termo."
-  not: "A soma não é o número de documentos distintos: um documento que traz o termo como palavra de autor **e** como indexada conta duas vezes. Só considera os 150 termos carregados na tabela."
-  example: "\"deep learning\" com 1.086 (autor) + 300 (indexada) aparece com 1.386 no consolidado, mesmo que parte desses documentos seja a mesma."
+  not: "Não é a soma autor + indexada: o documento que traz o termo nas duas origens conta uma vez. Só considera os 150 termos carregados na tabela."
+  example: "\"community gardens\" com 17 documentos (autor) e 14 (indexada) aparece com 31 no consolidado, porque nenhum documento tem as duas; se 5 tivessem, seriam 26."
 
 report.keywords.wordcloud:
   title: "Nuvem de palavras"
-  what: "Desenha os 80 termos mais frequentes com tamanho proporcional à frequência. Na versão por origem, azul = autor e roxo = indexada; na consolidada, as origens são somadas."
+  what: "Desenha os 80 termos mais frequentes com tamanho proporcional à frequência. Na versão por origem, azul = autor e roxo = indexada; na consolidada, vale o número de documentos com o termo em qualquer origem."
   how: "Use como visão geral rápida ou ilustração. Para números, volte ao gráfico de barras ou à tabela."
   not: "Não serve como evidência quantitativa: a posição e a cor das palavras não têm significado além da origem, e o tamanho é aproximado."
   example: "No slide de abertura da defesa, a nuvem consolidada mostra de relance que \"machine learning\", \"remote sensing\" e \"crop yield\" dominam o corpus."
@@ -78,24 +78,24 @@ report.keywords.treemap:
 
 report.keywords.table:
   title: "Tabela de termos"
-  what: "Lista os 150 termos mais frequentes do projeto (ou até 300 resultados de uma busca), com origem, ocorrências e período."
+  what: "Lista os 150 termos mais frequentes do projeto (ou até 300 resultados de uma busca), um por linha, com origem, ocorrências e período."
   how: "Clique no cabeçalho de uma coluna para ordenar. Use o seletor de origem para filtrar o que já está na tela e a busca para procurar no projeto inteiro."
   not: "Não mostra todos os termos do projeto: termos raros só aparecem quando você os busca."
   example: "Para saber se \"agroecology\" aparece no corpus, digite \"agroeco\" na busca, mesmo que o termo não esteja entre os 150 mais frequentes."
 
 report.keywords.type_filter:
   title: "Filtro de origem"
-  what: "Mostra só as palavras de autor, só as indexadas ou todas, entre as linhas já carregadas na tabela."
+  what: "Mostra só as palavras de autor, só as indexadas ou todas, entre as linhas já carregadas na tabela. Termos de origem \"Ambas\" aparecem nos dois filtros."
   how: "Escolha a origem no seletor. O filtro é imediato e não recarrega a página."
   not: "Não busca novos termos no banco e não afeta gráficos nem o CSV exportado."
   example: "Selecione \"Indexadas\" para ver o vocabulário controlado que o Scopus atribuiu aos 150 termos principais."
 
 report.keywords.search:
   title: "Buscar termo"
-  what: "Procura no projeto inteiro as palavras-chave que contêm o texto digitado e mostra até 300 resultados."
+  what: "Procura no projeto inteiro os termos cujo rótulo, ou alguma das variantes agrupadas, contém o texto digitado, e mostra até 300 resultados."
   how: "Digite parte do termo e pressione Enter ou a lupa. Use **Limpar** para voltar à lista dos 150 mais frequentes."
-  not: "A busca é feita na grafia original de cada variante, não no rótulo do conceito agrupado. Não procura em títulos nem resumos (use a Busca de Documentos)."
-  example: "Buscar \"drone\" traz \"drones\", \"drone imagery\" e \"UAV drone\" com suas frequências."
+  not: "Não procura em títulos nem resumos (use a Busca de Documentos). A frequência mostrada é a do termo inteiro, com todas as variantes, e não só da variante que casou com a busca."
+  example: "Buscar \"physical activity\" acha o termo também pela variante \"physical-activity\" e mostra os 9 documentos do conceito, e não só os 4 da grafia digitada."
 
 report.keywords.col_term:
   title: "Palavra-chave / termo"
@@ -106,17 +106,17 @@ report.keywords.col_term:
 
 report.keywords.col_origin:
   title: "Origem"
-  what: "Indica se o termo veio das palavras de **autor** ou das **indexadas** pela base de dados."
+  what: "Indica se o termo veio das palavras de **autor**, das **indexadas** pela base de dados ou de **ambas**. Em \"Ambas\", passe o mouse para ver quantos documentos há em cada origem."
   how: "Clique no cabeçalho para ordenar e agrupar as origens."
   not: "Não indica a base de origem (Scopus, WoS…) do documento."
-  example: "\"remote sensing\" pode aparecer em duas linhas: uma \"Autor\" e outra \"Indexada\"."
+  example: "\"remote sensing\" aparece numa só linha como \"Ambas\" quando é usado pelos autores e também atribuído pelo indexador."
 
 report.keywords.col_occurrences:
   title: "Ocorrências"
-  what: "Número de documentos distintos do projeto em que o termo aparece com aquela origem."
+  what: "Número de documentos distintos do projeto em que o termo aparece, em qualquer origem (autor ou indexada)."
   how: "Clique no cabeçalho para ordenar. Compare com o total de documentos para ter a proporção."
-  not: "Não conta repetições dentro do mesmo documento e não soma autor + indexada."
-  example: "Ocorrências = 1.284 para \"machine learning\" (autor) significa 1.284 documentos com esse termo entre as palavras de autor."
+  not: "Não conta repetições dentro do mesmo documento nem soma autor + indexada: o documento com as duas conta uma vez."
+  example: "\"health\" com 5 documentos como autor e 26 como indexada, sem sobreposição, mostra 31 ocorrências; é o mesmo número de trabalhos listados em Ver trabalhos."
 
 report.keywords.col_period:
   title: "Período"
@@ -129,8 +129,8 @@ report.keywords.col_actions:
   title: "Ver trabalhos"
   what: "Abre a lista de todos os documentos do projeto que contêm o termo, com autores, ano, citações, tipo, fonte, DOI e BibTeX."
   how: "Clique em **Ver trabalhos**. Na janela, use o ícone de prancheta para copiar um nome de arquivo pronto e o botão BibTeX para levar a referência ao Zotero."
-  not: "A lista inclui o termo em qualquer origem (autor ou indexada), por isso pode ter mais documentos que o número da coluna Ocorrências."
-  example: "Ao clicar em \"digital twin\" (45 ocorrências como autor), a janela pode listar 52 trabalhos porque inclui também os que só têm o termo indexado."
+  not: "Não filtra pela origem: a lista traz todos os documentos com o termo, por isso tem exatamente o número da coluna Ocorrências."
+  example: "Ao clicar em \"digital twin\" (52 ocorrências), a janela lista os mesmos 52 trabalhos, tanto os que têm o termo como palavra de autor quanto os que só o têm indexado."
 
 report.keywords.works_filename:
   title: "Nome do trabalho para arquivo"
@@ -161,14 +161,14 @@ report.kwevo.keyword_list:
   title: "Lista de palavras-chave"
   what: "Mostra até 300 palavras-chave mais frequentes do projeto. A barra e o número indicam em quantos documentos cada uma aparece (todos os anos)."
   how: "Clique na linha para marcar. Use o campo de filtro para achar um termo e os botões Todas/Autores/Indexadas para filtrar pela origem."
-  not: "Termos fora dos 300 mais frequentes não aparecem. Se o mesmo termo estiver como autor e como indexado, as duas linhas geram a mesma série no gráfico, que soma as duas origens."
+  not: "Termos fora dos 300 mais frequentes não aparecem. O termo que está como autor e como indexado aparece numa linha só (\"ambas\"), e o gráfico conta os documentos das duas origens."
   example: "Digite \"vision\" no filtro para achar \"computer vision\" (autor, 512 documentos) e marque."
 
 report.kwevo.type_filter:
   title: "Filtro por origem"
   what: "Mostra na lista só palavras de autor, só indexadas ou todas."
   how: "Clique em Todas, Autores ou Indexadas. As marcações já feitas são mantidas."
-  not: "Não muda o que será contado no gráfico."
+  not: "Não muda o que será contado no gráfico. Termos marcados \"ambas\" aparecem nos dois filtros."
   example: "Clique em \"Autores\" para escolher só termos definidos pelos pesquisadores."
 
 report.kwevo.select_visible:
@@ -277,7 +277,7 @@ report.glossary.concepts:
   title: "Cartões de conceito"
   what: "Cada cartão mostra o rótulo preferido do conceito, as variações cadastradas no tesauro (em azul as do tipo preferido, em cinza sinônimos e variantes), o número de documentos do projeto, o número de variantes e a soma de citações."
   how: "Use para conferir se as unificações fazem sentido antes de citar números de palavras-chave na pesquisa."
-  not: "Não permite editar o tesauro; correções são feitas pelo administrador. A soma de citações pode contar duas vezes um documento que tem duas variantes do mesmo conceito."
+  not: "Não permite editar o tesauro; correções são feitas pelo administrador. A soma de citações conta cada documento uma vez por conceito, mesmo que ele tenha duas variantes do termo."
   example: "O cartão \"precision agriculture\" com 610 documentos e as variações \"precision farming\" e \"agricultura de precisão\"."
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -376,11 +376,11 @@ report.countries.col_avg:
   example: "Um país com 2 documentos e 400 citações tem média 200, mas isso não indica liderança no campo."
 
 report.countries.col_share:
-  title: "% dos vínculos"
-  what: "Documentos do país ÷ soma dos documentos de todos os países da tabela."
-  how: "Use para comparar a participação relativa entre países."
-  not: "Não é o percentual do total de documentos do projeto: como um documento conta para cada país dos autores, o denominador é maior que o número de documentos. Para a participação real, divida a coluna Documentos pelo total do projeto."
-  example: "China: 1.878 ÷ 16.609 vínculos = 11,3%, embora a China esteja em 18% dos 10.452 documentos."
+  title: "% dos documentos"
+  what: "Documentos do país ÷ total de documentos do projeto × 100: em quantos por cento do corpus o país aparece."
+  how: "Use para descrever a participação real de cada país no corpus."
+  not: "A coluna não soma 100%: um documento com autores de 2 países conta para os dois, e documentos sem país reconhecido também entram no total."
+  example: "China: 1.878 ÷ 10.452 documentos = 18%."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Análise de Instituições (report/institutions.html.twig)
@@ -553,9 +553,9 @@ report.geography.city_table:
 
 report.geography.cities_export:
   title: "Exportar cidades (CSV)"
-  what: "Baixa um CSV com **todas** as cidades do projeto: cidade, estado, sigla, país, continente, documentos e citações."
+  what: "Baixa um CSV com as cidades do projeto: cidade, estado, sigla, país, continente, documentos e citações."
   how: "Clique e abra no Excel ou num programa de mapas (QGIS) para fazer o seu próprio mapa."
-  not: "Ignora o filtro de país da tela: sempre exporta todas as cidades."
+  not: "Respeita o filtro de país da tela: com um país escolhido, saem só as cidades dele; sem filtro, todas as cidades."
   example: "Exporte e use no QGIS para um mapa de pontos das cidades brasileiras no capítulo de resultados."
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -586,7 +586,7 @@ report.lenses.recalculate:
 report.lenses.add:
   title: "Nova lente"
   what: "Abre o formulário para cadastrar um novo teórico/referencial com os termos que serão buscados."
-  how: "Preencha nome, área, corrente, termos e descrição e salve. Depois clique em **Recalcular** para incluí-la no resultado."
+  how: "Preencha nome, área, corrente, termos e descrição e salve. O resultado guardado deste projeto é descartado e a mineração é refeita para incluir a nova lente."
   not: "A lente fica disponível para **todos** os projetos e usuários do sistema, não só para este projeto. Não é possível editar ou excluir a lente por esta tela."
   example: "Cadastre \"Paulo Freire\" com os termos \"freire, educação dialógica, pedagogia do oprimido, extensão ou comunicação\"."
 
@@ -599,10 +599,10 @@ report.lenses.field_filter:
 
 report.lenses.ranking:
   title: "Ranking de relevância teórica"
-  what: "As três primeiras lentes, ordenadas por número de documentos com termos no título/resumo e, em empate, nas referências. O percentual é (diretas + nas referências) ÷ documentos minerados."
+  what: "As três primeiras lentes, ordenadas por número de documentos com termos no título/resumo e, em empate, nas referências. O percentual é: documentos distintos com a lente (no título/resumo ou nas referências) ÷ documentos minerados."
   how: "Use como ponto de partida para investigar quais referenciais já dialogam com o seu corpus."
-  not: "O percentual soma as duas contagens: um documento encontrado nas duas abas conta duas vezes, por isso pode passar de 100%. Sem nenhuma correspondência, aparece \"Sugestão Teórica\" (apenas as primeiras lentes da lista, sem relação com o corpus)."
-  example: "Bourdieu com 40 diretas + 25 nas referências num corpus de 500 documentos mostra 13%."
+  not: "O documento encontrado nas duas abas conta uma vez no percentual, que nunca passa de 100%. Sem nenhuma correspondência, aparece \"Sugestão Teórica\" (apenas as primeiras lentes da lista, sem relação com o corpus)."
+  example: "Bourdieu com 40 diretas e 25 nas referências, 15 delas nos dois, está em 50 documentos distintos: num corpus de 500, mostra 10%."
 
 report.lenses.terms:
   title: "Palavras de mineração"

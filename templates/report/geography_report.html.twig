@@ -218,7 +218,7 @@
         <div class="d-flex align-items-center justify-content-between mb-3">
             <h5 style="font-weight:700" class="m-0">Estatísticas Detalhadas por Cidade (Top 15) {{ help('report.geography.city_table') }}</h5>
             <div class="d-flex align-items-center gap-2">
-                <a href="{{ path('app_report_geography_cities_export', {id: project.id}) }}" class="btn btn-sm btn-outline-success">
+                <a href="{{ path('app_report_geography_cities_export', selected_country_id ? {id: project.id, countryId: selected_country_id} : {id: project.id}) }}" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-download me-1"></i> Exportar Cidades (CSV)
                 </a>
                 {{ help('report.geography.cities_export') }}

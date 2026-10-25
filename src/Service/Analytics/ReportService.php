@@ -279,38 +279,52 @@ class ReportService
         $params = [$projectId];
         $searchSql = '';
         if ($search !== null && trim($search) !== '') {
-            $searchSql = ' AND k.keyword_display LIKE ?';
+            // Filtra DEPOIS de agrupar: acha o conceito pelo rótulo ou por qualquer variante,
+            // mas a frequência continua contando todas as variantes do conceito.
+            $searchSql = ' HAVING term LIKE ? OR SUM(k.keyword_display LIKE ?) > 0';
+            $params[] = '%' . trim($search) . '%';
             $params[] = '%' . trim($search) . '%';
         }
 
         $targetLimit = ($search !== null && trim($search) !== '') ? 300 : $limit;
 
+        // Uma linha por conceito (sem keyword_type no GROUP BY): freq = documentos distintos
+        // em qualquer origem, igual à lista de "Ver trabalhos". A frequência por origem vem
+        // em author_freq / indexed_freq.
         $keywords = $this->conn->fetchAllAssociative(
             "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' 
-                         WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' 
-                         ELSE k.keyword_type 
+                    CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN 'both'
+                         WHEN MAX(k.keyword_type) = 'author_keyword' THEN 'author'
+                         WHEN MAX(k.keyword_type) = 'indexed_keyword' THEN 'indexed'
+                         ELSE MAX(k.keyword_type)
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN dk.document_id END) AS author_freq,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN dk.document_id END) AS indexed_freq,
                     MIN(d.year) AS first_year, MAX(d.year) AS last_year
              FROM keyword k
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
-             JOIN document d         ON dk.document_id = d.id AND d.project_id = ?{$searchSql}
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
-             ORDER BY freq DESC
+             JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display){$searchSql}
+             ORDER BY freq DESC, term ASC
              LIMIT {$targetLimit}",
             $params
         );
+        foreach ($keywords as &$kw) {
+            $kw['freq']         = (int) $kw['freq'];
+            $kw['author_freq']  = (int) $kw['author_freq'];
+            $kw['indexed_freq'] = (int) $kw['indexed_freq'];
+        }
+        unset($kw);
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS author_kw_count,
+            "SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) AS total_kw_count,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS author_kw_count,
                     COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS indexed_kw_count
              FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?",
             [$projectId]
@@ -319,7 +333,8 @@ class ReportService
         return [
             'list' => $keywords,
             'kpis' => [
-                'total_keywords'   => ((int)($summary['author_kw_count'] ?? 0)) + ((int)($summary['indexed_kw_count'] ?? 0)),
+                // Conceitos distintos: um termo que é de autor e indexado ao mesmo tempo conta uma vez
+                'total_keywords'   => (int)($summary['total_kw_count'] ?? 0),
                 'author_keywords'  => (int)($summary['author_kw_count']  ?? 0),
                 'indexed_keywords' => (int)($summary['indexed_kw_count'] ?? 0),
             ]
@@ -331,12 +346,12 @@ class ReportService
     public function getCountriesReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
-            'SELECT p.common_name AS country, p.sigla, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+            'SELECT p.common_name AS country, p.sigla, p.continente AS continent, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
              FROM document d
              JOIN documento_paises dp ON d.id = dp.document_id
              JOIN paises p ON p.id = dp.country_id
              WHERE d.project_id = ?
-             GROUP BY p.id, p.common_name, p.sigla
+             GROUP BY p.id, p.common_name, p.sigla, p.continente
              ORDER BY doc_count DESC, citation_count DESC',
             [$projectId]
         );
@@ -348,6 +363,7 @@ class ReportService
             $list[] = [
                 'country'        => $row['country'],
                 'sigla'          => $row['sigla'],
+                'continent'      => $row['continent'],
                 'freq'           => $freq,
                 'doc_count'      => $freq,
                 'citation_count' => $citCount,
@@ -646,7 +662,7 @@ class ReportService
                 'growth'     => [],
                 'journals'   => [],
                 'years'      => [],
-                'kpis'       => ['total_classified' => 0, 'total_cit' => 0, 'total_groups' => 0, 'year_min' => null, 'year_max' => null],
+                'kpis'       => ['total_classified' => 0, 'total_cit' => 0, 'total_assignments' => 0, 'total_groups' => 0, 'year_min' => null, 'year_max' => null],
             ];
         }
 
@@ -771,9 +787,20 @@ class ReportService
         );
         $years = array_map('intval', $years);
 
-        // 7. Global KPIs
-        $totalClassified = array_sum(array_column($statsRows, 'total'));
-        $totalCit        = array_sum(array_column($statsRows, 'total_cit'));
+        // 7. Global KPIs — artigos distintos: um documento em 2 grupos conta uma vez
+        // (a soma por grupo, total_assignments, é a base da pizza de concentração)
+        $distinct = $this->conn->fetchAssociative(
+            "SELECT COUNT(*) AS docs, COALESCE(SUM(cit), 0) AS cit
+             FROM (
+                 SELECT DISTINCT d.id, COALESCE(d.cited_by, 0) AS cit
+                 FROM document_classification dc
+                 JOIN document d ON d.id = dc.document_id
+                 WHERE dc.project_id = ? AND dc.group_id IN ($placeholders)
+             ) t",
+            array_merge([$projectId], $groupIds)
+        );
+        $totalClassified = (int) ($distinct['docs'] ?? 0);
+        $totalCit        = (int) ($distinct['cit'] ?? 0);
         $yearMin = !empty($years) ? min($years) : null;
         $yearMax = !empty($years) ? max($years) : null;
 
@@ -785,9 +812,10 @@ class ReportService
             'journals' => $journals,
             'years'    => $years,
             'kpis'     => [
-                'total_classified' => $totalClassified,
-                'total_cit'        => $totalCit,
-                'total_groups'     => count($groupRows),
+                'total_classified'  => $totalClassified,
+                'total_cit'         => $totalCit,
+                'total_assignments' => array_sum(array_column($statsRows, 'total')),
+                'total_groups'      => count($groupRows),
                 'year_min'         => $yearMin,
                 'year_max'         => $yearMax,
             ],

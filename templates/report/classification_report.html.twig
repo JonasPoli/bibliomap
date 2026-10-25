@@ -209,7 +209,7 @@
             <div class="col-12 col-xl-6">
                 <div class="bm-card h-100">
                     <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Concentração Temática {{ help('classification.report.pie') }}</div>
-                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Participação de cada grupo na soma das classificações temáticas</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Participação de cada grupo na soma das classificações temáticas (um artigo em 2 grupos conta nos dois)</div>
                     <div class="chart-wrap" style="height:300px"><canvas id="chartPie"></canvas></div>
                 </div>
             </div>
@@ -443,7 +443,9 @@ new Chart(document.getElementById('chartAccel'), {
 });
 
 // ── 6. Doughnut ─────────────────────────────────────────────────────────
+// totalAll = soma das classificações (base da pizza); totalDocs = artigos distintos classificados
 const totalAll = groups.reduce((s, g) => s + ((stats[g.id] || {}).total || 0), 0);
+const totalDocs = (payload.kpis && payload.kpis.total_classified) || totalAll;
 new Chart(document.getElementById('chartPie'), {
     type: 'doughnut',
     data: {
@@ -654,12 +656,13 @@ function buildInsights() {
     // Concentration alert
     if (totalAll > 0) {
         const dominant = [...groups].sort((a, b) => ((stats[b.id] || {}).total || 0) - ((stats[a.id] || {}).total || 0))[0];
-        const domPct = Math.round(((stats[dominant.id] || {}).total || 0) / totalAll * 100);
+        // % de artigos distintos classificados (um artigo pode estar em mais de um grupo)
+        const domPct = Math.round(((stats[dominant.id] || {}).total || 0) / totalDocs * 100);
         if (domPct > 40) {
             ins.push({
                 icon: '📊',
                 title: `Concentração Temática`,
-                text: `<span class="ins-hl">${esc(dominant.name)}</span> representa <span class="ins-hl">${domPct}%</span> das classificações temáticas. Considere se esta concentração reflete o campo ou um viés de busca.`
+                text: `<span class="ins-hl">${esc(dominant.name)}</span> está em <span class="ins-hl">${domPct}%</span> dos artigos classificados. Considere se esta concentração reflete o campo ou um viés de busca.`
             });
         }
     }
@@ -680,13 +683,13 @@ function buildInsights() {
     }
 
     // Small but high-impact
-    const smallGroups = groups.filter(g => ((stats[g.id] || {}).total || 0) < totalAll * 0.05 && ((stats[g.id] || {}).avg_cit || 0) > 12);
+    const smallGroups = groups.filter(g => ((stats[g.id] || {}).total || 0) < totalDocs * 0.05 && ((stats[g.id] || {}).avg_cit || 0) > 12);
     if (smallGroups.length > 0) {
         const g = smallGroups[0], s = stats[g.id] || {};
         ins.push({
             icon: '💎',
             title: `Nicho de Alta Qualidade`,
-            text: `<span class="ins-hl">${esc(g.name)}</span> tem apenas <span class="ins-hl">${fmt(s.total)} artigos</span> (${Math.round((s.total || 0) / totalAll * 100)}% do corpus), mas impacto médio de <span class="ins-hl">${s.avg_cit} cit/artigo</span>. Área seleta e influente.`
+            text: `<span class="ins-hl">${esc(g.name)}</span> tem apenas <span class="ins-hl">${fmt(s.total)} artigos</span> (${Math.round((s.total || 0) / totalDocs * 100)}% dos artigos classificados), mas impacto médio de <span class="ins-hl">${s.avg_cit} cit/artigo</span>. Área seleta e influente.`
         });
     }
 

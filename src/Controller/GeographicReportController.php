@@ -162,10 +162,15 @@ class GeographicReportController extends AbstractController
     }
 
     #[Route('/cities/export', name: 'app_report_geography_cities_export', methods: ['GET'])]
-    public function exportCitiesCsv(int $id): Response
+    public function exportCitiesCsv(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
         $conn = $this->em->getConnection();
+
+        // Mesmo filtro de país da tela
+        $countryId = (int) $request->query->get('countryId', 0);
+        $countrySql = $countryId > 0 ? ' AND ct.country_id = ?' : '';
+        $params = $countryId > 0 ? [$project->getId(), $countryId] : [$project->getId()];
 
         $rows = $conn->fetchAllAssociative(
             'SELECT ct.official_name AS city, s.official_name AS state, s.sigla AS state_sigla, 
@@ -176,10 +181,10 @@ class GeographicReportController extends AbstractController
              JOIN cidades ct ON ct.id = dc.city_id
              JOIN paises c ON c.id = ct.country_id
              LEFT JOIN estados s ON s.id = ct.state_id
-             WHERE d.project_id = ?
+             WHERE d.project_id = ?' . $countrySql . '
              GROUP BY ct.id, s.id, c.id
              ORDER BY doc_count DESC',
-            [$project->getId()]
+            $params
         );
 
         $csv = \League\Csv\Writer::createFromString('');
