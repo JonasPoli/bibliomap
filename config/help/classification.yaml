@@ -378,10 +378,10 @@ classification.compare.card_top:
 
 classification.compare.card_avg:
   title: "Média de citações geral"
-  what: "Soma das citações dos grupos marcados dividida pela soma dos documentos desses grupos."
-  how: "Use como referência para saber se um grupo está acima ou abaixo da média do conjunto."
-  not: "Documentos que estão em dois grupos entram duas vezes no cálculo. Citações dependem da base e da data de exportação."
-  example: "(41.843 + 1.597) ÷ (1.816 + 82) ≈ 22,9 citações por documento."
+  what: "Média de citações dos documentos que estão em pelo menos um dos grupos marcados. Cada documento conta uma vez, mesmo que esteja em dois grupos."
+  how: "Use como referência para saber se um grupo está acima ou abaixo da média do conjunto selecionado (compare com a coluna Média da tabela)."
+  not: "Não é a média do projeto inteiro: documentos fora dos grupos marcados não entram. Citações dependem da base e da data de exportação."
+  example: "Com os grupos 8 e 9 marcados, 1.868 documentos distintos somam 42.807 citações: 42.807 ÷ 1.868 ≈ 22,9 citações por documento."
 
 classification.compare.summary:
   title: "Volume e citações por grupo"

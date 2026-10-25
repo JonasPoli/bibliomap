@@ -718,10 +718,10 @@ report.general.top_sources:
 
 report.general.top_keywords:
   title: "Top 20 palavras-chave"
-  what: "Os 20 termos mais frequentes, misturando palavras-chave **do autor** (azul) e **indexadas** pela base (roxo). O número ao lado é a quantidade de documentos."
-  how: "Use para descrever os assuntos dominantes do corpus."
-  not: "O mesmo termo pode aparecer duas vezes, uma como palavra do autor e outra como indexada."
-  example: "\"machine learning\" aparece em azul (420) e em roxo (510): os autores e a base usam o mesmo termo."
+  what: "Os 20 conceitos mais frequentes do corpus. A cor indica a origem: **do autor** (azul), **indexada** pela base (roxo) ou **ambas** (verde). O número ao lado é a quantidade de documentos distintos."
+  how: "Use para descrever os assuntos dominantes do corpus. Cada conceito aparece uma vez só, somando as duas origens sem contar o mesmo documento duas vezes."
+  not: "Não junta sinônimos ou singular/plural que ainda não foram agrupados na Normalização ou no tesauro. Não mostra relações entre os termos; para isso use a rede de coocorrência ou o mapa temático."
+  example: "\"machine learning\" aparece em verde com 690: está em 690 documentos, seja como palavra do autor, seja como termo indexado pela base."
 
 report.general.top_countries:
   title: "Top 10 países"

@@ -497,10 +497,12 @@ class ReportService
 
         // Top 5 keywords
         $topKeywords = $this->conn->fetchAllAssociative(
+            // Uma linha por conceito, como no relatório de Palavras-chave (origem 'both' quando aparece nas duas)
             "SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
-                    CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' 
-                         WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' 
-                         ELSE k.keyword_type 
+                    CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN 'both'
+                         WHEN MAX(k.keyword_type) = 'author_keyword' THEN 'author'
+                         WHEN MAX(k.keyword_type) = 'indexed_keyword' THEN 'indexed'
+                         ELSE MAX(k.keyword_type)
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq
              FROM keyword k
@@ -508,7 +510,7 @@ class ReportService
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
              ORDER BY freq DESC LIMIT 20",
             [$projectId]
         );

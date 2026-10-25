@@ -47,9 +47,26 @@ class GroupComparisonService
             $r['percentage'] = $totalProjectDocs > 0 ? round(($count / $totalProjectDocs) * 100, 1) : 0;
         }
 
+        // Média geral sobre documentos distintos: um artigo em 2 grupos conta uma vez só
+        $overall = $conn->fetchAssociative(
+            'SELECT COUNT(*) AS doc_count, COALESCE(ROUND(AVG(cit), 2), 0) AS avg_citations
+             FROM (
+                 SELECT DISTINCT d.id, COALESCE(d.cited_by, 0) AS cit
+                 FROM document_classification dc
+                 JOIN document d ON d.id = dc.document_id
+                 WHERE dc.project_id = ? AND dc.group_id IN (?)
+             ) t',
+            [$projectId, $groupIds],
+            [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
+        );
+
         return [
             'totalProjectDocs' => $totalProjectDocs,
             'groups'           => $rows,
+            'overall'          => [
+                'doc_count'     => (int) $overall['doc_count'],
+                'avg_citations' => (float) $overall['avg_citations'],
+            ],
         ];
     }
 
@@ -327,12 +344,13 @@ class GroupComparisonService
         $conn = $this->em->getConnection();
 
         $sql = 'SELECT dc.group_id, g.name AS group_name, g.color,
-                       COALESCE(q.qualis, "Sem Qualis") AS estrato,
+                       COALESCE(NULLIF(d.qualis, ""), "Sem Qualis") AS estrato,
                        COUNT(DISTINCT dc.document_id) AS doc_count
                 FROM document_classification dc
                 JOIN classification_group g ON g.id = dc.group_id
+                -- Estrato já resolvido por documento (o mesmo dos demais relatórios). O JOIN
+                -- com OR no qualis_journal era lento e podia pôr um documento em 2 estratos.
                 JOIN document d ON d.id = dc.document_id
-                LEFT JOIN qualis_journal q ON (q.normalized_issn = d.issn OR q.issn = d.issn)
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
                 GROUP BY dc.group_id, estrato
                 ORDER BY dc.group_id, doc_count DESC';

@@ -245,16 +245,12 @@ function renderSummary(summary) {
     document.getElementById('cardTotalDocs').textContent = summary.totalProjectDocs || 0;
 
     let topDocs = 0;
-    let sumCit = 0;
-    let sumDocs = 0;
 
     const tbody = document.getElementById('summaryTableBody');
     tbody.innerHTML = '';
 
     groups.forEach(g => {
         if (g.doc_count > topDocs) topDocs = g.doc_count;
-        sumCit += g.total_citations;
-        sumDocs += g.doc_count;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -270,7 +266,8 @@ function renderSummary(summary) {
     });
 
     document.getElementById('cardTopGroupDocs').textContent = topDocs;
-    document.getElementById('cardAvgCitations').textContent = sumDocs > 0 ? (sumCit / sumDocs).toFixed(1) : 0;
+    // Calculada no servidor sobre documentos distintos (somar por grupo contaria 2x quem está em 2 grupos)
+    document.getElementById('cardAvgCitations').textContent = (summary.overall?.avg_citations ?? 0).toFixed(1).replace('.', ',');
 }
 
 function renderTemporal(temporal) {

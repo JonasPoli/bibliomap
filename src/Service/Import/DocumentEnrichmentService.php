@@ -579,6 +579,9 @@ class DocumentEnrichmentService
         $conn->executeStatement("
             UPDATE keyword k
             JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            JOIN thesaurus_concept tc ON tc.id = tl.concept_id
+            -- só o esquema de palavras-chave: um conceito de lugar (ex. Brazil) não deve capturar termos
+            JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id AND ts.slug = 'keyword'
             SET k.thesaurus_concept_id = tl.concept_id
             WHERE k.thesaurus_concept_id IS NULL
         ");

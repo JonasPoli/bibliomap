@@ -249,14 +249,17 @@
             <div class="d-flex gap-3 mb-2" style="font-size:11px;color:var(--bm-text-muted)">
                 <span><i class="bi bi-circle-fill me-1" style="color:var(--bm-accent);font-size:8px"></i>Do autor</span>
                 <span><i class="bi bi-circle-fill me-1" style="color:#a855f7;font-size:8px"></i>Indexada pela base</span>
+                <span><i class="bi bi-circle-fill me-1" style="color:#3fb950;font-size:8px"></i>Ambas</span>
             </div>
             {% endif %}
             <div class="d-flex flex-wrap gap-2">
+                {% set kwColors = {author: ['79,142,247', 'var(--bm-accent)'], indexed: ['168,85,247', '#a855f7'], both: ['63,185,80', '#3fb950']} %}
                 {% for kw in topKeywords %}
+                {% set c = kwColors[kw.type] ?? kwColors.indexed %}
                 <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:500;
-                    background:{{ kw.type == 'author' ? 'rgba(79,142,247,0.12)' : 'rgba(168,85,247,0.12)' }};
-                    color:{{ kw.type == 'author' ? 'var(--bm-accent)' : '#a855f7' }};
-                    border:1px solid {{ kw.type == 'author' ? 'rgba(79,142,247,0.25)' : 'rgba(168,85,247,0.25)' }}">
+                    background:rgba({{ c[0] }},0.12);
+                    color:{{ c[1] }};
+                    border:1px solid rgba({{ c[0] }},0.25)">
                     {{ kw.term }}
                     <span style="font-size:10px;font-weight:700;opacity:0.8">{{ kw.freq }}</span>
                 </span>
