@@ -57,8 +57,9 @@ final class KeywordResolverService
      */
     public function getEffectiveKeywordId(Keyword $keyword): int
     {
+        // Negativo para conceitos do tesauro: não colide com IDs da tabela keyword
         if ($keyword->getThesaurusConcept()) {
-            return $keyword->getThesaurusConcept()->getId();
+            return -$keyword->getThesaurusConcept()->getId();
         }
 
         if ($keyword->getKeywordConcept()) {
@@ -89,11 +90,11 @@ final class KeywordResolverService
      * effective concept. Use this in raw SQL queries.
      *
      * @param string $kwAlias The SQL alias for the keyword table (e.g., 'k')
-     * @return string SQL fragment like "COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id)"
+     * @return string SQL fragment like "IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)"
      */
     public function buildSqlCoalesceId(string $kwAlias = 'k'): string
     {
-        return "COALESCE({$kwAlias}.thesaurus_concept_id, {$kwAlias}.keyword_concept_id, {$kwAlias}.id)";
+        return "IF({$kwAlias}.thesaurus_concept_id IS NULL, COALESCE({$kwAlias}.keyword_concept_id, {$kwAlias}.id), -{$kwAlias}.thesaurus_concept_id)";
     }
 
     /**

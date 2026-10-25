@@ -178,7 +178,7 @@ class ThreeFieldsService
                  JOIN document_keyword dk ON k.id = dk.keyword_id
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                  WHERE k.keyword_type = ?
-                 GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
+                 GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
                  ORDER BY COUNT(DISTINCT dk.document_id) DESC
                  LIMIT ' . (int)$limit,
                 [$projectId, $type]

@@ -26,7 +26,7 @@ class ThematicMapService
         // ── 1. Fetch top keywords (nodes) ────────────────────────────────────
         $rawNodes = $conn->fetchAllAssociative('
             SELECT
-                COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+                IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                 COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original) AS label,
                 COUNT(DISTINCT dk.document_id) AS doc_count
             FROM keyword k
@@ -35,7 +35,7 @@ class ThematicMapService
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ?
-            GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), 
+            GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), 
                      COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original)
             HAVING COUNT(DISTINCT dk.document_id) >= ?
             ORDER BY doc_count DESC
@@ -72,8 +72,8 @@ class ThematicMapService
         // Bug #1 fix: use $minOccur directly — no dynamic scaling.
         $rawEdges = $conn->fetchAllAssociative("
             SELECT
-                COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) AS source,
-                COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) AS target,
+                IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) AS source,
+                IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) AS target,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
             JOIN document_keyword dk2 
@@ -82,9 +82,9 @@ class ThematicMapService
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
-              AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) < COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
-              AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) IN ($nodeIdPlaceholders)
-              AND COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) IN ($nodeIdPlaceholders)
+              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
+              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) IN ($nodeIdPlaceholders)
+              AND IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) IN ($nodeIdPlaceholders)
             GROUP BY source, target
             HAVING weight >= ?
             ORDER BY weight DESC

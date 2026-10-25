@@ -286,7 +286,7 @@ class ReportService
         $targetLimit = ($search !== null && trim($search) !== '') ? 300 : $limit;
 
         $keywords = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' 
                          WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' 
@@ -299,15 +299,15 @@ class ReportService
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?{$searchSql}
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY freq DESC
              LIMIT {$targetLimit}",
             $params
         );
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS author_kw_count,
-                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) END) AS indexed_kw_count
+            "SELECT COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS author_kw_count,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS indexed_kw_count
              FROM keyword k
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
@@ -443,7 +443,7 @@ class ReportService
         );
 
         $kpis['total_keywords'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id)) FROM keyword k
+            'SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) FROM keyword k
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d ON dk.document_id = d.id AND d.project_id = ?',
             [$projectId]
@@ -492,7 +492,7 @@ class ReportService
              LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY freq DESC LIMIT 20",
             [$projectId]
         );

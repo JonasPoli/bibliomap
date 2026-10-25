@@ -95,18 +95,20 @@ class IndicatorService
         $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
         // NOTE: LIMIT is inlined (not bound) to avoid MySQL < 8 quoting the
         // integer as a string when the parameter array contains mixed types.
+        // O rótulo é resolvido junto do agrupamento: o ID efetivo pode ser de um
+        // conceito do tesauro (negativo), que não existe na tabela keyword.
         return $this->conn->fetchAllAssociative(
-            'SELECT k.keyword_display AS term, k.keyword_normalized AS normalized_term, t.doc_count
-             FROM (
-                 SELECT COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) AS concept_id, COUNT(DISTINCT dk.document_id) AS doc_count
-                 FROM document_keyword dk
-                 JOIN document d ON d.id = dk.document_id AND d.project_id = ?
-                 JOIN keyword k2 ON k2.id = dk.keyword_id AND k2.keyword_type = ?
-                 GROUP BY COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
-                 ORDER BY doc_count DESC
-                 LIMIT ' . (int)$limit . '
-             ) t
-             JOIN keyword k ON k.id = t.concept_id',
+            'SELECT MAX(COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)) AS term,
+                    MAX(COALESCE(kc.keyword_normalized, k.keyword_normalized)) AS normalized_term,
+                    COUNT(DISTINCT dk.document_id) AS doc_count
+             FROM document_keyword dk
+             JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+             JOIN keyword k ON k.id = dk.keyword_id AND k.keyword_type = ?
+             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+             LEFT JOIN keyword kc ON kc.id = k.keyword_concept_id
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)
+             ORDER BY doc_count DESC
+             LIMIT ' . (int)$limit,
             [$projectId, $mappedType]
         );
     }
@@ -226,7 +228,7 @@ class IndicatorService
         );
 
         $keywordsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id)) FROM document_keyword dk
+            'SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) FROM document_keyword dk
              JOIN keyword k ON k.id = dk.keyword_id
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?',
             [$projectId]

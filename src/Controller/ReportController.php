@@ -38,7 +38,7 @@ class ReportController extends AbstractController
         // Top keywords by occurrence (author + indexed, sorted by count DESC)
         // Limit to 300 to keep the page manageable; user can filter via search
         $keywords = $this->conn->fetchAllAssociative(
-            'SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+            'SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' 
                          WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' 
@@ -50,7 +50,7 @@ class ReportController extends AbstractController
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), k.keyword_type
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
@@ -88,11 +88,13 @@ class ReportController extends AbstractController
         $selectedKeywords = [];
         if (!empty($selectedIds)) {
             foreach ($selectedIds as $selId) {
-                // First check if it is a thesaurus concept
-                $tc = $this->conn->fetchAssociative('SELECT id, preferred_label AS term FROM thesaurus_concept WHERE id = ?', [$selId]);
+                // ID efetivo negativo = conceito do tesauro (ver KeywordResolverService)
+                $tc = $selId < 0
+                    ? $this->conn->fetchAssociative('SELECT id, preferred_label AS term FROM thesaurus_concept WHERE id = ?', [-$selId])
+                    : false;
                 if ($tc) {
                     $selectedKeywords[] = [
-                        'id' => (int)$tc['id'],
+                        'id' => (int)$selId,
                         'term' => $tc['term'],
                         'type' => 'thesaurus_concept',
                     ];
@@ -146,7 +148,7 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
@@ -155,9 +157,9 @@ class ReportController extends AbstractController
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) IN ($placeholders)
+             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );
@@ -204,7 +206,7 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) AS id,
+            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
@@ -213,9 +215,9 @@ class ReportController extends AbstractController
             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
              JOIN document_keyword dk ON dk.keyword_id = k.id
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) IN ($placeholders)
+             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
+             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );
@@ -375,7 +377,7 @@ class ReportController extends AbstractController
              FROM document d
              JOIN document_keyword dk ON d.id = dk.document_id
              JOIN keyword k ON dk.keyword_id = k.id
-             WHERE d.project_id = ? AND COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) = ?
+             WHERE d.project_id = ? AND IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) = ?
              ORDER BY d.year DESC, d.title ASC',
             [$project->getId(), $keywordId]
         );
@@ -386,7 +388,7 @@ class ReportController extends AbstractController
              FROM keyword k
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             WHERE COALESCE(k.thesaurus_concept_id, k.keyword_concept_id, k.id) = ?
+             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) = ?
              LIMIT 1',
             [$keywordId]
         );
