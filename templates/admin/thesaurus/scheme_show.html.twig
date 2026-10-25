@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header d-flex justify-content-between align-items-start">
     <div>
-        <h1 class="bm-page-title"><i class="bi bi-tag-fill me-2"></i>{{ scheme.name }}</h1>
+        <h1 class="bm-page-title"><i class="bi bi-tag-fill me-2"></i>{{ scheme.name }} {{ help('admin.thesaurus.scheme_page') }}</h1>
         <p class="bm-page-subtitle">Esquema do tipo <code>{{ scheme.type }}</code> contendo conceitos preferidos e termos relacionados.</p>
     </div>
     <a href="{{ path('app_admin_thesaurus_index') }}" class="btn btn-bm-secondary">
@@ -23,18 +23,18 @@
 
 <!-- 1. Card para Adicionar Conceito -->
 <div class="bm-card mb-4">
-    <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Conceito</h5>
+    <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Conceito {{ help('admin.thesaurus.new_concept') }}</h5>
     <form action="{{ path('app_admin_thesaurus_concept_new', {schemeId: scheme.id}) }}" method="post">
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="form-label text-muted-bm small fw-bold">Conceito Principal (Termo de Exibição / Preferred Label)</label>
+                <label class="form-label text-muted-bm small fw-bold">Conceito Principal (rótulo preferido) {{ help('admin.thesaurus.preferred_label') }}</label>
                 <input type="text" name="preferredLabel" class="form-control" placeholder="Ex: Horticultural Therapy" required style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
                 <span class="text-muted-bm" style="font-size:11px">Este será o nome padronizado oficial que aparecerá nos relatórios.</span>
             </div>
             <div class="col-md-6">
-                <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha)</label>
+                <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha) {{ help('admin.thesaurus.synonyms') }}</label>
                 <textarea name="synonyms" class="form-control" rows="3" placeholder="Ex:&#10;horticultural therapy&#10;therapeutic horticulture&#10;garden therapy" style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)"></textarea>
-                <span class="text-muted-bm" style="font-size:11px">Insira termos adicionais (um por linha) que serão fundidos neste conceito.</span>
+                <span class="text-muted-bm" style="font-size:11px">Palavras-chave com estas grafias passam a ser contadas como este conceito.</span>
             </div>
         </div>
         <div class="mt-3 text-end">
@@ -47,15 +47,15 @@
 
 <!-- 2. Tabela de Listagem de Conceitos (Abaixo do Card) -->
 <div class="bm-card">
-    <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }})</h5>
+    <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }}) {{ help('admin.thesaurus.concepts_list') }}</h5>
     <div class="table-responsive">
         <table class="table table-dark table-hover align-middle mb-0">
             <thead>
                 <tr>
                     <th style="width:250px">Conceito Principal</th>
                     <th>Sinônimos (Alternative Labels)</th>
-                    <th style="width:200px">Forma Normalizada</th>
-                    <th style="width:160px;text-align:right">Ações</th>
+                    <th style="width:200px">Forma Normalizada {{ help('admin.thesaurus.col_normalized') }}</th>
+                    <th style="width:160px;text-align:right">Ações {{ help('admin.thesaurus.delete_concept') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@
                                         <i class="bi bi-pencil me-1"></i>Editar
                                     </a>
                                     
-                                    <form action="{{ path('app_admin_thesaurus_concept_delete', {id: concept.id}) }}" method="post" onsubmit="return confirm('Tem certeza que deseja excluir este conceito e todos os seus sinônimos?')" style="display:inline">
+                                    <form action="{{ path('app_admin_thesaurus_concept_delete', {id: concept.id}) }}" method="post" onsubmit="return confirm('Excluir o conceito e todos os seus sinônimos? As palavras-chave ligadas a ele voltarão a aparecer separadas nos relatórios. Não há como desfazer.')" style="display:inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete-concept-' ~ concept.id) }}">
                                         <button type="submit" class="btn btn-sm btn-danger px-2.5 py-1" style="font-size:12px">
                                             <i class="bi bi-trash me-1"></i>Excluir

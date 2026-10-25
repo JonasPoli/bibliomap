@@ -10,44 +10,45 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title"><i class="bi bi-magic me-2"></i>Tratamento de Palavras-chave</h1>
-    <p class="bm-page-subtitle">Ferramenta avançada para limpeza, agrupamento por normalização, tesauros e co-ocorrências fuzzy de palavras-chave.</p>
+    <h1 class="bm-page-title"><i class="bi bi-magic me-2"></i>Tratamento de Palavras-chave {{ help('admin.kwtreat.page') }}</h1>
+    <p class="bm-page-subtitle">Limpeza, invalidação de lixo, agrupamento de grafias iguais e ligação ao tesauro (exata ou por similaridade) de todas as palavras-chave da plataforma.</p>
 </div>
 
 <div class="row g-4">
     <!-- Diagnosis Column -->
     <div class="col-lg-8">
         <div class="bm-card mb-4">
-            <h5 class="mb-4 text-white"><i class="bi bi-activity me-2"></i>Diagnóstico da Base de Dados</h5>
+            <h5 class="mb-4 text-white"><i class="bi bi-activity me-2"></i>Diagnóstico da Base de Dados {{ help('admin.kwtreat.diagnosis') }}</h5>
             
             <div class="row g-3 mb-4">
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-white">{{ diagnosis.total }}</div>
-                        <div class="bm-stat-label">Total Keywords</div>
+                        <div class="bm-stat-label">Total de palavras-chave {{ help('admin.kwtreat.kpi_total') }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-warning">{{ diagnosis.dirtyCount }}</div>
-                        <div class="bm-stat-label">Com Sujeiras</div>
+                        <div class="bm-stat-label">Com sujeiras* {{ help('admin.kwtreat.kpi_dirty') }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-danger">{{ diagnosis.invalidCount }}</div>
-                        <div class="bm-stat-label">Inválidas</div>
+                        <div class="bm-stat-label">Inválidas* {{ help('admin.kwtreat.kpi_invalid') }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-info">{{ diagnosis.duplicatesCount }}</div>
-                        <div class="bm-stat-label">Duplicadas</div>
+                        <div class="bm-stat-label">Duplicadas {{ help('admin.kwtreat.kpi_duplicates') }}</div>
                     </div>
                 </div>
             </div>
 
-            <h6 class="text-white mb-3">Resumo Adicional</h6>
+            <p class="text-muted small mb-3">* Calculado sobre os primeiros 10.000 termos (por ID).</p>
+            <h6 class="text-white mb-3">Resumo Adicional {{ help('admin.kwtreat.summary') }}</h6>
             <div class="row">
                 <div class="col-md-6">
                     <ul class="list-group list-group-flush bg-transparent">
@@ -77,7 +78,7 @@
         </div>
 
         <div class="bm-card">
-            <h5 class="mb-4 text-white"><i class="bi bi-clock-history me-2"></i>Histórico de Processamentos Recentes</h5>
+            <h5 class="mb-4 text-white"><i class="bi bi-clock-history me-2"></i>Histórico de Processamentos Recentes {{ help('admin.kwtreat.history') }}</h5>
             <div class="table-responsive">
                 <table class="table table-dark table-hover mb-0">
                     <thead>
@@ -103,12 +104,12 @@
                                     <td>{{ job.createdAt|date('d/m/Y H:i:s') }}</td>
                                     <td>
                                         <span class="badge {% if job.mode == 'execute' %}bg-success{% else %}bg-secondary text-dark{% endif %}">
-                                            {{ job.mode }}
+                                            {{ job.mode == 'execute' ? 'Real' : 'Simulação' }}
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge {% if job.status == 'completed' %}bg-info{% else %}bg-warning text-dark{% endif %}">
-                                            {{ job.status }}
+                                        <span class="badge {% if job.status == 'completed' %}bg-info{% elseif job.status == 'failed' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                            {{ ({completed: 'Concluído', failed: 'Falhou', running: 'Em execução'})[job.status] ?? job.status }}
                                         </span>
                                     </td>
                                     <td>{{ job.totalKeywords }}</td>
@@ -130,32 +131,32 @@
     <!-- Actions Column -->
     <div class="col-lg-4">
         <div class="bm-card mb-4">
-            <h5 class="mb-3 text-white"><i class="bi bi-play-fill me-2"></i>Executar Novo Pipeline</h5>
-            <p class="text-muted small">Escolha o modo de processamento e os parâmetros para iniciar a limpeza e remapeamento.</p>
+            <h5 class="mb-3 text-white"><i class="bi bi-play-fill me-2"></i>Executar Novo Processamento {{ help('admin.kwtreat.run') }}</h5>
+            <p class="text-muted small">Rode sempre uma simulação antes do modo Real.</p>
             
             <form action="{{ path('app_super_admin_keyword_treatment_run') }}" method="post" onsubmit="return confirmAction(this);">
                 <div class="mb-3">
-                    <label class="form-label">Modo de Operação</label>
+                    <label class="form-label">Modo de Operação {{ help('admin.kwtreat.mode') }}</label>
                     <select name="mode" class="form-select" id="treatment-mode" onchange="updateWarningMsg()">
-                        <option value="dry_run">Dry-run (Simulação - Apenas leitura)</option>
-                        <option value="execute">Real (Executa e salva no Banco de Dados)</option>
+                        <option value="dry_run">Simulação (não altera palavras-chave)</option>
+                        <option value="execute">Real (grava as mudanças no banco)</option>
                     </select>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Score Mínimo Fuzzy (%)</label>
+                    <label class="form-label">Score Mínimo Fuzzy (%) {{ help('admin.kwtreat.min_score') }}</label>
                     <input type="number" name="min_score" class="form-control" value="95" min="70" max="100">
-                    <div class="form-text text-muted">Relações fuzzy acima desse valor serão consolidadas automaticamente.</div>
+                    <div class="form-text text-muted">A partir deste valor a ligação ao tesauro é automática; entre 75 e ele, vira sugestão para revisão.</div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">Limite Máximo de Termos</label>
+                    <label class="form-label">Limite Máximo de Termos {{ help('admin.kwtreat.limit') }}</label>
                     <input type="number" name="limit" class="form-control" value="5000" min="100" max="25000">
                 </div>
 
                 <div class="alert alert-warning d-none text-dark" id="warning-alert">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    <strong>Atenção:</strong> O modo Real altera display, normalização e vincula termos aos conceitos. O termo original continuará preservado.
+                    <strong>Atenção:</strong> o modo Real altera exibição e normalização, invalida termos-lixo, vincula termos a conceitos e <strong>funde duplicatas apagando o registro repetido</strong>. Não há desfazer: faça backup do banco antes.
                 </div>
 
                 <button type="submit" class="btn btn-bm-primary w-100 fw-bold py-2">
@@ -165,7 +166,7 @@
         </div>
 
         <div class="bm-card">
-            <h5 class="mb-3 text-white"><i class="bi bi-shield-exclamation me-2"></i>Revisão Manual</h5>
+            <h5 class="mb-3 text-white"><i class="bi bi-shield-exclamation me-2"></i>Revisão Manual {{ help('admin.kwtreat.review_card') }}</h5>
             <p class="text-muted small">Atualmente existem <strong>{{ pending_reviews_count }}</strong> sugestões fuzzy geradas que necessitam de validação ou recusa manual.</p>
             <a href="{{ path('app_super_admin_keyword_treatment_review') }}" class="btn btn-bm-secondary w-100 fw-bold">
                 <i class="bi bi-eye-fill me-2"></i>Abrir Tela de Revisão
@@ -188,7 +189,7 @@ function updateWarningMsg() {
 function confirmAction(form) {
     const mode = document.getElementById('treatment-mode').value;
     if (mode === 'execute') {
-        return confirm('Esta ação irá atualizar associações de palavras-chave e conceitos, preservando os termos originais. Deseja continuar?');
+        return confirm('Modo REAL: as palavras-chave de TODOS os projetos serão alteradas e duplicatas serão fundidas (registros repetidos apagados). Não há como desfazer. Continuar?');
     }
     return true;
 }

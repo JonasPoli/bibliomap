@@ -11,7 +11,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-shield-check text-accent me-2"></i>Fila de Revisão e Deduplicação
+        <i class="bi bi-shield-check text-accent me-2"></i>Fila de Revisão e Deduplicação {{ help('admin.review.page') }}
     </h1>
     <p class="bm-page-subtitle">Revise novos termos e autores importados brutamente, aplicando limpeza, agrupamento de tesauros e desambiguação.</p>
 </div>
@@ -19,15 +19,17 @@
 <div class="bm-card">
     <!-- Tabs Navigation -->
     <ul class="nav nav-tabs border-bm mb-4" id="review-tabs" role="tablist">
-        <li class="nav-item">
+        <li class="nav-item d-flex align-items-center">
             <button class="nav-link active text-accent" id="authors-tab" data-bs-toggle="tab" data-bs-target="#authors-pane" type="button" role="tab" style="background:transparent;border:none;font-weight:600">
-                👥 Autores Pendentes ({{ total_unresolved_authors }})
+                👥 Autores Pendentes ({{ total_unresolved_authors|number_format(0, ',', '.') }})
             </button>
+            {{ help('admin.review.tab_authors') }}
         </li>
-        <li class="nav-item">
+        <li class="nav-item d-flex align-items-center">
             <button class="nav-link text-accent" id="keywords-tab" data-bs-toggle="tab" data-bs-target="#keywords-pane" type="button" role="tab" style="background:transparent;border:none;font-weight:600">
-                🔑 Palavras-chave Pendentes ({{ total_unresolved_keywords }})
+                🔑 Palavras-chave Pendentes ({{ total_unresolved_keywords|number_format(0, ',', '.') }})
             </button>
+            {{ help('admin.review.tab_keywords') }}
         </li>
     </ul>
 
@@ -40,14 +42,26 @@
                     <p class="mt-2">Não há autores pendentes de revisão!</p>
                 </div>
             {% else %}
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2" style="font-size:12px;color:var(--bm-text-muted)">
+                    <span>Exibindo {{ unresolved_authors|length }} de {{ total_unresolved_authors|number_format(0, ',', '.') }} autores pendentes (ordem alfabética). Resolva estes para ver os próximos.</span>
+                    <span class="d-flex flex-wrap gap-3">
+                        <span>Aceitar {{ help('admin.review.accept') }}</span>
+                        <span>Editar {{ help('admin.review.edit') }}</span>
+                        <span>Mesclar {{ help('admin.review.merge_author') }}</span>
+                        <span>Destino por ID {{ help('admin.review.merge_manual_id') }}</span>
+                        <span>Mover p/ KW {{ help('admin.review.move_to_keyword') }}</span>
+                        <span>Mover p/ Inst {{ help('admin.review.move_to_institution') }}</span>
+                        <span>Descartar {{ help('admin.review.discard_author') }}</span>
+                    </span>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-hover align-middle border-bm">
                         <thead>
                             <tr class="text-muted" style="font-size:12px;border-bottom:1px solid var(--bm-border-color)">
-                                <th>Nome Original (CSV)</th>
-                                <th>Nome Preferido (Limpo)</th>
-                                <th>Motivo do Alerta</th>
-                                <th>Sugestão de Agrupamento</th>
+                                <th>Nome Original (CSV) {{ help('admin.review.author_original') }}</th>
+                                <th>Nome Preferido (Limpo) {{ help('admin.review.author_preferred') }}</th>
+                                <th>Motivo do Alerta {{ help('admin.review.author_reason') }}</th>
+                                <th>Sugestão de Agrupamento {{ help('admin.review.author_suggestion') }}</th>
                                 <th style="text-align:right">Ações</th>
                             </tr>
                         </thead>
@@ -170,7 +184,7 @@
                                                         <div class="modal-body">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ item.id) }}">
                                                             <p style="font-size:12px;color:var(--bm-text-muted)">
-                                                                Esta ação irá mover todas as variações de nome, identificadores (ORCID) e documentos vinculados para o autor de destino selecionado, excluindo este registro permanentemente.
+                                                                Move documentos, variações de nome e identificadores (ORCID) para o autor de destino e <strong>exclui este registro permanentemente</strong>. Afeta todos os projetos e não pode ser desfeito.
                                                             </p>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Autor Oficial de Destino (Deduplicação)</label>
@@ -182,8 +196,8 @@
                                                                 </select>
                                                             </div>
                                                             <div class="mb-3">
-                                                                <label class="form-label">Buscar Outro por ID</label>
-                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID do autor de destino..." oninput="this.form.target_id.value = this.value">
+                                                                <label class="form-label">Buscar Outro por ID <small class="text-muted">(número do registro de destino)</small></label>
+                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID do autor de destino...">
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer border-bm">
@@ -212,15 +226,24 @@
                     <p class="mt-2">Não há palavras-chave pendentes de revisão!</p>
                 </div>
             {% else %}
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2" style="font-size:12px;color:var(--bm-text-muted)">
+                    <span>Exibindo {{ unresolved_keywords|length }} de {{ total_unresolved_keywords|number_format(0, ',', '.') }} palavras-chave pendentes (ordem alfabética).</span>
+                    <span class="d-flex flex-wrap gap-3">
+                        <span>Aceitar {{ help('admin.review.accept') }}</span>
+                        <span>Editar {{ help('admin.review.kw_edit') }}</span>
+                        <span>Mesclar {{ help('admin.review.kw_merge') }}</span>
+                        <span>Descartar {{ help('admin.review.kw_discard') }}</span>
+                    </span>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-hover align-middle border-bm">
                         <thead>
                             <tr class="text-muted" style="font-size:12px;border-bottom:1px solid var(--bm-border-color)">
-                                <th>Termo Original</th>
-                                <th>Termo Sugerido (Limpo)</th>
-                                <th>Motivo do Alerta</th>
-                                <th>Tipo</th>
-                                <th>Sugestão de Tesauro</th>
+                                <th>Termo Original {{ help('admin.review.kw_original') }}</th>
+                                <th>Termo Sugerido (Limpo) {{ help('admin.review.kw_display') }}</th>
+                                <th>Motivo do Alerta {{ help('admin.review.kw_reason') }}</th>
+                                <th>Tipo {{ help('admin.review.kw_type') }}</th>
+                                <th>Sugestão de Conceito {{ help('admin.review.kw_suggestion') }}</th>
                                 <th style="text-align:right">Ações</th>
                             </tr>
                         </thead>
@@ -323,17 +346,17 @@
                                             <div class="modal-dialog modal-dialog-centered">
                                                 <div class="modal-content border-bm text-start" style="background:var(--bm-card-bg)">
                                                     <div class="modal-header border-bm">
-                                                        <h6 class="modal-title font-weight-bold">Mesclar no Tesauro / Conceito</h6>
+                                                        <h6 class="modal-title font-weight-bold">Mesclar Palavra-chave</h6>
                                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                     </div>
                                                     <form action="{{ path('app_admin_review_keyword_merge', {id: item.id}) }}" method="POST">
                                                         <div class="modal-body">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('merge_keyword_' ~ item.id) }}">
                                                             <p style="font-size:12px;color:var(--bm-text-muted)">
-                                                                Esta ação irá unificar todas as citações e variações deste termo de palavra-chave no conceito de tesauro selecionado.
+                                                                Move os vínculos com documentos e as variações deste termo para a palavra-chave de destino e <strong>exclui este registro permanentemente</strong>. Afeta todos os projetos e não pode ser desfeito.
                                                             </p>
                                                             <div class="mb-3">
-                                                                <label class="form-label">Conceito Oficial de Destino (Tesauro)</label>
+                                                                <label class="form-label">Palavra-chave Oficial de Destino</label>
                                                                 <select name="target_id" class="form-select" required>
                                                                     <option value="">-- Selecione o termo de destino --</option>
                                                                     {% if item.suggestion %}
@@ -342,8 +365,8 @@
                                                                 </select>
                                                             </div>
                                                             <div class="mb-3">
-                                                                <label class="form-label">Buscar Outro por ID</label>
-                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID do conceito de destino..." oninput="this.form.target_id.value = this.value">
+                                                                <label class="form-label">Buscar Outro por ID <small class="text-muted">(número do registro de destino)</small></label>
+                                                                <input type="number" name="target_id_manual" class="form-control form-control-sm" placeholder="Digite o ID da palavra-chave de destino...">
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer border-bm">
@@ -370,17 +393,25 @@
 {% block javascripts %}
     {{ parent() }}
     <script>
+        // Campo "Buscar outro por ID": usa uma única opção "ID manual" no <select> obrigatório.
         document.querySelectorAll('input[name="target_id_manual"]').forEach(input => {
-            input.addEventListener('change', function() {
+            input.addEventListener('input', function () {
                 const select = this.form.target_id;
-                let opt = select.querySelector('option[value="' + this.value + '"]');
+                let opt = select.querySelector('option[data-manual]');
+                const id = this.value.trim();
+                if (!id) {
+                    if (opt) opt.remove();
+                    select.selectedIndex = select.options.length > 1 ? 1 : 0;
+                    return;
+                }
                 if (!opt) {
                     opt = document.createElement('option');
-                    opt.value = this.value;
-                    opt.text = 'ID Manual #' + this.value;
+                    opt.dataset.manual = '1';
                     select.appendChild(opt);
                 }
-                select.value = this.value;
+                opt.value = id;
+                opt.text = 'ID manual #' + id;
+                select.value = id;
             });
         });
     </script>

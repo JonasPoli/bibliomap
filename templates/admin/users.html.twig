@@ -43,7 +43,7 @@
 <div class="bm-page-header d-flex align-items-start justify-content-between flex-wrap gap-2">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-people text-accent me-2"></i>Gerenciar Usuários
+            <i class="bi bi-people text-accent me-2"></i>Gerenciar Usuários {{ help('admin.users.page') }}
         </h1>
         <p class="bm-page-subtitle">Aprove, rejeite ou impersone usuários da plataforma.</p>
     </div>
@@ -79,13 +79,14 @@
                class="filter-tab {{ status == 'inactive' ? 'active' : '' }}">
                 ✕ Inativos <span class="ms-1 opacity-75">({{ counts.inactive }})</span>
             </a>
+            <span class="align-self-center">{{ help('admin.users.status_tabs') }}</span>
         </div>
     </div>
 
     <div class="d-flex flex-wrap gap-3 align-items-end">
         {# Live search #}
         <div class="flex-grow-1">
-            <label class="form-label">Buscar</label>
+            <label class="form-label">Buscar {{ help('admin.users.search') }}</label>
             <div class="position-relative">
                 <i class="bi bi-search position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:var(--bm-text-muted);font-size:14px"></i>
                 <input id="searchInput" type="text" class="form-control" value="{{ search }}"
@@ -96,7 +97,7 @@
 
         {# Period filter #}
         <div>
-            <label class="form-label">Período</label>
+            <label class="form-label">Período de cadastro {{ help('admin.users.period') }}</label>
             <select id="periodSelect" class="form-select" style="min-width:150px">
                 <option value="all"  {{ period == 'all'  ? 'selected' : '' }}>Todos os períodos</option>
                 <option value="24h"  {{ period == '24h'  ? 'selected' : '' }}>Últimas 24h</option>
@@ -107,7 +108,7 @@
 
         {# Sort #}
         <div>
-            <label class="form-label">Ordenar por</label>
+            <label class="form-label">Ordenar por {{ help('admin.users.sort') }}</label>
             <select id="sortSelect" class="form-select" style="min-width:170px">
                 <option value="newest"     {{ sort == 'newest'    ? 'selected' : '' }}>Mais recentes</option>
                 <option value="oldest"     {{ sort == 'oldest'    ? 'selected' : '' }}>Mais antigos</option>
@@ -131,6 +132,14 @@
     <span class="results-count" id="resultsCount">
         {{ users|length }} usuário(s) encontrado(s)
     </span>
+    {% if users is not empty %}
+    <span class="results-count d-flex flex-wrap gap-3">
+        <span>Aprovar {{ help('admin.users.approve') }}</span>
+        <span>Rejeitar / Desativar {{ help('admin.users.reject') }}</span>
+        <span>Impersonar {{ help('admin.users.impersonate') }}</span>
+        <span>Projetos {{ help('admin.users.projects') }}</span>
+    </span>
+    {% endif %}
 </div>
 
 {# Users table #}
@@ -149,10 +158,10 @@
                         <th>Usuário</th>
                         <th>E-mail</th>
                         <th>Instituição</th>
-                        <th>Status</th>
+                        <th>Status {{ help('admin.users.col_status') }}</th>
                         <th>Cadastro</th>
-                        <th>Último acesso</th>
-                        <th style="text-align:right">Ações</th>
+                        <th>Último acesso {{ help('admin.users.col_last_login') }}</th>
+                        <th style="text-align:right">Ações {{ help('admin.users.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -201,7 +210,7 @@
                                     <form method="post" action="{{ path('app_admin_user_approve', {id: user.id}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('admin_user_' ~ user.id) }}">
                                         <button type="submit" class="action-btn btn-approve" title="Aprovar acesso"
-                                                onclick="return confirm('Aprovar acesso de {{ user.name }}?')">
+                                                onclick="return confirm('Aprovar acesso de {{ user.name|e('js') }}?')">
                                             <i class="bi bi-check-lg me-1"></i>Aprovar
                                         </button>
                                     </form>
@@ -212,7 +221,7 @@
                                     <form method="post" action="{{ path('app_admin_user_reject', {id: user.id}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('admin_user_' ~ user.id) }}">
                                         <button type="submit" class="action-btn btn-reject" title="{{ user.isPending() ? 'Rejeitar cadastro' : 'Desativar usuário' }}"
-                                                onclick="return confirm('{{ user.isPending() ? 'Rejeitar cadastro' : 'Desativar' }} de {{ user.name }}?')">
+                                                onclick="return confirm('{{ user.isPending() ? 'Rejeitar cadastro' : 'Desativar' }} de {{ user.name|e('js') }}?')">
                                             <i class="bi bi-x-lg me-1"></i>{{ user.isPending() ? 'Rejeitar' : 'Desativar' }}
                                         </button>
                                     </form>
@@ -251,10 +260,11 @@
                 <div style="width:40px;height:40px;background:rgba(79,142,247,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--bm-accent);font-size:20px">
                     <i class="bi bi-person-fill-gear"></i>
                 </div>
-                <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--bm-text)">Impersonar Usuário</h3>
+                <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--bm-text)">Impersonar Usuário {{ help('admin.users.impersonate') }}</h3>
             </div>
             <p style="margin:0 0 24px;font-size:13.5px;color:var(--bm-text-muted);line-height:1.5">
-                Você vai impersonar o usuário <strong id="impersonate-user-name" style="color:var(--bm-text)"></strong> e acessar a plataforma com a identidade dele. Deseja continuar?
+                Você vai impersonar o usuário <strong id="impersonate-user-name" style="color:var(--bm-text)"></strong> e acessar a plataforma com a identidade dele.
+                Tudo o que fizer será gravado como se fosse ele. Para voltar, use <strong>Sair da impersonação</strong> no menu. Deseja continuar?
             </p>
             <div style="display:flex;justify-content:end;gap:10px">
                 <button onclick="closeImpersonateModal()" style="background:transparent;border:1px solid var(--bm-border);color:var(--bm-text);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>

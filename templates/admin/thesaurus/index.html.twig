@@ -10,7 +10,7 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title"><i class="bi bi-book me-2"></i>Vocabulário Controlado (Tesauro)</h1>
+    <h1 class="bm-page-title"><i class="bi bi-book me-2"></i>Vocabulário Controlado (Tesauro) {{ help('admin.thesaurus.index_page') }}</h1>
     <p class="bm-page-subtitle">Configure termos preferenciais, variantes de busca e exporte/importe esquemas estruturados em CSV.</p>
 </div>
 
@@ -18,7 +18,7 @@
     <!-- Schemes Card -->
     <div class="col-lg-8">
         <div class="bm-card">
-            <h5 class="mb-4 text-white"><i class="bi bi-diagram-2 me-2"></i>Esquemas de Tesauro Ativos</h5>
+            <h5 class="mb-4 text-white"><i class="bi bi-diagram-2 me-2"></i>Esquemas de Tesauro Ativos {{ help('admin.thesaurus.schemes') }}</h5>
             <div class="table-responsive">
                 <table class="table table-dark table-hover align-middle mb-0">
                     <thead>
@@ -30,7 +30,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for scheme in schemes %}
+                        {% for scheme in schemes|default([]) %}
                             <tr>
                                 <td>
                                     <span class="text-white fw-bold">{{ scheme.name }}</span>
@@ -45,6 +45,10 @@
                                     </a>
                                 </td>
                             </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">Nenhum esquema cadastrado. Importe um CSV para criar o primeiro.</td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -55,7 +59,7 @@
     <!-- Import/Export & Actions Card -->
     <div class="col-lg-4">
         <div class="bm-card mb-4">
-            <h5 class="mb-3 text-white"><i class="bi bi-arrow-down-up me-2"></i>Importar / Exportar</h5>
+            <h5 class="mb-3 text-white"><i class="bi bi-arrow-down-up me-2"></i>Importar / Exportar {{ help('admin.thesaurus.import_export') }}</h5>
             <p class="text-muted small">Exporte o vocabulário unificado em formato CSV UTF-8 para editar em planilhas ou carregue uma nova base estruturada.</p>
             
             <div class="d-grid gap-2 mb-4">
@@ -72,7 +76,7 @@
             <h6 class="text-white mb-3">Carregar Novo Arquivo</h6>
             <form action="{{ path('app_admin_thesaurus_import') }}" method="post" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label class="form-label">Arquivo CSV (Separador: Ponto e Vírgula)</label>
+                    <label class="form-label">Arquivo CSV (Separador: Ponto e Vírgula) {{ help('admin.thesaurus.import_file') }}</label>
                     <input type="file" name="csv_file" class="form-control" accept=".csv" required>
                 </div>
                 <button type="submit" class="btn btn-success w-100 fw-bold">
@@ -84,9 +88,9 @@
         <div class="bm-card">
             <h5 class="mb-3 text-white"><i class="bi bi-activity me-2"></i>Status e Monitoramento</h5>
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-muted">Correspondências Pendentes</span>
-                <span class="badge {% if pending_matches_count > 0 %}bg-warning text-dark{% else %}bg-success{% endif %} fw-bold" style="font-size:12px">
-                    {{ pending_matches_count }}
+                <span class="text-muted">Correspondências Pendentes {{ help('admin.thesaurus.matches_status') }}</span>
+                <span class="badge {% if pending_matches_count|default(0) > 0 %}bg-warning text-dark{% else %}bg-success{% endif %} fw-bold" style="font-size:12px">
+                    {{ pending_matches_count|default(0) }}
                 </span>
             </div>
             <p class="text-muted small mb-3">Termos na base de dados importada com baixa confiança de correspondência aguardando validação manual.</p>

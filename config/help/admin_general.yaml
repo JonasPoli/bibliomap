@@ -1,0 +1,732 @@
+# Ajuda contextual ("?") — Administração geral, revisão e tesauro.
+# Prefixos: admin.dashboard., admin.users., admin.user_projects., admin.settings.,
+#           admin.review., admin.kwtreat., admin.thesaurus.
+# Formato: title, what, how, not, example. Aceita **negrito** e quebras de linha.
+
+# ─── Painel de administração (admin/index) ────────────────────────────────────
+
+admin.dashboard.page:
+  title: "Painel de Administração"
+  what: "Visão rápida das contas da plataforma: quantas estão aguardando aprovação, ativas e desativadas, e quem se cadastrou nas últimas 24 horas."
+  how: "Confira o cartão **Pendentes** ao entrar. Se houver cadastros esperando, use o aviso amarelo ou o menu **Usuários** para aprová-los ou rejeitá-los."
+  not: "Não mostra uso da plataforma (projetos criados, importações, acessos). Os números são só de contas de usuário."
+  example: "Na segunda de manhã o painel mostra 3 pendentes: são alunos do PPG em Educação que se cadastraram no fim de semana. Clique em “Revisar agora” e aprove os três."
+
+admin.dashboard.kpi_pending:
+  title: "Contas pendentes"
+  what: "Número de contas com status **pendente**: a pessoa se cadastrou, mas ainda não pode entrar. Todo cadastro novo nasce pendente."
+  how: "Abra **Usuários → Pendentes** e aprove ou rejeite cada uma. Enquanto pendente, o login mostra “Sua conta está aguardando aprovação”."
+  not: "Não conta convites nem e-mails enviados. O sistema não avisa o usuário por e-mail quando você aprova; avise-o por outro canal."
+  example: "Após divulgar o BiblioMap numa disciplina de Metodologia, o contador sobe para 18. Confira se os e-mails são institucionais (ex.: @ufscar.br) antes de aprovar."
+
+admin.dashboard.kpi_active:
+  title: "Contas ativas"
+  what: "Número de contas com status **ativo**, ou seja, que conseguem fazer login e usar seus projetos."
+  how: "Use como referência do total de pessoas com acesso liberado. Para listar quem são, clique na aba **Ativos** em Usuários."
+  not: "Não indica quem está usando a plataforma agora nem quem acessou recentemente."
+  example: "Com 42 contas ativas e uma turma de 15 alunos encerrando o semestre, você pode desativar as contas que não serão mais usadas."
+
+admin.dashboard.kpi_inactive:
+  title: "Contas inativas"
+  what: "Número de contas **desativadas** ou com cadastro rejeitado. Essas pessoas não conseguem entrar."
+  how: "Para devolver o acesso a alguém, abra a aba **Inativos** em Usuários e clique em **Aprovar**."
+  not: "Contas inativas não são apagadas: os projetos e dados delas continuam no banco."
+  example: "Uma doutoranda que trancou o curso teve a conta desativada; ao voltar, basta aprová-la de novo e ela reencontra todos os projetos."
+
+admin.dashboard.kpi_total:
+  title: "Total de usuários"
+  what: "Soma de todas as contas cadastradas: pendentes + ativas + inativas."
+  how: "Compare com os outros cartões para ver a proporção de contas liberadas."
+  not: "Não é o número de pessoas usando a plataforma; inclui contas rejeitadas e desativadas."
+  example: "Total 60 com 42 ativas, 3 pendentes e 15 inativas: 15 contas foram desligadas ao longo do tempo."
+
+admin.dashboard.recent:
+  title: "Cadastros nas últimas 24h"
+  what: "Lista quem criou conta nas últimas 24 horas (contadas a partir de agora), do mais recente para o mais antigo, com o status atual de cada um."
+  how: "Use para conferir rapidamente novos cadastros. Para aprovar ou rejeitar, clique em **Ver todos** e use os botões da lista de usuários."
+  not: "Não mostra cadastros mais antigos que 24 horas, mesmo que ainda estejam pendentes; esses aparecem na aba Pendentes."
+  example: "Às 9h você vê que “Mariana Souza — UFMG” se cadastrou às 22h de ontem e já foi aprovada por outro administrador."
+
+# ─── Usuários (admin/users) ───────────────────────────────────────────────────
+
+admin.users.page:
+  title: "Gerenciar usuários"
+  what: "Lista todas as contas da plataforma e permite aprovar, rejeitar/desativar, entrar como o usuário (impersonar) e ver ou copiar os projetos de cada um."
+  how: "Escolha uma aba de status, refine com busca, período e ordenação e use os botões da coluna **Ações**. Cada ação pede confirmação antes de gravar."
+  not: "Não permite editar nome, e-mail, senha ou perfil (admin/usuário) das contas, nem excluir contas."
+  example: "Para liberar a turma de Bibliometria 2026, clique em **Pendentes**, busque “ufscar” e aprove as 12 contas listadas."
+
+admin.users.status_tabs:
+  title: "Abas de status"
+  what: "Filtram a lista pelo status da conta: **Pendentes** (aguardam aprovação), **Ativos** (podem entrar) e **Inativos** (rejeitados ou desativados). O número entre parênteses é o total de cada status."
+  how: "Clique na aba desejada. A busca, o período e a ordenação escolhidos são mantidos ao trocar de aba."
+  not: "Os números das abas mostram o total geral do status, sem considerar a busca ou o período."
+  example: "A aba Pendentes mostra 5, mas com período “Últimos 7 dias” a lista exibe só 2: os outros 3 se cadastraram há mais tempo."
+
+admin.users.search:
+  title: "Buscar usuário"
+  what: "Procura por trecho do nome, do e-mail ou da instituição."
+  how: "Ao digitar, a lista que já está na tela é filtrada na hora. Para buscar em todas as contas do banco (e fixar o filtro na URL), clique em **Filtrar**."
+  not: "A filtragem instantânea só esconde linhas já carregadas; ela não encontra contas fora da aba ou do período selecionados até você clicar em Filtrar."
+  example: "Digite “unesp” e clique em Filtrar para ver todos os pesquisadores da Unesp, de qualquer campus."
+
+admin.users.period:
+  title: "Período de cadastro"
+  what: "Mostra apenas contas criadas nas últimas 24 horas, 7 dias ou 30 dias, contados a partir de agora."
+  how: "Escolha a opção; a página recarrega na hora com o filtro aplicado."
+  not: "Filtra pela data de **cadastro**, não pela data de último acesso nem de aprovação."
+  example: "Depois de uma oficina na sexta, use “Últimos 7 dias” na aba Pendentes para achar só os participantes."
+
+admin.users.sort:
+  title: "Ordenar por"
+  what: "Define a ordem da lista: cadastro mais recente ou mais antigo, nome A–Z ou Z–A, ou último acesso."
+  how: "Escolha a opção; a página recarrega na hora."
+  not: "“Último acesso” depende de a data de login estar registrada; contas sem registro aparecem como “Nunca” e ficam no fim."
+  example: "Use “Nome A–Z” para conferir a lista de uma turma contra a planilha de matrículas."
+
+admin.users.col_status:
+  title: "Status da conta"
+  what: "**Pendente**: cadastrada, sem acesso. **Ativo**: pode fazer login. **Inativo**: rejeitada ou desativada, sem acesso."
+  how: "O status muda pelos botões Aprovar e Rejeitar/Desativar na mesma linha."
+  not: "O selo ADMIN ao lado do nome indica perfil de administrador; não é um status."
+  example: "Um aluno diz que não consegue entrar: se a linha dele mostra “Pendente”, basta aprovar."
+
+admin.users.col_last_login:
+  title: "Último acesso"
+  what: "Data e hora do último login registrado da conta. “Nunca” significa que não há login registrado."
+  how: "Use para identificar contas sem uso antes de desativá-las."
+  not: "Não mostra atividade dentro da plataforma (importações, relatórios), apenas o login. Se todas as contas mostram “Nunca”, o registro de login não está ativo nesta instalação."
+  example: "Antes de desativar contas de uma turma antiga, confira quem não tem acesso registrado."
+
+admin.users.actions:
+  title: "Ações sobre a conta"
+  what: "Botões que mudam o acesso do usuário ou abrem os projetos dele. Só aparecem as ações que fazem sentido para o status atual."
+  how: "Passe o mouse no botão para ver o que ele faz e confirme na janela que aparece. As explicações de cada ação estão na legenda acima da tabela."
+  not: "Nenhuma ação desta coluna apaga a conta ou os projetos."
+  example: "Numa conta pendente aparecem Aprovar e Rejeitar; numa ativa, Desativar, Impersonar e Projetos."
+
+admin.users.approve:
+  title: "Aprovar acesso"
+  what: "Muda o status da conta para **ativo**. A partir daí a pessoa consegue fazer login. Serve também para reativar uma conta inativa."
+  how: "Clique em **Aprovar** e confirme. A mudança é imediata e pode ser desfeita com **Desativar**."
+  not: "Não envia e-mail ao usuário e não dá perfil de administrador; ele entra como usuário comum."
+  example: "A orientadora pede acesso para o mestrando João (joao@ufpr.br). Encontre-o em Pendentes, clique em Aprovar e avise-o por mensagem."
+
+admin.users.reject:
+  title: "Rejeitar / Desativar"
+  what: "Muda o status para **inativo**. Em conta pendente, o botão se chama Rejeitar; em conta ativa, Desativar. O login passa a mostrar “Sua conta foi desativada”."
+  how: "Clique e confirme. Para desfazer, abra a aba Inativos e clique em **Aprovar**."
+  not: "Não apaga a conta nem os projetos. Não encerra uma sessão que já esteja aberta: o bloqueio vale a partir do próximo login. Cuidado para não desativar a sua própria conta."
+  example: "Um cadastro com e-mail “teste123@mailinator.com” e instituição vazia é provavelmente spam: rejeite-o."
+
+admin.users.impersonate:
+  title: "Impersonar (entrar como o usuário)"
+  what: "Abre a plataforma com a identidade do usuário, vendo exatamente os projetos e telas dele. Serve para dar suporte e reproduzir problemas."
+  how: "Clique em **Impersonar** e confirme. Para voltar à sua conta, use **Sair da impersonação** no menu. Só é possível com contas ativas e que não são administradoras."
+  not: "Não é um modo só de leitura: tudo o que você criar, editar ou apagar fica gravado como se o próprio usuário tivesse feito."
+  example: "Uma pesquisadora relata que o mapa temático do projeto “Extensão universitária” está vazio. Impersone-a, abra o projeto e veja o mesmo que ela vê, sem pedir a senha."
+
+admin.users.projects:
+  title: "Projetos do usuário"
+  what: "Abre a lista de projetos que pertencem a este usuário, com a opção de copiar um projeto para outra conta."
+  how: "Clique em **Projetos** na linha do usuário."
+  not: "Não abre os relatórios do projeto; para navegar dentro dele como o dono, use Impersonar."
+  example: "Para entregar ao novo bolsista uma cópia do corpus do grupo, abra os Projetos da coordenadora e copie o projeto para a conta dele."
+
+# ─── Projetos de um usuário (admin/user_projects) ────────────────────────────
+
+admin.user_projects.page:
+  title: "Projetos do usuário"
+  what: "Mostra todos os projetos do usuário selecionado, com status, número de datasets, período (anos) e data da última atualização."
+  how: "Localize o projeto e use **Copiar projeto** para criar uma cópia independente na conta de outro usuário."
+  not: "Não permite editar, apagar ou abrir os relatórios do projeto por aqui."
+  example: "A coordenadora do grupo de pesquisa tem 4 projetos; você confere aqui qual deles tem 3 datasets do período 2010–2025 antes de copiá-lo."
+
+admin.user_projects.list:
+  title: "Cartões de projeto"
+  what: "Cada cartão mostra o título, o endereço curto (slug), o status de processamento (faixa colorida e selo), a descrição, quantos datasets foram importados, o período de anos e a data da última alteração."
+  how: "Use o selo de status para saber se o projeto está pronto para análise antes de copiá-lo."
+  not: "O número de datasets não é o número de documentos; um dataset é um arquivo importado (ex.: uma exportação do Scopus)."
+  example: "Um projeto com faixa amarela está em processamento; espere ficar verde (“Concluído”) antes de copiar."
+
+admin.user_projects.copy:
+  title: "Copiar projeto para outro usuário"
+  what: "Cria um projeto novo na conta escolhida, com título “(Cópia)”, visibilidade privada e os mesmos datasets (arquivos copiados no servidor), documentos, vínculos de autores e de palavras-chave."
+  how: "Clique em **Copiar projeto**, escolha o usuário de destino na lista e confirme. O projeto original não é alterado. Para desfazer, o destinatário apaga a cópia."
+  not: "Não copia classificações e grupos, matrizes salvas nem os vínculos geográficos normalizados (países, estados, cidades e instituições por documento); pode ser preciso reprocessar a geografia na cópia. Não transfere a propriedade do original."
+  example: "O orientador quer que a aluna parta do corpus “Agroecologia no Scopus 2000–2024”: copie o projeto para a conta dela; ela trabalha na cópia sem afetar o dele."
+
+admin.user_projects.target_user:
+  title: "Usuário de destino"
+  what: "Conta que vai receber a cópia do projeto. Aparecem apenas usuários **ativos**, exceto o dono atual."
+  how: "Digite parte do nome ou e-mail para filtrar e marque o usuário desejado."
+  not: "Não lista contas pendentes ou inativas; aprove a conta antes, se for o caso."
+  example: "Digite “carla” e marque “Carla Mendes — carla@unicamp.br”."
+
+# ─── Configurações do site (admin/settings) ──────────────────────────────────
+
+admin.settings.page:
+  title: "Configurações do site"
+  what: "Define o código do Google Analytics e os metadados de SEO e compartilhamento da página inicial pública do BiblioMap."
+  how: "Preencha as seções e clique em **Salvar configurações**. As mudanças valem imediatamente para todos os visitantes."
+  not: "Não altera nada dentro dos projetos dos usuários nem o texto da página inicial; só os metadados lidos por buscadores e redes sociais."
+  example: "Ao lançar o domínio definitivo bibliomap.ufscar.br, atualize a URL base e a imagem de compartilhamento aqui."
+
+admin.settings.ga:
+  title: "Google Analytics"
+  what: "Liga a coleta de estatísticas de acesso do Google Analytics 4 em todas as páginas: na home pública e nas telas internas."
+  how: "Cole o Measurement ID e salve. Para desligar, apague o campo e salve. O selo no topo indica se está ativo."
+  not: "Não mostra relatórios aqui; os números são vistos no painel do Google Analytics."
+  example: "Para saber quantos visitantes chegam à home após um congresso, cadastre o ID G-8K2LMN4P7Q e acompanhe no Google Analytics."
+
+admin.settings.ga_id:
+  title: "Measurement ID (GA4)"
+  what: "Identificador do fluxo de dados do GA4, no formato G- seguido de letras e números."
+  how: "No Google Analytics: Administrador → Fluxos de dados → escolha o fluxo da web → copie o “ID da métrica”. Cole sem espaços."
+  not: "O sistema não valida o formato ao salvar: um ID errado simplesmente não coleta dados. Não use IDs antigos do Universal Analytics (UA-...)."
+  example: "G-8K2LMN4P7Q"
+
+admin.settings.seo:
+  title: "SEO da página inicial"
+  what: "Metadados que buscadores (Google) e aplicativos (WhatsApp, LinkedIn, X) leem para exibir a home do BiblioMap."
+  how: "Preencha título, descrição e URL base. As barras indicam se o tamanho está na faixa recomendada."
+  not: "Vale só para a página inicial pública; as páginas internas não são indexadas. Mudanças podem levar dias para aparecer no Google."
+  example: "Ao compartilhar o link da home num grupo de WhatsApp, aparecem o título e a descrição definidos aqui."
+
+admin.settings.seo_title:
+  title: "Título da página"
+  what: "Texto da aba do navegador e do título azul no resultado do Google; também é o título no compartilhamento em redes sociais."
+  how: "Use de 30 a 70 caracteres, começando pelo nome do produto e o benefício principal."
+  not: "Não é o nome exibido no menu da plataforma."
+  example: "BiblioMap — Análise bibliométrica para pesquisadores"
+
+admin.settings.seo_description:
+  title: "Descrição (meta description)"
+  what: "Resumo exibido abaixo do título no Google e nos cartões de compartilhamento."
+  how: "Escreva entre 120 e 165 caracteres explicando o que a plataforma faz e para quem."
+  not: "O Google pode trocar este texto por um trecho da própria página; não há garantia de exibição."
+  example: "Importe exportações do Scopus, Web of Science, Lens e PubMed e gere redes de coautoria, mapas temáticos e indicadores para sua revisão."
+
+admin.settings.seo_keywords:
+  title: "Keywords"
+  what: "Lista de palavras-chave colocada na tag meta keywords da home."
+  how: "Separe os termos por vírgula."
+  not: "O Google ignora essa tag desde 2009; ela praticamente não influencia a posição nas buscas."
+  example: "bibliometria, cientometria, revisão de literatura, Scopus, Web of Science"
+
+admin.settings.base_url:
+  title: "URL base do site"
+  what: "Endereço público do BiblioMap, usado no link canônico, no endereço de compartilhamento e para montar o link absoluto da imagem OG."
+  how: "Informe com https:// e **sem barra no final**."
+  not: "Não muda o endereço em que o sistema roda; apenas o que é informado a buscadores e redes. Um valor errado gera cartões de compartilhamento sem imagem."
+  example: "https://bibliomap.ufscar.br"
+
+admin.settings.og_image:
+  title: "Imagem de compartilhamento (OG Image)"
+  what: "Imagem que aparece no cartão quando o link da home é compartilhado no WhatsApp, LinkedIn, X e outros."
+  how: "Envie JPG, PNG ou WebP em 1200 × 630 px (recomendado até 5 MB) e salve. Ao enviar outra, a anterior é apagada do servidor; **Remover** apaga a atual ao salvar."
+  not: "Redes sociais guardam a imagem antiga em cache por dias; a troca não aparece na hora em links já compartilhados."
+  example: "Uma arte com o logotipo e um mapa de coautoria em 1200 × 630 px deixa o link mais atraente nos grupos de pós-graduação."
+
+admin.settings.og_upload:
+  title: "Enviar nova imagem"
+  what: "Seleciona o arquivo que vai substituir a imagem de compartilhamento atual."
+  how: "Clique na área ou arraste o arquivo para ela; confira a prévia à esquerda e clique em **Salvar configurações**."
+  not: "A imagem só é gravada ao salvar o formulário. O sistema não recorta nem redimensiona a imagem."
+  example: "Arraste “og-bibliomap-2026.png” (1200 × 630 px, 380 KB) e salve."
+
+# ─── Fila de revisão (admin/review) ──────────────────────────────────────────
+
+admin.review.page:
+  title: "Fila de revisão e deduplicação"
+  what: "Reúne autores e palavras-chave que a importação marcou como suspeitos (status pendente) para você aceitar, corrigir, fundir com outro registro ou descartar."
+  how: "Escolha a aba, leia o motivo do alerta e use as ações de cada linha. Itens aceitos saem da fila. São exibidos no máximo 100 itens por aba, em ordem alfabética."
+  not: "Autores e palavras-chave são **compartilhados por todos os projetos**: fusões, movimentações e descartes afetam todos os usuários e não têm botão de desfazer."
+  example: "Após importar 1.200 artigos do Scopus sobre extensão universitária, aparece o autor “Univ Fed Sao Carlos” com o alerta “Parece instituição”: mova-o para Instituições."
+
+admin.review.tab_authors:
+  title: "Autores pendentes"
+  what: "Autores com status pendente. O número da aba é o total pendente no banco; a tabela mostra os primeiros 100 em ordem alfabética."
+  how: "Resolva os itens de cima para baixo; ao recarregar, os próximos entram na lista."
+  not: "Não é a lista de autores de um projeto específico; inclui autores de todos os projetos."
+  example: "A aba mostra 106.157 pendentes: a maioria são autores antigos sem motivo de alerta (“Revisão manual”). Priorize os que têm alerta."
+
+admin.review.tab_keywords:
+  title: "Palavras-chave pendentes"
+  what: "Palavras-chave com status pendente: marcadas na importação (ex.: contêm números) ou invalidadas pelo Tratamento de Palavras-chave."
+  how: "Aceite termos legítimos, funda variações em um termo oficial e descarte lixo de importação."
+  not: "Não mostra a frequência do termo; descartar um termo frequente remove-o de muitos documentos."
+  example: "“COVID-19” aparece por conter números: é legítimo, clique em Aceitar."
+
+admin.review.author_original:
+  title: "Nome original"
+  what: "Grafias exatamente como vieram nos arquivos importados (variações já ligadas a este autor). Abaixo, em cinza, a forma normalizada usada para comparar nomes."
+  how: "Compare as grafias para decidir se é mesmo uma pessoa, uma instituição ou um termo."
+  not: "A forma normalizada (minúsculas, sem acentos e pontuação) não é exibida nos relatórios."
+  example: "“Silva, J.; SILVA J” com normalizado “silva j” indica o mesmo registro escrito de dois jeitos."
+
+admin.review.author_preferred:
+  title: "Nome preferido"
+  what: "Nome limpo que aparece nos relatórios e redes de coautoria para este autor."
+  how: "Use o botão de lápis para corrigir a grafia (ex.: acentos, ordem sobrenome/nome)."
+  not: "Alterar o nome preferido não junta este autor com outro; para isso use Mesclar."
+  example: "Troque “Joao Pedro Santos” por “João Pedro Santos”."
+
+admin.review.author_reason:
+  title: "Motivo do alerta"
+  what: "Por que a importação marcou o autor. **Uma palavra**: nome com uma só palavra. **Contém números**: há dígitos no nome. **Parece instituição**: contém termos como Univ, Institute, Dept, Lab, Center. **Revisão manual**: sem motivo registrado."
+  how: "Use o motivo para escolher a ação: instituição → Mover p/ Inst; termo → Mover p/ KW; nome válido → Aceitar."
+  not: "O alerta é uma suspeita automática, não um erro confirmado."
+  example: "“Embrapa” com “Uma palavra” é uma instituição: mova-a para Instituições."
+
+admin.review.author_suggestion:
+  title: "Sugestão de agrupamento"
+  what: "Autor já aceito com a mesma forma normalizada, candidato a receber a fusão. Quando existe, já vem selecionado na janela Mesclar."
+  how: "Se a sugestão for a mesma pessoa, clique em **Mesclar** e confirme."
+  not: "Não detecta grafias diferentes (ex.: “Silva, J.” × “Silva, João”); nesses casos informe o ID do destino manualmente."
+  example: "Sugestão “Oliveira, M. A.” para o pendente “OLIVEIRA M A”: mesma pessoa, pode mesclar."
+
+admin.review.accept:
+  title: "Aceitar"
+  what: "Marca o registro como revisado (status 1) e o retira da fila, mantendo-o como está."
+  how: "Clique em **Aceitar** quando o nome ou termo estiver correto. Não pede confirmação."
+  not: "Não junta com outro registro nem corrige a grafia. Não há botão para devolvê-lo à fila."
+  example: "O autor “Freire, Paulo” com alerta “Revisão manual” está correto: aceite."
+
+admin.review.edit:
+  title: "Editar nome preferido"
+  what: "Muda o nome de exibição do autor em todos os projetos que o citam."
+  how: "Clique no lápis, corrija o nome e salve. O item continua na fila até ser aceito."
+  not: "Não altera as grafias originais nem a forma normalizada."
+  example: "Corrija “Goncalves, Ana” para “Gonçalves, Ana”."
+
+admin.review.merge_author:
+  title: "Mesclar autor (deduplicar)"
+  what: "Funde este autor no autor de destino: os documentos passam a apontar para o destino, as grafias e identificadores (ORCID etc.) são transferidos, o nome vira uma variação do destino e **este registro é apagado**."
+  how: "Clique em **Mesclar**, confirme a sugestão ou informe o ID do autor de destino e clique em Mesclar e Excluir."
+  not: "**Não tem desfazer**: o registro apagado não volta e não há como separar os documentos de novo automaticamente. Afeta todos os projetos que usam o autor."
+  example: "“SANTOS, M” (12 documentos) é a mesma pessoa que “Santos, Maria” (ID 4512): mescle; os 12 documentos passam a contar para Maria Santos."
+
+admin.review.merge_manual_id:
+  title: "Destino da fusão por ID"
+  what: "Na janela Mesclar, o destino é o registro que sobrevive e recebe documentos e variações. Vem preenchido com a sugestão (★) quando existe; o campo “Buscar outro por ID” permite escolher outro pelo número (ID)."
+  how: "Descubra o ID na administração de autores ou de palavras-chave e digite-o no campo; ele passa a ser o destino selecionado."
+  not: "Não pesquisa por nome; é preciso saber o número. O próprio registro não pode ser destino e um ID inexistente cancela a fusão com aviso."
+  example: "Digite 4512 para fundir no autor “Santos, Maria”."
+
+admin.review.move_to_keyword:
+  title: "Mover para palavras-chave"
+  what: "Transforma o “autor” em palavra-chave do autor: cria (ou reaproveita) a palavra-chave, liga-a a todos os documentos onde o nome aparecia e **apaga o registro de autor**."
+  how: "Use quando a importação colocou um termo no campo de autores. Confirme na janela."
+  not: "Não tem desfazer. Não serve para pessoas reais com nome estranho."
+  example: "O “autor” “Machine Learning” veio de uma linha mal formatada do Lens: mova-o para palavras-chave."
+
+admin.review.move_to_institution:
+  title: "Mover para instituições"
+  what: "Cria (ou reaproveita) uma instituição com esse nome, liga-a como afiliação a todos os documentos onde o nome aparecia e **apaga o registro de autor**."
+  how: "Use quando o nome é claramente de uma organização. Depois, revise a instituição criada na administração de Instituições."
+  not: "Não tem desfazer. A instituição nova é criada sem país, cidade ou sigla."
+  example: "“Universidade Federal de Lavras” veio como autor em 8 artigos: mova para instituições e os 8 passam a ter essa afiliação."
+
+admin.review.discard_author:
+  title: "Descartar autor"
+  what: "Apaga o registro de autor e, com ele, todas as ligações autor-documento, grafias e identificadores."
+  how: "Use só para lixo de importação (ex.: “Anonymous”, “[No author name available]”). Confirme na janela."
+  not: "**Não tem desfazer** e afeta todos os projetos: os documentos ficam sem esse autor e indicadores como h-index mudam."
+  example: "O autor “[No author name available]”, vindo do Scopus, pode ser descartado."
+
+admin.review.kw_original:
+  title: "Termo original"
+  what: "Palavra-chave exatamente como veio no arquivo importado; abaixo, em cinza, a forma normalizada usada para comparar termos."
+  how: "Use o original para entender o que o autor escreveu."
+  not: "A forma normalizada não é exibida nos relatórios."
+  example: "Original “E-learning” com normalizado “e learning”."
+
+admin.review.kw_display:
+  title: "Termo sugerido (limpo)"
+  what: "Forma de exibição do termo nos relatórios, nuvens e mapas temáticos."
+  how: "Use o lápis para corrigir a grafia de exibição."
+  not: "Mudar a exibição não une termos diferentes; para isso use Mesclar."
+  example: "Ajuste “e-Learning” para “E-learning”."
+
+admin.review.kw_reason:
+  title: "Motivo do alerta"
+  what: "**Contém números**: há dígitos no termo. **Parece autor**: formato “Sobrenome, Inicial”. Outros códigos (ex.: purely_numeric, too_long) vêm do Tratamento de Palavras-chave, que invalidou o termo."
+  how: "Termos com números podem ser legítimos (COVID-19, Indústria 4.0); os com formato de nome geralmente são lixo de importação."
+  not: "O alerta é uma suspeita automática, não um erro confirmado."
+  example: "“Indústria 4.0” com “Contém números” é legítimo: aceite."
+
+admin.review.kw_type:
+  title: "Tipo da palavra-chave"
+  what: "**Autor**: palavras-chave escolhidas pelos autores do artigo. **Indexada**: termos atribuídos pela base (ex.: Index Keywords do Scopus, Keywords Plus da WoS)."
+  how: "Fusões só fazem sentido entre termos do mesmo tipo."
+  not: "Os dois tipos são registros separados, mesmo com a mesma grafia."
+  example: "“Sustainability” aparece uma vez como Autor e outra como Indexada."
+
+admin.review.kw_suggestion:
+  title: "Sugestão de conceito"
+  what: "Palavra-chave já aceita, do mesmo tipo, com a mesma forma normalizada. Quando existe, já vem selecionada na janela Mesclar."
+  how: "Se a sugestão representar o mesmo conceito, clique em **Mesclar**. “Novo conceito” indica que não há equivalente aceito."
+  not: "Não detecta sinônimos nem traduções (ex.: “ensino superior” × “higher education”)."
+  example: "Sugestão “COVID-19” para o pendente “Covid 19”: mescle."
+
+admin.review.kw_merge:
+  title: "Mesclar palavra-chave"
+  what: "Move os vínculos com documentos para a palavra-chave de destino, transfere as variações, registra este termo como variação do destino e **apaga este registro**."
+  how: "Clique em **Mesclar**, confirme a sugestão ou informe o ID do termo de destino e confirme."
+  not: "**Não tem desfazer** e afeta todos os projetos. Não cria conceito no tesauro; é uma fusão direta de registros."
+  example: "Funda “Higher-education” em “Higher education”: os documentos passam a ser contados juntos na análise de coocorrência."
+
+admin.review.kw_edit:
+  title: "Editar termo de exibição"
+  what: "Muda como o termo aparece nos relatórios de todos os projetos."
+  how: "Clique no lápis, ajuste e salve. O item continua na fila até ser aceito."
+  not: "Não altera o termo original nem a forma normalizada."
+  example: "Troque “internet of things (IoT)” por “Internet of Things”."
+
+admin.review.kw_discard:
+  title: "Descartar palavra-chave"
+  what: "Apaga a palavra-chave e todos os seus vínculos com documentos."
+  how: "Use para lixo de importação (números soltos, fragmentos de tabela). Confirme na janela."
+  not: "**Não tem desfazer** e afeta todos os projetos que usam o termo."
+  example: "O termo “3.04” veio de um erro de exportação: descarte."
+
+# ─── Tratamento de palavras-chave (super admin) ──────────────────────────────
+
+admin.kwtreat.page:
+  title: "Tratamento de palavras-chave"
+  what: "Ferramenta em lote que limpa grafias, invalida lixo, agrupa duplicatas e liga palavras-chave a conceitos do tesauro, para **todas** as palavras-chave da plataforma."
+  how: "Rode primeiro em **Simulação**, leia o relatório e só então rode em modo **Real**. Recomenda-se ter um backup do banco antes do modo Real."
+  not: "Não atua em um projeto só; afeta todos. Não tem botão de desfazer."
+  example: "Depois de várias importações do Scopus e da WoS, “Higher Education”, “higher-education” e “HIGHER EDUCATION” aparecem separados; o tratamento unifica as grafias."
+
+admin.kwtreat.diagnosis:
+  title: "Diagnóstico da base"
+  what: "Retrato atual da tabela de palavras-chave, calculado ao abrir a página. Nenhum dado é alterado."
+  how: "Use antes e depois de um processamento para ver o efeito."
+  not: "“Com sujeiras” e “Inválidas” são contadas só nos primeiros 10.000 termos (por ID), não na base toda."
+  example: "Antes: 3.200 com sujeiras; depois de um processamento Real: 40."
+
+admin.kwtreat.kpi_total:
+  title: "Total de palavras-chave"
+  what: "Quantidade de registros de palavra-chave na base, somando os tipos (autor e indexada) e todos os status."
+  how: "Compare com o total após um processamento Real: duplicatas fundidas reduzem o número."
+  not: "Não é o número de usos em documentos; um termo usado em 500 artigos conta uma vez."
+  example: "35.941 termos distintos para cerca de 4.000 documentos importados."
+
+admin.kwtreat.kpi_dirty:
+  title: "Com sujeiras"
+  what: "Termos cuja exibição muda ao aplicar a limpeza padrão (espaços extras, pontuação nas pontas, caracteres estranhos)."
+  how: "Um processamento Real com limpeza ativa corrige esses termos."
+  not: "Contado só nos primeiros 10.000 termos. Não indica erro de significado."
+  example: "“ Sustainability;” vira “Sustainability”."
+
+admin.kwtreat.kpi_invalid:
+  title: "Inválidas"
+  what: "Termos que a regra de limpeza considera lixo: só números, referência numérica, menos de 2 letras, palavra repetida 3 vezes ou mais, ou mais de 200 caracteres."
+  how: "No modo Real eles ficam com status pendente e vão para a Fila de Revisão com o motivo."
+  not: "Contado só nos primeiros 10.000 termos. Invalidar não apaga o termo nem seus vínculos."
+  example: "“32”, “[12]” e “sic sic sic” são inválidos."
+
+admin.kwtreat.kpi_duplicates:
+  title: "Duplicadas"
+  what: "Quantas formas normalizadas aparecem em mais de um registro (ex.: “e learning” em 3 registros conta 1)."
+  how: "Use como indicador de quanto agrupamento ainda é possível."
+  not: "Inclui o mesmo termo em tipos diferentes (autor × indexada), que o tratamento mantém separados de propósito."
+  example: "“covid 19” existe como palavra-chave de autor e indexada: conta como 1 duplicata."
+
+admin.kwtreat.summary:
+  title: "Resumo adicional"
+  what: "**Sem display**: termos sem forma de exibição. **Sem normalizada**: termos sem forma de comparação. **Sem/Com conceito**: termos ligados ou não a um conceito do tesauro."
+  how: "Termos sem conceito são os candidatos às etapas de tesauro e similaridade."
+  not: "“Com conceito vinculado” só aumenta se o tesauro de palavras-chave tiver conceitos cadastrados."
+  example: "Com o tesauro vazio, “Com conceito vinculado” fica em 0 mesmo após processar."
+
+admin.kwtreat.history:
+  title: "Histórico de processamentos"
+  what: "Os 10 processamentos mais recentes, com modo (Simulação ou Real), situação, quantidade de termos analisados e quantos foram higienizados."
+  how: "Clique em **Ver relatório** para ver detalhes e exportar o CSV de cada um."
+  not: "Simulações também aparecem aqui, mas não alteraram a base."
+  example: "Job #7, Real, concluído, 1.412 termos analisados: abra o relatório para ver quantos foram limpos e agrupados."
+
+admin.kwtreat.run:
+  title: "Executar novo processamento"
+  what: "Percorre as palavras-chave por ordem de ID, em lotes de 500, em quatro etapas: (1) limpeza e invalidação, (2) agrupamento de grafias iguais dentro do lote, (3) ligação exata ao tesauro, (4) ligação por similaridade."
+  how: "Escolha o modo, o score mínimo e o limite e clique em **Iniciar processo**. A página espera o fim do processamento e abre o relatório."
+  not: "Não cria conceitos novos no tesauro. Com o tesauro de palavras-chave vazio, as etapas 3 e 4 não ligam nada."
+  example: "Simulação com limite 5.000: em 1 minuto você vê quantos termos seriam limpos e invalidados, sem mudar nada."
+
+admin.kwtreat.mode:
+  title: "Modo de operação"
+  what: "**Simulação**: calcula e registra o relatório sem alterar palavras-chave. **Real**: grava as mudanças na base."
+  how: "Sempre rode uma simulação antes. No modo Real, termos que após a limpeza ficam idênticos a outro do mesmo tipo são **fundidos**: os documentos passam ao termo existente e o duplicado é apagado."
+  not: "O modo Real **não tem desfazer**: fusões apagam registros e a grafia original do termo apagado se perde."
+  example: "A simulação mostra 1.200 termos a limpar; após conferir o CSV, rode em Real."
+
+admin.kwtreat.min_score:
+  title: "Score mínimo fuzzy (%)"
+  what: "Limiar de similaridade de grafia para ligar um termo a um conceito do tesauro **automaticamente**. Entre 75% e esse valor, a ligação vira sugestão para revisão manual."
+  how: "Score = o menor entre dois índices de semelhança (distância de Levenshtein e similar_text), de 0 a 100. Só compara termos com 4+ letras e com a mesma letra inicial; se os dois melhores candidatos diferem menos de 3 pontos, vai para revisão. Use 95 ou mais para segurança."
+  not: "Não entende significado: “education” e “educational” podem ter score alto sem serem sinônimos. Valores abaixo de 75 têm o mesmo efeito que 75."
+  example: "Com 95, “behaviour” × “behavior” (score ~89) vai para revisão; com 85, seria ligado automaticamente."
+
+admin.kwtreat.limit:
+  title: "Limite máximo de termos"
+  what: "Quantos termos (por ordem de ID, a partir do primeiro) este processamento analisa."
+  how: "Comece com um limite baixo para testar; aumente até cobrir a base (o máximo aceito no campo é 25.000)."
+  not: "Não continua de onde o processamento anterior parou; sempre recomeça do primeiro termo."
+  example: "Base com 35.941 termos: limite 5.000 analisa só os 5.000 primeiros."
+
+admin.kwtreat.review_card:
+  title: "Revisão manual de sugestões"
+  what: "Quantidade de sugestões de ligação por similaridade que aguardam aprovação ou recusa."
+  how: "Clique em **Abrir tela de revisão** para decidir cada uma."
+  not: "Não inclui os itens da Fila de Revisão de autores e palavras-chave (menu Revisão)."
+  example: "12 sugestões pendentes após um processamento com score mínimo 95."
+
+admin.kwtreat.report_page:
+  title: "Relatório do processamento"
+  what: "Resultado de um processamento: contadores por etapa, agrupamentos feitos, termos invalidados e sugestões por similaridade."
+  how: "Confira os números e exporte o CSV para ver termo a termo. Em simulação, os números mostram o que **aconteceria**."
+  not: "Não permite desfazer as alterações de um processamento Real."
+  example: "Job #7 (Real): 1.412 termos processados; os cartões mostram quantos foram higienizados e agrupados em cada etapa."
+
+admin.kwtreat.export_csv:
+  title: "Exportar relatório CSV"
+  what: "Baixa uma linha por ação registrada: ID e termo original, ação, exibição antiga e nova, conceito, score, motivo e situação."
+  how: "Abra no Excel ou LibreOffice (separador ponto e vírgula, UTF-8) e filtre pela coluna Action."
+  not: "Termos fundidos e apagados na limpeza não têm linha própria. Na simulação, os termos que seriam limpos não são listados."
+  example: "Filtre Action = invalid para conferir os 85 termos invalidados antes de descartá-los na Fila de Revisão."
+
+admin.kwtreat.report_total:
+  title: "Total processado"
+  what: "Quantos termos este processamento analisou (limitado pelo campo Limite)."
+  how: "Se for menor que o total da base, rode outro processamento com limite maior."
+  not: "Não é o número de termos alterados."
+  example: "5.000 processados de 35.941."
+
+admin.kwtreat.report_cleaned:
+  title: "Higienizados"
+  what: "Termos cuja exibição ou forma normalizada mudou com a limpeza (no modo Real, incluem os fundidos com um termo existente)."
+  how: "Compare com “Com sujeiras” do diagnóstico."
+  not: "Não inclui termos invalidados."
+  example: "“ e-learning.” → “E-learning”."
+
+admin.kwtreat.report_exact:
+  title: "Match exato"
+  what: "Termos agrupados por terem a mesma forma normalizada de outro termo do mesmo lote (ligados ao conceito do tesauro do termo principal ou, sem tesauro, ao termo mais frequente)."
+  how: "Esses agrupamentos aparecem nos relatórios dos projetos com um único rótulo."
+  not: "Só compara termos dentro do mesmo lote de 500; duplicatas em lotes diferentes não são agrupadas aqui."
+  example: "“Covid 19” e “COVID-19” passam a ser contados juntos."
+
+admin.kwtreat.report_thesaurus:
+  title: "Tesauro"
+  what: "Termos ligados a um conceito do tesauro de palavras-chave porque a forma normalizada coincide exatamente com um rótulo ou sinônimo do conceito."
+  how: "Cadastre conceitos e sinônimos no tesauro de palavras-chave para aumentar este número."
+  not: "Zero quando o tesauro de palavras-chave está vazio."
+  example: "Sinônimo “e learning” no conceito “E-learning” liga 14 variações."
+
+admin.kwtreat.report_fuzzy_auto:
+  title: "Fuzzy automático"
+  what: "Termos ligados automaticamente a um conceito por semelhança de grafia, com score igual ou acima do mínimo e sem empate."
+  how: "Confira no CSV (Action = fuzzy_auto_matched) se as ligações fazem sentido."
+  not: "Semelhança de grafia não garante mesmo significado."
+  example: "“organisational learning” ligado a “organizational learning” com score 95,7."
+
+admin.kwtreat.report_suspicious:
+  title: "Suspeitos"
+  what: "Termos que a limpeza marcou como suspeitos, mas não inválidos."
+  how: "Confira no CSV pela ação “suspicious”."
+  not: "Os alertas brandos da importação (contém números, parece autor) não entram aqui; eles aparecem na Fila de Revisão."
+  example: "0 suspeitos é o resultado comum."
+
+admin.kwtreat.report_affected:
+  title: "Vínculos e documentos com conceito"
+  what: "Total de vínculos documento-palavra-chave, e de documentos, cuja palavra-chave está ligada a algum conceito do tesauro, contado ao fim do processamento Real."
+  how: "Use para ver o alcance do tesauro na base."
+  not: "É um total acumulado da base inteira, não só do que este processamento mudou."
+  example: "8.400 vínculos em 2.950 documentos já usam conceitos do tesauro."
+
+admin.kwtreat.report_groupings:
+  title: "Principais agrupamentos"
+  what: "Termos que este processamento ligou automaticamente por similaridade (fuzzy), reunidos pelo conceito de destino (até 50 conceitos)."
+  how: "Leia cada linha: à esquerda o conceito, à direita os termos que passaram a ser contados como ele."
+  not: "Não lista os agrupamentos por correspondência exata; para esses, use o CSV."
+  example: "Conceito “Organizational learning” ← “organisational learning”, “organizational-learning”."
+
+admin.kwtreat.report_invalid:
+  title: "Termos inválidos"
+  what: "Termos que a limpeza considerou lixo, com o código do motivo: purely_numeric (só números), numeric_reference (ex.: [12]), insufficient_letters, repetitive_nonsense, too_long, empty_or_too_short."
+  how: "No modo Real eles vão para a Fila de Revisão, onde você decide aceitar ou descartar."
+  not: "Não foram apagados; continuam ligados aos documentos até serem descartados."
+  example: "“4 54” → purely_numeric."
+
+admin.kwtreat.report_fuzzy:
+  title: "Sugestões por similaridade"
+  what: "Termos com grafia parecida com um conceito (score entre 75% e o mínimo automático, ou empate entre dois conceitos), que precisam de decisão humana."
+  how: "Decida cada uma na tela de Revisão de sugestões."
+  not: "Nada foi ligado ainda; são só propostas."
+  example: "“behaviour change” → “Behavior change”, 89,0%."
+
+admin.kwtreat.review_page:
+  title: "Revisão de sugestões por similaridade"
+  what: "Lista as sugestões de ligação por semelhança de grafia que ainda estão pendentes, para aprovar, recusar ou corrigir o termo."
+  how: "Leia o termo, a forma normalizada, o conceito sugerido e o score, e escolha uma ação por linha."
+  not: "Não mostra os itens da Fila de Revisão de autores e palavras-chave (menu Revisão)."
+  example: "“behaviour change” sugerido para “Behavior change” com 89%: aprove."
+
+admin.kwtreat.review_target:
+  title: "Conceito alvo sugerido"
+  what: "Conceito ao qual o termo seria ligado. Quando não há conceito registrado, aparece o motivo calculado (score e rótulo)."
+  how: "Confira se o conceito tem o mesmo significado do termo, não só grafia parecida."
+  not: "“ambiguous_fuzzy” indica empate entre dois conceitos; nesse caso nenhum foi escolhido."
+  example: "“fuzzy_review: 82.4% → Higher education”."
+
+admin.kwtreat.review_score:
+  title: "Score de similaridade"
+  what: "Semelhança de grafia de 0 a 100 entre o termo e o conceito: o menor entre os índices de Levenshtein e similar_text."
+  how: "Acima de 90 costuma ser variação de grafia; entre 75 e 85, confira com atenção."
+  not: "Não mede semelhança de significado."
+  example: "“modelling” × “modeling”: ~89."
+
+admin.kwtreat.review_actions:
+  title: "Aprovar, recusar ou editar"
+  what: "**Aprovar**: associa o termo ao conceito sugerido e marca a sugestão como aplicada. **Recusar**: marca como recusada sem mudar o termo. **Editar termo**: troca a exibição do termo e encerra a sugestão."
+  how: "Clique na ação da linha; a decisão é gravada na hora, sem confirmação."
+  not: "Se a sugestão não tiver conceito registrado, Aprovar não altera nada e a linha continua pendente. Editar não remove acentos nem pontuação da forma normalizada (só converte para minúsculas)."
+  example: "Recuse “education” → “Educational technology”: grafia parecida, conceitos diferentes."
+
+# ─── Tesauro / vocabulário controlado ────────────────────────────────────────
+
+admin.thesaurus.index_page:
+  title: "Vocabulário controlado (tesauro)"
+  what: "Conjunto de conceitos oficiais com seus sinônimos, organizado em esquemas (palavras-chave, instituições, lugares, autores). Serve para unificar grafias e traduções sob um único rótulo nos relatórios."
+  how: "Abra um esquema para cadastrar conceitos, ou importe uma planilha CSV com vários de uma vez."
+  not: "Não é a lista de termos importados dos artigos; é o vocabulário de referência que você mantém."
+  example: "O conceito “Higher education” com sinônimos “ensino superior” e “educación superior” faz os três aparecerem como um só no mapa temático."
+
+admin.thesaurus.schemes:
+  title: "Esquemas de tesauro"
+  what: "Cada esquema agrupa conceitos de um tipo de entidade: keyword (palavras-chave), institution, place (países/lugares) e author."
+  how: "Clique em **Gerenciar termos** para ver e editar os conceitos do esquema."
+  not: "Ao salvar conceitos, o vínculo automático é feito apenas com palavras-chave, qualquer que seja o esquema."
+  example: "O esquema “keyword” guarda o conceito “Artificial intelligence” com o sinônimo “AI”."
+
+admin.thesaurus.import_export:
+  title: "Importar / exportar tesauro"
+  what: "**Exportar CSV** baixa todos os rótulos de todos os esquemas. **Baixar modelo** traz um CSV de exemplo. **Importar** cria esquemas, conceitos e sinônimos a partir de um CSV."
+  how: "Colunas separadas por ponto e vírgula: Scheme; Concept; Label; Type (preferred ou alternative); Language. Rótulos já existentes no conceito são ignorados."
+  not: "A importação não apaga nem altera rótulos existentes; só acrescenta. Um slug de esquema desconhecido cria um esquema novo."
+  example: "keyword;Artificial Intelligence;Inteligência Artificial;alternative;pt"
+
+admin.thesaurus.import_file:
+  title: "Arquivo CSV para importar"
+  what: "Planilha salva como CSV UTF-8 com separador ponto e vírgula, no formato do modelo."
+  how: "Baixe o modelo, preencha no Excel, salve como “CSV UTF-8 (delimitado por vírgulas)” trocando o separador por ponto e vírgula, e envie. Ao final, palavras-chave sem conceito cuja forma normalizada coincide com um rótulo são ligadas automaticamente."
+  not: "Não aceita XLSX. Linhas com menos de 3 colunas são contadas como erro."
+  example: "Um CSV com 300 linhas de sinônimos de “Sustainable development” e “ODS” enviado de uma vez."
+
+admin.thesaurus.matches_status:
+  title: "Correspondências pendentes"
+  what: "Quantidade de ligações termo-conceito que aguardam validação manual."
+  how: "Clique em **Verificar correspondências** para ver a lista."
+  not: "Não inclui a Fila de Revisão de autores e palavras-chave."
+  example: "0 pendentes significa que todas as ligações foram automáticas ou já decididas."
+
+admin.thesaurus.matches_page:
+  title: "Correspondências com o tesauro"
+  what: "Registro de auditoria das ligações entre termos importados e conceitos do tesauro, gravadas pelo Tratamento de Palavras-chave, das mais recentes para as mais antigas."
+  how: "Use para conferir quais termos foram ligados a qual conceito e com que confiança."
+  not: "Somente leitura: não permite aprovar nem desfazer ligações. Ligações feitas ao salvar conceitos no tesauro não aparecem aqui."
+  example: "“organisational learning” → “Organizational learning”, confiança 0.957, automatic."
+
+admin.thesaurus.matches_type:
+  title: "Tipo"
+  what: "Tipo de entidade ligada ao conceito (hoje, keyword = palavra-chave)."
+  how: "Use para separar ligações de palavras-chave de outras entidades."
+  not: "Não indica o tipo da palavra-chave (autor ou indexada)."
+  example: "KEYWORD"
+
+admin.thesaurus.matches_confidence:
+  title: "Confiança"
+  what: "Grau de certeza da ligação, de 0 a 1: 1 = correspondência exata; abaixo de 1 = score de similaridade dividido por 100."
+  how: "Valores abaixo de 0.95 merecem conferência."
+  not: "Não é probabilidade estatística."
+  example: "0.89 = score fuzzy de 89%."
+
+admin.thesaurus.matches_status_col:
+  title: "Situação"
+  what: "**automatic**: ligação aplicada automaticamente. **pending**: sugestão que aguarda decisão humana."
+  how: "Decida as pendentes na Revisão de sugestões do Tratamento de Palavras-chave."
+  not: "“pending” não significa erro."
+  example: "pending para “behaviour change” → “Behavior change”."
+
+admin.thesaurus.scheme_page:
+  title: "Conceitos do esquema"
+  what: "Lista e cadastra os conceitos deste esquema: cada conceito tem um rótulo preferido (o nome oficial) e sinônimos."
+  how: "Cadastre um conceito no formulário de cima; edite ou exclua na tabela. Ao salvar, palavras-chave sem conceito cuja forma normalizada coincide com algum rótulo são ligadas a ele em **todos os projetos**."
+  not: "Mesmo em esquemas de instituição, lugar ou autor, o vínculo automático só atinge palavras-chave; instituições, países e autores não são alterados por esta tela."
+  example: "No tesauro de palavras-chave, crie “Horticultural therapy” com sinônimos “therapeutic horticulture” e “garden therapy”."
+
+admin.thesaurus.new_concept:
+  title: "Adicionar novo conceito"
+  what: "Cria um conceito com rótulo preferido e sinônimos e, em seguida, liga a ele as palavras-chave ainda sem conceito que tenham a mesma forma normalizada de algum rótulo."
+  how: "Preencha o nome oficial, um sinônimo por linha, e clique em **Criar conceito**."
+  not: "Não cria um conceito duplicado: se já existir outro com a mesma forma normalizada no esquema, nada é gravado. Não muda palavras-chave já ligadas a outro conceito."
+  example: "Conceito “Higher education” com sinônimos “ensino superior” e “educación superior”."
+
+admin.thesaurus.preferred_label:
+  title: "Rótulo preferido"
+  what: "Nome oficial do conceito, exibido nos relatórios no lugar das variações ligadas a ele."
+  how: "Escreva como deve aparecer nos gráficos (maiúsculas, acentos). A comparação usa a forma normalizada: minúsculas, sem acentos e com pontuação trocada por espaço."
+  not: "Não precisa repetir o rótulo preferido entre os sinônimos."
+  example: "“Internet of Things” (normalizado: internet of things)."
+
+admin.thesaurus.synonyms:
+  title: "Sinônimos (um por linha)"
+  what: "Grafias alternativas, siglas e traduções que devem ser contadas como este conceito."
+  how: "Um termo por linha. Diferenças de maiúsculas, acentos e pontuação já são ignoradas na comparação, então não precisa repetir “E-learning” e “e learning”."
+  not: "Não use para termos apenas relacionados (ex.: “machine learning” não é sinônimo de “artificial intelligence”)."
+  example: "IoT\nInternet das Coisas\ninternet-of-things"
+
+admin.thesaurus.concepts_list:
+  title: "Conceitos cadastrados"
+  what: "Todos os conceitos do esquema, com seus sinônimos e a forma normalizada usada na comparação."
+  how: "Use **Editar** para ajustar nome ou sinônimos e **Excluir** para remover o conceito."
+  not: "Não mostra quantas palavras-chave estão ligadas a cada conceito."
+  example: "“Artificial intelligence” — sinônimos: AI, Inteligência Artificial."
+
+admin.thesaurus.col_normalized:
+  title: "Forma normalizada"
+  what: "Versão do rótulo usada para comparar com os termos importados: minúsculas, sem acentos e com pontuação trocada por espaço."
+  how: "Duas grafias com a mesma forma normalizada são tratadas como iguais."
+  not: "Não aparece nos relatórios."
+  example: "“COVID-19” → covid 19."
+
+admin.thesaurus.delete_concept:
+  title: "Excluir conceito"
+  what: "Apaga o conceito, todos os seus sinônimos e relações. As palavras-chave ligadas a ele ficam sem conceito e voltam a aparecer com a própria grafia."
+  how: "Clique em **Excluir** e confirme."
+  not: "**Não tem desfazer** (é preciso recadastrar). Não apaga as palavras-chave nem os documentos."
+  example: "Excluir “Education” desfaz o agrupamento de “educação”, “educación” e “education” nos relatórios."
+
+admin.thesaurus.edit_page:
+  title: "Editar conceito"
+  what: "Altera o rótulo preferido e reescreve a lista de sinônimos do conceito."
+  how: "Ajuste os campos e clique em **Salvar alterações**. Palavras-chave cujo sinônimo foi apagado deixam de ser ligadas a este conceito; sinônimos novos ligam palavras-chave ainda sem conceito."
+  not: "Não move para cá palavras-chave já ligadas a outro conceito."
+  example: "Ao incluir “IA” nos sinônimos de “Artificial intelligence”, as palavras-chave “IA” sem conceito passam a ser contadas como “Artificial intelligence”."
+
+admin.thesaurus.edit_preferred:
+  title: "Rótulo preferencial"
+  what: "Nome oficial exibido nos relatórios para todas as variações ligadas ao conceito."
+  how: "Corrija grafia, maiúsculas ou idioma de exibição e salve."
+  not: "Trocar o nome não desfaz ligações já existentes com o conceito."
+  example: "Trocar “Covid” por “COVID-19” atualiza o rótulo em todos os relatórios."
+
+admin.thesaurus.edit_synonyms:
+  title: "Sinônimos (lista completa)"
+  what: "Lista completa dos sinônimos: o que estiver aqui ao salvar substitui a lista anterior."
+  how: "Para remover um sinônimo, apague a linha; para incluir, acrescente uma linha."
+  not: "Apagar uma linha **desliga** do conceito as palavras-chave com aquela grafia; elas voltam a aparecer separadas nos relatórios."
+  example: "Apagar “AI” faz as ocorrências de “AI” voltarem a aparecer como termo próprio."

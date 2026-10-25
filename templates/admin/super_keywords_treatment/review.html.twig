@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header d-flex justify-content-between align-items-start">
     <div>
-        <h1 class="bm-page-title"><i class="bi bi-shield-fill-exclamation me-2"></i>Revisão e Validação de Palavras-chave</h1>
+        <h1 class="bm-page-title"><i class="bi bi-shield-fill-exclamation me-2"></i>Revisão de Sugestões por Similaridade {{ help('admin.kwtreat.review_page') }}</h1>
         <p class="bm-page-subtitle">Abaixo estão listadas as variações e sinônimos detectados por similaridade de grafia. Valide ou rejeite as propostas.</p>
     </div>
     <a href="{{ path('app_super_admin_keyword_treatment_index') }}" class="btn btn-bm-secondary">
@@ -28,10 +28,10 @@
             <thead>
                 <tr>
                     <th>Termo Importado</th>
-                    <th>Forma Normalizada</th>
-                    <th>Conceito Alvo Sugerido</th>
-                    <th>Score de Similaridade</th>
-                    <th class="text-end" style="min-width:320px">Ações e Resoluções</th>
+                    <th>Forma Normalizada {{ help('admin.thesaurus.col_normalized') }}</th>
+                    <th>Conceito Alvo Sugerido {{ help('admin.kwtreat.review_target') }}</th>
+                    <th>Score de Similaridade {{ help('admin.kwtreat.review_score') }}</th>
+                    <th class="text-end" style="min-width:320px">Ações e Resoluções {{ help('admin.kwtreat.review_actions') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,10 +47,10 @@
                             </td>
                             <td><code>{{ log.keyword.keywordNormalized }}</code></td>
                             <td>
-                                <span class="text-info fw-bold"><i class="bi bi-tag-fill me-1"></i>{{ log.newConcept.keywordDisplay }}</span>
+                                <span class="text-info fw-bold"><i class="bi bi-tag-fill me-1"></i>{{ log.newThesaurusConcept ? log.newThesaurusConcept.preferredLabel : (log.newConcept ? log.newConcept.keywordDisplay : log.reason) }}</span>
                             </td>
                             <td>
-                                <span class="badge bg-warning text-dark">{{ log.score|round(1) }}%</span>
+                                <span class="badge bg-warning text-dark">{{ log.score is not null ? log.score|round(1) ~ '%' : '—' }}</span>
                             </td>
                             <td class="text-end">
                                 <div class="d-flex justify-content-end gap-2">
@@ -73,7 +73,7 @@
                                     </form>
 
                                     <!-- Edit Trigger Inline -->
-                                    <button class="btn btn-sm btn-bm-secondary" type="button" onclick="showInlineEdit({{ log.id }}, '{{ log.keyword.keywordDisplay }}')">
+                                    <button class="btn btn-sm btn-bm-secondary" type="button" onclick="showInlineEdit({{ log.id }})">
                                         <i class="bi bi-pencil me-1"></i>Editar Termo
                                     </button>
                                 </div>
@@ -103,7 +103,7 @@
 </div>
 
 <script>
-function showInlineEdit(id, display) {
+function showInlineEdit(id) {
     const box = document.getElementById('edit-box-' + id);
     box.classList.remove('d-none');
 }

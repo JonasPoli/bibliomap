@@ -40,7 +40,7 @@
 <div class="bm-page-header d-flex align-items-start justify-content-between">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-sliders text-accent me-2"></i>Configurações do Site
+            <i class="bi bi-sliders text-accent me-2"></i>Configurações do Site {{ help('admin.settings.page') }}
         </h1>
         <p class="bm-page-subtitle">SEO, Google Analytics e identidade do BiblioMap.</p>
     </div>
@@ -61,7 +61,7 @@
     <div class="settings-section">
         <div class="settings-section-title">
             <i class="bi bi-graph-up-arrow" style="color:var(--bm-accent)"></i>
-            Google Analytics
+            Google Analytics {{ help('admin.settings.ga') }}
         </div>
         <p class="settings-section-desc">
             Insira o Measurement ID do GA4 (ex: <code>G-XXXXXXXXXX</code>). Deixe em branco para desativar.
@@ -69,7 +69,7 @@
         </p>
         <div class="row g-3 align-items-start">
             <div class="col-md-6">
-                <label class="form-label">Measurement ID (GA4)</label>
+                <label class="form-label">Measurement ID (GA4) {{ help('admin.settings.ga_id') }}</label>
                 <div class="input-group">
                     <span class="input-group-text" style="background:var(--bm-bg);border-color:var(--bm-border);color:var(--bm-text-muted)">
                         <i class="bi bi-tag"></i>
@@ -97,7 +97,7 @@
     <div class="settings-section">
         <div class="settings-section-title">
             <i class="bi bi-search" style="color:var(--bm-accent)"></i>
-            SEO — Página Inicial
+            SEO — Página Inicial {{ help('admin.settings.seo') }}
         </div>
         <p class="settings-section-desc">
             Metadados da home pública. Afetam Google, redes sociais e apps de mensagens.
@@ -105,7 +105,7 @@
 
         <div class="row g-3">
             <div class="col-12">
-                <label class="form-label">Título da página <span style="color:var(--bm-danger)">*</span></label>
+                <label class="form-label">Título da página <span style="color:var(--bm-danger)">*</span> {{ help('admin.settings.seo_title') }}</label>
                 <input type="text" class="form-control" name="seoTitle" id="seoTitle" required
                        value="{{ settings.seoTitle }}" maxlength="70"
                        placeholder="BiblioMap — Plataforma Bibliométrica">
@@ -118,7 +118,7 @@
             </div>
 
             <div class="col-12">
-                <label class="form-label">Descrição (meta description) <span style="color:var(--bm-danger)">*</span></label>
+                <label class="form-label">Descrição (meta description) <span style="color:var(--bm-danger)">*</span> {{ help('admin.settings.seo_description') }}</label>
                 <textarea class="form-control" name="seoDescription" id="seoDescription" rows="3"
                           maxlength="165" required
                           placeholder="Descreva o BiblioMap em 120–160 caracteres...">{{ settings.seoDescription }}</textarea>
@@ -131,14 +131,14 @@
             </div>
 
             <div class="col-12">
-                <label class="form-label">Keywords (separadas por vírgula)</label>
+                <label class="form-label">Keywords (separadas por vírgula) {{ help('admin.settings.seo_keywords') }}</label>
                 <input type="text" class="form-control" name="seoKeywords"
                        value="{{ settings.seoKeywords }}"
                        placeholder="bibliometria, cientometria, análise bibliométrica...">
             </div>
 
             <div class="col-md-8">
-                <label class="form-label">URL base do site <span style="color:var(--bm-danger)">*</span></label>
+                <label class="form-label">URL base do site <span style="color:var(--bm-danger)">*</span> {{ help('admin.settings.base_url') }}</label>
                 <input type="url" class="form-control" name="baseUrl" required
                        value="{{ settings.baseUrl }}"
                        placeholder="https://bibliomap.example.com">
@@ -151,7 +151,7 @@
     <div class="settings-section">
         <div class="settings-section-title">
             <i class="bi bi-image" style="color:var(--bm-accent)"></i>
-            Imagem Open Graph (OG Image)
+            Imagem Open Graph (OG Image) {{ help('admin.settings.og_image') }}
         </div>
         <p class="settings-section-desc">
             Aparece quando a home é compartilhada no WhatsApp, Twitter/X, LinkedIn, etc.
@@ -188,7 +188,7 @@
 
             {# Upload area #}
             <div class="col-md-7">
-                <label class="form-label">Upload de nova imagem</label>
+                <label class="form-label">Upload de nova imagem {{ help('admin.settings.og_upload') }}</label>
                 <div class="og-upload-area" id="ogDropArea" onclick="document.getElementById('ogImageInput').click()">
                     <i class="bi bi-cloud-upload d-block mx-auto"></i>
                     <div class="og-upload-label">
@@ -298,7 +298,13 @@
     // Drag & drop
     ['dragenter','dragover'].forEach(ev => ogDropArea?.addEventListener(ev, e => { e.preventDefault(); ogDropArea.classList.add('dragover'); }));
     ['dragleave','drop'].forEach(ev => ogDropArea?.addEventListener(ev, e => { e.preventDefault(); ogDropArea.classList.remove('dragover'); }));
-    ogDropArea?.addEventListener('drop', e => handleImageFile(e.dataTransfer.files[0]));
+    ogDropArea?.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        // Anexa o arquivo ao <input type=file> para que ele seja enviado ao salvar.
+        try { const dt = new DataTransfer(); dt.items.add(file); ogInput.files = dt.files; } catch (err) {}
+        handleImageFile(file);
+    });
 
     // Remove image button
     removeBtn?.addEventListener('click', () => {

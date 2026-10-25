@@ -11,7 +11,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-shield-check text-accent me-2"></i>Painel de Administração
+        <i class="bi bi-shield-check text-accent me-2"></i>Painel de Administração {{ help('admin.dashboard.page') }}
     </h1>
     <p class="bm-page-subtitle">Gerencie usuários, acessos e configurações da plataforma.</p>
 </div>
@@ -21,28 +21,28 @@
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center" style="border-color: var(--bm-warning);">
             <div class="bm-stat-value" style="color: var(--bm-warning);">{{ counts.pending }}</div>
-            <div class="bm-stat-label">Pendentes</div>
+            <div class="bm-stat-label">Pendentes {{ help('admin.dashboard.kpi_pending') }}</div>
             <div class="mt-2"><i class="bi bi-hourglass-split" style="color:var(--bm-warning);font-size:20px"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center" style="border-color: var(--bm-success);">
             <div class="bm-stat-value" style="color: var(--bm-success);">{{ counts.active }}</div>
-            <div class="bm-stat-label">Ativos</div>
+            <div class="bm-stat-label">Ativos {{ help('admin.dashboard.kpi_active') }}</div>
             <div class="mt-2"><i class="bi bi-person-check" style="color:var(--bm-success);font-size:20px"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center" style="border-color: var(--bm-danger);">
             <div class="bm-stat-value" style="color: var(--bm-danger);">{{ counts.inactive }}</div>
-            <div class="bm-stat-label">Inativos</div>
+            <div class="bm-stat-label">Inativos {{ help('admin.dashboard.kpi_inactive') }}</div>
             <div class="mt-2"><i class="bi bi-person-x" style="color:var(--bm-danger);font-size:20px"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value">{{ counts.total }}</div>
-            <div class="bm-stat-label">Total de usuários</div>
+            <div class="bm-stat-label">Total de usuários {{ help('admin.dashboard.kpi_total') }}</div>
             <div class="mt-2"><i class="bi bi-people" style="color:var(--bm-accent);font-size:20px"></i></div>
         </div>
     </div>
@@ -66,7 +66,7 @@
 <div class="bm-card">
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h2 class="bm-page-title mb-0" style="font-size:16px">
-            <i class="bi bi-clock-history text-accent me-2"></i>Cadastros nas últimas 24h
+            <i class="bi bi-clock-history text-accent me-2"></i>Cadastros nas últimas 24h {{ help('admin.dashboard.recent') }}
         </h2>
         <a href="{{ path('app_admin_users') }}" class="btn-bm-secondary btn btn-sm">Ver todos</a>
     </div>

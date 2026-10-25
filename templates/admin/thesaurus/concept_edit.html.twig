@@ -15,7 +15,7 @@
 {% block body %}
 <div class="bm-page-header d-flex justify-content-between align-items-start">
     <div>
-        <h1 class="bm-page-title"><i class="bi bi-pencil-square me-2"></i>Editar Conceito</h1>
+        <h1 class="bm-page-title"><i class="bi bi-pencil-square me-2"></i>Editar Conceito {{ help('admin.thesaurus.edit_page') }}</h1>
         <p class="bm-page-subtitle">Modifique o termo principal e edite a lista de sinônimos.</p>
     </div>
     <a href="{{ path('app_admin_thesaurus_scheme_show', {id: concept.scheme.id}) }}" class="btn btn-bm-secondary">
@@ -30,15 +30,15 @@
             
             <form action="{{ path('app_admin_thesaurus_concept_edit', {id: concept.id}) }}" method="post">
                 <div class="mb-4">
-                    <label class="form-label text-muted-bm small fw-bold">Rótulo Preferencial (Nome Oficial)</label>
+                    <label class="form-label text-muted-bm small fw-bold">Rótulo Preferencial (Nome Oficial) {{ help('admin.thesaurus.edit_preferred') }}</label>
                     <input type="text" name="preferredLabel" class="form-control form-control-lg" value="{{ concept.preferredLabel }}" required style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">
                     <span class="text-muted-bm d-block mt-1" style="font-size:11.5px">O termo principal que será exibido unificadamente nos relatórios.</span>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha)</label>
+                    <label class="form-label text-muted-bm small fw-bold">Sinônimos / Termos Alternativos (Um por linha) {{ help('admin.thesaurus.edit_synonyms') }}</label>
                     <textarea name="synonyms" class="form-control" rows="10" placeholder="Ex:&#10;horticultural therapy&#10;therapeutic horticulture&#10;garden therapy" style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text);font-family:var(--bs-font-monospace)">{{ synonyms }}</textarea>
-                    <span class="text-muted-bm d-block mt-1" style="font-size:11.5px">Edite a lista de sinônimos. Para remover um sinônimo, basta apagar a linha correspondente.</span>
+                    <span class="text-muted-bm d-block mt-1" style="font-size:11.5px">Para remover um sinônimo, apague a linha: as palavras-chave com essa grafia deixam de ser contadas como este conceito.</span>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
