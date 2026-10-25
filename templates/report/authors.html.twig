@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.authors.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -21,7 +22,7 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-people me-2" style="color:var(--bm-accent)"></i>
-        Análise de Autores
+        Análise de Autores {{ help('report.authors.page') }}
     </h1>
     <p class="bm-page-subtitle">Indicadores de produtividade, citações, H-index, G-index e Lei de Lotka</p>
 </div>
@@ -31,19 +32,19 @@
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.total_authors|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Autores</div>
+            <div class="bm-stat-label">Total de Autores {{ help('report.authors.kpi_total') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value" title="{{ kpis.top_author }}">{{ kpis.top_author|slice(0, 20) }}{{ kpis.top_author|length > 20 ? '…' : '' }}</div>
-            <div class="bm-stat-label">Autor Mais Produtivo</div>
+            <div class="bm-stat-label">Autor Mais Produtivo {{ help('report.authors.kpi_top_author') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.top_author_docs }}</div>
-            <div class="bm-stat-label">Máximo de Documentos por Autor</div>
+            <div class="bm-stat-label">Máximo de Documentos por Autor {{ help('report.authors.kpi_top_docs') }}</div>
         </div>
     </div>
 </div>
@@ -53,7 +54,7 @@
     <!-- Bar chart -->
     <div class="col-xl-6">
         <div class="bm-card h-100">
-            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Autores mais Produtivos</h5>
+            <h5 class="card-title mb-3" style="font-weight:700">Top 10 Autores mais Produtivos {{ help('report.authors.chart_top') }}</h5>
             <div style="position:relative;height:320px">
                 <canvas id="chart-authors"></canvas>
             </div>
@@ -63,42 +64,12 @@
     <!-- Lotka Law chart -->
     <div class="col-xl-6">
         <div class="bm-card h-100" style="display:flex;flex-direction:column">
-            <div class="d-flex align-items-center justify-content-between mb-1">
-                <div class="d-flex align-items-center gap-2">
-                    <h5 class="card-title mb-0" style="font-weight:700">Lei de Lotka</h5>
-                    <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Distribuição de Produtividade</span>
-                </div>
-                <button class="btn btn-sm p-0 border-0 text-accent d-flex align-items-center gap-1" type="button" data-bs-toggle="collapse" data-bs-target="#lotka-explanation" aria-expanded="false" aria-controls="lotka-explanation" title="Entender a Lei de Lotka" style="background:transparent;font-size:12px;color:var(--bm-accent);font-weight:600">
-                    <i class="bi bi-info-circle fs-6"></i>
-                    <span>O que é isso?</span>
-                </button>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="card-title mb-0" style="font-weight:700">Lei de Lotka {{ help('report.authors.lotka') }}</h5>
+                <span class="badge rounded-pill" style="background:rgba(79,142,247,0.15);color:var(--bm-accent);font-size:10px;font-weight:600">Distribuição de Produtividade</span>
             </div>
-            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Observado vs. esperado: frequência de autores com N publicações</p>
-            
-            <!-- Collapsible explanation panel -->
-            <div class="collapse mb-2" id="lotka-explanation">
-                <div class="p-3 border-bm rounded-3" style="background:rgba(79,142,247,0.04);font-size:12.5px;line-height:1.5;color:var(--bm-text)">
-                    <div class="d-flex align-items-start gap-2 mb-2">
-                        <i class="bi bi-mortarboard text-accent fs-5"></i>
-                        <div>
-                            <strong>O que é a Lei de Lotka?</strong>
-                            <p class="mb-0 text-accent-hover" style="font-size:11.5px">Formulada por Alfred J. Lotka em 1926, é uma das três leis clássicas da bibliometria.</p>
-                        </div>
-                    </div>
-                    <p class="mb-2">Ela descreve o padrão de <strong>produtividade dos cientistas</strong> em qualquer campo de pesquisa, revelando que:</p>
-                    <ul class="mb-2 ps-3" style="list-style-type:square">
-                        <li>A <strong>grande maioria dos autores</strong> publica pouquíssimos artigos (frequentemente apenas 1).</li>
-                        <li>Uma <strong>minoria altamente produtiva</strong> é responsável pela maior parte da produção científica total.</li>
-                    </ul>
-                    <div class="p-2 bg-bm-card border border-bm rounded-2 mb-2 font-monospace" style="font-size:11px">
-                        <strong>Princípio Teórico:</strong> Se N autores publicam 1 artigo, o número de autores que publicarão X artigos é de aproximadamente <strong>N / X²</strong> (ex: para cada 100 autores de 1 artigo, espera-se que 25 publiquem 2 artigos e 11 publiquem 3).
-                    </div>
-                    <p class="mb-0" style="color:var(--bm-text-muted)">
-                        <strong>Como interpretar o gráfico?</strong> A linha tracejada <span style="color:#f0883e;font-weight:700">Laranja</span> indica a distribuição ideal esperada de Lotka. As barras <span style="color:#4f8ef7;font-weight:700">Azuis</span> mostram o comportamento real do seu corpus. Desvios acentuados indicam dinâmicas específicas de autoria da sua amostra (ex: grande presença de coautoria ou hiper-concentração).
-                    </p>
-                </div>
-            </div>
-            
+            <p style="font-size:11.5px;color:var(--bm-text-muted);margin-bottom:10px">Quantos autores publicaram N documentos: observado (barras) vs. esperado por Lotka, A₁ ÷ N² (linha)</p>
+
             <div style="position:relative;height:270px;flex:1">
                 <canvas id="chart-lotka"></canvas>
             </div>
@@ -115,11 +86,12 @@
             {% else %}
                 Tabela de Produtividade
             {% endif %}
+            {{ help('report.authors.table') }}
         </h5>
         
         <form method="get" action="{{ path('app_report_authors', {id: project.id}) }}" class="d-flex gap-2 align-items-center">
             <div class="input-group input-group-sm">
-                <input type="text" name="q" value="{{ app.request.query.get('q') }}" class="form-control" placeholder="Buscar autor no banco..." style="max-width:220px" autocomplete="off">
+                <input type="text" name="q" value="{{ app.request.query.get('q') }}" class="form-control" placeholder="Buscar autor no projeto..." aria-label="Buscar autor no projeto" style="max-width:220px" autocomplete="off">
                 <button type="submit" class="btn btn-bm-primary" style="border-radius:0 8px 8px 0 !important; background:var(--bm-accent); font-weight:600; padding:6px 14px">
                     <i class="bi bi-search"></i>
                 </button>
@@ -129,6 +101,7 @@
                     Limpar
                 </a>
             {% endif %}
+            {{ help('report.authors.search') }}
         </form>
     </div>
     <div class="table-responsive" style="max-height:440px;overflow-y:auto">
@@ -140,24 +113,24 @@
                         Autor <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(2, 'number')">
-                        Artigos <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                        Artigos {{ help('report.authors.col_docs') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(3, 'number')">
-                        Citações <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                        Citações {{ help('report.authors.col_citations') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:right;cursor:pointer;user-select:none" onclick="sortTable(4, 'number')">
-                        Média Cit. <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                        Média Cit. {{ help('report.authors.col_avg_cit') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" title="H-index dentro do corpus" onclick="sortTable(5, 'number')">
-                        H-index <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortTable(5, 'number')">
+                        H-index {{ help('report.authors.col_h_index') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" title="G-index dentro do corpus" onclick="sortTable(6, 'number')">
-                        G-index <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortTable(6, 'number')">
+                        G-index {{ help('report.authors.col_g_index') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortTable(7, 'string')">
-                        Período <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                        Período {{ help('report.authors.col_period') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                     </th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Ações {{ help('report.authors.works') }}</th>
                 </tr>
             </thead>
             <tbody class="border-0">
@@ -165,7 +138,7 @@
                     <tr>
                         <td colspan="9" class="text-center py-5 text-muted">
                             <i class="bi bi-person-x d-block fs-3 mb-2" style="color:var(--bm-text-muted)"></i>
-                            Nenhum autor encontrado com o termo pesquisado.
+                            {% if app.request.query.get('q') %}Nenhum autor encontrado com o termo pesquisado.{% else %}Nenhum autor vinculado aos documentos deste projeto.{% endif %}
                         </td>
                     </tr>
                 {% else %}
@@ -260,7 +233,7 @@
             <div class="modal-header border-bottom border-bm py-3 border-0 pb-0">
                 <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
                     <i class="bi bi-code-slash me-2 text-accent"></i>
-                    Referência BibTeX para Zotero
+                    Referência BibTeX para Zotero {{ help('report.authors.bibtex') }}
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
             </div>
@@ -421,9 +394,11 @@ function rebuildLotka() {
 
 function exportCSV() {
     const fullList = {{ list|json_encode|raw }};
-    let csv = "\uFEFFAuthor;Articles;Citations;Average Citations;H-index;G-index;First Year;Last Year\r\n";
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const dec = v => String(v ?? '').replace('.', ',');
+    let csv = "\uFEFFAutor;Documentos;Citações;Média de citações;H-index;G-index;Primeiro ano;Último ano\r\n";
     fullList.forEach(a => {
-        csv += `"${a.name}";${a.doc_count};${a.citation_count};${a.avg_citations};${a.h_index};${a.g_index};${a.first_year};${a.last_year}\r\n`;
+        csv += `${q(a.name)};${a.doc_count};${a.citation_count};${dec(a.avg_citations)};${a.h_index ?? ''};${a.g_index ?? ''};${a.first_year ?? ''};${a.last_year ?? ''}\r\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);

@@ -122,7 +122,7 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-grid-1x2 me-2" style="color:var(--bm-accent)"></i>
-        Dashboard de Indicadores
+        Dashboard de Indicadores {{ help('dashboard.page') }}
     </h1>
     <p class="bm-page-subtitle">{{ project.title }} · Análise de {{ summary.total_docs|number_format(0,',','.') }} documentos</p>
 </div>
@@ -132,42 +132,42 @@
     <div class="kpi-card" style="--kpi-color:#4f8ef7">
         <div class="kpi-icon">📄</div>
         <div class="kpi-value">{{ summary.total_docs|number_format(0,',','.') }}</div>
-        <div class="kpi-label">Documentos</div>
+        <div class="kpi-label">Documentos {{ help('dashboard.kpi_docs') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#3fb950">
         <div class="kpi-icon">👥</div>
         <div class="kpi-value">{{ summary.total_authors|number_format(0,',','.') }}</div>
-        <div class="kpi-label">Autores</div>
+        <div class="kpi-label">Autores {{ help('dashboard.kpi_authors') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#a855f7">
         <div class="kpi-icon">📰</div>
         <div class="kpi-value">{{ summary.total_sources|number_format(0,',','.') }}</div>
-        <div class="kpi-label">Fontes</div>
+        <div class="kpi-label">Fontes {{ help('dashboard.kpi_sources') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#f0883e">
         <div class="kpi-icon">🔖</div>
         <div class="kpi-value">{{ summary.total_keywords|number_format(0,',','.') }}</div>
-        <div class="kpi-label">Palavras-chave</div>
+        <div class="kpi-label">Palavras-chave {{ help('dashboard.kpi_keywords') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#58a6ff">
         <div class="kpi-icon">📈</div>
         <div class="kpi-value">{{ summary.total_citations|number_format(0,',','.') }}</div>
-        <div class="kpi-label">Citações totais</div>
+        <div class="kpi-label">Citações totais {{ help('dashboard.kpi_citations') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#d29922">
         <div class="kpi-icon">⭐</div>
         <div class="kpi-value">{{ summary.h_index }}</div>
-        <div class="kpi-label">Índice H</div>
+        <div class="kpi-label">Índice H {{ help('dashboard.kpi_h_index') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#ec6547">
         <div class="kpi-icon">📊</div>
         <div class="kpi-value">{{ summary.avg_citations|number_format(1,',','.') }}</div>
-        <div class="kpi-label">Média citações</div>
+        <div class="kpi-label">Média citações {{ help('dashboard.kpi_avg_citations') }}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:#39d353">
         <div class="kpi-icon">🗓️</div>
         <div class="kpi-value">{{ summary.min_year }}–{{ summary.max_year }}</div>
-        <div class="kpi-label">Período</div>
+        <div class="kpi-label">Período {{ help('dashboard.kpi_period') }}</div>
     </div>
 </div>
 
@@ -175,7 +175,7 @@
 <div class="dash-grid">
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-bar-chart me-2"></i>Produção científica anual</span>
+            <span><i class="bi bi-bar-chart me-2"></i>Produção científica anual {{ help('dashboard.production') }}</span>
             <button class="btn btn-sm py-0 px-2 border-0" onclick="exportProduction()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
         <div class="chart-wrap">
@@ -185,7 +185,7 @@
     </div>
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-graph-up me-2"></i>Citações por ano</span>
+            <span><i class="bi bi-graph-up me-2"></i>Citações por ano de publicação {{ help('dashboard.citations') }}</span>
             <button class="btn btn-sm py-0 px-2 border-0" onclick="exportCitations()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
         <div class="chart-wrap">
@@ -199,7 +199,7 @@
 <div class="dash-grid">
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-people me-2"></i>Top autores</span>
+            <span><i class="bi bi-people me-2"></i>Top autores {{ help('dashboard.top_authors') }}</span>
             <div style="display:flex;gap:10px;align-items:center">
                 <div class="seg-ctrl">
                     <button class="seg-btn active" data-sort="docs" onclick="sortAuthors('docs',this)">Documentos</button>
@@ -222,7 +222,7 @@
     </div>
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-journal-text me-2"></i>Top periódicos</span>
+            <span><i class="bi bi-journal-text me-2"></i>Top periódicos {{ help('dashboard.top_sources') }}</span>
             <button class="btn btn-sm py-0 px-2 border-0" onclick="exportSources()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
         <div id="skel-sources">
@@ -243,7 +243,7 @@
 <div class="dash-grid">
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-tags me-2"></i>Top palavras-chave</span>
+            <span><i class="bi bi-tags me-2"></i>Top palavras-chave {{ help('dashboard.top_keywords') }}</span>
             <div style="display:flex;gap:10px;align-items:center">
                 <div class="seg-ctrl">
                     <button class="seg-btn active" data-ktype="author" onclick="loadKeywords('author',this)">Autores</button>
@@ -257,7 +257,7 @@
     </div>
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-bar-chart-horizontal me-2"></i>Frequência de keywords</span>
+            <span><i class="bi bi-bar-chart-horizontal me-2"></i>Frequência de palavras-chave {{ help('dashboard.keyword_bar') }}</span>
         </div>
         <div class="chart-wrap">
             <div id="skel-kw-bar" class="skel w-100 h-100"></div>
@@ -270,7 +270,7 @@
 <div class="dash-grid-3">
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-file-earmark me-2"></i>Tipos de documento</span>
+            <span><i class="bi bi-file-earmark me-2"></i>Tipos de documento {{ help('dashboard.doc_types') }}</span>
             <button class="btn btn-sm py-0 px-2 border-0" onclick="exportDocTypes()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
         <div class="chart-wrap" style="height:200px">
@@ -280,7 +280,7 @@
     </div>
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-unlock me-2"></i>Acesso aberto</span>
+            <span><i class="bi bi-unlock me-2"></i>Acesso aberto {{ help('dashboard.open_access') }}</span>
             <button class="btn btn-sm py-0 px-2 border-0" onclick="exportOA()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
         <div class="chart-wrap" style="height:200px">
@@ -290,63 +290,8 @@
     </div>
     <div class="dash-card">
         <div class="dash-card-title">
-            <span><i class="bi bi-diagram-2 me-2"></i>Índice de colaboração</span>
-            <div class="d-flex align-items-center gap-1">
-                <button class="btn btn-sm py-0 px-2 border-0" onclick="toggleCollabInfo()" title="O que é índice de colaboração?" style="color:var(--bm-accent);font-size:12px;background:transparent">
-                    <i class="bi bi-info-circle" id="collab-info-icon"></i>
-                </button>
-                <button class="btn btn-sm py-0 px-2 border-0" onclick="exportCollab()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
-            </div>
-        </div>
-
-        <!-- Collapsible explanation -->
-        <div id="collab-info-box" style="display:none;margin-bottom:12px">
-            <div style="background:rgba(79,142,247,0.05);border:1px solid rgba(79,142,247,0.2);border-radius:10px;padding:14px 16px;font-size:12.5px;color:var(--bm-text-muted);line-height:1.55">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                    <div style="width:28px;height:28px;border-radius:7px;background:rgba(79,142,247,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                        <i class="bi bi-diagram-2" style="color:var(--bm-accent);font-size:13px"></i>
-                    </div>
-                    <strong style="color:var(--bm-text);font-size:13px">O que é o Índice de Colaboração?</strong>
-                </div>
-                <p style="margin:0 0 10px">
-                    O <strong style="color:var(--bm-text)">Índice de Colaboração (IC)</strong> mede a
-                    <em>média de autores por artigo</em> em cada ano. É um indicador clássico de
-                    colaboração científica: quanto mais autores por publicação, maior o nível de
-                    trabalho em equipe do campo.
-                </p>
-
-                <!-- Formula -->
-                <div style="background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:7px;padding:8px 12px;margin-bottom:10px;text-align:center">
-                    <span style="font-size:12px;color:var(--bm-text-muted)">IC (ano) = </span>
-                    <span style="font-size:13px;font-weight:700;color:var(--bm-accent)">Nº total de autores</span>
-                    <span style="font-size:12px;color:var(--bm-text-muted)"> &divide; </span>
-                    <span style="font-size:13px;font-weight:700;color:#a855f7">Nº de artigos</span>
-                </div>
-
-                <!-- Interpretation scale -->
-                <div style="font-size:10.5px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Interpretação</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
-                    <div style="padding:6px 8px;border-radius:6px;background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);text-align:center">
-                        <div style="font-weight:700;color:var(--bm-success);font-size:13px">&lt; 2</div>
-                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Autoria individual ou dupla</div>
-                    </div>
-                    <div style="padding:6px 8px;border-radius:6px;background:rgba(210,153,34,0.08);border:1px solid rgba(210,153,34,0.2);text-align:center">
-                        <div style="font-weight:700;color:var(--bm-warning);font-size:13px">2 &ndash; 5</div>
-                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Colaboração moderada</div>
-                    </div>
-                    <div style="padding:6px 8px;border-radius:6px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);text-align:center">
-                        <div style="font-weight:700;color:var(--bm-accent);font-size:13px">&gt; 5</div>
-                        <div style="font-size:10.5px;color:var(--bm-text-muted)">Alta colaboração / Big Science</div>
-                    </div>
-                </div>
-
-                <div style="padding:7px 10px;border-radius:6px;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.18);font-size:11.5px;color:var(--bm-text-muted)">
-                    <i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-success)"></i>
-                    <strong style="color:var(--bm-success)">Dica:</strong>
-                    Um IC crescente ao longo dos anos indica que o campo está se tornando cada vez mais colaborativo.
-                    Áreas como Física de Altas Energias e Biomédica frequentemente apresentam IC &gt; 10.
-                </div>
-            </div>
+            <span><i class="bi bi-diagram-2 me-2"></i>Autores por documento {{ help('dashboard.collaboration') }}</span>
+            <button class="btn btn-sm py-0 px-2 border-0" onclick="exportCollab()" title="Exportar CSV" style="color:var(--bm-text-muted);font-size:12px;background:transparent"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
         </div>
 
         <div class="chart-wrap" style="height:200px">
@@ -366,12 +311,39 @@ const BASE = '{{ path('app_dashboard_index', {id: project.id}) }}';
 const ACCENT = '#4f8ef7';
 const PALETTE = ['#4f8ef7','#a855f7','#3fb950','#f0883e','#d29922','#ec6547','#58a6ff','#39d353','#ff6b9d','#00d4ff'];
 
-function toggleCollabInfo() {
-    const box  = document.getElementById('collab-info-box');
-    const icon = document.getElementById('collab-info-icon');
-    const open = box.style.display === 'none';
-    box.style.display = open ? 'block' : 'none';
-    icon.className    = open ? 'bi bi-info-circle-fill' : 'bi bi-info-circle';
+// Escapa texto vindo do banco antes de inseri-lo via innerHTML
+function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Estado vazio: troca o esqueleto por uma mensagem quando não há dados
+function showEmpty(skelId, hideId) {
+    const skel = document.getElementById(skelId);
+    if (hideId) { const h = document.getElementById(hideId); if (h) h.style.display = 'none'; }
+    skel.className = '';
+    skel.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;min-height:120px;color:var(--bm-text-muted);font-size:13px';
+    skel.textContent = 'Sem dados para exibir';
+    return true;
+}
+
+// Agrupa as categorias menos frequentes em "Outros" para o gráfico não repetir cores
+function topWithOthers(rows, labelKey, max) {
+    const sorted = [...rows].sort((a, b) => (b.count || 0) - (a.count || 0));
+    if (sorted.length <= max) return sorted.map(r => ({label: r[labelKey], count: Number(r.count || 0)}));
+    const head = sorted.slice(0, max - 1).map(r => ({label: r[labelKey], count: Number(r.count || 0)}));
+    const rest = sorted.slice(max - 1).reduce((s, r) => s + Number(r.count || 0), 0);
+    return head.concat([{label: 'Outros', count: rest}]);
+}
+
+// Classifica o status de acesso aberto da base na melhor via disponível
+function oaCategory(status) {
+    const s = String(status || '').toLowerCase();
+    if (!s || s === 'unknown') return 'Sem informação';
+    if (s.includes('gold')) return 'Gold';
+    if (s.includes('hybrid')) return 'Híbrido';
+    if (s.includes('bronze')) return 'Bronze';
+    if (s.includes('green')) return 'Verde (repositório)';
+    return status;
 }
 
 // ── Global Widget Data Store ──────────────────────────────────────────────────
@@ -452,6 +424,7 @@ async function loadProduction() {
     renderProduction();
 }
 function renderProduction() {
+    if (!productionData.length) return showEmpty('skel-production');
     const canvas = hideSkel('skel-production','chart-production');
     if (chartProd) chartProd.destroy();
     
@@ -487,6 +460,7 @@ async function loadCitations() {
     renderCitations();
 }
 function renderCitations() {
+    if (!citationsData.length) return showEmpty('skel-citations');
     const canvas = hideSkel('skel-citations','chart-citations');
     if (chartCit) chartCit.destroy();
     
@@ -540,6 +514,7 @@ function sortAuthors(sortBy, btn) {
     renderAuthors(sortBy);
 }
 function renderAuthors(sortBy) {
+    if (!authorsData.length) return showEmpty('skel-authors');
     document.getElementById('skel-authors').style.display = 'none';
     const container = document.getElementById('list-authors');
     container.style.display = '';
@@ -562,7 +537,7 @@ function renderAuthors(sortBy) {
         ${sorted.slice(0,10).map((a,i) => {
             const val = sortBy==='docs' ? (a.doc_count || 0) : (a.total_citations || 0);
             const pct = Math.round((val/maxVal)*100);
-            const authorName = a.name || 'Desconhecido';
+            const authorName = esc(a.name || 'Desconhecido');
             return `<tr>
                 <td style="color:var(--bm-text-muted);width:24px">${i+1}</td>
                 <td style="font-weight:500">${authorName}</td>
@@ -584,6 +559,7 @@ async function loadSources() {
     renderSources();
 }
 function renderSources() {
+    if (!sourcesData.length) return showEmpty('skel-sources');
     document.getElementById('skel-sources').style.display = 'none';
     const container = document.getElementById('list-sources');
     container.style.display = '';
@@ -598,7 +574,7 @@ function renderSources() {
             const displayTitle = sourceTitle.length > 45 ? sourceTitle.slice(0,45)+'…' : sourceTitle;
             return `<tr>
                 <td style="color:var(--bm-text-muted);width:24px">${i+1}</td>
-                <td style="font-weight:500;font-size:12px">${displayTitle}</td>
+                <td style="font-weight:500;font-size:12px" title="${esc(sourceTitle)}">${esc(displayTitle)}</td>
                 <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(s.doc_count)}</td>
                 <td><div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${pct}%;background:${PALETTE[i%PALETTE.length]}"></div></div></td>
             </tr>`;
@@ -617,6 +593,14 @@ async function loadKeywords(type = 'author', btn = null) {
     renderKeywords(type);
 }
 function renderKeywords(type) {
+    if (!keywordsData.length) {
+        if (chartKwBar) { chartKwBar.destroy(); chartKwBar = null; }
+        document.getElementById('kw-cloud').style.display = 'none';
+        document.getElementById('chart-kw-bar').style.display = 'none';
+        showEmpty('skel-kw-cloud');
+        showEmpty('skel-kw-bar');
+        return;
+    }
     // Cloud
     document.getElementById('skel-kw-cloud').style.display = 'none';
     const cloud = document.getElementById('kw-cloud');
@@ -627,7 +611,7 @@ function renderKeywords(type) {
         const size = 10 + Math.round(((k.doc_count || 0) / maxF) * 14);
         const op = 0.4 + ((k.doc_count || 0) / maxF) * 0.6;
         const termName = k.term || 'Desconhecido';
-        return `<span class="kw-tag" style="font-size:${size}px;opacity:${op}" title="${numFmt(k.doc_count)} docs">${termName}</span>`;
+        return `<span class="kw-tag" style="font-size:${size}px;opacity:${op}" title="${numFmt(k.doc_count)} docs">${esc(termName)}</span>`;
     }).join('');
 
     // Bar chart
@@ -670,16 +654,18 @@ async function loadDocTypes() {
     renderDocTypes();
 }
 function renderDocTypes() {
+    if (!docTypesData.length) return showEmpty('skel-doctypes');
     const canvas = hideSkel('skel-doctypes','chart-doctypes');
     if (chartDocs) chartDocs.destroy();
-    
+
+    const grouped = topWithOthers(docTypesData.map(x => ({type: x.type === 'Unknown' ? 'Não informado' : (x.type || 'Não informado'), count: x.count})), 'type', 8);
     const cl = getColors();
     chartDocs = new Chart(canvas, {
         type: 'doughnut',
         data: {
-            labels: docTypesData.map(x => x.type || 'Outros'),
+            labels: grouped.map(x => x.label),
             datasets: [{ 
-                data: docTypesData.map(x => x.count || 0), 
+                data: grouped.map(x => x.count), 
                 backgroundColor: PALETTE, 
                 borderWidth: 1, 
                 borderColor: cl.border 
@@ -700,17 +686,25 @@ async function loadOpenAccess() {
     renderOpenAccess();
 }
 function renderOpenAccess() {
+    if (!openAccessData.length) return showEmpty('skel-oa');
     const canvas = hideSkel('skel-oa','chart-oa');
     if (chartOA) chartOA.destroy();
-    
+
+    // A base traz combinações ("Green Submitted, gold"); agrupa pela melhor via
+    const order  = ['Gold', 'Híbrido', 'Bronze', 'Verde (repositório)', 'Sem informação'];
+    const colors = {'Gold': '#d29922', 'Híbrido': '#a855f7', 'Bronze': '#f0883e', 'Verde (repositório)': '#3fb950', 'Sem informação': '#8b949e'};
+    const totals = {};
+    openAccessData.forEach(x => { const c = oaCategory(x.status); totals[c] = (totals[c] || 0) + Number(x.count || 0); });
+    const labels = Object.keys(totals).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+
     const cl = getColors();
     chartOA = new Chart(canvas, {
         type: 'pie',
         data: {
-            labels: openAccessData.map(x => x.status || 'Desconhecido'),
+            labels: labels,
             datasets: [{ 
-                data: openAccessData.map(x => x.count || 0), 
-                backgroundColor: ['#3fb950','#4f8ef7','#d29922','#f85149','#8b949e'], 
+                data: labels.map(l => totals[l]), 
+                backgroundColor: labels.map((l, i) => colors[l] || PALETTE[i % PALETTE.length]), 
                 borderWidth: 1, 
                 borderColor: cl.border 
             }]
@@ -729,6 +723,7 @@ async function loadCollaboration() {
     renderCollaboration();
 }
 function renderCollaboration() {
+    if (!collaborationData.length) return showEmpty('skel-collab');
     const canvas = hideSkel('skel-collab','chart-collab');
     if (chartCollab) chartCollab.destroy();
     
@@ -789,7 +784,7 @@ function exportProduction() {
     downloadCSV(productionData, 'producao_cientifica_anual', ['Ano', 'Documentos'], d => [d.year, d.count]);
 }
 function exportCitations() {
-    downloadCSV(citationsData, 'citacoes_por_ano', ['Ano', 'Total Citacoes', 'Media por Artigo'], d => [d.year, d.total_citations, parseFloat(d.avg_citations||0).toFixed(2)]);
+    downloadCSV(citationsData, 'citacoes_por_ano', ['Ano', 'Total Citacoes', 'Media por Artigo'], d => [d.year, d.total_citations, parseFloat(d.avg_citations||0).toFixed(2).replace('.', ',')]);
 }
 function exportAuthors() {
     downloadCSV(authorsData, 'top_autores', ['Autor', 'Documentos', 'Citacoes'], d => [d.name || 'Desconhecido', d.doc_count, d.total_citations || 0]);
@@ -807,7 +802,7 @@ function exportOA() {
     downloadCSV(openAccessData, 'acesso_aberto', ['Status de Acesso', 'Documentos'], d => [d.status || 'Desconhecido', d.count]);
 }
 function exportCollab() {
-    downloadCSV(collaborationData, 'indice_colaboracao', ['Ano', 'Media Autores por Artigo'], d => [d.year, parseFloat(d.avg_authors_per_doc||0).toFixed(2)]);
+    downloadCSV(collaborationData, 'autores_por_documento', ['Ano', 'Media Autores por Documento'], d => [d.year, parseFloat(d.avg_authors_per_doc||0).toFixed(2).replace('.', ',')]);
 }
 
 // ── Load all widgets in parallel ──────────────────────────────────────────────

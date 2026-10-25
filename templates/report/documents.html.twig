@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.documents.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -21,7 +22,7 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-file-earmark-text me-2" style="color:var(--bm-accent)"></i>
-        Análise de Documentos
+        Análise de Documentos {{ help('report.documents.page') }}
     </h1>
     <p class="bm-page-subtitle">Principais documentos científicos ordenados por impacto e contagem de citações</p>
 </div>
@@ -31,19 +32,19 @@
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.total_docs|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Documentos</div>
+            <div class="bm-stat-label">Total de Documentos {{ help('report.documents.kpi_total') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
             <div class="bm-stat-value">{{ kpis.total_citations|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Citações Recebidas</div>
+            <div class="bm-stat-label">Total de Citações Recebidas {{ help('report.documents.kpi_citations') }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="bm-stat-card">
-            <div class="bm-stat-value">{{ kpis.avg_citations }}</div>
-            <div class="bm-stat-label">Média de Citações por Artigo</div>
+            <div class="bm-stat-value">{{ kpis.avg_citations|number_format(1, ',', '.') }}</div>
+            <div class="bm-stat-label">Média de Citações por Documento {{ help('report.documents.kpi_avg') }}</div>
         </div>
     </div>
 </div>
@@ -52,7 +53,7 @@
     <!-- Chart Column -->
     <div class="col-xl-6">
         <div class="bm-card h-100">
-            <h5 class="card-title mb-3" style="font-weight:700">Artigos mais Citados da Base</h5>
+            <h5 class="card-title mb-3" style="font-weight:700">10 Documentos mais Citados {{ help('report.documents.chart_top') }}</h5>
             <div style="position:relative;height:340px">
                 <canvas id="chart-docs"></canvas>
             </div>
@@ -62,18 +63,24 @@
     <!-- Table Column -->
     <div class="col-xl-6">
         <div class="bm-card h-100 d-flex flex-column">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="card-title mb-0" style="font-weight:700">Listagem de Documentos</h5>
-                <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Buscar artigo…" style="width:200px" oninput="filterTable()">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <h5 class="card-title mb-0" style="font-weight:700">100 Mais Citados {{ help('report.documents.table') }}</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="text" id="table-search" class="form-control form-control-sm" placeholder="🔍 Filtrar título ou autor…" style="width:200px" oninput="filterTable()" aria-label="Filtrar título ou autor">
+                    {{ help('report.documents.search') }}
+                    <a href="{{ path('app_report_documents_search', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary" style="white-space:nowrap;font-size:12px;text-decoration:none" title="Buscar em todos os documentos do projeto">
+                        <i class="bi bi-search me-1"></i>Busca completa
+                    </a>
+                </div>
             </div>
             
             <div class="table-responsive flex-grow-1" style="max-height:340px;overflow-y:auto">
                 <table class="table table-hover align-middle border-bm mb-0" id="docs-table" style="font-size:13px">
                     <thead class="sticky-top bg-bm-card border-bottom border-bm">
                         <tr>
-                            <th style="color:var(--bm-text-muted);font-weight:600">Título / Autores</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
-                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Qualis</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600">Título / Autores {{ help('report.documents.col_title') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações {{ help('report.documents.col_citations') }}</th>
+                            <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Qualis {{ help('report.documents.col_qualis') }}</th>
                             <th style="color:var(--bm-text-muted);font-weight:600;text-align:center">Ano</th>
                             <th style="color:var(--bm-text-muted);font-weight:600">Fonte</th>
                         </tr>
@@ -143,6 +150,8 @@
                                 {{ doc.source_title|slice(0, 25) }}{{ doc.source_title|length > 25 ? '…' : '' }}
                             </td>
                         </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted-bm py-4">Nenhum documento neste projeto.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -203,7 +212,8 @@ function rebuildChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: { callbacks: { title: items => listData[items[0].dataIndex]?.title || '' } }
             },
             scales: {
                 y: { grid: { display: false } },
@@ -227,9 +237,11 @@ function filterTable() {
 
 function exportCSV() {
     const fullList = {{ list|json_encode|raw }};
-    let csv = "\uFEFFTitle;Authors;Year;Source;Citations;DOI\r\n";
+    // Campos podem vir nulos do banco (ex.: documento sem autores ou sem fonte)
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    let csv = "\uFEFFTítulo;Autores;Ano;Fonte;Citações;Qualis;DOI\r\n";
     fullList.forEach(d => {
-        csv += `"${d.title.replace(/"/g, '""')}";"${d.authors_str.replace(/"/g, '""')}";${d.year};"${d.source_title.replace(/"/g, '""')}";${d.cited_by};"${d.doi || ''}"\r\n`;
+        csv += `${q(d.title)};${q(d.authors_str)};${d.year ?? ''};${q(d.source_title)};${d.cited_by};${d.qualis ?? ''};${q(d.doi)}\r\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

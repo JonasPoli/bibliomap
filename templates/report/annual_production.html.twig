@@ -14,6 +14,7 @@
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
+{{ help('report.annual.export_csv') }}
 {% endblock %}
 
 {% block body %}
@@ -21,9 +22,9 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-bar-chart-line me-2" style="color:var(--bm-accent)"></i>
-        Produção Científica Anual
+        Produção Científica Anual {{ help('report.annual.page') }}
     </h1>
-    <p class="bm-page-subtitle">Evolução temporal da produção, citações, crescimento percentual e projeções acumuladas</p>
+    <p class="bm-page-subtitle">Evolução da produção e das citações, crescimento anual, média móvel e produção acumulada</p>
 </div>
 
 <!-- KPI Cards -->
@@ -31,31 +32,31 @@
     <div class="col-md-2 col-sm-4 col-6">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value gradient-text">{{ kpis.total_docs|number_format(0, ',', '.') }}</div>
-            <div class="bm-stat-label">Total de Documentos</div>
+            <div class="bm-stat-label">Total de Documentos {{ help('report.annual.kpi_total_docs') }}</div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 col-6">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value">{{ kpis.total_years }}</div>
-            <div class="bm-stat-label">Anos de Cobertura</div>
+            <div class="bm-stat-label">Anos de Cobertura {{ help('report.annual.kpi_years') }}</div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 col-6">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value">{{ kpis.first_year }}</div>
-            <div class="bm-stat-label">Primeiro Ano</div>
+            <div class="bm-stat-label">Primeiro Ano {{ help('report.annual.kpi_first_year') }}</div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 col-6">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value">{{ kpis.last_year }}</div>
-            <div class="bm-stat-label">Último Ano</div>
+            <div class="bm-stat-label">Último Ano {{ help('report.annual.kpi_last_year') }}</div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 col-6">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value text-accent">{{ kpis.best_year }}</div>
-            <div class="bm-stat-label">Ano Mais Produtivo</div>
+            <div class="bm-stat-label">Ano Mais Produtivo {{ help('report.annual.kpi_best_year') }}</div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 col-6">
@@ -63,7 +64,7 @@
             <div class="bm-stat-value" style="color:var(--bm-success)">
                 {{ kpis.cagr is not null ? kpis.cagr ~ '%' : 'N/A' }}
             </div>
-            <div class="bm-stat-label">TCAC (Crescimento Médio)</div>
+            <div class="bm-stat-label">TCAC (cresc. médio anual) {{ help('report.annual.kpi_cagr') }}</div>
         </div>
     </div>
 </div>
@@ -74,9 +75,10 @@
     <div class="col-xl-8">
         <div class="bm-card h-100">
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="mb-0" style="font-weight:700">Publicações e Citações por Ano</h5>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleMA3()" id="btn-ma3" style="font-size:12px">Média Móvel 3 anos</button>
+                <h5 class="mb-0" style="font-weight:700">Publicações e Citações por Ano {{ help('report.annual.chart_main') }}</h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleMA3()" id="btn-ma3" aria-pressed="false" style="font-size:12px">Média Móvel 3 anos</button>
+                    {{ help('report.annual.ma3') }}
                 </div>
             </div>
             <div style="position:relative;height:320px">
@@ -88,7 +90,7 @@
     <!-- Cumulative chart -->
     <div class="col-xl-4">
         <div class="bm-card h-100">
-            <h5 class="mb-3" style="font-weight:700">Produção Acumulada</h5>
+            <h5 class="mb-3" style="font-weight:700">Produção Acumulada {{ help('report.annual.chart_cumulative') }}</h5>
             <div style="position:relative;height:320px">
                 <canvas id="chart-cumulative"></canvas>
             </div>
@@ -99,8 +101,8 @@
 <!-- Annual Data Table -->
 <div class="bm-card">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0" style="font-weight:700">Tabela Anual Detalhada</h5>
-        <span class="text-muted-bm" style="font-size:12px">{{ annualData|length }} anos analisados</span>
+        <h5 class="mb-0" style="font-weight:700">Tabela Anual Detalhada {{ help('report.annual.table') }}</h5>
+        <span class="text-muted-bm" style="font-size:12px">{{ annualData|length }} anos ({{ kpis.first_year }}–{{ kpis.last_year }})</span>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle border-bm" id="annual-table" style="font-size:13px">
@@ -108,11 +110,11 @@
                 <tr>
                     <th style="color:var(--bm-text-muted);font-weight:600">Ano</th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Documentos</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Crescimento %</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Crescimento % {{ help('report.annual.col_growth') }}</th>
                     <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Citações</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit.</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Acumulado</th>
-                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% do Total</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Média Cit. {{ help('report.annual.col_avg_cit') }}</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">Acumulado {{ help('report.annual.col_cumulative') }}</th>
+                    <th style="color:var(--bm-text-muted);font-weight:600;text-align:right">% do Total {{ help('report.annual.col_share') }}</th>
                 </tr>
             </thead>
             <tbody class="border-0">
@@ -144,6 +146,8 @@
                         {% endif %}
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted-bm py-4">Nenhum documento com ano de publicação neste projeto.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -305,15 +309,19 @@ function buildCumChart() {
 
 function toggleMA3() {
     showMA3 = !showMA3;
-    document.getElementById('btn-ma3').style.color = showMA3 ? '#f0883e' : '';
+    const btn = document.getElementById('btn-ma3');
+    btn.style.color = showMA3 ? '#f0883e' : '';
+    btn.style.borderColor = showMA3 ? '#f0883e' : '';
+    btn.setAttribute('aria-pressed', showMA3 ? 'true' : 'false');
     buildMainChart();
 }
 
 function exportCSV() {
+    const dec = v => String(v).replace('.', ','); // Excel em português usa vírgula decimal
     let csv = "\uFEFFAno;Documentos;Crescimento %;Citações;Média Cit.;Acumulado\r\n";
     annualData.forEach(r => {
-        const growth = r.growth_pct !== null ? r.growth_pct : '';
-        csv += `${r.year};${r.doc_count};${growth};${r.citation_count};${r.avg_citations};${r.cumulative}\r\n`;
+        const growth = r.growth_pct !== null ? dec(r.growth_pct) : '';
+        csv += `${r.year};${r.doc_count};${growth};${r.citation_count};${dec(r.avg_citations)};${r.cumulative}\r\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);

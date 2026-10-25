@@ -1,0 +1,745 @@
+# Ajuda contextual (ícone "?") — Dashboard e relatórios de produção
+# (Produção Anual, Autores, Fontes, Documentos, Busca de Trabalhos, Relatório Geral).
+# Formato: title, what, how, not, example. Aceita **negrito** e quebras de linha.
+
+# ════════════════════════════════════════════════════════════════════════════
+# DASHBOARD
+# ════════════════════════════════════════════════════════════════════════════
+
+dashboard.page:
+  title: "Dashboard de Indicadores"
+  what: "Visão rápida do corpus do projeto: números gerais no topo e gráficos de produção, citações, autores, periódicos, palavras-chave, tipos de documento, acesso aberto e coautoria."
+  how: "Os números do topo são calculados ao abrir a página; cada gráfico carrega sozinho logo depois. Use os botões **CSV** de cada painel para levar os dados ao Excel. Para detalhes, abra os relatórios específicos (Autores, Fontes, Documentos, Produção Anual)."
+  not: "Não tem filtros: sempre mostra o projeto inteiro. Não substitui os relatórios detalhados, que trazem tabelas completas, h-index por autor, Lei de Lotka e Lei de Bradford."
+  example: "Logo depois de importar 1.800 registros da Web of Science sobre agricultura digital, abra o Dashboard para conferir se o período (ex.: 2000–2025) e o total de documentos batem com o que você exportou."
+
+dashboard.kpi_docs:
+  title: "Documentos"
+  what: "Quantidade total de documentos (registros) importados neste projeto, depois da remoção de duplicatas feita na importação."
+  how: "Compare com o número de registros que a base (WoS, Scopus etc.) informou na exportação. Diferença grande pode indicar duplicatas removidas ou arquivo incompleto."
+  not: "Não é só artigos: inclui todos os tipos (revisões, anais, editoriais...). Veja o painel **Tipos de documento** para a composição."
+  example: "Você exportou 1.200 registros do Scopus e 900 da WoS; o painel mostra 1.650 porque 450 documentos estavam nas duas bases."
+
+dashboard.kpi_authors:
+  title: "Autores"
+  what: "Número de autores distintos que assinam pelo menos um documento do projeto, já considerando as fusões de variantes de nome."
+  how: "Se o número parecer alto demais, provavelmente há o mesmo pesquisador com grafias diferentes (\"Silva, J.\" e \"Silva, João\"). Faça a desambiguação de autores e o valor cai."
+  not: "Não conta pessoas reais com certeza absoluta: homônimos podem ter sido juntados e variantes ainda não fundidas contam separadas."
+  example: "Num corpus de 1.000 artigos sobre extensão rural aparecem 3.400 autores; após fundir variantes, o total cai para 3.050."
+
+dashboard.kpi_sources:
+  title: "Fontes"
+  what: "Número de fontes distintas (periódicos, anais, livros) pelo nome exato do campo \"fonte\" dos registros."
+  how: "Use como medida de dispersão do tema: muitas fontes para poucos documentos indica literatura espalhada. Veja o relatório **Fontes** para a Lei de Bradford."
+  not: "Não unifica variações de nome: \"Rev. Bras. Educ.\" e \"Revista Brasileira de Educação\" contam como duas fontes."
+  example: "Com 2.000 documentos distribuídos em 950 fontes, o tema é bem disperso; com 2.000 em 120 fontes, há um núcleo de revistas bem definido."
+
+dashboard.kpi_keywords:
+  title: "Palavras-chave"
+  what: "Número de palavras-chave distintas do projeto, somando as **do autor** e as **indexadas** pela base. Termos agrupados num mesmo conceito contam uma vez só."
+  how: "Use para ter noção do vocabulário do corpus. Se estiver alto, considere agrupar sinônimos e plurais (ex.: \"IoT\" e \"Internet of Things\") antes das análises temáticas."
+  not: "Não mede relevância de termos; é só a contagem de termos diferentes."
+  example: "Um corpus de 1.500 artigos sobre agricultura de precisão tem 6.200 palavras-chave distintas; depois de agrupar sinônimos, sobram 5.100."
+
+dashboard.kpi_citations:
+  title: "Citações totais"
+  what: "Soma das citações de todos os documentos, usando o número \"citado por\" que veio da base de dados no momento da exportação (citações globais)."
+  how: "Use como indicador de visibilidade do conjunto. Para ver quais documentos concentram as citações, abra o relatório **Documentos**."
+  not: "Não são citações entre os documentos do seu corpus (citações locais). Não é atualizado sozinho: reflete a data em que você exportou os dados. Documentos sem essa informação somam zero."
+  example: "Um corpus exportado da WoS em março de 2026 soma 48.300 citações; se você reexportar em 2027 o número será maior."
+
+dashboard.kpi_h_index:
+  title: "Índice H do corpus"
+  what: "h-index do conjunto de documentos: o maior número **h** tal que **h** documentos do projeto têm pelo menos **h** citações cada."
+  how: "O sistema ordena os documentos por citações (do maior para o menor) e para no último ponto em que a posição ainda é menor ou igual às citações. Ignora documentos sem informação de citação."
+  not: "Não é o h-index de um pesquisador nem de uma revista. Não serve para comparar corpora de tamanhos ou períodos muito diferentes, pois cresce com o número de documentos e com o tempo."
+  example: "H = 85 significa que há 85 documentos com 85 citações ou mais, mas não há 86 documentos com 86 ou mais."
+
+dashboard.kpi_avg_citations:
+  title: "Média de citações"
+  what: "Citações totais divididas pelo número total de documentos do projeto. Documentos sem informação de citação contam como zero. É o mesmo cálculo dos relatórios Documentos e Geral."
+  how: "Use para comparar o impacto médio entre projetos ou recortes de tamanho parecido."
+  not: "Não é a mediana: poucos artigos muito citados puxam a média para cima. Se muitos registros vieram sem o dado de citação, a média fica subestimada."
+  example: "10.452 documentos somando 176.800 citações dão média de 16,9 citações por documento."
+
+dashboard.kpi_period:
+  title: "Período"
+  what: "Ano de publicação mais antigo e mais recente encontrados no projeto."
+  how: "Confira se bate com o recorte temporal da sua string de busca. Um ano muito antigo isolado (ex.: 1941) costuma ser registro com ano errado ou fora do escopo."
+  not: "Não indica que há documentos em todos os anos do intervalo; pode haver anos sem nenhuma publicação. Documentos sem ano não entram."
+  example: "Sua busca era 2010–2025, mas o painel mostra 1998–2026: verifique os documentos de 1998 e lembre que 2026 ainda está incompleto."
+
+dashboard.production:
+  title: "Produção científica anual"
+  what: "Gráfico de barras com o número de documentos publicados em cada ano."
+  how: "Passe o mouse nas barras para ver os valores. Use o botão **CSV** para levar a série ao Excel. Para crescimento percentual, média móvel e acumulado, abra o relatório **Produção Anual**."
+  not: "Documentos sem ano ficam de fora. Anos sem nenhum documento aparecem com barra zero. O ano corrente quase sempre está incompleto e a queda no último ponto não indica queda real."
+  example: "Numa revisão sobre agricultura digital, as barras saltam de 160 (2018) para 2.900 (2025), mostrando que o tema explodiu nos últimos cinco anos."
+
+dashboard.citations:
+  title: "Citações por ano de publicação"
+  what: "Para cada ano de publicação: a soma das citações recebidas pelos documentos daquele ano (linha roxa) e a média de citações por documento (linha laranja, eixo da direita)."
+  how: "Use para ver quais safras de publicações foram mais influentes. O cálculo considera apenas documentos com informação de citação; anos sem documentos aparecem com zero."
+  not: "Não mostra as citações recebidas **em** cada ano, e sim as citações acumuladas até hoje pelos documentos **publicados** naquele ano. Anos recentes sempre parecem menos citados porque tiveram menos tempo para acumular citações."
+  example: "Os artigos de 2015 têm média de 60 citações e os de 2024 têm média de 3. Isso não significa que a qualidade caiu: os de 2024 ainda são novos."
+
+dashboard.top_authors:
+  title: "Top autores"
+  what: "Ranking dos 10 autores com mais documentos no projeto, com barra proporcional ao valor."
+  how: "O sistema busca os 15 autores com mais documentos (desempate por citações) e mostra os 10 primeiros. O botão **Citações** reordena esses mesmos autores pelas citações somadas. O CSV exporta os 15."
+  not: "O modo **Citações** não mostra os autores mais citados do corpus inteiro, só reordena os mais produtivos. Para isso, use o relatório **Autores** e ordene a coluna Citações. Cada coautor recebe crédito integral pelo documento (contagem completa)."
+  example: "Na lista de produtividade, \"Wolfert, S.\" aparece em 9º lugar com 12 documentos; ao clicar em Citações ele sobe para 1º porque seus artigos somam 2.400 citações."
+
+dashboard.top_sources:
+  title: "Top periódicos"
+  what: "As 10 fontes (periódicos, anais) com mais documentos no projeto."
+  how: "Use para identificar onde o tema é mais publicado e onde submeter seu próprio artigo. O CSV exporta a lista com o número de documentos."
+  not: "Não considera fator de impacto nem Qualis; é só quantidade. Nomes de fonte grafados de formas diferentes contam separados."
+  example: "Numa pesquisa sobre agricultura inteligente, \"Computers and Electronics in Agriculture\" lidera com 276 documentos, seguida de \"IEEE Access\" com 198."
+
+dashboard.top_keywords:
+  title: "Top palavras-chave"
+  what: "Nuvem com as 30 palavras-chave mais frequentes. O tamanho e a opacidade de cada termo são proporcionais ao número de documentos em que ele aparece."
+  how: "Alterne entre **Autores** (palavras escolhidas pelos autores) e **Indexadas** (termos atribuídos pela base, como Keywords Plus da WoS ou Index Keywords do Scopus). Passe o mouse num termo para ver quantos documentos o usam. O CSV exporta os 40 primeiros do tipo selecionado."
+  not: "Não mostra relações entre os termos; para isso use a rede de coocorrência ou o mapa temático. Termos não agrupados (singular/plural, sinônimos) aparecem separados."
+  example: "Em Autores aparecem \"machine learning\" (420 docs) e \"internet of things\" (310); em Indexadas aparecem termos mais genéricos como \"agriculture\" e \"sensors\"."
+
+dashboard.keyword_bar:
+  title: "Frequência de palavras-chave"
+  what: "Barras horizontais com as 15 palavras-chave mais frequentes do tipo escolhido na nuvem ao lado (Autores ou Indexadas)."
+  how: "Troque o tipo na nuvem e este gráfico acompanha. O valor é o número de documentos que contêm o termo."
+  not: "Não conta quantas vezes o termo aparece no texto; um documento conta uma vez por termo."
+  example: "\"Deep learning\" com 380 barras indica que 380 documentos listam esse termo entre suas palavras-chave."
+
+dashboard.doc_types:
+  title: "Tipos de documento"
+  what: "Distribuição dos documentos por tipo, como veio da base de dados (Article, Review, Proceedings Paper...). Os 7 tipos mais comuns aparecem separados e o restante é somado em \"Outros\"."
+  how: "Use para descrever a composição do corpus na seção de método e decidir se vai filtrar só artigos e revisões. O CSV exporta todos os tipos, sem agrupar."
+  not: "Não padroniza tipos entre bases: combinações como \"Article; Early Access\" contam como um tipo próprio."
+  example: "Num corpus da WoS: 64% Article, 17% Review, 14% Proceedings Paper e o resto em editoriais, cartas e correções."
+
+dashboard.open_access:
+  title: "Acesso aberto"
+  what: "Quantos documentos estão em acesso aberto, segundo a informação que veio da base. O gráfico agrupa cada documento na melhor via: Gold, Híbrido, Bronze, Verde (repositório) ou Sem informação."
+  how: "Use para discutir a disponibilidade da literatura do tema. O CSV exporta as combinações originais da base (ex.: \"Green Submitted, gold\"), sem agrupar."
+  not: "\"Sem informação\" não significa acesso fechado: a base pode simplesmente não ter informado. Bases diferentes classificam de formas diferentes."
+  example: "Num corpus da WoS sobre agricultura digital, 45% é Gold, 8% Híbrido e 44% Sem informação."
+
+dashboard.collaboration:
+  title: "Coautoria: autores por documento"
+  what: "Média de autores por documento em cada ano: total de autorias do ano dividido pelo número de documentos (com ao menos um autor) daquele ano."
+  how: "Observe a tendência: uma linha subindo indica que o campo trabalha cada vez mais em equipe. Valores acima de 5 são comuns em áreas experimentais; perto de 1–2, em humanidades."
+  not: "Não é o \"Collaboration Index\" do Bibliometrix (que considera só documentos com mais de um autor), nem a taxa de coautoria internacional. Anos com poucos documentos oscilam muito."
+  example: "Em estudos de agricultura de precisão, a média sobe de 2,8 autores por artigo em 2005 para 5,1 em 2025."
+
+# ════════════════════════════════════════════════════════════════════════════
+# PRODUÇÃO ANUAL
+# ════════════════════════════════════════════════════════════════════════════
+
+report.annual.page:
+  title: "Produção Científica Anual"
+  what: "Mostra como a produção e as citações do corpus evoluíram ano a ano, com crescimento percentual, média móvel e produção acumulada."
+  how: "Comece pelos indicadores do topo, depois veja o gráfico principal e a tabela. Exporte em **CSV** para montar a figura de produção anual da sua dissertação."
+  not: "Não considera documentos sem ano. O ano corrente ainda está incompleto e puxa para baixo o crescimento e a taxa média do final da série."
+  example: "Numa revisão sistemática sobre ensino híbrido, a página mostra que 70% dos documentos foram publicados depois de 2020, coincidindo com a pandemia."
+
+report.annual.export_csv:
+  title: "Exportar CSV"
+  what: "Baixa a tabela anual (ano, documentos, crescimento %, citações, média de citações, acumulado) em CSV separado por ponto e vírgula, pronto para o Excel em português."
+  how: "Clique e abra o arquivo no Excel ou LibreOffice. Os decimais saem com vírgula."
+  not: "Não inclui a média móvel nem a coluna \"% do Total\"."
+  example: "Exporte o CSV para gerar no Excel o gráfico de produção anual com a formatação exigida pelo seu programa de pós-graduação."
+
+report.annual.kpi_total_docs:
+  title: "Total de documentos (com ano)"
+  what: "Soma dos documentos que têm ano de publicação informado."
+  how: "Compare com o total do Dashboard. Se for menor, a diferença são documentos sem ano."
+  not: "Não inclui documentos sem ano de publicação."
+  example: "O Dashboard mostra 2.050 documentos e aqui aparecem 2.038: há 12 registros sem ano."
+
+report.annual.kpi_years:
+  title: "Anos de cobertura"
+  what: "Duração do período do corpus: último ano − primeiro ano + 1."
+  how: "Use para descrever a amplitude temporal. A tabela e os gráficos mostram todos esses anos, inclusive os sem publicação (com zero)."
+  not: "Não é a quantidade de anos com publicação; anos vazios também contam."
+  example: "Primeiro ano 1941 e último 2026: 86 anos de cobertura, embora muitos anos antes de 1987 não tenham nenhum documento."
+
+report.annual.kpi_first_year:
+  title: "Primeiro ano"
+  what: "Ano de publicação mais antigo do corpus."
+  how: "Se for um ano isolado e muito antigo, confira o registro na Busca de Trabalhos: pode ser erro de metadado ou documento fora do escopo."
+  not: "Não indica quando o tema começou de fato; depende da cobertura da base."
+  example: "Aparece 1941 com 1 documento e o próximo é 1962: vale verificar se esse registro antigo é pertinente."
+
+report.annual.kpi_last_year:
+  title: "Último ano"
+  what: "Ano de publicação mais recente do corpus."
+  how: "Lembre que o ano corrente quase sempre está incompleto; mencione isso ao interpretar a queda no último ponto do gráfico."
+  not: "Não garante que o último ano esteja completo."
+  example: "Dados exportados em outubro de 2026 mostram 2026 com 1.035 documentos contra 2.934 em 2025, mas o ano ainda não terminou."
+
+report.annual.kpi_best_year:
+  title: "Ano mais produtivo"
+  what: "Ano com o maior número de documentos publicados. Em caso de empate, vale o primeiro ano da série."
+  how: "Use para apontar o pico de interesse pelo tema e procurar eventos que o expliquem (políticas, crises, lançamentos tecnológicos)."
+  not: "Não considera citações; o ano mais produtivo não é necessariamente o mais influente."
+  example: "Pico em 2021 num corpus sobre ensino remoto, logo após o início da pandemia."
+
+report.annual.kpi_cagr:
+  title: "Taxa de crescimento anual (TCAC)"
+  what: "Taxa composta de crescimento anual da produção: **((docs do último ano ÷ docs do primeiro ano) ^ (1 ÷ (último ano − primeiro ano)) − 1) × 100**, a mesma fórmula do Bibliometrix."
+  how: "Use como resumo do ritmo de crescimento do tema, citando a fórmula e o período. Fica \"N/A\" se houver menos de 2 anos."
+  not: "Usa só o primeiro e o último ano, então é muito sensível aos extremos: um primeiro ano com 1 documento infla a taxa, e o ano corrente incompleto a puxa para baixo. Se precisar, refaça o cálculo no CSV excluindo o ano corrente."
+  example: "De 1 documento em 1941 para 1.035 em 2026 (85 anos de intervalo), a TCAC é de 8,5% ao ano; usando 2025 (2.934 docs) como último ano, seria cerca de 10%."
+
+report.annual.chart_main:
+  title: "Publicações e citações por ano"
+  what: "Barras azuis com o número de documentos por ano (eixo esquerdo) e linha roxa com a soma das citações recebidas pelos documentos publicados naquele ano (eixo direito)."
+  how: "Passe o mouse para ver os dois valores de um ano. Ative a **Média Móvel 3 anos** para suavizar oscilações."
+  not: "A linha de citações não mostra quantas citações o campo recebeu em cada ano, e sim as citações acumuladas até hoje pelos documentos de cada ano. Anos recentes naturalmente têm menos citações."
+  example: "Os artigos de 2016 somam 4.800 citações e os de 2024 apenas 900, mesmo com mais artigos, porque ainda não tiveram tempo de ser citados."
+
+report.annual.ma3:
+  title: "Média móvel de 3 anos"
+  what: "Linha laranja tracejada com a média de documentos do ano e dos dois anos anteriores da série."
+  how: "Clique para ligar ou desligar. Use para enxergar a tendência sem os picos e vales de um ano isolado."
+  not: "Não aparece nos dois primeiros anos (não há 3 anos para calcular). Anos sem publicação entram como zero. No último ponto, o ano corrente incompleto puxa a média para baixo."
+  example: "A produção oscila 22, 33, 24, 32 entre 2000 e 2003; a média móvel mostra uma tendência estável em torno de 28–30."
+
+report.annual.chart_cumulative:
+  title: "Produção acumulada"
+  what: "Total de documentos publicados até cada ano, somando os anos anteriores."
+  how: "Uma curva que fica cada vez mais inclinada indica crescimento acelerado (exponencial). Use para mostrar a maturidade do campo."
+  not: "Não mostra a produção de cada ano isoladamente; para isso use o gráfico de barras ao lado."
+  example: "Metade de todo o corpus foi publicada nos últimos 3 anos: a curva fica quase vertical a partir de 2023."
+
+report.annual.table:
+  title: "Tabela anual detalhada"
+  what: "Uma linha por ano com documentos, crescimento em relação ao ano anterior, citações, média de citações, acumulado e participação no total."
+  how: "Use para citar números exatos no texto ou conferir valores do gráfico. Exporte em CSV pelo botão no topo."
+  not: "Não inclui documentos sem ano. Anos sem publicação aparecem com zero."
+  example: "Na linha de 2022: 908 documentos, +39,5% sobre 2021, 6.100 citações, média 6,7 e 3.000 documentos acumulados."
+
+report.annual.col_growth:
+  title: "Crescimento %"
+  what: "Variação do número de documentos em relação ao ano anterior: ((docs do ano − docs do ano anterior) ÷ docs do ano anterior) × 100."
+  how: "Verde indica crescimento, vermelho queda. Aparece traço (—) no primeiro ano e quando o ano anterior teve zero documentos (não dá para dividir por zero)."
+  not: "Em anos com poucos documentos, variações de 100% ou mais são comuns e pouco significativas. A queda do ano corrente reflete só que ele ainda não terminou."
+  example: "Com dados exportados em outubro de 2026, a linha de 2026 mostra −64,7% (1.035 contra 2.934 em 2025), o que não indica queda real do tema."
+
+report.annual.col_avg_cit:
+  title: "Média de citações"
+  what: "Citações dos documentos do ano divididas pelo número de documentos do ano. Documentos sem informação de citação contam como zero."
+  how: "Use para comparar o impacto médio de diferentes safras de publicações."
+  not: "Não corrige o efeito do tempo: documentos antigos sempre tendem a ter médias maiores."
+  example: "Média 45 em 2012 contra 2,1 em 2025: os documentos de 2025 ainda estão começando a ser citados."
+
+report.annual.col_cumulative:
+  title: "Acumulado"
+  what: "Total de documentos publicados desde o primeiro ano até o ano da linha."
+  how: "Use para dizer, por exemplo, quando o corpus atingiu metade do total."
+  not: "Não inclui documentos sem ano."
+  example: "O acumulado passa de 5.000 (metade do corpus) em 2024."
+
+report.annual.col_share:
+  title: "% do total"
+  what: "Participação do ano no total de documentos com ano: documentos do ano ÷ total × 100."
+  how: "A barrinha ajuda a comparar visualmente o peso de cada ano."
+  not: "Não é crescimento; é só a fatia daquele ano no corpus."
+  example: "2025 responde por 28% de todos os documentos do projeto."
+
+# ════════════════════════════════════════════════════════════════════════════
+# AUTORES
+# ════════════════════════════════════════════════════════════════════════════
+
+report.authors.page:
+  title: "Análise de Autores"
+  what: "Mostra quem são os autores mais produtivos e citados do corpus, com h-index e g-index calculados dentro do projeto e a Lei de Lotka."
+  how: "Veja os indicadores do topo, o gráfico dos 10 primeiros e a Lei de Lotka; depois use a tabela para ordenar, buscar e abrir os trabalhos de cada autor."
+  not: "Não usa dados externos de perfil (Scopus, Lattes, Google Scholar). Tudo é calculado só com os documentos deste projeto."
+  example: "Numa tese sobre agricultura digital, a página mostra os 100 autores mais produtivos e permite abrir os 12 artigos do líder para leitura."
+
+report.authors.export_csv:
+  title: "Exportar CSV de autores"
+  what: "Baixa a tabela de autores exibida (até 100 autores, ou até 250 resultados de uma busca) com documentos, citações, média, h-index, g-index e primeiro e último ano."
+  how: "Abra no Excel; o arquivo usa ponto e vírgula como separador e acentos em UTF-8."
+  not: "Não exporta todos os autores do corpus, só os que estão na tabela."
+  example: "Exporte os 100 primeiros para montar no Excel a tabela de autores mais produtivos do capítulo de resultados."
+
+report.authors.kpi_total:
+  title: "Total de autores"
+  what: "Número de autores distintos com pelo menos um documento no projeto (após fusões de variantes de nome)."
+  how: "Use para descrever o tamanho da comunidade do tema e calcular a razão documentos/autor."
+  not: "Não é afetado pela busca da tabela; sempre considera o projeto inteiro."
+  example: "3.050 autores para 1.000 documentos: em média, cada autor aparece em 1 a 2 documentos."
+
+report.authors.kpi_top_author:
+  title: "Autor mais produtivo"
+  what: "Autor com o maior número de documentos no corpus. Em empate, ganha o que tem mais citações somadas."
+  how: "Passe o mouse para ver o nome completo. Clique em **Ver trabalhos** na primeira linha da tabela para conhecer a produção dele."
+  not: "Não significa o autor mais influente; para isso ordene a tabela por citações ou h-index."
+  example: "\"Kamilaris, A.\" lidera com 14 documentos sobre deep learning na agricultura."
+
+report.authors.kpi_top_docs:
+  title: "Máximo de documentos por autor"
+  what: "Quantidade de documentos do autor mais produtivo."
+  how: "Compare com o total de documentos para avaliar a concentração: se o líder tem 1% do corpus, a produção é bem distribuída."
+  not: "Não é uma média; é só o valor do primeiro colocado."
+  example: "O líder tem 14 documentos num corpus de 2.000, ou seja, nenhum autor domina o tema."
+
+report.authors.chart_top:
+  title: "Top 10 autores mais produtivos"
+  what: "Barras com o número de documentos (eixo esquerdo) e as citações somadas (eixo direito) dos 10 primeiros autores da tabela."
+  how: "Passe o mouse para ver os dois valores. Se você fizer uma busca, o gráfico passa a mostrar os 10 primeiros resultados da busca."
+  not: "Não mostra os 10 mais citados, e sim os 10 com mais documentos (desempate por citações)."
+  example: "Um autor com 9 documentos e 3.000 citações aparece ao lado de outro com 12 documentos e 150 citações: produtividade e impacto são coisas diferentes."
+
+report.authors.lotka:
+  title: "Lei de Lotka"
+  what: "Compara quantos autores publicaram 1, 2, 3... documentos no corpus (barras azuis) com o esperado pela Lei de Lotka (linha laranja). A lei diz que a maioria dos autores publica pouco e uma minoria publica muito."
+  how: "Esperado = **nº de autores com 1 documento ÷ n²**, onde n é o número de documentos. Se as barras ficam acima da linha nos valores altos de n, há mais autores muito produtivos que o previsto. O gráfico usa todos os autores do projeto, mesmo durante uma busca."
+  not: "É a forma clássica simplificada (expoente fixo 2 e constante igual ao nº de autores com 1 documento); o Bibliometrix estima o expoente por regressão. Só aparecem os valores de n que existem no corpus, então o eixo pode pular números."
+  example: "Com 2.400 autores de 1 documento, o esperado é 600 autores com 2 documentos e 267 com 3; o corpus tem 410 e 150, ou seja, menos autores recorrentes que o previsto."
+
+report.authors.table:
+  title: "Tabela de produtividade"
+  what: "Lista os 100 autores com mais documentos (desempate por citações), com citações, média, h-index, g-index e período de atividade no corpus."
+  how: "Clique no título de uma coluna para ordenar (clique de novo para inverter). Use **Ver trabalhos** para abrir os documentos do autor."
+  not: "A ordenação por coluna só reorganiza as linhas exibidas; não busca outros autores além dos 100 primeiros. Para achar um autor fora da lista, use a busca."
+  example: "Ordene por H-index para encontrar autores com poucos documentos, mas muito citados, que merecem leitura prioritária."
+
+report.authors.search:
+  title: "Buscar autor"
+  what: "Procura autores pelo nome em todo o projeto (não só nos 100 da tabela) e mostra até 250 resultados."
+  how: "Digite parte do nome (sobrenome costuma funcionar melhor) e pressione Enter. Maiúsculas e acentos são ignorados. Use **Limpar** para voltar à lista padrão."
+  not: "Não procura em variantes de nome que foram fundidas, só no nome principal do autor. Não filtra a Lei de Lotka nem os indicadores do topo."
+  example: "Digite \"silva\" para ver todos os autores Silva do corpus e comparar quem é o mais produtivo."
+
+report.authors.col_docs:
+  title: "Artigos"
+  what: "Número de documentos distintos do corpus em que o autor aparece, em qualquer posição. Cada documento conta uma única vez por autor."
+  how: "Cada coautor recebe crédito integral (contagem completa), não fracionada."
+  not: "Não diferencia primeiro autor, autor correspondente ou coautor."
+  example: "Um artigo com 6 autores soma 1 documento para cada um dos 6."
+
+report.authors.col_citations:
+  title: "Citações"
+  what: "Soma das citações globais (\"citado por\" da base) dos documentos do autor dentro do corpus."
+  how: "Ordene por esta coluna para achar os autores de maior impacto no tema."
+  not: "Não é o total de citações da carreira do autor; só conta os documentos deste projeto. Documentos sem informação contam zero."
+  example: "O autor tem 5.000 citações no Scopus, mas só 1.200 aqui, porque apenas 4 dos seus artigos estão no corpus."
+
+report.authors.col_avg_cit:
+  title: "Média de citações"
+  what: "Citações do autor no corpus divididas pelo número de documentos dele no corpus."
+  how: "Use para achar autores com poucos trabalhos, mas muito citados."
+  not: "Uma média alta com 1 documento pode ser só um artigo excepcional; olhe junto com Artigos e H-index."
+  example: "Média 300 com 2 documentos indica um autor de referência, mesmo com pouca produção no tema."
+
+report.authors.col_h_index:
+  title: "H-index (no corpus)"
+  what: "Maior número **h** tal que o autor tem **h** documentos no corpus com pelo menos **h** citações cada."
+  how: "Os documentos do autor são ordenados por citações; o h é a última posição em que o número de citações ainda é maior ou igual à posição. Combina produtividade e impacto."
+  not: "Não é o h-index oficial do pesquisador (Scopus/WoS/Google Scholar), que considera toda a carreira. Nunca passa do número de documentos do autor no corpus."
+  example: "Um autor com 5 documentos citados 40, 18, 7, 3 e 1 vezes tem h = 3 (três documentos com pelo menos 3 citações)."
+
+report.authors.col_g_index:
+  title: "G-index (no corpus)"
+  what: "Maior número **g** tal que os **g** documentos mais citados do autor somam pelo menos **g²** citações. Valoriza autores com poucos artigos muito citados."
+  how: "Compare com o H-index: um g bem maior que o h indica que o autor tem alguns trabalhos de altíssimo impacto."
+  not: "Não ultrapassa o número de documentos do autor no corpus (a versão original de Egghe permite completar com artigos fictícios de zero citação)."
+  example: "Com citações 40, 18, 7, 3 e 1: as somas são 40, 58, 65, 68, 69 contra 1, 4, 9, 16, 25, então g = 5 enquanto h = 3."
+
+report.authors.col_period:
+  title: "Período"
+  what: "Ano do primeiro e do último documento do autor dentro do corpus."
+  how: "Use para identificar autores pioneiros (começo antigo) e autores emergentes (período curto e recente)."
+  not: "Não é o período de atividade da carreira do autor, só a presença dele no seu corpus."
+  example: "Um autor com período 2021–2025 e 8 documentos é um nome emergente no tema."
+
+report.authors.works:
+  title: "Ver trabalhos"
+  what: "Abre uma janela com todos os documentos do autor dentro deste projeto, com ano, citações, tipo, fonte e links."
+  how: "Na janela: o ícone de prancheta copia \"Autores - Ano - Título\" (até 250 caracteres) para nomear o PDF; **DOI** abre o artigo; **BibTeX** gera a referência para importar no Zotero."
+  not: "Não busca trabalhos do autor fora do corpus. Não altera nada no banco."
+  example: "Abra os 12 trabalhos do autor mais produtivo, copie o nome padronizado e salve cada PDF com esse nome na pasta da revisão."
+
+report.authors.bibtex:
+  title: "Referência BibTeX"
+  what: "Texto no formato BibTeX montado com os metadados do documento (autores, título, fonte, ano, volume, páginas, DOI, resumo)."
+  how: "Clique em **Copiar** e, no Zotero, use Arquivo > Importar da área de transferência. Confira os campos depois de importar."
+  not: "Todo documento sai como @article, mesmo anais e capítulos; ajuste o tipo no Zotero se precisar. Não substitui a importação pelo DOI, que costuma trazer metadados mais completos."
+  example: "Copie o BibTeX de um artigo sem DOI e cole no Zotero para não digitar a referência à mão."
+
+# ════════════════════════════════════════════════════════════════════════════
+# FONTES / BRADFORD
+# ════════════════════════════════════════════════════════════════════════════
+
+report.sources.page:
+  title: "Análise de Fontes / Periódicos"
+  what: "Mostra em quais fontes (periódicos, anais) o tema é publicado, com produção, citações, Qualis e a Lei de Bradford para identificar o núcleo de revistas."
+  how: "Veja o top 10, as zonas de Bradford e a lista do núcleo; depois use a tabela para filtrar por zona ou buscar uma revista."
+  not: "Não unifica variações de nome da mesma revista. Não traz fator de impacto (JCR/SJR)."
+  example: "Numa revisão sobre educação a distância, a página revela que 9 revistas concentram um terço de todos os artigos: é por elas que vale começar a leitura."
+
+report.sources.export_csv:
+  title: "Exportar CSV de fontes"
+  what: "Baixa as fontes listadas na tabela (as 100 mais produtivas) com zona de Bradford, Qualis, documentos, citações, média e período."
+  how: "Abra no Excel; separador ponto e vírgula, acentos em UTF-8."
+  not: "Não inclui as fontes além das 100 primeiras."
+  example: "Exporte para montar a tabela \"Periódicos mais produtivos\" com Qualis no seu artigo."
+
+report.sources.kpi_total:
+  title: "Total de fontes"
+  what: "Número de fontes distintas (pelo nome exato) com pelo menos um documento no projeto."
+  how: "Use para descrever a dispersão do tema entre veículos."
+  not: "Grafias diferentes da mesma revista contam como fontes diferentes."
+  example: "3.800 fontes para 10.000 documentos: tema muito disperso, típico de áreas interdisciplinares."
+
+report.sources.kpi_top_source:
+  title: "Fonte mais produtiva"
+  what: "Fonte com mais documentos no corpus (desempate pelas citações)."
+  how: "Passe o mouse para ver o nome completo."
+  not: "Não é necessariamente a fonte de maior impacto ou melhor Qualis."
+  example: "\"Computers and Electronics in Agriculture\" lidera num corpus sobre agricultura digital."
+
+report.sources.kpi_top_docs:
+  title: "Documentos na fonte principal"
+  what: "Quantidade de documentos publicados na fonte mais produtiva."
+  how: "Divida pelo total de documentos para saber a participação da revista líder."
+  not: "Não é média por fonte."
+  example: "276 documentos de 10.452: a revista líder tem só 2,6% do corpus."
+
+report.sources.chart_top:
+  title: "Top 10 periódicos mais produtivos"
+  what: "Barras verdes com o número de documentos (eixo esquerdo) e barras azuis com as citações somadas (eixo direito) das 10 fontes com mais documentos."
+  how: "Passe o mouse para ver os valores completos e o nome da fonte."
+  not: "Não ordena por citações; a ordem é por quantidade de documentos."
+  example: "\"IEEE Access\" tem muitos documentos mas poucas citações em comparação com uma revista mais tradicional da área."
+
+report.sources.bradford:
+  title: "Lei de Bradford"
+  what: "Divide as fontes em 3 zonas com cerca de 1/3 dos documentos cada. A **Zona 1 (núcleo)** tem poucas revistas muito produtivas; a Zona 3 tem muitas revistas com poucos artigos cada."
+  how: "As fontes são ordenadas pelo número de documentos (desempate por citações) e somadas em sequência. Quando a soma atinge 1/3 do total, começa a Zona 2; ao atingir 2/3, começa a Zona 3. Passe o mouse no gráfico para ver o percentual de cada zona."
+  not: "Não avalia qualidade das revistas, só concentração. A fonte que ultrapassa o limite de 1/3 (ou 2/3) fica na zona anterior, então as zonas podem ter um pouco mais ou menos que 1/3. Fontes com o mesmo número de documentos podem cair em zonas diferentes."
+  example: "Num corpus de 1.500 artigos: 12 revistas formam o núcleo (500 artigos), 110 a Zona 2 e 640 a Zona 3, uma proporção próxima de 1 : 9 : 53."
+
+report.sources.zone1:
+  title: "Núcleo de Bradford (Zona 1)"
+  what: "Lista das fontes da Zona 1, as mais produtivas, que juntas reúnem cerca de 1/3 dos documentos."
+  how: "Use como lista de revistas para acompanhar o tema, buscar artigos que faltaram e escolher onde submeter."
+  not: "Não garante que todas são as melhores revistas; são as que mais publicam sobre o tema no seu corpus."
+  example: "As 9 revistas do núcleo viram a lista de alertas de sumário que você assina durante o doutorado."
+
+report.sources.table:
+  title: "Tabela de impacto das fontes"
+  what: "As 100 fontes com mais documentos, com zona de Bradford, Qualis, documentos, citações, média e período."
+  how: "Use o seletor de zona e a busca para filtrar as linhas exibidas."
+  not: "Mostra só as 100 primeiras fontes; a maioria das fontes da Zona 3 não aparece aqui."
+  example: "Filtre \"Zona 1\" para obter a lista do núcleo já com o Qualis de cada revista."
+
+report.sources.zone_filter:
+  title: "Filtrar por zona"
+  what: "Mostra apenas as fontes da zona escolhida dentre as 100 da tabela."
+  how: "Escolha a zona; combine com a busca por nome se quiser."
+  not: "Não recalcula as zonas nem busca fontes fora das 100 exibidas."
+  example: "Selecione \"Zona 2\" para ver as revistas intermediárias que podem complementar a busca."
+
+report.sources.search:
+  title: "Buscar fonte"
+  what: "Filtra a tabela pelo nome da fonte enquanto você digita."
+  how: "Digite parte do nome (ex.: \"agricultur\"). Não diferencia maiúsculas."
+  not: "Procura só nas 100 fontes exibidas, não no projeto inteiro."
+  example: "Digite \"revista\" para ver rapidamente as fontes em português ou espanhol do corpus."
+
+report.sources.col_zone:
+  title: "Zona Bradford"
+  what: "Zona da fonte: Z1 (núcleo), Z2 (intermediária) ou Z3 (periférica)."
+  how: "Use para priorizar a leitura: comece pelas Z1."
+  not: "Não é uma classificação de qualidade."
+  example: "Uma revista Z3 com 2 artigos muito citados ainda pode ser leitura obrigatória."
+
+report.sources.col_qualis:
+  title: "Qualis CAPES"
+  what: "Estrato Qualis da revista (A1 é o mais alto, C o mais baixo), obtido cruzando o ISSN do documento com a tabela Qualis da CAPES carregada no sistema."
+  how: "Use para avaliar a reputação da revista no sistema brasileiro de pós-graduação. Traço (—) significa que o ISSN não foi encontrado na tabela."
+  not: "Não é avaliação do artigo. O estrato depende da área de avaliação e do quadriênio da tabela; confira na Plataforma Sucupira antes de citar."
+  example: "A revista líder aparece A1, e outras do núcleo B1: ótimo argumento para justificar a escolha de onde submeter."
+
+report.sources.col_docs:
+  title: "Artigos"
+  what: "Número de documentos do corpus publicados nesta fonte."
+  how: "É o critério de ordenação da tabela e das zonas de Bradford."
+  not: "Não considera o total de artigos que a revista publica, só os do seu corpus."
+  example: "Uma revista com 30 documentos no corpus pode publicar milhares de artigos por ano sobre outros temas."
+
+report.sources.col_citations:
+  title: "Citações"
+  what: "Soma das citações globais dos documentos do corpus publicados nesta fonte."
+  how: "Compare com Artigos para ver se a revista publica pouco mas com muito impacto."
+  not: "Não é fator de impacto da revista. Documentos sem informação contam zero."
+  example: "Uma revista com 15 artigos e 2.000 citações pesa mais na literatura do tema que outra com 40 artigos e 300 citações."
+
+report.sources.col_avg_cit:
+  title: "Média de citações"
+  what: "Citações da fonte divididas pelo número de documentos dela no corpus (sem informação conta zero)."
+  how: "Use para comparar o impacto médio entre revistas no seu tema."
+  not: "Não substitui JCR, CiteScore ou SJR."
+  example: "Média 85 numa revista de revisões contra 6 numa revista de conferência."
+
+report.sources.col_period:
+  title: "Período"
+  what: "Ano do primeiro e do último documento do corpus publicado nesta fonte."
+  how: "Fontes com período só recente indicam veículos novos ou que passaram a cobrir o tema há pouco tempo."
+  not: "Não é o período de existência da revista."
+  example: "\"Smart Agricultural Technology\" com período 2021–2026: revista nova que já está no núcleo."
+
+# ════════════════════════════════════════════════════════════════════════════
+# DOCUMENTOS
+# ════════════════════════════════════════════════════════════════════════════
+
+report.documents.page:
+  title: "Análise de Documentos"
+  what: "Mostra os documentos mais citados do corpus, com autores, países, Qualis, ano e fonte."
+  how: "Veja o gráfico dos 10 mais citados e use a tabela (100 mais citados) para abrir os artigos pelo link do título."
+  not: "Não lista todos os documentos do projeto. Para procurar qualquer documento, use a **Busca de Trabalhos**."
+  example: "Numa revisão sobre extensão universitária, os 20 primeiros da lista viram a base do referencial teórico."
+
+report.documents.export_csv:
+  title: "Exportar CSV de documentos"
+  what: "Baixa os 100 documentos mais citados com título, autores, ano, fonte, citações, Qualis e DOI."
+  how: "Abra no Excel; separador ponto e vírgula, acentos em UTF-8."
+  not: "Não exporta o corpus inteiro, só os 100 da tabela."
+  example: "Exporte e marque no Excel quais dos 100 mais citados você já leu."
+
+report.documents.kpi_total:
+  title: "Total de documentos"
+  what: "Número total de documentos do projeto."
+  how: "É o mesmo total do Dashboard."
+  not: "Não é o número de linhas da tabela, que mostra só os 100 mais citados."
+  example: "10.452 documentos no projeto, dos quais a tabela mostra os 100 mais citados."
+
+report.documents.kpi_citations:
+  title: "Total de citações recebidas"
+  what: "Soma das citações globais de todos os documentos (\"citado por\" da base no momento da exportação)."
+  how: "Use para descrever a visibilidade do corpus."
+  not: "Não são citações locais (entre documentos do corpus) nem um valor atualizado automaticamente."
+  example: "O corpus soma 176.800 citações segundo os dados exportados da WoS."
+
+report.documents.kpi_avg:
+  title: "Média de citações por documento"
+  what: "Citações totais divididas por **todos** os documentos do projeto; quem não tem informação de citação conta como zero. É o mesmo valor do Dashboard e do Relatório Geral."
+  how: "Use para descrever o impacto médio do corpus."
+  not: "Não é a mediana: poucos artigos muito citados puxam a média para cima."
+  example: "10.452 documentos e 176.800 citações dão média de 16,9; o artigo mais citado sozinho pode ter mais de 2.000."
+
+report.documents.chart_top:
+  title: "10 documentos mais citados"
+  what: "Barras horizontais com as citações globais dos 10 documentos mais citados do projeto."
+  how: "Passe o mouse para ver o valor exato. O título completo está na tabela ao lado."
+  not: "Não corrige pela idade: documentos antigos têm vantagem por terem tido mais tempo para acumular citações."
+  example: "O artigo mais citado tem 2.900 citações, quase o dobro do segundo: é a referência clássica do tema."
+
+report.documents.table:
+  title: "Listagem de documentos"
+  what: "Os 100 documentos mais citados do projeto, com título (link para o artigo), autores, bandeiras dos países, citações, Qualis, ano e fonte."
+  how: "Clique no título para abrir pelo DOI ou URL. Passe o mouse nas bandeiras para ver os nomes dos países."
+  not: "Não inclui documentos fora dos 100 mais citados nem documentos sem título."
+  example: "Use a lista para montar a seção de estudos mais influentes da sua revisão."
+
+report.documents.search:
+  title: "Filtrar a listagem"
+  what: "Filtra os 100 documentos da tabela por trecho do título ou nome de autor enquanto você digita."
+  how: "Digite parte do título ou um sobrenome. Para procurar no projeto inteiro, use **Busca completa**."
+  not: "Não procura no resumo nem fora dos 100 documentos exibidos."
+  example: "Digite \"review\" para ver quais dos mais citados são revisões."
+
+report.documents.col_title:
+  title: "Título, autores e países"
+  what: "Título do documento (com link quando há URL ou DOI), autores na ordem de autoria e bandeiras dos países das afiliações."
+  how: "Os países vêm das afiliações dos autores identificadas na importação."
+  not: "Documentos sem afiliação reconhecida ficam sem bandeira; isso não significa que não tenham país."
+  example: "Um artigo com bandeiras do Brasil e da Holanda indica colaboração internacional entre os autores."
+
+report.documents.col_citations:
+  title: "Citações"
+  what: "Número de citações globais do documento, como informado pela base no momento da exportação (WoS \"Times Cited\", Scopus \"Cited by\")."
+  how: "É o critério de ordenação da tabela."
+  not: "Não conta só as citações vindas do seu corpus. Documentos sem informação aparecem com 0."
+  example: "Um artigo com 0 citações publicado este ano pode ser apenas recente, não irrelevante."
+
+report.documents.col_qualis:
+  title: "Qualis"
+  what: "Estrato Qualis CAPES da revista onde o documento saiu, encontrado pelo ISSN."
+  how: "Use como referência rápida da reputação do veículo no Brasil. Traço (—) significa ISSN não encontrado na tabela Qualis."
+  not: "Não avalia o artigo em si e depende da área de avaliação da tabela usada."
+  example: "Dos 10 mais citados, 8 estão em revistas A1."
+
+# ════════════════════════════════════════════════════════════════════════════
+# BUSCA DE TRABALHOS
+# ════════════════════════════════════════════════════════════════════════════
+
+report.search.page:
+  title: "Busca avançada de trabalhos"
+  what: "Encontra documentos do projeto combinando autor, palavra-chave, título, resumo e ano."
+  how: "Preencha um ou mais campos e clique em **Pesquisar**. Todos os campos preenchidos precisam ser atendidos ao mesmo tempo (E lógico)."
+  not: "Não busca nas bases externas (WoS, Scopus); procura só no que já foi importado. Não aceita operadores booleanos (AND, OR, aspas)."
+  example: "Para achar os estudos de 2023 sobre irrigação com IoT, preencha Palavra-chave = \"iot\", Resumo = \"irrigation\" e Ano = 2023."
+
+report.search.filters:
+  title: "Filtros de pesquisa"
+  what: "Campos que restringem a busca. Os campos de texto procuram o termo em qualquer parte (\"contém\") e ignoram maiúsculas e acentos."
+  how: "Comece com um campo só e vá adicionando outros para refinar. **Limpar Filtros** volta ao formulário vazio."
+  not: "Não aceita curingas (*) nem vários termos alternativos num mesmo campo."
+  example: "Autor \"silva\" + Título \"extensão\" retorna só os trabalhos de autores Silva com \"extensão\" no título."
+
+report.search.author:
+  title: "Nome do autor"
+  what: "Mantém documentos que tenham pelo menos um autor cujo nome principal contém o texto digitado."
+  how: "Use o sobrenome, que é como as bases costumam registrar (ex.: \"Wolfert\")."
+  not: "Não procura nas variantes de nome que foram fundidas na desambiguação, só no nome principal."
+  example: "\"Kamilaris\" encontra os documentos de \"Kamilaris, A.\" e de \"Kamilaris, Andreas\" se esses nomes ainda estiverem separados."
+
+report.search.keyword:
+  title: "Palavra-chave"
+  what: "Mantém documentos com alguma palavra-chave (do autor ou indexada) que contenha o texto digitado."
+  how: "Digite o termo como aparece nos registros, em geral em inglês (ex.: \"smart farming\")."
+  not: "Procura no texto original da palavra-chave, não no nome do conceito do tesauro. Não procura no título nem no resumo."
+  example: "\"farming\" encontra \"smart farming\", \"precision farming\" e \"farming systems\"."
+
+report.search.title:
+  title: "Título do artigo"
+  what: "Mantém documentos cujo título contém o texto digitado."
+  how: "Use um trecho característico do título ou um termo técnico."
+  not: "Não corrige erros de digitação nem traduz termos."
+  example: "Digite \"systematic review\" para listar as revisões sistemáticas do corpus."
+
+report.search.abstract:
+  title: "Texto do resumo"
+  what: "Mantém documentos cujo resumo contém o texto digitado."
+  how: "Use para achar estudos que mencionam um método ou contexto específico (ex.: \"Brazil\", \"case study\")."
+  not: "Documentos importados sem resumo nunca aparecem neste filtro."
+  example: "\"Brazil\" no resumo encontra estudos com casos brasileiros mesmo quando o país não está no título."
+
+report.search.year:
+  title: "Ano"
+  what: "Mantém apenas documentos publicados exatamente no ano informado."
+  how: "Digite o ano com 4 dígitos."
+  not: "Não aceita intervalo de anos."
+  example: "Ano 2020 + Palavra-chave \"covid\" mostra a reação imediata do campo à pandemia."
+
+report.search.results:
+  title: "Trabalhos encontrados"
+  what: "Documentos que atendem a todos os filtros, ordenados do ano mais recente para o mais antigo e depois pelo título. Mostra no máximo 500."
+  how: "Clique nos títulos das colunas para reordenar. Use os links DOI/URL para abrir o artigo e **BibTeX** para levar a referência ao Zotero."
+  not: "Se aparecerem exatamente 500, há mais resultados que não foram exibidos: refine os filtros."
+  example: "A busca retorna 37 trabalhos; ordene por Citações para começar a leitura pelos mais influentes."
+
+report.search.col_reference:
+  title: "Autores - Ano - Título"
+  what: "Referência curta no formato \"Autores - Ano - Título\", sem os caracteres : e / (que não podem estar em nomes de arquivo)."
+  how: "Clique no ícone de prancheta para copiar a referência com no máximo 250 caracteres (a lista de autores é cortada se necessário) e use como nome do PDF."
+  not: "Não é uma referência no formato ABNT ou APA."
+  example: "Copie e cole como nome do PDF: \"Wolfert, S.; Ge, L. - 2017 - Big Data in Smart Farming – A review\"."
+
+report.search.col_qualis:
+  title: "Qualis"
+  what: "Estrato Qualis CAPES da revista do documento, encontrado pelo ISSN."
+  how: "Ordene pela coluna para agrupar os estratos."
+  not: "Não avalia o artigo em si; traço (—) significa ISSN não encontrado na tabela Qualis."
+  example: "Priorize a leitura dos resultados em revistas A1 e A2."
+
+report.search.links:
+  title: "Links e BibTeX"
+  what: "**DOI** abre o artigo pela página oficial; **URL** aparece quando não há DOI; **BibTeX** gera a referência para o Zotero. O link Sci-Hub é um atalho externo pelo DOI."
+  how: "Prefira o DOI e o acesso pelo Portal de Periódicos CAPES (via CAFe) para obter o texto completo."
+  not: "O BibTeX sai sempre como @article. O sistema não verifica a disponibilidade nem a legalidade do acesso em sites externos; a responsabilidade pelo uso é sua."
+  example: "Clique em DOI, entre pelo acesso CAFe da sua universidade e baixe o PDF legalmente."
+
+# ════════════════════════════════════════════════════════════════════════════
+# RELATÓRIO GERAL
+# ════════════════════════════════════════════════════════════════════════════
+
+report.general.page:
+  title: "Relatório Geral"
+  what: "Resumo do projeto numa página só, pronta para imprimir ou salvar em PDF: dados do projeto, indicadores, produção anual, Qualis e rankings de autores, fontes, palavras-chave, países e documentos."
+  how: "Revise a página e use **Imprimir / PDF** no topo. Os links no final levam às análises detalhadas."
+  not: "Não tem filtros nem tabelas completas; é uma visão resumida (top 10/top 20)."
+  example: "Anexe o PDF do Relatório Geral ao relatório de qualificação para mostrar o panorama do corpus em 2 páginas."
+
+report.general.cover:
+  title: "Capa do relatório"
+  what: "Título, descrição, pergunta de pesquisa e string de busca do projeto, mais os totais de documentos, autores, fontes e palavras-chave."
+  how: "Descrição, pergunta e string vêm do cadastro do projeto; edite o projeto para mudá-los. Os totais são calculados na hora."
+  not: "Não mostra a data da exportação dos dados, só a data em que a página foi gerada."
+  example: "Preencha a string de busca no projeto para que ela apareça no PDF e documente a reprodutibilidade da revisão."
+
+report.general.indicators:
+  title: "Indicadores gerais"
+  what: "Citações totais, média de citações, máximo de citações de um documento, primeiro e último ano e anos de cobertura."
+  how: "Use estes números na descrição do corpus na seção de resultados."
+  not: "A média conta documentos sem informação de citação como zero. Citações são as globais da base, não as citações entre documentos do corpus."
+  example: "\"O corpus reúne 10.452 documentos (1941–2026) que somam 176.800 citações, média de 16,9 por documento.\""
+
+report.general.kpi_years:
+  title: "Anos de cobertura"
+  what: "Duração do período: último ano − primeiro ano + 1."
+  how: "Use para descrever a amplitude temporal do corpus."
+  not: "Conta também os anos sem nenhuma publicação; não indica produção contínua."
+  example: "1941–2026 dá 86 anos de cobertura, embora só 55 desses anos tenham publicações."
+
+report.general.annual:
+  title: "Produção anual"
+  what: "Documentos publicados por ano (barras) e citações acumuladas pelos documentos de cada ano (linha)."
+  how: "Para crescimento, média móvel e tabela detalhada, abra o relatório **Produção Anual**."
+  not: "Anos sem documentos aparecem com zero; o último ano costuma estar incompleto e não indica queda real."
+  example: "O gráfico mostra a explosão do tema a partir de 2019."
+
+report.general.qualis:
+  title: "Distribuição Qualis CAPES"
+  what: "Quantidade de documentos por estrato Qualis da revista (A1 a C), encontrado pelo ISSN na tabela Qualis da CAPES. \"Sem Qualis\" são documentos cujo ISSN não foi encontrado."
+  how: "Use para mostrar a qualidade dos veículos do corpus segundo o critério da CAPES."
+  not: "Não avalia os artigos; avalia as revistas. Anais, livros e revistas estrangeiras sem registro na CAPES caem em \"Sem Qualis\"."
+  example: "21% dos documentos estão em revistas A1 e 53% ficaram Sem Qualis, a maioria em anais de conferências internacionais."
+
+report.general.top_authors:
+  title: "Top 10 autores"
+  what: "Os 10 autores com mais documentos no corpus, com o total de citações de cada um."
+  how: "Para h-index, g-index e Lei de Lotka, abra o relatório **Autores**."
+  not: "Não é o ranking dos mais citados; é por quantidade de documentos (contagem completa)."
+  example: "O 1º colocado tem 14 documentos, mas o 4º tem mais citações."
+
+report.general.top_sources:
+  title: "Top 10 fontes"
+  what: "As 10 fontes com mais documentos no corpus."
+  how: "Para as zonas de Bradford e o Qualis por revista, abra o relatório **Fontes**."
+  not: "Não considera fator de impacto nem Qualis."
+  example: "As 3 primeiras revistas concentram 6% do corpus."
+
+report.general.top_keywords:
+  title: "Top 20 palavras-chave"
+  what: "Os 20 termos mais frequentes, misturando palavras-chave **do autor** (azul) e **indexadas** pela base (roxo). O número ao lado é a quantidade de documentos."
+  how: "Use para descrever os assuntos dominantes do corpus."
+  not: "O mesmo termo pode aparecer duas vezes, uma como palavra do autor e outra como indexada."
+  example: "\"machine learning\" aparece em azul (420) e em roxo (510): os autores e a base usam o mesmo termo."
+
+report.general.top_countries:
+  title: "Top 10 países"
+  what: "Os 10 países com mais documentos, identificados pelas afiliações dos autores. Um documento com autores de 3 países conta para os 3."
+  how: "Para o mapa e os continentes, abra o relatório **Países**."
+  not: "A soma dos países pode passar do total de documentos. Documentos sem afiliação reconhecida não contam."
+  example: "China lidera com 2.100 documentos e o Brasil aparece em 6º com 480."
+
+report.general.top_docs:
+  title: "Documentos mais citados"
+  what: "Os 10 documentos com mais citações globais no corpus."
+  how: "Clique no título para abrir pelo DOI. Para a lista dos 100 mais citados, abra o relatório **Documentos**."
+  not: "Não corrige pela idade dos documentos."
+  example: "Os 3 primeiros são revisões de 2017–2019, leitura obrigatória para o referencial teórico."
+
+report.general.links:
+  title: "Análises detalhadas"
+  what: "Atalhos para os relatórios e análises específicas do projeto."
+  how: "Clique num cartão para abrir a análise. Esta seção não sai na impressão."
+  not: "Não gera nenhum cálculo novo; só navega."
+  example: "Do resumo, vá direto ao Mapa Temático para aprofundar os temas emergentes."

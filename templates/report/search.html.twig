@@ -15,44 +15,44 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-search me-2" style="color:var(--bm-accent)"></i>
-        Busca Avançada de Trabalhos
+        Busca Avançada de Trabalhos {{ help('report.search.page') }}
     </h1>
-    <p class="bm-page-subtitle">Encontre artigos específicos filtrando por múltiplos campos simultaneamente.</p>
+    <p class="bm-page-subtitle">Encontre documentos do projeto combinando autor, palavra-chave, título, resumo e ano (todos os campos preenchidos precisam ser atendidos).</p>
 </div>
 
 <!-- Search Form Card -->
 <div class="bm-card mb-4">
-    <h5 class="card-title mb-3" style="font-weight:700">Filtros de Pesquisa</h5>
+    <h5 class="card-title mb-3" style="font-weight:700">Filtros de Pesquisa {{ help('report.search.filters') }}</h5>
     <form method="get" action="{{ path('app_report_documents_search', {id: project.id}) }}">
         <div class="row g-3">
             <!-- Author filter -->
             <div class="col-md-2">
-                <label class="form-label" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Nome do Autor</label>
-                <input type="text" name="author" value="{{ filters.author }}" class="form-control form-control-sm" placeholder="Ex: Wolfert">
+                <label class="form-label" for="f-author" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Nome do Autor {{ help('report.search.author') }}</label>
+                <input id="f-author" type="text" name="author" value="{{ filters.author }}" class="form-control form-control-sm" placeholder="Ex: Wolfert">
             </div>
             
             <!-- Keyword filter -->
             <div class="col-md-2">
-                <label class="form-label" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Palavra-Chave</label>
-                <input type="text" name="keyword" value="{{ filters.keyword }}" class="form-control form-control-sm" placeholder="Ex: Smart Farming">
+                <label class="form-label" for="f-keyword" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Palavra-Chave {{ help('report.search.keyword') }}</label>
+                <input id="f-keyword" type="text" name="keyword" value="{{ filters.keyword }}" class="form-control form-control-sm" placeholder="Ex: Smart Farming">
             </div>
             
             <!-- Title filter -->
             <div class="col-md-3">
-                <label class="form-label" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Título do Artigo</label>
-                <input type="text" name="title" value="{{ filters.title }}" class="form-control form-control-sm" placeholder="Parte do título...">
+                <label class="form-label" for="f-title" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Título do Artigo {{ help('report.search.title') }}</label>
+                <input id="f-title" type="text" name="title" value="{{ filters.title }}" class="form-control form-control-sm" placeholder="Parte do título...">
             </div>
 
             <!-- Abstract filter -->
             <div class="col-md-3">
-                <label class="form-label" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Texto do Resumo</label>
-                <input type="text" name="abstract" value="{{ filters.abstract }}" class="form-control form-control-sm" placeholder="Termo no resumo...">
+                <label class="form-label" for="f-abstract" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Texto do Resumo {{ help('report.search.abstract') }}</label>
+                <input id="f-abstract" type="text" name="abstract" value="{{ filters.abstract }}" class="form-control form-control-sm" placeholder="Termo no resumo...">
             </div>
 
             <!-- Year filter -->
             <div class="col-md-2">
-                <label class="form-label" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Ano</label>
-                <input type="number" name="year" value="{{ filters.year }}" class="form-control form-control-sm" placeholder="Ex: 2021" min="1900" max="2100">
+                <label class="form-label" for="f-year" style="font-size:12.5px;font-weight:600;color:var(--bm-text-muted)">Ano {{ help('report.search.year') }}</label>
+                <input id="f-year" type="number" name="year" value="{{ filters.year }}" class="form-control form-control-sm" placeholder="Ex: 2021" min="1900" max="2100">
             </div>
         </div>
 
@@ -73,8 +73,9 @@
 {% if hasSearch %}
 <div class="bm-card">
     <h5 class="card-title mb-3" style="font-weight:700">
-        Trabalhos Encontrados 
+        Trabalhos Encontrados
         <span class="badge rounded-pill ms-1" style="font-size:11.5px;background:rgba(240,136,62,0.15);color:var(--bm-accent)">{{ list|length }}</span>
+        {{ help('report.search.results') }}
     </h5>
     
     {% if list is empty %}
@@ -83,16 +84,18 @@
             Nenhum trabalho catalogado atendeu a todos os critérios de busca fornecidos.
         </div>
     {% else %}
-        <p class="text-muted mb-3" style="font-size:12.5px">
-            Dica: Clique nas colunas da tabela para reordenar a listagem. Você pode copiar a primeira coluna para usar como nome do arquivo.
-        </p>
+        {% if list|length >= 500 %}
+        <div class="mb-3" style="font-size:12.5px;padding:8px 12px;border-radius:8px;background:rgba(210,153,34,0.1);color:var(--bm-warning)">
+            <i class="bi bi-exclamation-triangle me-1"></i> Exibindo apenas os primeiros 500 resultados. Refine os filtros para ver todos.
+        </div>
+        {% endif %}
         <div class="table-responsive">
             <table class="table table-hover align-middle border-bm mb-0" id="search-table" style="font-size:13px">
                 <thead class="sticky-top bg-bm-card border-bottom border-bm">
                     <tr>
                         <th style="color:var(--bm-text-muted);font-weight:600;user-select:none">#</th>
                         <th style="color:var(--bm-text-muted);font-weight:600;cursor:pointer;user-select:none;min-width:350px" onclick="sortSearchTable(1, 'string')">
-                            Autores - Ano - Nome do Trabalho (copiar para nome de arquivo) <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            Autores - Ano - Título {{ help('report.search.col_reference') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                         </th>
                         <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortSearchTable(2, 'number')">
                             Ano <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
@@ -107,9 +110,9 @@
                             Veículo / Fonte <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                         </th>
                         <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;cursor:pointer;user-select:none" onclick="sortSearchTable(6, 'string')">
-                            Qualis <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
+                            Qualis {{ help('report.search.col_qualis') }} <i class="bi bi-arrow-down-up sort-icon ms-1" style="font-size:10px;opacity:0.3;color:var(--bm-text-muted)"></i>
                         </th>
-                        <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Link</th>
+                        <th style="color:var(--bm-text-muted);font-weight:600;text-align:center;user-select:none">Link {{ help('report.search.links') }}</th>
                     </tr>
                 </thead>
                 <tbody class="border-0">
@@ -193,7 +196,7 @@
             <div class="modal-header border-bottom border-bm py-3 border-0 pb-0">
                 <h5 class="modal-title" id="bibtexModalLabel" style="font-weight:700; color:var(--bm-text)">
                     <i class="bi bi-code-slash me-2 text-accent"></i>
-                    Referência BibTeX para Zotero
+                    Referência BibTeX para Zotero {{ help('report.authors.bibtex') }}
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter:invert(var(--bm-close-invert, 1))"></button>
             </div>
@@ -362,8 +365,9 @@ function showBibtexByIndex(index) {
 }
 
 function copyReducedTitle(btn, authors, year, title) {
-    const cleanTitle = (title || '').replace(/[:\/]/g, '');
     const cleanYear = String(year || '—');
+    // Títulos muito longos também são cortados para o nome nunca passar de 250 caracteres
+    const cleanTitle = (title || '').replace(/[:\/]/g, '').slice(0, 250 - 6 - cleanYear.length - 1);
     const cleanAuthors = String(authors || 'Autor desconhecido');
     const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
     let reducedAuthors = cleanAuthors;
