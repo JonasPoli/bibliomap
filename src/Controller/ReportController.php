@@ -877,6 +877,7 @@ class ReportController extends AbstractController
     public function addTheoreticalLens(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
+        $this->denyAccessUnlessGranted('edit', $project);
 
         if (!$this->isCsrfTokenValid('lens_add_' . $id, $request->request->get('_token'))) {
             $this->addFlash('error', 'Token de segurança inválido.');
@@ -1043,9 +1044,11 @@ class ReportController extends AbstractController
     private function getProject(int $id): BibliometricProject
     {
         $project = $this->em->getRepository(BibliometricProject::class)->find($id);
-        if (!$project || $project->getUser() !== $this->getUser()) {
-            throw $this->createAccessDeniedException();
+        if (!$project) {
+            throw $this->createNotFoundException();
         }
+        // Leitura: dono ou projeto público (ProjectVoter). Ações de escrita checam 'edit'.
+        $this->denyAccessUnlessGranted('view', $project);
         return $project;
     }
 

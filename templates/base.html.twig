@@ -262,19 +262,23 @@
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_datasets' %}active{% endif %}">
                     <i class="bi bi-database"></i> Bases importadas
                 </a>
-                <a href="{{ path('app_import_index', {projectId: project.id}) }}"
+{% if is_granted('edit', project) %}
+                                <a href="{{ path('app_import_index', {projectId: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_import' %}active{% endif %}"
                    style="padding-left:32px;font-size:12.5px">
                     <i class="bi bi-upload" style="font-size:13px"></i> Nova importação
                 </a>
+                {% endif %}
                 <a href="{{ path('app_dashboard_index', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_dashboard' %}active{% endif %}">
                     <i class="bi bi-grid-1x2"></i> Dashboard
                 </a>
-                <a href="{{ path('app_normalize_index', {id: project.id}) }}"
+{% if is_granted('edit', project) %}
+                                <a href="{{ path('app_normalize_index', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_normalize' %}active{% endif %}">
                     <i class="bi bi-magic"></i> Normalização
                 </a>
+                {% endif %}
                 <a href="{{ path('app_project_sync', {id: project.id}) }}"
                    class="bm-nav-link {% if app.request.attributes.get('_route') starts with 'app_project_sync' %}active{% endif %}">
                     <i class="bi bi-arrow-repeat"></i> Sincronização

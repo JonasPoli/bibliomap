@@ -34,10 +34,12 @@
                 </button>
             </form>
             {{ help('report.lenses.recalculate') }}
+            {% if is_granted('edit', project) %}
             <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
                 <i class="bi bi-plus-circle"></i> Nova Lente
             </button>
             {{ help('report.lenses.add') }}
+            {% endif %}
 
             <select id="researchFieldFilter" aria-label="Filtrar por área de pesquisa" class="form-select form-select-sm" style="width: auto; min-width: 170px; height:34px; background-color: var(--bm-card-bg); color: var(--bm-text); border-color: var(--bm-border); border-radius:8px; font-weight: 500;">
                 <option value="">Todas as Áreas</option>
