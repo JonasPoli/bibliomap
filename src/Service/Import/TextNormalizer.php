@@ -292,8 +292,10 @@ final class TextNormalizer
             $reasons[] = 'contains_number';
         }
 
-        // Looks like an author (e.g. "Surname, Name" or "Silva, J.")
-        if (preg_match('/^[A-Z][a-z]+,\s+[A-Z]\.?$/u', $display) || preg_match('/^[A-Z][a-z]+,\s+[A-Z][a-z]+$/u', $display)) {
+        // Looks like an author (e.g. "Surname, Name" or "Silva, J."). Testa a grafia original:
+        // $display já passou por formatKeywordCasing (minúsculas) e nunca casaria.
+        $cased = $this->cleanDisplayValue($original);
+        if (preg_match('/^\p{Lu}\p{Ll}+,\s+\p{Lu}\.?$/u', $cased) || preg_match('/^\p{Lu}\p{Ll}+,\s+\p{Lu}\p{Ll}+$/u', $cased)) {
             $needsReview = true;
             $reasons[] = 'looks_like_author';
         }

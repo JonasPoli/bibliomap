@@ -880,6 +880,26 @@ class NormalizationService
             }
             $conn->executeStatement('DELETE FROM document_keyword WHERE document_id = ?', [$discardId]);
 
+            // 4b. Vínculos geográficos e institucionais: sem isto o CASCADE do DELETE abaixo os apagaria
+            foreach (['documento_paises' => 'country_id', 'documento_estados' => 'state_id', 'documento_cidades' => 'city_id'] as $table => $col) {
+                $conn->executeStatement(
+                    "INSERT IGNORE INTO {$table} (document_id, {$col}) SELECT ?, {$col} FROM {$table} WHERE document_id = ?",
+                    [$keepId, $discardId]
+                );
+            }
+            $conn->executeStatement(
+                'INSERT INTO documento_instituicoes (document_id, institution_id, link_type)
+                 SELECT ?, di.institution_id, di.link_type FROM documento_instituicoes di
+                 WHERE di.document_id = ?
+                   AND NOT EXISTS (SELECT 1 FROM documento_instituicoes k WHERE k.document_id = ? AND k.institution_id = di.institution_id)',
+                [$keepId, $discardId, $keepId]
+            );
+            // Classificação temática: o documento mantido herda os grupos do descartado
+            $conn->executeStatement(
+                'UPDATE IGNORE document_classification SET document_id = ? WHERE document_id = ?',
+                [$keepId, $discardId]
+            );
+
             // 5. Delete discarded document
             $conn->executeStatement('DELETE FROM document WHERE id = ?', [$discardId]);
 

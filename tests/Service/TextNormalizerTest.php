@@ -14,6 +14,14 @@ class TextNormalizerTest extends TestCase
         $this->assertSame($expected, (new TextNormalizer())->cleanDisplayValue($in));
     }
 
+    public function testKeywordThatLooksLikeAuthorIsFlaggedForReview(): void
+    {
+        $n = new TextNormalizer();
+        $this->assertContains('looks_like_author', $n->normalizeKeyword('Araújo, Ítalo')['review_reasons']);
+        $this->assertContains('looks_like_author', $n->normalizeKeyword('Silva, J.')['review_reasons']);
+        $this->assertNotContains('looks_like_author', $n->normalizeKeyword('machine learning')['review_reasons']);
+    }
+
     public static function edgeCases(): array
     {
         return [
