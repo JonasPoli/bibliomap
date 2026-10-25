@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block topbar_actions %}
+{{ help('three_fields.export_csv') }}
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
@@ -134,8 +135,8 @@ input[type="range"] {
             <i class="bi bi-bezier2" style="color:white"></i>
         </div>
         <div>
-            <h1 class="bm-page-title" style="margin:0">Gráfico de Três Campos (Three-Fields Plot)</h1>
-            <p class="bm-page-subtitle" style="margin:0">Relações tridimensionais conectando fluxos de autoria, termos, periódicos e nações</p>
+            <h1 class="bm-page-title" style="margin:0">Gráfico de Três Campos (Three-Fields Plot) {{ help('three_fields.page') }}</h1>
+            <p class="bm-page-subtitle" style="margin:0">Como países, autores, instituições, palavras-chave e periódicos se ligam através dos documentos</p>
         </div>
     </div>
 </div>
@@ -150,7 +151,7 @@ input[type="range"] {
             
             <!-- Left Field -->
             <div class="control-group">
-                <label class="control-label">Coluna Esquerda (Origem)</label>
+                <label class="control-label"><span>Coluna Esquerda (Origem) {{ help('three_fields.left') }}</span></label>
                 <select id="param-left" class="control-input" onchange="loadThreeFields()">
                     <option value="country" selected>Países</option>
                     <option value="author">Autores</option>
@@ -161,7 +162,7 @@ input[type="range"] {
 
             <!-- Middle Field -->
             <div class="control-group">
-                <label class="control-label">Coluna Central (Mediação)</label>
+                <label class="control-label"><span>Coluna Central (Mediação) {{ help('three_fields.middle') }}</span></label>
                 <select id="param-middle" class="control-input" onchange="loadThreeFields()">
                     <option value="keyword_author" selected>Palavras-Chave de Autor</option>
                     <option value="keyword_indexed">Palavras-Chave Indexadas</option>
@@ -172,7 +173,7 @@ input[type="range"] {
 
             <!-- Right Field -->
             <div class="control-group">
-                <label class="control-label">Coluna Direita (Destino)</label>
+                <label class="control-label"><span>Coluna Direita (Destino) {{ help('three_fields.right') }}</span></label>
                 <select id="param-right" class="control-input" onchange="loadThreeFields()">
                     <option value="source" selected>Periódicos / Fontes</option>
                     <option value="country">Países</option>
@@ -188,27 +189,27 @@ input[type="range"] {
             <!-- Nodes Limit -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Limite de Itens por Coluna</span>
+                    <span>Limite de Itens por Coluna {{ help('three_fields.limit') }}</span>
                     <span id="lbl-limit" style="color:var(--bm-accent);font-weight:700">15</span>
                 </label>
                 <input type="range" id="param-limit" min="5" max="50" step="5" value="15" oninput="updateLimitLabel(this.value)" onchange="loadThreeFields()">
-                <small class="text-muted" style="font-size:10px">Controla a densidade visual e legibilidade do fluxo.</small>
+                <small class="text-muted" style="font-size:10px">Só os itens mais frequentes de cada coluna entram.</small>
             </div>
 
             <!-- Min Link Weight -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Frequência Mínima (Conexão)</span>
+                    <span>Frequência Mínima (Conexão) {{ help('three_fields.min_weight') }}</span>
                     <span id="lbl-min-weight" style="color:var(--bm-accent);font-weight:700">1</span>
                 </label>
                 <input type="range" id="param-min-weight" min="1" max="20" value="1" oninput="updateWeightLabel(this.value)" onchange="loadThreeFields()">
-                <small class="text-muted" style="font-size:10px">Esconde conexões raras entre as colunas.</small>
+                <small class="text-muted" style="font-size:10px">Mínimo de documentos em comum para exibir a ligação.</small>
             </div>
         </div>
 
         <div style="font-size:11.5px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px;line-height:1.6">
             <span style="font-weight:700;display:block;margin-bottom:6px;color:var(--bm-text)"><i class="bi bi-lightbulb-fill me-1" style="color:var(--bm-warning)"></i>Dica de Visualização</span>
-            O gráfico mostra a migração de conceitos. Você pode arrastar os blocos verticalmente para ajustar e tornar a leitura mais clara. Passe o mouse sobre uma linha para ver a força exata daquela conexão.
+            Arraste os blocos na vertical para desembaraçar as faixas. Passe o mouse sobre uma faixa para ver quantos documentos sustentam aquela ligação.
         </div>
     </div>
 
@@ -222,21 +223,21 @@ input[type="range"] {
         </div>
 
         <!-- Diagram Chart Area -->
+        <div class="sidebar-section-title" style="margin-bottom:-12px">Diagrama {{ help('three_fields.chart') }}</div>
         <div class="chart-container">
             <div id="three-fields-chart" style="width:100%;height:100%"></div>
         </div>
 
         <!-- Flows Legend Table -->
         <div class="tbl-wrap">
-            <div class="sidebar-section-title" style="margin-bottom:12px">Lista Completa de Fluxos Bibliométricos</div>
+            <div class="sidebar-section-title" style="margin-bottom:12px">Lista Completa de Fluxos Bibliométricos {{ help('three_fields.flows_table') }}</div>
             <table class="tf-table" id="table-flows">
                 <thead>
                     <tr>
-                        <th id="th-left">Coluna Esquerda</th>
-                        <th style="width:120px;text-align:center">Conexão</th>
-                        <th id="th-middle">Coluna Central</th>
-                        <th style="width:120px;text-align:center">Conexão</th>
-                        <th id="th-right">Coluna Direita</th>
+                        <th style="width:150px">Trecho</th>
+                        <th>Origem</th>
+                        <th style="width:120px;text-align:center">Documentos</th>
+                        <th>Destino</th>
                     </tr>
                 </thead>
                 <tbody id="list-flows">
@@ -271,6 +272,10 @@ const fieldLabels = {
 function updateLimitLabel(v) { document.getElementById('lbl-limit').textContent = v; }
 function updateWeightLabel(v) { document.getElementById('lbl-min-weight').textContent = v; }
 function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function csvCell(s) { return `"${String(s ?? '').replace(/"/g, '""')}"`; }
 
 function isThemeLight() {
     return document.documentElement.getAttribute('data-bs-theme') === 'light';
@@ -303,21 +308,19 @@ async function loadThreeFields() {
     const limit     = document.getElementById('param-limit').value;
     const minWeight = document.getElementById('param-min-weight').value;
 
-    // Update table headers
-    document.getElementById('th-left').innerHTML = `<span class="col-header-pill pill-left">${fieldLabels[left]}</span>`;
-    document.getElementById('th-middle').innerHTML = `<span class="col-header-pill pill-middle">${fieldLabels[middle]}</span>`;
-    document.getElementById('th-right').innerHTML = `<span class="col-header-pill pill-right">${fieldLabels[right]}</span>`;
-
     const url = `${DATA_URL}?left=${left}&middle=${middle}&right=${right}&limit=${limit}&minWeight=${minWeight}`;
 
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         tfData = await response.json();
+        tfData.fields = { left, middle, right };
         
         renderSankey();
         renderTable();
     } catch (e) {
         console.error("Failed loading three fields data:", e);
+        document.getElementById('list-flows').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-danger">Não foi possível gerar o gráfico. Tente novamente ou reduza o limite de itens.</td></tr>';
     } finally {
         loading.style.display = 'none';
     }
@@ -333,6 +336,7 @@ function renderSankey() {
     const chartDom = document.getElementById('three-fields-chart');
     if (!myChart) {
         myChart = echarts.init(chartDom);
+        window.addEventListener('resize', () => myChart.resize());
     }
 
     const cl = getColors();
@@ -340,11 +344,15 @@ function renderSankey() {
     // Map labels of nodes to clear visual styling
     const nodes = tfData.nodes.map(n => {
         let color = '#4f8ef7'; // Esquerda (Blue)
-        if (n.name.includes('[M]')) color = '#a855f7'; // Centro (Purple)
-        else if (n.name.includes('[R]')) color = '#3fb950'; // Direita (Green)
+        let depth = 0;
+        if (n.name.endsWith('[M]')) { color = '#a855f7'; depth = 1; } // Centro (Purple)
+        else if (n.name.endsWith('[R]')) { color = '#3fb950'; depth = 2; } // Direita (Green)
 
+        // depth pins each item to its own column (a middle item with no link from
+        // the left column would otherwise be drawn in the left column)
         return {
             name: n.name,
+            depth: depth,
             itemStyle: {
                 color: color,
                 borderColor: color
@@ -358,10 +366,10 @@ function renderSankey() {
             triggerOn: 'mousemove',
             formatter: function (params) {
                 if (params.dataType === 'node') {
-                    return `<b>${cleanLabel(params.name)}</b>`;
+                    return `<b>${escapeHtml(cleanLabel(params.name))}</b>`;
                 }
-                const cleanSource = cleanLabel(params.data.source);
-                const cleanTarget = cleanLabel(params.data.target);
+                const cleanSource = escapeHtml(cleanLabel(params.data.source));
+                const cleanTarget = escapeHtml(cleanLabel(params.data.target));
                 return `<b>${cleanSource}</b> ➔ <b>${cleanTarget}</b><br/>` + 
                        `Frequência da Relação: <b>${params.data.value} documentos</b>`;
             }
@@ -395,12 +403,19 @@ function renderSankey() {
         ]
     };
 
-    myChart.setOption(option);
-    
-    // Auto-resize graph
-    window.addEventListener('resize', () => {
-        myChart.resize();
-    });
+    myChart.setOption(option, true);
+}
+
+// Splits links into the two independent segments (left→middle, middle→right), sorted by value desc
+function splitSegments() {
+    const f = tfData.fields || {};
+    const sorted = [...tfData.links].sort((a, b) => b.value - a.value);
+    return [
+        { name: `${fieldLabels[f.left] || 'Esquerda'} → ${fieldLabels[f.middle] || 'Centro'}`, pill: 'pill-left',
+          links: sorted.filter(l => l.source.endsWith('[L]') && l.target.endsWith('[M]')) },
+        { name: `${fieldLabels[f.middle] || 'Centro'} → ${fieldLabels[f.right] || 'Direita'}`, pill: 'pill-right',
+          links: sorted.filter(l => l.source.endsWith('[M]') && l.target.endsWith('[R]')) },
+    ];
 }
 
 // ── Render Legend Table ──────────────────────────────────────────────────────
@@ -413,30 +428,21 @@ function renderTable() {
         return;
     }
 
-    // Sort links by value desc
-    const sorted = [...tfData.links].sort((a, b) => b.value - a.value);
-
-    // Filter Left-to-Middle links and Middle-to-Right links
-    const lmLinks = sorted.filter(l => l.source.includes('[L]') && l.target.includes('[M]'));
-    const mrLinks = sorted.filter(l => l.source.includes('[M]') && l.target.includes('[R]'));
-
+    // Each row is ONE independent link. Left→middle and middle→right links are
+    // listed in separate segments (they are not chains of the same documents).
     const rows = [];
-    const maxLen = Math.max(lmLinks.length, mrLinks.length);
-
-    for (let i = 0; i < maxLen; i++) {
-        const lm = lmLinks[i] || null;
-        const mr = mrLinks[i] || null;
-
-        rows.push(`
-            <tr>
-                <td style="font-weight:600;color:var(--bm-text)">${lm ? cleanLabel(lm.source) : ''}</td>
-                <td style="text-align:center;font-weight:700;color:#4f8ef7">${lm ? `➔ ${lm.value} ➔` : ''}</td>
-                <td style="font-weight:600;color:var(--bm-text)">${lm ? cleanLabel(lm.target) : (mr ? cleanLabel(mr.source) : '')}</td>
-                <td style="text-align:center;font-weight:700;color:#39d353">${mr ? `➔ ${mr.value} ➔` : ''}</td>
-                <td style="font-weight:600;color:var(--bm-text)">${mr ? cleanLabel(mr.target) : ''}</td>
-            </tr>
-        `);
-    }
+    splitSegments().forEach(seg => {
+        seg.links.forEach(l => {
+            rows.push(`
+                <tr>
+                    <td><span class="col-header-pill ${seg.pill}">${escapeHtml(seg.name)}</span></td>
+                    <td style="font-weight:600;color:var(--bm-text)">${escapeHtml(cleanLabel(l.source))}</td>
+                    <td style="text-align:center;font-weight:700;color:var(--bm-accent)">${numFmt(l.value)}</td>
+                    <td style="font-weight:600;color:var(--bm-text)">${escapeHtml(cleanLabel(l.target))}</td>
+                </tr>
+            `);
+        });
+    });
 
     tbody.innerHTML = rows.join('');
 }
@@ -449,25 +455,13 @@ function exportCSV() {
     }
 
     let csvContent = "\uFEFF";
-    csvContent += "Origem;Forca Link 1;Intermediario;Forca Link 2;Destino\r\n";
+    csvContent += "Trecho;Origem;Documentos;Destino\r\n";
 
-    const lmLinks = tfData.links.filter(l => l.source.includes('[L]') && l.target.includes('[M]'));
-    const mrLinks = tfData.links.filter(l => l.source.includes('[M]') && l.target.includes('[R]'));
-    const maxLen = Math.max(lmLinks.length, mrLinks.length);
-
-    for (let i = 0; i < maxLen; i++) {
-        const lm = lmLinks[i] || null;
-        const mr = mrLinks[i] || null;
-        
-        const row = [
-            lm ? cleanLabel(lm.source) : '',
-            lm ? lm.value : '',
-            lm ? cleanLabel(lm.target) : (mr ? cleanLabel(mr.source) : ''),
-            mr ? mr.value : '',
-            mr ? cleanLabel(mr.target) : ''
-        ];
-        csvContent += row.join(";") + "\r\n";
-    }
+    splitSegments().forEach(seg => {
+        seg.links.forEach(l => {
+            csvContent += [csvCell(seg.name), csvCell(cleanLabel(l.source)), l.value, csvCell(cleanLabel(l.target))].join(";") + "\r\n";
+        });
+    });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block topbar_actions %}
+{{ help('thematic_evo.export_csv') }}
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
@@ -128,8 +129,8 @@ input[type="range"] {
     <div style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;background:var(--bm-gradient);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>
         <div>
-            <h1 class="bm-page-title" style="margin:0">Evolução Temática</h1>
-            <p class="bm-page-subtitle" style="margin:0">Mapeamento dinâmico de nascimento, fusão e transição de termos entre períodos científicos</p>
+            <h1 class="bm-page-title" style="margin:0">Evolução Temática {{ help('thematic_evo.page') }}</h1>
+            <p class="bm-page-subtitle" style="margin:0">Como os temas do período anterior se transformam nos temas do período seguinte</p>
         </div>
     </div>
 </div>
@@ -144,7 +145,7 @@ input[type="range"] {
             
             <!-- Keyword Type Selection -->
             <div class="control-group">
-                <label class="control-label">Tipo de Palavras-Chave</label>
+                <label class="control-label"><span>Tipo de Palavras-Chave {{ help('thematic_evo.kw_type') }}</span></label>
                 <select id="param-kw-type" class="control-input" onchange="loadThematicEvolution()">
                     <option value="author">Palavras dos Autores</option>
                     <option value="indexed">Palavras Indexadas</option>
@@ -154,7 +155,7 @@ input[type="range"] {
             <!-- Cutoff Year Slider (Dynamically bounded) -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Ano de Corte (Divisão)</span>
+                    <span>Ano de Corte (Divisão) {{ help('thematic_evo.cutoff_year') }}</span>
                     <span id="lbl-cutoff-year" style="color:var(--bm-accent);font-weight:700">{{ defaultCutoff }}</span>
                 </label>
                 <input type="range" id="param-cutoff-year" min="{{ minYear }}" max="{{ maxYear }}" value="{{ defaultCutoff }}" oninput="updateCutoffLabel(this.value)" onchange="loadThematicEvolution()">
@@ -166,29 +167,29 @@ input[type="range"] {
             <!-- Min Occurrence Slider -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Ocorrência Mínima</span>
+                    <span>Ocorrência Mínima {{ help('thematic_evo.min_occur') }}</span>
                     <span id="lbl-min-occur" style="color:var(--bm-accent);font-weight:700">2</span>
                 </label>
                 <input type="range" id="param-min-occur" min="1" max="10" value="2" oninput="updateOccurLabel(this.value)" onchange="loadThematicEvolution()">
-                <small class="text-muted" style="font-size:10px">Frequência mínima de termos em cada fatia.</small>
+                <small class="text-muted" style="font-size:10px">Mínimo de documentos por termo, em cada período.</small>
             </div>
 
             <!-- Max Keywords Count Slider -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Limite de Palavras</span>
+                    <span>Limite de Palavras {{ help('thematic_evo.max_keywords') }}</span>
                     <span id="lbl-max-keywords" style="color:var(--bm-accent);font-weight:700">100</span>
                 </label>
                 <input type="range" id="param-max-keywords" min="20" max="300" step="10" value="100" oninput="updateKeywordsLabel(this.value)" onchange="loadThematicEvolution()">
-                <small class="text-muted" style="font-size:10px">Controle de volume de nós por período.</small>
+                <small class="text-muted" style="font-size:10px">Máximo de termos usados em cada período.</small>
             </div>
         </div>
 
         <div style="font-size:11px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px">
-            <span style="font-weight:700;display:block;margin-bottom:6px">📌 DIAGRAMA DE SANKEY</span>
+            <span style="font-weight:700;display:block;margin-bottom:6px">📌 DIAGRAMA DE SANKEY {{ help('thematic_evo.sankey') }}</span>
             <span style="line-height:1.4;display:block">
-                O fluxo liga os temas do <b>Período 1 (esquerda)</b> aos temas do <b>Período 2 (direita)</b>. 
-                A largura da linha representa a quantidade de palavras-chave que migraram e conectam os tópicos científicos.
+                O fluxo liga os temas do <b>Período 1 (esquerda)</b> aos do <b>Período 2 (direita)</b>.
+                A largura é o número de palavras-chave que os dois temas têm em comum.
             </span>
         </div>
     </div>
@@ -209,12 +210,12 @@ input[type="range"] {
 
         <!-- Clusters Legend Table -->
         <div class="tbl-wrap">
-            <div class="sidebar-section-title" style="margin-bottom:12px">Detalhamento dos Fluxos Temáticos (Transições)</div>
+            <div class="sidebar-section-title" style="margin-bottom:12px">Detalhamento dos Fluxos Temáticos (Transições) {{ help('thematic_evo.flows_table') }}</div>
             <table class="evo-table" id="table-flows">
                 <thead>
                     <tr>
                         <th style="width:250px">Período 1 (Origem)</th>
-                        <th style="width:60px;text-align:center">Fluxo</th>
+                        <th style="width:80px;text-align:center">Fluxo {{ help('thematic_evo.col_flow') }}</th>
                         <th style="width:250px">Período 2 (Destino)</th>
                         <th>Palavras-Chave de Conexão (Overlap)</th>
                     </tr>
@@ -242,6 +243,9 @@ let evolutionData = null; // cached JSON coordinates
 function updateCutoffLabel(v) { 
     document.getElementById('lbl-cutoff-year').textContent = v; 
     document.querySelectorAll('.lbl-p1').forEach(el => el.textContent = v);
+}
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function updateOccurLabel(v) { document.getElementById('lbl-min-occur').textContent = v; }
 function updateKeywordsLabel(v) { document.getElementById('lbl-max-keywords').textContent = v; }
@@ -282,12 +286,14 @@ async function loadThematicEvolution() {
 
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         evolutionData = await response.json();
         
         renderSankey();
         renderTable();
     } catch (e) {
         console.error("Failed loading thematic evolution data:", e);
+        document.getElementById('list-flows').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-danger">Não foi possível calcular a evolução temática. Tente novamente ou reduza o limite de palavras.</td></tr>';
     } finally {
         loading.style.display = 'none';
     }
@@ -298,13 +304,17 @@ function renderSankey() {
     const chartDom = document.getElementById('sankey-chart');
     if (!myChart) {
         myChart = echarts.init(chartDom);
+        window.addEventListener('resize', () => myChart.resize());
     }
 
     const cl = getColors();
 
-    // Map labels of nodes to clear visual styling
+    // Map labels of nodes to clear visual styling.
+    // depth pins P1 themes to the left and P2 themes to the right, even when a
+    // theme has no flow (otherwise ECharts puts unlinked P2 themes in the left column).
     const nodes = evolutionData.nodes.map(n => ({
         name: n.name,
+        depth: n.name.endsWith('(P1)') ? 0 : 1,
         itemStyle: {
             color: n.name.includes('(P1)') ? '#4f8ef7' : '#a855f7',
             borderColor: n.name.includes('(P1)') ? '#4f8ef7' : '#a855f7'
@@ -317,15 +327,15 @@ function renderSankey() {
             triggerOn: 'mousemove',
             formatter: function (params) {
                 if (params.dataType === 'node') {
-                    return `<b>${params.name}</b>`;
+                    return `<b>${escapeHtml(params.name)}</b>`;
                 }
                 const link = evolutionData.details.find(d => 
                     (d.p1_label + " (P1)") === params.data.source && 
                     (d.p2_label + " (P2)") === params.data.target
                 );
-                const keywordsText = link ? link.keywords.slice(0, 8).join(', ') : '';
-                return `<b>${params.data.source}</b> ➔ <b>${params.data.target}</b><br/>` + 
-                       `Força de Fluxo: ${params.data.value}<br/>` +
+                const keywordsText = link ? escapeHtml(link.keywords.slice(0, 8).join(', ')) : '';
+                return `<b>${escapeHtml(params.data.source)}</b> ➔ <b>${escapeHtml(params.data.target)}</b><br/>` +
+                       `Palavras em comum: ${params.data.value}<br/>` +
                        `<small style="color:var(--bm-text-muted)">Palavras de conexão: ${keywordsText}</small>`;
             }
         },
@@ -355,12 +365,7 @@ function renderSankey() {
         ]
     };
 
-    myChart.setOption(option);
-    
-    // Auto-resize graph
-    window.addEventListener('resize', () => {
-        myChart.resize();
-    });
+    myChart.setOption(option, true);
 }
 
 // ── Render Legend Table ──────────────────────────────────────────────────────
@@ -369,7 +374,11 @@ function renderTable() {
     tbody.innerHTML = '';
 
     if (evolutionData.details.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Nenhuma transição temática identificada com os parâmetros atuais. Tente reduzir o ano de corte ou ocorrência mínima.</td></tr>';
+        const meta = evolutionData.meta || {};
+        let msg = 'Nenhuma transição temática identificada com os parâmetros atuais. Tente reduzir a ocorrência mínima ou mudar o ano de corte.';
+        if (meta.p2_size === 0) msg = 'O Período 2 (após o ano de corte) não tem termos suficientes. Escolha um ano de corte menor ou reduza a ocorrência mínima.';
+        else if (meta.p1_size === 0) msg = 'O Período 1 (até o ano de corte) não tem termos suficientes. Escolha um ano de corte maior ou reduza a ocorrência mínima.';
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">${msg}</td></tr>`;
         return;
     }
 
@@ -377,11 +386,11 @@ function renderTable() {
     const sorted = [...evolutionData.details].sort((a,b) => b.value - a.value);
 
     tbody.innerHTML = sorted.map(d => {
-        const pills = d.keywords.map(k => `<span class="kw-pill-mini">${k}</span>`).join('');
+        const pills = d.keywords.map(k => `<span class="kw-pill-mini">${escapeHtml(k)}</span>`).join('');
         return `<tr>
-            <td style="font-weight:600;color:#4f8ef7"><i class="bi bi-tag-fill me-1"></i>${d.p1_label} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P1)</span></td>
+            <td style="font-weight:600;color:#4f8ef7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.p1_label)} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P1)</span></td>
             <td style="text-align:center;font-weight:700;color:var(--bm-accent)">➔ ${d.value} ➔</td>
-            <td style="font-weight:600;color:#a855f7"><i class="bi bi-tag-fill me-1"></i>${d.p2_label} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P2)</span></td>
+            <td style="font-weight:600;color:#a855f7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.p2_label)} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P2)</span></td>
             <td>${pills}</td>
         </tr>`;
     }).join('');
@@ -398,15 +407,15 @@ function exportCSV() {
     let csvContent = "\uFEFF";
     
     // Headers
-    csvContent += "Tema Origem (P1);Forca Fluxo;Tema Destino (P2);Palavras-Chave de Conexao\r\n";
+    csvContent += "Tema Origem (P1);Palavras em Comum;Tema Destino (P2);Palavras-Chave de Conexao\r\n";
     
     // Rows
     evolutionData.details.forEach(d => {
         const keywordsStr = d.keywords.join(', ');
         const row = [
-            d.p1_label,
+            `"${String(d.p1_label).replace(/"/g, '""')}"`,
             d.value,
-            d.p2_label,
+            `"${String(d.p2_label).replace(/"/g, '""')}"`,
             `"${keywordsStr.replace(/"/g, '""')}"`
         ];
         csvContent += row.join(";") + "\r\n";

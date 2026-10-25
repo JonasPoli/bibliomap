@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block topbar_actions %}
+{{ help('thematic_map.export_csv') }}
 <button class="btn-bm-primary" onclick="exportCSV()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar CSV
 </button>
@@ -135,7 +136,7 @@ input[type="range"] {
     <div style="display:flex;align-items:center;gap:14px">
         <div style="width:36px;height:36px;background:var(--bm-gradient);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">🗺️</div>
         <div>
-            <h1 class="bm-page-title" style="margin:0">Mapa Temático</h1>
+            <h1 class="bm-page-title" style="margin:0">Mapa Temático {{ help('thematic_map.page') }}</h1>
             <p class="bm-page-subtitle" style="margin:0">Estrutura conceitual categorizada por centralidade e densidade estratégica</p>
         </div>
     </div>
@@ -151,7 +152,7 @@ input[type="range"] {
             
             <!-- Keyword Type Selection -->
             <div class="control-group">
-                <label class="control-label">Tipo de Palavras-Chave</label>
+                <label class="control-label"><span>Tipo de Palavras-Chave {{ help('thematic_map.kw_type') }}</span></label>
                 <select id="param-kw-type" class="control-input" onchange="loadThematicMap()">
                     <option value="author">Palavras dos Autores</option>
                     <option value="indexed">Palavras Indexadas</option>
@@ -161,17 +162,17 @@ input[type="range"] {
             <!-- Min Occurrence Slider -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Ocorrência Mínima</span>
+                    <span>Ocorrência Mínima {{ help('thematic_map.min_occur') }}</span>
                     <span id="lbl-min-occur" style="color:var(--bm-accent);font-weight:700">2</span>
                 </label>
                 <input type="range" id="param-min-occur" min="1" max="10" value="2" oninput="updateOccurLabel(this.value)" onchange="loadThematicMap()">
-                <small class="text-muted" style="font-size:10px">Ignorar termos que aparecem menos vezes.</small>
+                <small class="text-muted" style="font-size:10px">Mínimo de documentos por termo e por ligação.</small>
             </div>
 
             <!-- Max Keywords Count Slider -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Limite de Palavras</span>
+                    <span>Limite de Palavras {{ help('thematic_map.max_keywords') }}</span>
                     <span id="lbl-max-keywords" style="color:var(--bm-accent);font-weight:700">100</span>
                 </label>
                 <input type="range" id="param-max-keywords" min="20" max="300" step="10" value="100" oninput="updateKeywordsLabel(this.value)" onchange="loadThematicMap()">
@@ -180,13 +181,14 @@ input[type="range"] {
         </div>
 
         <div style="font-size:11px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px">
-            <span style="font-weight:700;display:block;margin-bottom:6px">📌 LEGENDA DOS QUADRANTES</span>
+            <span style="font-weight:700;display:block;margin-bottom:6px">📌 LEGENDA DOS QUADRANTES {{ help('thematic_map.quadrants') }}</span>
             <ul style="padding-left:12px;margin:0;display:flex;flex-direction:column;gap:6px">
-                <li><b style="color:#3fb950">Motores</b>: Importantes e bem desenvolvidos.</li>
-                <li><b style="color:#a855f7">Isolados</b>: Desenvolvidos internamente, mas marginais na área.</li>
-                <li><b style="color:#f85149">Emergentes/Declínio</b>: Fracos e marginais no corpus.</li>
-                <li><b style="color:#f0883e">Básicos</b>: Relevantes para a área geral, mas pouco desenvolvidos.</li>
+                <li><b style="color:#3fb950">Motores</b> {{ help('thematic_map.q_motor') }}: centrais e bem desenvolvidos.</li>
+                <li><b style="color:#a855f7">Nicho / Isolados</b> {{ help('thematic_map.q_niche') }}: coesos, mas pouco ligados ao resto.</li>
+                <li><b style="color:#f85149">Emergentes / Declínio</b> {{ help('thematic_map.q_emerging') }}: pouco coesos e pouco ligados.</li>
+                <li><b style="color:#f0883e">Básicos</b> {{ help('thematic_map.q_basic') }}: transversais, mas pouco coesos.</li>
             </ul>
+            <small style="display:block;margin-top:8px">Linhas tracejadas = medianas de centralidade e densidade.</small>
         </div>
     </div>
 
@@ -200,23 +202,24 @@ input[type="range"] {
         </div>
 
         <!-- Diagram Chart Area -->
+        <div class="sidebar-section-title" style="margin-bottom:-12px">Diagrama Estratégico {{ help('thematic_map.chart') }}</div>
         <div class="chart-container">
             <canvas id="thematic-chart"></canvas>
         </div>
 
         <!-- Clusters Legend Table -->
         <div class="tbl-wrap">
-            <div class="sidebar-section-title" style="margin-bottom:12px">Detalhamento dos Clusters Calculados</div>
+            <div class="sidebar-section-title" style="margin-bottom:12px">Detalhamento dos Clusters Calculados {{ help('thematic_map.clusters_table') }}</div>
             <table class="theme-table" id="table-clusters">
                 <thead>
                     <tr>
                         <th style="width:40px">ID</th>
                         <th>Tema (Principal Termo)</th>
-                        <th>Quadrante Estratégico</th>
-                        <th style="text-align:right">Tamanho</th>
-                        <th style="text-align:right">Docs</th>
-                        <th style="text-align:right">Centralidade</th>
-                        <th style="text-align:right">Densidade</th>
+                        <th>Quadrante Estratégico {{ help('thematic_map.quadrants') }}</th>
+                        <th style="text-align:right">Termos {{ help('thematic_map.col_size') }}</th>
+                        <th style="text-align:right">Ocorrências {{ help('thematic_map.col_occurrences') }}</th>
+                        <th style="text-align:right">Centralidade {{ help('thematic_map.col_centrality') }}</th>
+                        <th style="text-align:right">Densidade {{ help('thematic_map.col_density') }}</th>
                         <th>Principais Termos</th>
                     </tr>
                 </thead>
@@ -245,6 +248,9 @@ const PALETTE = ['#3fb950','#a855f7','#f85149','#f0883e'];
 function updateOccurLabel(v) { document.getElementById('lbl-min-occur').textContent = v; }
 function updateKeywordsLabel(v) { document.getElementById('lbl-max-keywords').textContent = v; }
 function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 function isThemeLight() {
     return document.documentElement.getAttribute('data-bs-theme') === 'light';
@@ -339,12 +345,14 @@ async function loadThematicMap() {
 
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         thematicData = await response.json();
         
         renderMap();
         renderTable();
     } catch (e) {
         console.error("Failed loading thematic map data:", e);
+        document.getElementById('list-clusters').innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Não foi possível calcular o mapa temático. Tente novamente ou reduza o limite de palavras.</td></tr>';
     } finally {
         loading.style.display = 'none';
     }
@@ -423,7 +431,7 @@ function renderMap() {
                             const p = context.raw;
                             return [
                                 `Tema: ${p.label}`,
-                                `Docs: ${p.docCount} | Termos no cluster: ${p.size}`,
+                                `Ocorrências: ${p.docCount} | Termos no cluster: ${p.size}`,
                                 `Centralidade: ${p.x}`,
                                 `Densidade: ${p.y}`,
                                 `Principais palavras: ${p.keywords.join(', ')}`
@@ -472,16 +480,16 @@ function renderTable() {
         else if (c.centrality >= xCut && c.density < yCut) badge = `<span class="badge-quadrant badge-q4">Básico / Geral</span>`;
 
         // Render top 12 keywords inside this cluster as pills
-        const pills = c.keywords.slice(0, 12).map(k => `<span class="kw-pill-mini">${k.label} (${k.doc_count})</span>`).join('');
+        const pills = c.keywords.slice(0, 12).map(k => `<span class="kw-pill-mini">${escapeHtml(k.label)} (${k.doc_count})</span>`).join('');
 
         return `<tr>
             <td style="font-weight:700;color:var(--bm-accent)">#${c.id + 1}</td>
-            <td style="font-weight:600">${c.label}</td>
+            <td style="font-weight:600">${escapeHtml(c.label)}</td>
             <td>${badge}</td>
             <td style="text-align:right;font-weight:500">${c.size}</td>
             <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(c.doc_count)}</td>
-            <td style="text-align:right;font-weight:500">${c.centrality}</td>
-            <td style="text-align:right;font-weight:500">${c.density}</td>
+            <td style="text-align:right;font-weight:500">${numFmt(c.centrality)}</td>
+            <td style="text-align:right;font-weight:500">${numFmt(c.density)}</td>
             <td>${pills}${c.keywords.length > 12 ? ' <small style="color:var(--bm-text-muted)">+ ' + (c.keywords.length - 12) + '</small>' : ''}</td>
         </tr>`;
     }).join('');
@@ -501,7 +509,7 @@ function exportCSV() {
     let csvContent = "\uFEFF";
     
     // Headers
-    csvContent += "ID;Tema Principal;Quadrante;Tamanho (Palavras);Artigos Ocorrência;Centralidade;Densidade;Palavras-Chave no Cluster\r\n";
+    csvContent += "ID;Tema Principal;Quadrante;Termos no Cluster;Ocorrencias (soma);Centralidade;Densidade;Palavras-Chave no Cluster\r\n";
     
     // Rows
     thematicData.clusters.forEach(c => {
@@ -514,12 +522,12 @@ function exportCSV() {
 
         const row = [
             c.id + 1,
-            c.label,
+            `"${String(c.label).replace(/"/g, '""')}"`,
             quad,
             c.size,
             c.doc_count,
-            c.centrality,
-            c.density,
+            String(c.centrality).replace('.', ','), // decimal comma for Excel pt-BR
+            String(c.density).replace('.', ','),
             `"${keywordsStr.replace(/"/g, '""')}"`
         ];
 

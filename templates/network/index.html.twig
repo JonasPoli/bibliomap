@@ -156,20 +156,21 @@ div.vis-tooltip {
 {% block body %}
 <!-- Page Header -->
 <div class="bm-page-header" style="margin-bottom:20px">
-    <div style="display:flex;justify-content:between;align-items:center;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:16px;flex-wrap:wrap">
         <div>
             <h1 class="bm-page-title" style="margin:0">
                 <i class="bi bi-diagram-3 me-2" style="color:var(--bm-accent)"></i>
-                Redes Bibliométricas
+                Redes Bibliométricas {{ help('network.page') }}
             </h1>
             <p class="bm-page-subtitle" style="margin:0">Descubra colaborações, estruturas intelectuais e relações temáticas</p>
         </div>
-        <div style="margin-left:auto">
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
             <div class="net-tabs">
                 <button class="net-tab active" data-type="coauthorship" onclick="switchNetwork('coauthorship', this)">👥 Coautoria</button>
                 <button class="net-tab" data-type="keywords" onclick="switchNetwork('keywords', this)">🏷️ Palavras-chave</button>
                 <button class="net-tab" data-type="countries" onclick="switchNetwork('countries', this)">🌐 Países</button>
             </div>
+            {{ help('network.types') }}
         </div>
     </div>
 </div>
@@ -185,26 +186,26 @@ div.vis-tooltip {
             <!-- Min Edge Weight -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Força de Ligação Mínima</span>
+                    <span>Força de Ligação Mínima {{ help('network.min_weight') }}</span>
                     <span id="lbl-min-weight" style="color:var(--bm-accent);font-weight:700">1</span>
                 </label>
                 <input type="range" id="param-min-weight" min="1" max="10" value="1" oninput="updateWeightLabel(this.value)" onchange="loadNetwork()">
-                <small class="text-muted" style="font-size:10px">Ignorar conexões com menos co-ocorrências.</small>
+                <small class="text-muted" style="font-size:10px">Nº mínimo de documentos em comum para desenhar a linha.</small>
             </div>
 
             <!-- Max Nodes Count -->
             <div class="control-group">
                 <label class="control-label">
-                    <span>Limite de Nós</span>
+                    <span>Limite de Nós {{ help('network.max_nodes') }}</span>
                     <span id="lbl-max-nodes" style="color:var(--bm-accent);font-weight:700">100</span>
                 </label>
                 <input type="range" id="param-max-nodes" min="20" max="300" step="10" value="100" oninput="updateNodesLabel(this.value)" onchange="loadNetwork()">
-                <small class="text-muted" style="font-size:10px">Mostrar apenas os nós com maior ocorrência.</small>
+                <small class="text-muted" style="font-size:10px">Mostra só os itens com mais documentos.</small>
             </div>
 
             <!-- Keyword type (only shown on keyword networks) -->
             <div class="control-group" id="group-kw-type" style="display:none">
-                <label class="control-label">Tipo de Palavras-Chave</label>
+                <label class="control-label"><span>Tipo de Palavras-Chave {{ help('network.kw_type') }}</span></label>
                 <select id="param-kw-type" class="control-input" onchange="loadNetwork()">
                     <option value="author">Palavras dos Autores</option>
                     <option value="indexed">Palavras Indexadas</option>
@@ -219,20 +220,20 @@ div.vis-tooltip {
             <div class="control-group">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="param-physics" checked onchange="togglePhysics(this.checked)">
-                    <label class="form-check-label control-label" for="param-physics">Habilitar Física Contínua</label>
+                    <label class="form-check-label control-label" for="param-physics"><span>Habilitar Física Contínua {{ help('network.physics') }}</span></label>
                 </div>
-                <small class="text-muted" style="font-size:10px">Desative para congelar os nós no lugar após a acomodação.</small>
+                <small class="text-muted" style="font-size:10px">Desliga sozinha após a acomodação; religue para reorganizar.</small>
             </div>
 
             <!-- Scale factor for nodes -->
             <div class="control-group">
-                <label class="control-label">Tamanho dos Nós</label>
+                <label class="control-label"><span>Tamanho dos Nós {{ help('network.node_size') }}</span></label>
                 <input type="range" id="param-node-scale" min="0.5" max="3" step="0.1" value="1" oninput="applyScale()">
             </div>
 
             <!-- Scale factor for edges -->
             <div class="control-group">
-                <label class="control-label">Espessura das Linhas</label>
+                <label class="control-label"><span>Espessura das Linhas {{ help('network.edge_width') }}</span></label>
                 <input type="range" id="param-edge-scale" min="0.5" max="3" step="0.1" value="1" oninput="applyScale()">
             </div>
         </div>
@@ -240,7 +241,7 @@ div.vis-tooltip {
         <!-- Export Section -->
         <div>
             <div class="sidebar-section-title">
-                <i class="bi bi-box-arrow-up-right me-1"></i>Exportar Grafo Externo
+                <i class="bi bi-box-arrow-up-right me-1"></i>Exportar Grafo Externo {{ help('network.export') }}
             </div>
             <div class="d-flex flex-column gap-2">
                 <button class="btn btn-sm btn-bm-secondary w-100 text-start" style="font-size:12px; padding:8px 12px;" onclick="exportGephiGDF()" title="Exportar rede completa para o Gephi (.gdf)">
@@ -253,7 +254,7 @@ div.vis-tooltip {
         </div>
 
         <div style="margin-top:auto">
-            <div class="sidebar-section-title">Métricas da Rede</div>
+            <div class="sidebar-section-title">Métricas da Rede {{ help('network.metrics') }}</div>
             <div class="stats-badge-grid">
                 <div class="stats-item">
                     <span class="stats-val" id="stat-nodes">0</span>
@@ -265,11 +266,11 @@ div.vis-tooltip {
                 </div>
                 <div class="stats-item">
                     <span class="stats-val" id="stat-density">0</span>
-                    <span class="stats-lbl">Densidade</span>
+                    <span class="stats-lbl">Densidade {{ help('network.density') }}</span>
                 </div>
                 <div class="stats-item">
                     <span class="stats-val" id="stat-communities">0</span>
-                    <span class="stats-lbl">Comunidades</span>
+                    <span class="stats-lbl">Comunidades {{ help('network.communities') }}</span>
                 </div>
             </div>
         </div>
@@ -281,13 +282,17 @@ div.vis-tooltip {
         <!-- Viewport Toolbar -->
         <div class="net-toolbar">
             <!-- Node Search -->
-            <div class="search-wrapper">
-                <i class="bi bi-search search-icon"></i>
-                <input type="text" id="net-search" class="control-input search-input" placeholder="Buscar nó na rede…" oninput="searchNode(this.value)">
+            <div style="display:flex;align-items:center;gap:6px">
+                <div class="search-wrapper">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" id="net-search" class="control-input search-input" placeholder="Buscar nó na rede…" oninput="searchNode(this.value)">
+                </div>
+                {{ help('network.search') }}
             </div>
 
             <!-- Action buttons -->
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+                {{ help('network.export_png') }}
                 <button class="btn-bm-secondary" style="padding:5px 12px;font-size:12.5px" onclick="fitNetwork()" title="Ajustar zoom ao conteúdo">
                     <i class="bi bi-arrows-angle-contract me-1"></i>Ajustar
                 </button>
@@ -308,7 +313,7 @@ div.vis-tooltip {
 
         <!-- Color Clusters Legend Overlay -->
         <div class="legend-overlay" id="legend-overlay" style="display:none">
-            <div class="legend-title">Comunidades</div>
+            <div class="legend-title">Comunidades {{ help('network.legend') }}</div>
             <div id="legend-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
     </div>
@@ -318,7 +323,7 @@ div.vis-tooltip {
 
 {% block javascripts %}
 <!-- Load standalone vis-network from UMD -->
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script>
 // ── Global Config ────────────────────────────────────────────────────────────
 const BASE_URL = '{{ path('app_networks_data', {id: project.id, type: 'coauthorship'}) }}'.slice(0, -13); // Trim the slash and type part
@@ -341,6 +346,17 @@ const PALETTE = [
     'hsl(100, 50%, 55%)',  // Lime
     'hsl(200, 70%, 60%)'   // Light Blue
 ];
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// vis-network 9 shows string titles as plain text; HTML tooltips need an element
+function tooltipEl(html) {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+}
 
 function updateWeightLabel(v) { document.getElementById('lbl-min-weight').textContent = v; }
 function updateNodesLabel(v)  { document.getElementById('lbl-max-nodes').textContent = v; }
@@ -392,8 +408,10 @@ async function loadNetwork() {
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.message || 'Erro ao processar a rede.');
+            const errData = await response.json().catch(() => ({}));
+            const err = new Error(errData.message || 'Erro ao processar a rede (HTTP ' + response.status + ').');
+            err.tooLarge = errData.error === 'project_too_large';
+            throw err;
         }
         graphData = await response.json();
         
@@ -410,8 +428,8 @@ async function loadNetwork() {
         loading.innerHTML = `
             <div class="alert alert-warning text-center mx-4" style="max-width:500px; border-radius:10px; background:rgba(235,178,72,0.1); color:#ebb248; border:1px solid rgba(235,178,72,0.2)">
                 <i class="bi bi-exclamation-triangle d-block fs-3 mb-2"></i>
-                <h5 style="font-weight:700">Limite de Segurança Excedido</h5>
-                <p style="font-size:12.5px;margin:0">${e.message}</p>
+                <h5 style="font-weight:700">${e.tooLarge ? 'Limite de Segurança Excedido' : 'Não foi possível gerar a rede'}</h5>
+                <p style="font-size:12.5px;margin:0">${escapeHtml(e.message)}</p>
             </div>
         `;
         loading.style.display = 'flex';
@@ -461,7 +479,7 @@ function drawGraph() {
             id: n.id,
             label: n.label,
             size: relativeSize,
-            title: `<b>${n.label}</b><br/>Artigos: ${n.doc_count}<br/>Grau: ${n.degree}<br/>Comunidade: #${n.cluster + 1}`,
+            title: tooltipEl(`<b>${escapeHtml(n.label)}</b><br/>Documentos: ${n.doc_count}<br/>Grau (ligações na rede): ${n.degree}<br/>Comunidade: #${n.cluster + 1}`),
             color: {
                 background: clusterColor,
                 border: cl.nodeBorder,
@@ -479,7 +497,7 @@ function drawGraph() {
             from: e.from,
             to: e.to,
             width: (1 + (e.weight / maxEdgeWeight) * 8) * edgeScale,
-            title: `Parceria: ${e.weight} co-ocorrências`,
+            title: `${e.weight} documento(s) em comum`,
             color: {
                 color: cl.edgeColor,
                 highlight: cl.edgeHighlightColor
@@ -696,7 +714,7 @@ function buildLegend() {
             legendList.innerHTML += `
                 <div class="legend-color-item">
                     <div class="legend-color-dot" style="background:${PALETTE[c % PALETTE.length]}"></div>
-                    <span>Cluster ${c + 1} (${size}) <br/><small class="text-muted" style="font-size:9.5px">Ex: ${topNode.slice(0,18)}</small></span>
+                    <span>Cluster ${c + 1} (${size}) <br/><small class="text-muted" style="font-size:9.5px">Ex: ${escapeHtml(topNode.slice(0,18))}</small></span>
                 </div>
             `;
         });
@@ -763,8 +781,8 @@ function exportVOSviewerPajek() {
     let content = `*Vertices ${graphData.nodes.length}\n`;
     graphData.nodes.forEach(n => {
         const escapedLabel = n.label.replace(/"/g, '""');
-        // Pajek format: mapped_id "label" weight
-        content += `${idMap[n.id]} "${escapedLabel}" ${n.doc_count}\n`;
+        // Pajek format: mapped_id "label" (a number after the label would be read as an x coordinate)
+        content += `${idMap[n.id]} "${escapedLabel}"\n`;
     });
     
     content += "*Edges\n";

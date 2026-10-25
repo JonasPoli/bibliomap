@@ -1,0 +1,488 @@
+# Ajuda contextual (ícone "?") — Redes, Mapa Temático, Evolução Temática,
+# Gráfico de Três Campos e Matrizes.
+# Formato: title, what (para que serve), how (como usar), not (para que não serve),
+# example (exemplo real). Aceita **negrito** e quebras de linha.
+# Os textos descrevem o cálculo REAL feito em src/Service/Network/*,
+# src/Service/Analytics/ThreeFieldsService.php e src/Service/Matrix/MatrixEngineService.php.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Redes Bibliométricas (templates/network/index.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+network.page:
+  title: "Redes Bibliométricas"
+  what: "Desenha, de forma interativa, quem se liga a quem no seu corpus: autores que publicam juntos, palavras-chave que aparecem nos mesmos artigos ou países que colaboram. Cada **bolinha (nó)** é um item e cada **linha** indica que os dois aparecem juntos em pelo menos um documento."
+  how: "Escolha o tipo de rede nas abas do canto superior direito, ajuste os filtros na coluna da esquerda e explore o desenho: arraste, dê zoom com a roda do mouse e clique num nó para destacar só os vizinhos dele. Exporte para Gephi ou VOSviewer se precisar de análises mais avançadas."
+  not: "Não é uma análise estatística completa (não calcula intermediação, PageRank etc.). Projetos com mais de 35.000 documentos não geram rede na web, por segurança."
+  example: "Numa revisão sobre extensão universitária com 1.200 artigos do Scopus, a rede de coautoria mostrou três grupos que não se conectam: um da USP, um da UFMG e um de Portugal — indício de comunidades de pesquisa isoladas."
+
+network.types:
+  title: "Tipos de rede"
+  what: "**Coautoria**: nós são autores (já unificados pela desambiguação) e a linha conta em quantos documentos os dois assinam juntos. **Palavras-chave**: nós são termos (agrupados pela normalização) e a linha conta em quantos documentos os dois termos aparecem juntos. **Países**: nós são os países padronizados das afiliações e a linha conta em quantos documentos os dois países aparecem."
+  how: "Clique na aba desejada; a rede é recalculada na hora. Ao trocar para Países, a força mínima volta para 2 (redes de países costumam ser muito densas); nas outras abas volta para 1."
+  not: "Não mistura tipos (autor com palavra, por exemplo) — para cruzar dimensões diferentes use o Gráfico de Três Campos ou as Matrizes. A rede de países usa só os países já sincronizados no cadastro geográfico."
+  example: "Para responder “quais países o Brasil mais coassina?”, abra a aba Países, busque “Brazil” e clique no nó: as linhas mais grossas mostram os parceiros mais frequentes, como Portugal e Estados Unidos."
+
+network.min_weight:
+  title: "Força de ligação mínima"
+  what: "Esconde as linhas fracas: só aparecem ligações entre dois itens que ocorrem juntos em pelo menos este número de documentos."
+  how: "Comece em 1 e aumente aos poucos até a rede ficar legível. O valor é aplicado no servidor; ligações abaixo do limite somem, mas os nós continuam (podem ficar soltos)."
+  not: "Não remove nós pouco frequentes — para isso use o “Limite de nós”. Não normaliza por frequência: autores muito produtivos tendem a ter ligações mais fortes simplesmente porque publicam mais."
+  example: "Numa rede de palavras-chave com 1.500 artigos sobre agricultura de precisão, subir de 1 para 4 eliminou centenas de ligações casuais e deixou visíveis só as associações recorrentes, como “sensoriamento remoto”–“NDVI”."
+
+network.max_nodes:
+  title: "Limite de nós"
+  what: "Define quantos itens entram no desenho: só os N mais frequentes (autores com mais documentos, termos que aparecem em mais documentos ou países com mais documentos)."
+  how: "Use 50–100 para figuras de artigo e até 300 para exploração. Valores altos deixam o desenho mais lento e poluído."
+  not: "Não escolhe os nós mais “importantes” na rede (mais conectados), e sim os mais frequentes. Um autor com poucas publicações mas muito colaborativo pode ficar de fora."
+  example: "Para uma figura da dissertação sobre gestão escolar, um limite de 60 autores deixou os rótulos legíveis; com 300 a figura virou um emaranhado ilegível."
+
+network.kw_type:
+  title: "Tipo de palavras-chave"
+  what: "Escolhe a fonte dos termos: **Palavras dos Autores** (as que os próprios autores escreveram no artigo) ou **Palavras Indexadas** (atribuídas pela base, como o Keywords Plus da Web of Science ou os Index Keywords do Scopus)."
+  how: "Use as dos autores para ver como a comunidade descreve o próprio trabalho; use as indexadas para uma visão mais padronizada, útil quando muitos artigos não trazem palavras-chave do autor."
+  not: "Não junta os dois tipos na mesma rede. Bases como Lens e PubMed podem ter poucas palavras indexadas — nesse caso a rede fica vazia ou pequena."
+  example: "Num corpus de 900 artigos da WoS sobre educação a distância, as palavras dos autores destacaram “ensino remoto emergencial”, enquanto as indexadas agruparam tudo em “education” e “students”."
+
+network.physics:
+  title: "Física contínua"
+  what: "Liga o movimento automático que afasta nós não conectados e aproxima os conectados (layout por forças). Depois que o desenho se acomoda, a física é desligada sozinha e esta chave volta para desligado."
+  how: "Ligue de novo se quiser que a rede se reorganize depois de arrastar nós; desligue para fixar tudo onde está antes de exportar o PNG."
+  not: "A posição dos nós não tem significado numérico (não é um mapa de distâncias como o do VOSviewer). Cada carregamento gera um arranjo um pouco diferente."
+  example: "Depois de arrastar o cluster de “aprendizado de máquina” para o canto e arrumar os rótulos, mantenha a física desligada e clique em PNG para salvar exatamente esse arranjo."
+
+network.node_size:
+  title: "Tamanho dos nós"
+  what: "Multiplica o tamanho de todos os nós. O tamanho de cada nó é proporcional ao seu **grau**: quantos outros nós da rede visível estão ligados a ele. O tamanho da fonte do rótulo cresce com o número de documentos."
+  how: "Arraste para a direita para destacar os nós maiores ou para a esquerda para evitar sobreposição em redes grandes. É apenas visual e não recalcula nada."
+  not: "O tamanho não mostra o número de documentos nem de citações — um autor com 20 artigos e só 2 coautores aparece pequeno."
+  example: "Numa rede de coautoria em saúde coletiva, o maior nó era uma pesquisadora com 35 coautores diferentes, embora outro autor tivesse mais artigos publicados."
+
+network.edge_width:
+  title: "Espessura das linhas"
+  what: "Multiplica a espessura de todas as linhas. A espessura de cada linha já é proporcional ao número de documentos em comum entre os dois nós (a ligação mais forte fica a mais grossa)."
+  how: "Aumente para destacar as parcerias fortes em projeções ou diminua quando houver muitas linhas. É apenas visual."
+  not: "Não filtra ligações — para esconder ligações fracas use a “Força de ligação mínima”."
+  example: "Numa apresentação de banca, aumentar a espessura para 2,5 deixou evidente a parceria forte entre Brasil e Portugal na rede de países."
+
+network.export:
+  title: "Exportar para Gephi ou VOSviewer"
+  what: "Baixa a rede que está na tela (mesmos nós, ligações e filtros) para abrir em programas especializados. **Gephi (.gdf)** leva também a comunidade, nº de documentos, citações (só na coautoria), grau e grau ponderado de cada nó. **VOSviewer (.net, formato Pajek)** leva nós e ligações com peso."
+  how: "Ajuste os filtros, clique no formato desejado e abra o arquivo no programa (no VOSviewer: Create → Create a map based on network data → Pajek)."
+  not: "Não exporta o corpus inteiro, só o que está desenhado. Não leva as posições dos nós; o programa de destino refaz o layout."
+  example: "Para calcular a centralidade de intermediação dos 200 autores mais produtivos de uma revisão sobre agroecologia, exporte em .gdf e use Statistics → Network Diameter no Gephi."
+
+network.metrics:
+  title: "Métricas da rede"
+  what: "Resumo da rede desenhada: **Nós** (itens exibidos), **Conexões** (linhas que passaram no filtro), **Densidade** e **Comunidades**."
+  how: "Compare os números ao mudar filtros ou entre projetos. Todos se referem apenas ao que está na tela, não ao corpus inteiro."
+  not: "Não são indicadores de qualidade ou impacto da produção científica."
+  example: "Ao comparar duas buscas sobre ensino de ciências (Scopus x WoS), ambas com 100 nós, a rede da WoS teve 240 conexões e a do Scopus 95 — sinal de que a coautoria aparece mais concentrada na WoS."
+
+network.density:
+  title: "Densidade"
+  what: "Proporção de ligações existentes sobre todas as possíveis entre os nós exibidos: densidade = 2 × conexões ÷ (nós × (nós − 1)). Vai de 0 (ninguém ligado) a 1 (todos ligados a todos)."
+  how: "Valores baixos (ex.: 0,01) indicam rede fragmentada, típica de coautoria; valores altos (ex.: 0,4) indicam itens muito interligados, típicos de países ou termos genéricos."
+  not: "Depende muito do limite de nós e da força mínima: mudar os filtros muda a densidade. Não compare densidades de redes montadas com filtros diferentes."
+  example: "Na rede de países de um corpus sobre mudanças climáticas, 100 países e 2.090 conexões deram densidade 0,42: quase metade dos pares de países colaborou pelo menos duas vezes."
+
+network.communities:
+  title: "Comunidades (clusters)"
+  what: "Grupos de nós mais ligados entre si do que com o resto, mostrados com a mesma cor. São detectados pelo algoritmo **Label Propagation**: cada nó adota o grupo mais forte entre os vizinhos, com as ligações ponderadas pelo **índice de equivalência** (co-ocorrências² ÷ (frequência do nó A × frequência do nó B)), para que itens muito frequentes não engulam a rede toda."
+  how: "Observe as cores e a legenda no canto do desenho. O número inclui nós isolados, que contam como uma comunidade cada um — por isso redes de coautoria podem mostrar dezenas de comunidades."
+  not: "A divisão é determinística (mesmos dados e filtros geram as mesmas comunidades), mas muda se você alterar filtros ou o número de nós. A paleta tem 10 cores: a partir da 11ª comunidade as cores se repetem."
+  example: "Numa rede de 100 palavras-chave sobre IA na agricultura, apareceram 36 comunidades: uma grande em torno de “deep learning” e “computer vision”, outra em torno de “IoT” e “sensores”, e várias palavras soltas."
+
+network.search:
+  title: "Buscar nó"
+  what: "Localiza um item pelo nome, dá zoom nele e destaca só ele e seus vizinhos diretos."
+  how: "Digite parte do nome (sem diferenciar maiúsculas). O primeiro resultado encontrado é focado. Apague o texto para voltar à visão completa."
+  not: "Só encontra itens que estão desenhados; se o autor não aparece, aumente o “Limite de nós” ou reduza a “Força mínima”."
+  example: "Para ver com quem a orientadora colabora, digite “Silva, M” e confira os nós destacados; clique em outro ponto vazio para limpar."
+
+network.export_png:
+  title: "Ajustar e exportar PNG"
+  what: "**Ajustar** centraliza e encaixa toda a rede na área visível. **PNG** salva a imagem exatamente como está na tela (zoom, cores e destaques incluídos)."
+  how: "Organize a rede, desligue a física, use Ajustar e depois PNG. Para mais resolução, aumente o zoom do navegador antes de exportar."
+  not: "Não gera imagem vetorial nem em alta resolução para impressão grande; para isso exporte para Gephi ou VOSviewer."
+  example: "Para inserir a rede de coautoria no slide de qualificação, clique em Ajustar, depois em PNG, e cole a imagem no PowerPoint."
+
+network.legend:
+  title: "Legenda das comunidades"
+  what: "Mostra a cor das até 8 primeiras comunidades, quantos nós cada uma tem e um exemplo de nó (o mais frequente do grupo)."
+  how: "Use para nomear os grupos na sua análise: veja o exemplo e clique em alguns nós da mesma cor para entender o tema ou equipe."
+  not: "Não lista todas as comunidades (só 8) e o número da comunidade não indica importância."
+  example: "Na rede de palavras sobre saúde mental, o “Cluster 2 (14) — Ex.: depression” reunia termos de sintomas, enquanto o Cluster 3 juntava termos de intervenção."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mapa Temático (templates/network/thematic_map.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+thematic_map.page:
+  title: "Mapa Temático"
+  what: "Agrupa as palavras-chave em temas (clusters) e posiciona cada tema num gráfico de dois eixos, inspirado em Callon (1991) e Cobo et al. (2011): **centralidade** (quanto o tema se liga aos demais) e **densidade** (quanto ele é coeso internamente). As linhas tracejadas dividem os temas em quatro quadrantes: motores, nicho, básicos e emergentes/em declínio."
+  how: "Escolha o tipo de palavra-chave, ajuste a ocorrência mínima e o limite de palavras. Passe o mouse nas bolhas para ver os termos e use a tabela abaixo para ler os números de cada tema."
+  not: "Não mostra a evolução no tempo (use a Evolução Temática). Os valores de centralidade e densidade são próprios do BiblioMap e não são iguais, número a número, aos do Bibliometrix — compare posições relativas, não valores absolutos."
+  example: "Numa revisão sobre inteligência artificial na agricultura com 10 mil artigos, o tema “machine learning” caiu no quadrante motor e “computer vision” no quadrante de nicho, orientando a escolha do recorte da tese."
+
+thematic_map.kw_type:
+  title: "Tipo de palavras-chave"
+  what: "Define se os temas são montados com as **palavras dos autores** ou com as **palavras indexadas** pela base (Keywords Plus, Index Keywords)."
+  how: "Prefira as palavras dos autores para estudos de estrutura conceitual; troque para as indexadas quando muitos artigos não tiverem palavras do autor."
+  not: "Não combina os dois tipos no mesmo mapa."
+  example: "Num corpus da WoS sobre formação docente, as palavras indexadas geraram temas genéricos (“education”, “teachers”), enquanto as dos autores revelaram “residência pedagógica” como tema de nicho."
+
+thematic_map.min_occur:
+  title: "Ocorrência mínima"
+  what: "Só entram no mapa termos presentes em pelo menos este número de documentos. **Atenção:** o mesmo valor também é exigido para as ligações — dois termos só são considerados ligados se aparecerem juntos em pelo menos esse número de documentos."
+  how: "Em corpus pequenos (até 500 documentos) use 2 ou 3; em corpus grandes use 5 ou mais. Valores altos deixam menos termos e menos ligações, o que gera mais temas de um termo só."
+  not: "Não remove termos irrelevantes como “study” ou “analysis”; para isso, normalize as palavras-chave antes."
+  example: "Com 3.000 artigos sobre energia solar, subir de 2 para 5 reduziu o mapa de 40 para 18 temas e eliminou dezenas de temas de uma palavra só."
+
+thematic_map.max_keywords:
+  title: "Limite de palavras"
+  what: "Quantidade máxima de termos (os mais frequentes que passaram na ocorrência mínima) usados para formar os temas."
+  how: "100 é um bom ponto de partida. Aumente para captar temas menores; diminua se o mapa ficar cheio de temas pequenos."
+  not: "Não é o número de temas: o algoritmo decide quantos grupos se formam."
+  example: "Ao subir de 100 para 250 termos numa revisão sobre economia circular, surgiu um tema novo de nicho em torno de “simbiose industrial”."
+
+thematic_map.quadrants:
+  title: "Legenda dos quadrantes"
+  what: "Explica o significado das quatro regiões do mapa. O corte vertical é a **mediana da centralidade** e o horizontal é a **mediana da densidade** dos temas exibidos; um tema exatamente na mediana fica do lado “alto”."
+  how: "Leia cada tema pela posição: direita = muito ligado aos outros temas; alto = coeso internamente. Clique nos “?” de cada quadrante para detalhes."
+  not: "Os quadrantes são relativos ao próprio corpus: um tema “motor” aqui não é motor em toda a ciência, só neste conjunto de documentos."
+  example: "Como as linhas passam pelas medianas, sempre haverá temas dos dois lados de cada eixo, mesmo num corpus muito homogêneo."
+
+thematic_map.q_motor:
+  title: "Temas motores (alto-direita)"
+  what: "Temas com centralidade e densidade acima da mediana: bem desenvolvidos e muito conectados ao resto do campo. São o “coração” da área."
+  how: "Use-os para descrever os eixos centrais do campo na sua revisão e para justificar a relevância do tema da pesquisa."
+  not: "Não significa que o tema é novo ou está crescendo — para isso use a Evolução Temática."
+  example: "Numa revisão sobre agricultura digital, “machine learning” ficou no quadrante motor: muito ligado aos demais temas e com termos que aparecem sempre juntos."
+
+thematic_map.q_niche:
+  title: "Temas de nicho / isolados (alto-esquerda)"
+  what: "Temas coesos internamente (densidade alta), mas pouco ligados ao resto (centralidade baixa): especializados, com vocabulário próprio."
+  how: "Bons candidatos a lacunas de pesquisa ou a subáreas técnicas. Verifique os termos do tema na tabela para entender o recorte."
+  not: "Não significa tema irrelevante. Temas de 2 ou 3 termos muito ligados tendem a cair aqui porque a densidade favorece grupos pequenos."
+  example: "Num corpus sobre IA na saúde, “retinopatia diabética” + “fundo de olho” formou um tema de nicho: muito coeso, mas isolado do restante."
+
+thematic_map.q_emerging:
+  title: "Temas emergentes ou em declínio (baixo-esquerda)"
+  what: "Temas pouco desenvolvidos e pouco conectados. Podem estar surgindo ou desaparecendo — o mapa sozinho não diz qual."
+  how: "Cruze com a Evolução Temática ou com a produção anual dos termos: se os documentos são recentes, é emergente; se antigos, em declínio."
+  not: "Termos sem nenhuma ligação acima do limite formam “temas” de uma palavra só com centralidade e densidade 0, que caem aqui. Não os trate como tendências sem conferir."
+  example: "Numa revisão sobre ensino remoto, “COVID-19” apareceu neste quadrante; os documentos eram quase todos de 2020–2021, sugerindo tema em declínio."
+
+thematic_map.q_basic:
+  title: "Temas básicos / gerais (baixo-direita)"
+  what: "Temas muito conectados ao resto (centralidade alta), mas pouco coesos internamente (densidade baixa): conceitos transversais que atravessam vários assuntos."
+  how: "Use-os para descrever a base conceitual comum da área. Costumam reunir termos amplos e frequentes."
+  not: "Não são temas “fracos”: são fundamentais, mas genéricos demais para formar um núcleo coeso."
+  example: "Num corpus de 10 mil artigos sobre IA na agricultura, o tema “artificial intelligence” (32 termos) ficou com centralidade máxima e densidade baixa: um tema básico."
+
+thematic_map.chart:
+  title: "Diagrama estratégico"
+  what: "Cada bolha é um tema. **Eixo X = centralidade**: soma das co-ocorrências entre os termos do tema e termos de outros temas, reescalada para o tema mais ligado valer 100. **Eixo Y = densidade**: soma das co-ocorrências entre os termos do próprio tema ÷ (nº de termos)² × 100. **Tamanho da bolha**: soma das ocorrências dos termos do tema."
+  how: "Passe o mouse sobre a bolha para ver o tema, os principais termos e os valores. As linhas tracejadas são as medianas e separam os quadrantes."
+  not: "A densidade usa contagens brutas de co-ocorrência, não índices normalizados; por isso pode passar muito de 100 e favorece temas pequenos. Compare posições, não valores com outros softwares."
+  example: "Um tema de 2 termos que aparecem juntos em 117 artigos tem densidade 117 ÷ 4 × 100 = 2.925, bem acima de um tema de 32 termos com densidade 211."
+
+thematic_map.clusters_table:
+  title: "Detalhamento dos temas"
+  what: "Lista todos os temas calculados, do maior (mais termos) para o menor, com quadrante, números e principais termos. Os temas são formados pelo algoritmo **Label Propagation**, com ligações ponderadas pelo índice de equivalência (co-ocorrências² ÷ (freq. A × freq. B)); o nome do tema é o seu termo mais frequente."
+  how: "Use para citar os temas na dissertação e conferir quais termos formam cada um. Exporte em CSV (botão no topo) para montar tabelas no Excel."
+  not: "A divisão em temas é determinística para os mesmos dados e filtros, mas muda ao alterar o tipo de palavra-chave, a ocorrência mínima ou o número de termos; registre os parâmetros usados no texto do método."
+  example: "O tema “#3 smart agriculture” trazia “IoT (210)”, “sensors (98)” e “cloud computing (45)”, mostrando que o eixo de agricultura inteligente é, na prática, sobre sensores conectados."
+
+thematic_map.col_size:
+  title: "Tamanho (nº de termos)"
+  what: "Quantas palavras-chave diferentes foram agrupadas neste tema."
+  how: "Temas com 1 termo geralmente são palavras sem ligação forte com as demais; reduza a ocorrência mínima para que se juntem a outros."
+  not: "Não é o número de documentos do tema."
+  example: "O tema “artificial intelligence” reuniu 32 termos, enquanto “computer vision” reuniu 4."
+
+thematic_map.col_occurrences:
+  title: "Ocorrências"
+  what: "Soma do número de documentos de cada termo do tema. Um artigo que traz três termos do mesmo tema conta três vezes. É o valor que define o tamanho da bolha."
+  how: "Use para comparar o volume relativo dos temas."
+  not: "Não é o número de artigos distintos do tema."
+  example: "Um tema com “IoT” (210 documentos) e “sensors” (98) tem 308 ocorrências, mesmo que muitos artigos tragam os dois termos."
+
+thematic_map.col_centrality:
+  title: "Centralidade"
+  what: "Mede quanto o tema conversa com os outros temas: soma das co-ocorrências entre seus termos e termos de outros temas, reescalada de 0 a 100 (100 = tema mais ligado do mapa)."
+  how: "Quanto maior, mais transversal e importante o tema é para a área. Valores à direita da linha tracejada (mediana) são considerados altos."
+  not: "Não é a centralidade de Callon em valor absoluto (lá é somada com índices de equivalência e multiplicada por 10); aqui é uma escala relativa de 0 a 100 dentro do mapa."
+  example: "“machine learning” com centralidade 39,7 está menos conectado que “artificial intelligence” (100), mas muito acima da mediana (4,9)."
+
+thematic_map.col_density:
+  title: "Densidade"
+  what: "Mede a coesão interna do tema: soma das co-ocorrências entre os próprios termos do tema ÷ (nº de termos)² × 100."
+  how: "Quanto maior, mais os termos do tema aparecem juntos, indicando um tema maduro e bem delimitado. Acima da linha tracejada (mediana) é considerado alto."
+  not: "Não é limitada a 100 e favorece temas pequenos e frequentes. Temas de 1 termo têm densidade 0. Não compare o valor com o Bibliometrix."
+  example: "“computer vision” (4 termos) teve densidade 1.750, contra 211 de “artificial intelligence” (32 termos): o primeiro é um nicho bem coeso."
+
+thematic_map.export_csv:
+  title: "Exportar CSV do mapa"
+  what: "Baixa a tabela de temas (ID, tema, quadrante, nº de termos, ocorrências, centralidade, densidade e todos os termos com suas frequências) em CSV separado por ponto e vírgula, pronto para o Excel."
+  how: "Gere o mapa com os parâmetros finais e clique no botão. O arquivo reflete exatamente o que está na tela."
+  not: "Não exporta a imagem do gráfico; use a captura de tela ou a impressão em PDF."
+  example: "Exporte o CSV, abra no Excel e use as colunas Tema, Quadrante e Densidade para montar a Tabela 3 da dissertação."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Evolução Temática (templates/network/thematic_evolution.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+thematic_evo.page:
+  title: "Evolução Temática"
+  what: "Divide o corpus em dois períodos pelo ano de corte, forma os temas de cada período separadamente e mostra num diagrama de Sankey como os temas do Período 1 se transformam nos do Período 2. A largura de cada fluxo é o **número de palavras-chave que os dois temas compartilham**."
+  how: "Escolha o ano de corte, o tipo de palavra-chave e a ocorrência mínima. Leia o diagrama da esquerda (P1) para a direita (P2) e use a tabela para ver quais termos sustentam cada fluxo."
+  not: "Não usa o índice de inclusão nem o de Jaccard do Bibliometrix: o fluxo é a contagem simples de termos em comum. Documentos sem ano ficam de fora. Só compara dois períodos."
+  example: "Numa revisão sobre ensino de matemática (2010–2024) com corte em 2019, o tema “ensino a distância” (P1) alimentou “ensino remoto” e “tecnologias digitais” (P2), mostrando o efeito da pandemia."
+
+thematic_evo.kw_type:
+  title: "Tipo de palavras-chave"
+  what: "Define se os temas de cada período são formados com as **palavras dos autores** ou com as **palavras indexadas** pela base."
+  how: "Use o mesmo tipo escolhido no Mapa Temático para manter a análise coerente."
+  not: "Não mistura os dois tipos."
+  example: "Num corpus do Scopus sobre gestão hospitalar, as palavras indexadas deram fluxos mais estáveis, porque o vocabulário controlado muda menos com o tempo."
+
+thematic_evo.cutoff_year:
+  title: "Ano de corte"
+  what: "Divide os documentos em **Período 1** (ano menor ou igual ao corte) e **Período 2** (ano maior que o corte). O valor inicial é a média dos anos de publicação do projeto."
+  how: "Escolha um marco com sentido para o tema (uma lei, uma pandemia, um marco tecnológico) e confira se os dois períodos têm volume suficiente de documentos."
+  not: "Se o corte for o último ano do corpus, o Período 2 fica vazio e nada é desenhado. Não aceita mais de dois períodos."
+  example: "Para estudar a Base Nacional Comum Curricular, use 2017 como corte: o P1 reúne o debate anterior à BNCC e o P2 a produção posterior."
+
+thematic_evo.min_occur:
+  title: "Ocorrência mínima"
+  what: "Só entram termos que aparecem em pelo menos este número de documentos **dentro de cada período**. As ligações entre termos usam outro limite, fixo: pelo menos 2 documentos (ou 1% da frequência do termo mais comum do período, se for maior)."
+  how: "Períodos com poucos documentos pedem valores baixos (1 ou 2); períodos grandes aceitam 3 a 5."
+  not: "Não afeta o limite das ligações, que é calculado automaticamente."
+  example: "Com apenas 120 artigos até 2015, usar 5 deixou o Período 1 quase vazio; com 2 os temas apareceram."
+
+thematic_evo.max_keywords:
+  title: "Limite de palavras por período"
+  what: "Quantidade máxima de termos (os mais frequentes de cada período) usados para formar os temas."
+  how: "Comece com 100. Aumente para revelar temas menores, sabendo que o cálculo fica mais lento."
+  not: "Não é o número de temas: o agrupamento tenta formar até 8 temas por período, mas termos sem ligação viram temas de um termo só."
+  example: "Subindo de 100 para 200 termos numa revisão sobre bioeconomia, apareceu o fluxo “biorrefinarias” → “economia circular”."
+
+thematic_evo.sankey:
+  title: "Diagrama de Sankey"
+  what: "Esquerda (azul) = temas do Período 1; direita (roxo) = temas do Período 2. Cada tema é formado por **agrupamento hierárquico (ligação média)** sobre a similaridade do cosseno de Salton entre termos (co-ocorrências ÷ √(freq. A × freq. B)), juntando grupos até restarem 8 ou até não haver mais semelhança. O nome do tema é seu termo mais frequente. A largura do fluxo é o número de termos que os dois temas têm em comum."
+  how: "Passe o mouse num fluxo para ver os termos compartilhados; arraste os blocos para melhorar a leitura. Temas sem fluxo são temas que surgiram ou sumiram."
+  not: "A largura não é normalizada pelo tamanho dos temas (não é índice de inclusão): temas grandes tendem a ter fluxos maiores. Não usa o mesmo algoritmo do Mapa Temático, então os temas podem não coincidir."
+  example: "O fluxo “artificial intelligence (P1)” → “artificial intelligence (P2)” com 30 termos em comum indica continuidade; “artificial intelligence (P1)” → “smart agriculture (P2)” com 4 termos sugere uma ramificação."
+
+thematic_evo.flows_table:
+  title: "Detalhamento dos fluxos"
+  what: "Lista cada passagem de um tema do Período 1 para um tema do Período 2, do maior para o menor fluxo, com as palavras-chave que os ligam."
+  how: "Use para descrever as transições no texto e para justificar o nome que você der a cada tema. Exporte em CSV pelo botão no topo."
+  not: "Não mostra temas sem nenhum termo em comum com o outro período (temas novos ou extintos aparecem só no diagrama)."
+  example: "A linha “agricultura familiar → segurança alimentar (3)” com os termos “PNAE”, “merenda” e “compras públicas” mostra a migração do debate para políticas públicas."
+
+thematic_evo.col_flow:
+  title: "Fluxo"
+  what: "Número de palavras-chave presentes nos dois temas, ou seja, termos do tema do Período 1 que continuam no tema do Período 2."
+  how: "Para obter algo parecido com o índice de inclusão do Bibliometrix, divida o fluxo pelo número de termos do menor dos dois temas."
+  not: "Não é número de documentos nem percentual."
+  example: "Um fluxo de 4 entre um tema de 5 termos e outro de 20 corresponde a uma inclusão de 4 ÷ 5 = 0,8."
+
+thematic_evo.export_csv:
+  title: "Exportar CSV da evolução"
+  what: "Baixa a tabela de fluxos (tema de origem, força do fluxo, tema de destino e termos de conexão) em CSV com ponto e vírgula, pronto para o Excel."
+  how: "Defina o ano de corte e os filtros finais e clique no botão; o nome do arquivo leva o ano de corte."
+  not: "Não exporta a imagem do Sankey nem os temas sem fluxo."
+  example: "Exporte com corte em 2019 e em 2021 e compare as duas planilhas para mostrar à banca que a conclusão não depende do corte escolhido."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gráfico de Três Campos (templates/report/three_fields.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+three_fields.page:
+  title: "Gráfico de Três Campos"
+  what: "Diagrama de Sankey com três colunas que mostra como itens de três dimensões se ligam através dos documentos — por exemplo, **países → palavras-chave → periódicos**. Equivale ao Three-Fields Plot do Bibliometrix."
+  how: "Escolha o que vai em cada coluna, quantos itens por coluna e a frequência mínima das ligações. Passe o mouse nos fluxos para ver quantos documentos sustentam cada ligação."
+  not: "Não liga diretamente a coluna da esquerda à da direita: as ligações são esquerda→centro e centro→direita, calculadas separadamente. Não segue um mesmo documento de ponta a ponta."
+  example: "Numa revisão sobre agroecologia, Brasil → “segurança alimentar” → Revista de Economia e Sociologia Rural mostrou onde os autores brasileiros publicam esse tema."
+
+three_fields.left:
+  title: "Coluna esquerda"
+  what: "Dimensão exibida à esquerda: países, autores, periódicos ou instituições. Só os N itens mais frequentes entram."
+  how: "Coloque aqui quem produz (países, instituições, autores) para ler o gráfico como “quem → sobre o quê → onde”."
+  not: "Países e instituições vêm do texto de afiliação gravado na importação, sem a padronização do cadastro geográfico: variações como “USA” e “MI 48824 USA” aparecem como itens diferentes."
+  example: "Com “Países” à esquerda, o gráfico de um corpus sobre energia eólica mostrou China e Estados Unidos dominando os fluxos."
+
+three_fields.middle:
+  title: "Coluna central"
+  what: "Dimensão do meio, que faz a ponte entre as outras duas: palavras-chave do autor, palavras indexadas, autores ou instituições."
+  how: "Normalmente coloca-se aqui o conteúdo (palavras-chave), para ver quais temas cada produtor trabalha e onde publica."
+  not: "A altura do bloco central é o maior valor entre a soma dos fluxos que chegam e a soma dos que saem; não é o número de documentos do item."
+  example: "Com palavras-chave do autor no centro, “deep learning” recebeu fluxos de Índia e China e enviou para os periódicos IEEE Access e Sensors."
+
+three_fields.right:
+  title: "Coluna direita"
+  what: "Dimensão exibida à direita: periódicos/fontes, países, autores ou instituições."
+  how: "Coloque periódicos para descobrir onde cada tema é publicado — útil para escolher a revista do seu artigo."
+  not: "Não mostra o fator de impacto nem o Qualis dos periódicos; consulte o relatório de fontes para isso."
+  example: "Em educação inclusiva, os fluxos levaram “autismo” majoritariamente à Revista Brasileira de Educação Especial."
+
+three_fields.limit:
+  title: "Limite de itens por coluna"
+  what: "Quantos itens de cada coluna entram no gráfico: os N mais frequentes (autores, palavras e periódicos pelo nº de documentos; países e instituições pelo nº de menções nas afiliações)."
+  how: "Use 10–20 para figuras legíveis; até 50 para exploração. Itens sem nenhuma ligação acima da frequência mínima não aparecem."
+  not: "Não garante que aparecerão exatamente N itens por coluna, pois itens sem ligação são omitidos."
+  example: "Com limite 15, apareceram só 11 periódicos: os outros 4 não compartilhavam documentos com os 15 países mais produtivos."
+
+three_fields.min_weight:
+  title: "Frequência mínima da conexão"
+  what: "Esconde fluxos sustentados por poucos documentos: uma ligação só aparece se os dois itens estiverem juntos em pelo menos este número de documentos."
+  how: "Comece em 1 e aumente até o diagrama ficar legível; os fluxos mais fortes continuam."
+  not: "Não muda quais itens são os mais frequentes; apenas filtra ligações."
+  example: "Subir para 5 numa base de 2.000 artigos sobre turismo eliminou centenas de fluxos de um artigo só e deixou os padrões principais."
+
+three_fields.chart:
+  title: "Diagrama de três campos"
+  what: "Cada bloco é um item e cada faixa é uma ligação. A largura da faixa é o **número de documentos** que contêm os dois itens ao mesmo tempo. A altura do bloco é a soma das faixas de um dos lados (o maior entre entrada e saída)."
+  how: "Passe o mouse para ver os valores e arraste os blocos na vertical para desembaraçar as faixas. Ao passar o mouse sobre um bloco, só as ligações dele ficam em destaque."
+  not: "Não é proporcional ao total de documentos de cada item, só às ligações exibidas. Um documento com 5 autores e 3 palavras gera 15 ligações autor–palavra."
+  example: "A faixa “Brazil → precision agriculture” com valor 42 significa 42 documentos com afiliação brasileira e essa palavra-chave."
+
+three_fields.flows_table:
+  title: "Lista de fluxos"
+  what: "Mostra todas as ligações do diagrama, separadas em dois trechos (esquerda → centro e centro → direita), com o número de documentos de cada uma, da maior para a menor."
+  how: "Use para citar os números exatos no texto ou conferir ligações pequenas difíceis de ver no gráfico. Exporte em CSV pelo botão no topo."
+  not: "Cada linha é uma ligação independente: uma linha esquerda → centro não forma uma cadeia com a linha centro → direita."
+  example: "A tabela mostrou “India → machine learning (58)” no primeiro trecho e “machine learning → IEEE Access (31)” no segundo."
+
+three_fields.export_csv:
+  title: "Exportar CSV de três campos"
+  what: "Baixa todas as ligações (trecho, origem, nº de documentos, destino) em CSV com ponto e vírgula, pronto para o Excel."
+  how: "Ajuste as colunas e filtros e clique no botão. O arquivo reflete o que está na tela."
+  not: "Não exporta a imagem do gráfico."
+  example: "Exporte e use uma tabela dinâmica no Excel para somar quantos documentos cada país tem por periódico."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Matrizes Bibliométricas (templates/matrix/index.html.twig)
+# ─────────────────────────────────────────────────────────────────────────────
+
+matrix.page:
+  title: "Matrizes Bibliométricas"
+  what: "Monta uma tabela cruzando duas dimensões do corpus (ex.: palavras-chave × países, autores × anos). Cada célula conta **quantos documentos** têm ao mesmo tempo o item da linha e o da coluna. Se a mesma dimensão for usada nos dois eixos, vira uma matriz de co-ocorrência."
+  how: "Escolha linhas e colunas, a frequência mínima e o tamanho, e clique em **Gerar**. Exporte em CSV para Excel, R ou SPSS, ou salve a configuração para repetir depois."
+  not: "Não desenha gráfico nem calcula testes estatísticos (qui-quadrado, correspondência). É a matéria-prima para essas análises em outro programa."
+  example: "Numa revisão sobre políticas de permanência estudantil, a matriz “Grupo Temático × Ano” mostrou que o tema “assistência estudantil” cresceu a partir de 2012."
+
+matrix.row_dim:
+  title: "Linhas da matriz"
+  what: "Dimensão listada na vertical (uma linha por item). Opções: autores, palavras-chave, ano, instituição, natureza da instituição, país, continente, estado, cidade, estrato Qualis e grupo temático."
+  how: "Coloque nas linhas a dimensão com mais itens (ex.: palavras-chave) e nas colunas a com menos (ex.: países ou anos) para facilitar a leitura."
+  not: "País, continente, estado, cidade, instituição e natureza vêm das instituições cadastradas e vinculadas aos documentos; documentos cuja afiliação não foi reconhecida no cadastro ficam fora dessas dimensões."
+  example: "Linhas = Palavras-chave do Autor e colunas = Estado/UF mostram quais temas cada estado brasileiro pesquisa."
+
+matrix.col_dim:
+  title: "Colunas da matriz"
+  what: "Dimensão listada na horizontal. Se for igual à das linhas, a matriz vira de **co-ocorrência**: simétrica, com a diagonal zerada, contando documentos em que os dois itens aparecem juntos."
+  how: "Para comparar perfis (ex.: estados × temas), escolha dimensões diferentes. Para ver quem aparece junto (autor × autor), repita a dimensão."
+  not: "Na matriz de co-ocorrência cada par aparece duas vezes (A×B e B×A); por isso o Total Geral é o dobro do número de pares."
+  example: "Autores × Autores, com 30 × 30, mostrou que as duas autoras mais produtivas assinaram 12 artigos juntas."
+
+matrix.min_weight:
+  title: "Frequência mínima"
+  what: "Zera as células com valor abaixo deste número. É aplicado depois da escolha das linhas e colunas, e os totais são recalculados só com as células que ficaram."
+  how: "Use 1 para ver tudo; suba para 2 ou 3 para destacar relações recorrentes em matrizes grandes."
+  not: "Não remove linhas nem colunas — elas continuam, só com células zeradas (“-”)."
+  example: "Numa matriz palavras × países de 50 × 50, subir para 3 deixou apenas as combinações relevantes e a densidade caiu de 40% para 12%."
+
+matrix.limit:
+  title: "Limite (linhas × colunas)"
+  what: "Quantidade máxima de linhas e de colunas. Entram os itens com mais ligações com a outra dimensão (soma das combinações por documento), não necessariamente os itens com mais documentos."
+  how: "30 × 30 é bom para ler na tela. Use 250 ou mais apenas para exportar em CSV e analisar em outro programa, pois tabelas grandes deixam o navegador lento."
+  not: "Não é amostragem aleatória; itens raros ficam de fora. Acima de 500 × 500 a exibição na tela pode travar o navegador."
+  example: "Para uma análise de correspondência no R com todos os 400 termos, escolha 500 × 500 e use apenas “Exportar CSV”."
+
+matrix.thesaurus:
+  title: "Tesauro Global"
+  what: "Quando ligado, usa os nomes padronizados: o nome canônico do autor (após a desambiguação), o rótulo preferido do conceito no tesauro para palavras-chave e o nome oficial da instituição. Desligado, usa o nome original importado (e a sigla da instituição, quando houver)."
+  how: "Deixe ligado para análises finais, pois variações do mesmo item são somadas. Desligue para auditar como os dados vieram da base."
+  not: "Não afeta ano, país, continente, estado, cidade, Qualis nem grupo temático. Para palavras-chave só muda algo se houver conceitos do tesauro vinculados."
+  example: "Com o tesauro ligado, “Silva, J.”, “J. Silva” e “Silva, João” viraram uma linha só com 18 documentos; desligado, eram três linhas."
+
+matrix.generate:
+  title: "Gerar matriz"
+  what: "Processa todos os documentos do projeto com as opções escolhidas e mostra o relatório de processamento e a tabela."
+  how: "Clique depois de ajustar as opções. Matrizes de palavras-chave ou autores em projetos grandes podem levar de 10 a 20 segundos."
+  not: "Não salva nada no banco; para guardar a configuração use “Salvar Matriz”."
+  example: "Num projeto de 10 mil artigos, a matriz palavras × países de 30 × 30 levou cerca de 14 segundos."
+
+matrix.save:
+  title: "Salvar matriz"
+  what: "Guarda a configuração atual (linhas, colunas, frequência mínima, limite e tesauro) com um nome e uma descrição, na lista “Matrizes salvas”."
+  how: "Gere a matriz, clique em Salvar Matriz, dê um nome claro e confirme. Depois use “Carregar & Gerar” para refazer com um clique."
+  not: "Não guarda os números da tabela: ao carregar, a matriz é recalculada com os dados atuais do projeto (que podem ter mudado com novas importações ou normalizações)."
+  example: "Salve “Temas × Estados — capítulo 4” para refazer a tabela da tese depois de normalizar as palavras-chave."
+
+matrix.export_csv:
+  title: "Exportar CSV da matriz"
+  what: "Baixa a matriz com totais por linha, por coluna e Total Geral, em CSV com ponto e vírgula e acentos compatíveis com o Excel."
+  how: "O arquivo é recalculado no servidor com as opções que estão no formulário no momento do clique — gere antes para conferir o resultado."
+  not: "Não exporta as cores do mapa de calor nem o relatório de processamento."
+  example: "Exporte a matriz palavras × anos e use-a no R (pacote FactoMineR) para uma análise de correspondência."
+
+matrix.report:
+  title: "Relatório de processamento"
+  what: "Resumo do último cálculo: tempo, documentos analisados, tamanho da matriz, total de conexões, células ativas e densidade."
+  how: "Use para documentar a matriz no método da pesquisa (ex.: “matriz 30 × 30 com 72,5% de densidade”)."
+  not: "Os valores se referem só às linhas e colunas exibidas, não ao corpus inteiro."
+  example: "“10.452 documentos, 10 × 4, 1.295 conexões” resume uma matriz palavras × países para a seção de método."
+
+matrix.total_docs:
+  title: "Artigos analisados"
+  what: "Número de documentos do projeto varridos para montar a matriz."
+  how: "Confira se bate com o total do projeto."
+  not: "Não é o número de documentos que entraram na tabela: documentos sem valor numa das dimensões (ex.: sem instituição reconhecida) são varridos, mas não geram células."
+  example: "Num projeto de 2.000 documentos, a matriz Estado/UF × Ano mostra “2.000 analisados”, mas só os cerca de 600 com instituição brasileira reconhecida aparecem nas células."
+
+matrix.total_pairs:
+  title: "Total de conexões"
+  what: "Soma de todas as células exibidas (o Total Geral da tabela), depois da frequência mínima."
+  how: "Use para comparar o volume de relações entre configurações diferentes."
+  not: "Não é número de documentos: um documento com 3 palavras e 2 países soma 6 conexões. Em matrizes de co-ocorrência cada par conta duas vezes."
+  example: "Uma matriz palavras × países com 1.295 conexões pode vir de bem menos de 1.295 artigos."
+
+matrix.active_cells:
+  title: "Células ativas"
+  what: "Quantas células da tabela têm valor maior que zero, depois de aplicar a frequência mínima."
+  how: "Combine com a densidade para saber se a matriz está muito esparsa antes de uma análise estatística."
+  not: "Não diz quão fortes são as relações, só quantas existem."
+  example: "29 células ativas numa matriz 10 × 4 (40 células possíveis) indicam que quase todas as combinações aparecem."
+
+matrix.density:
+  title: "Densidade da matriz"
+  what: "Percentual de células preenchidas: células ativas ÷ (linhas × colunas) × 100."
+  how: "Densidade baixa (abaixo de 10%) indica matriz esparsa; considere reduzir o limite ou a frequência mínima antes de análises de correspondência."
+  not: "Em matrizes de co-ocorrência a diagonal é sempre zero e entra na conta, então a densidade nunca chega a 100%."
+  example: "Uma matriz palavras × palavras 10 × 10 com 90% de densidade mostra que os 10 termos mais frequentes aparecem quase todos juntos."
+
+matrix.table:
+  title: "Tabela da matriz"
+  what: "Cada célula mostra em quantos documentos o item da linha e o da coluna aparecem juntos; quanto mais escura, maior o valor. As colunas **Total** e a linha **Total Geral** somam as células exibidas."
+  how: "Role a tabela (o cabeçalho e o rodapé ficam fixos). Para análises, exporte em CSV."
+  not: "Os totais não são o número de documentos de cada item, apenas a soma das células visíveis depois dos filtros."
+  example: "A célula “machine learning × China = 85” significa 85 documentos com essa palavra-chave e pelo menos uma instituição chinesa cadastrada."
+
+matrix.saved:
+  title: "Matrizes salvas"
+  what: "Lista as configurações de matriz salvas neste projeto, com dimensões, uso do tesauro e data."
+  how: "Clique em **Carregar & Gerar** para preencher o formulário e recalcular; use a lixeira para apagar a configuração."
+  not: "Não guarda resultados antigos; a matriz é sempre recalculada com os dados atuais. Apagar não pode ser desfeito."
+  example: "Mantenha uma matriz salva por capítulo da tese (ex.: “Cap. 3 — Autores × Anos”) para refazer as tabelas depois de cada nova importação."
+
+matrix.save_name:
+  title: "Nome e descrição da matriz"
+  what: "Identificam a configuração na lista de matrizes salvas. O nome é obrigatório; a descrição é opcional."
+  how: "Use nomes que digam as dimensões e o objetivo, e anote na descrição o filtro usado."
+  not: "Não altera o cálculo da matriz."
+  example: "Nome: “Temas × UF (tesauro)”; descrição: “Tabela 5 da dissertação, frequência mínima 2”."

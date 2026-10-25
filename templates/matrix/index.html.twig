@@ -6,17 +6,19 @@
 <div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-grid-3x3 text-accent me-2"></i> Painel de Matrizes Bibliométricas
+            <i class="bi bi-grid-3x3 text-accent me-2"></i> Painel de Matrizes Bibliométricas {{ help('matrix.page') }}
         </h1>
-        <p class="bm-page-subtitle">Gere matrizes de co-ocorrência e matrizes cruzadas entre quaisquer 2 dimensões com suporte ao Tesauro Global.</p>
+        <p class="bm-page-subtitle">Cruze duas dimensões do corpus: cada célula conta em quantos documentos os dois itens aparecem juntos.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
         <button type="button" class="btn btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#modalSaveMatrix">
             <i class="bi bi-bookmark-plus me-1"></i> Salvar Matriz
         </button>
+        {{ help('matrix.save') }}
         <button id="btnExportCsv" class="btn btn-bm-primary" onclick="exportMatrixCsv()">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </button>
+        {{ help('matrix.export_csv') }}
     </div>
 </div>
 
@@ -33,8 +35,8 @@
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
             <label class="form-label fw-bold" for="rowDimension" style="font-size:13px">
-                <i class="bi bi-arrows-vertical text-accent me-1"></i> Eixo Linhas (Eixo X)
-            </label>
+                <i class="bi bi-arrows-vertical text-accent me-1"></i> Linhas
+            </label> {{ help('matrix.row_dim') }}
             <select id="rowDimension" class="form-select form-select-sm">
                 {% for catName, dims in categories %}
                     <optgroup label="{{ catName }}">
@@ -48,8 +50,8 @@
 
         <div class="col-md-3">
             <label class="form-label fw-bold" for="columnDimension" style="font-size:13px">
-                <i class="bi bi-arrows-left-right text-accent me-1"></i> Eixo Colunas (Eixo Y)
-            </label>
+                <i class="bi bi-arrows-left-right text-accent me-1"></i> Colunas
+            </label> {{ help('matrix.col_dim') }}
             <select id="columnDimension" class="form-select form-select-sm">
                 {% for catName, dims in categories %}
                     <optgroup label="{{ catName }}">
@@ -62,12 +64,12 @@
         </div>
 
         <div class="col-md-2">
-            <label class="form-label fw-semibold" for="minWeight" style="font-size:12px">Frequência Mínima</label>
+            <label class="form-label fw-semibold" for="minWeight" style="font-size:12px">Frequência Mínima</label> {{ help('matrix.min_weight') }}
             <input type="number" id="minWeight" class="form-control form-control-sm" value="1" min="1" max="100">
         </div>
 
         <div class="col-md-2">
-            <label class="form-label fw-semibold" for="maxLimit" style="font-size:12px">Limite (N x M)</label>
+            <label class="form-label fw-semibold" for="maxLimit" style="font-size:12px">Limite (linhas × colunas)</label> {{ help('matrix.limit') }}
             <select id="maxLimit" class="form-select form-select-sm">
                 <option value="15">15 x 15</option>
                 <option value="30" selected>30 x 30</option>
@@ -85,15 +87,16 @@
                 <input class="form-check-input" type="checkbox" id="useThesaurus" value="1" checked>
                 <label class="form-check-label fw-bold" for="useThesaurus" style="color:var(--bm-accent)">
                     <i class="bi bi-journal-check me-1"></i> Tesauro Global
-                </label>
+                </label> {{ help('matrix.thesaurus') }}
             </div>
         </div>
 
         {# Action Trigger Button #}
-        <div class="col-12 mt-3 pt-2 border-top border-secondary border-opacity-10">
-            <button id="btnGenerateMatrix" type="button" class="btn btn-bm-primary btn-lg w-100 fw-bold" onclick="generateMatrix()" style="font-size:15px;padding:10px">
+        <div class="col-12 mt-3 pt-2 border-top border-secondary border-opacity-10 d-flex align-items-center gap-2">
+            <button id="btnGenerateMatrix" type="button" class="btn btn-bm-primary btn-lg flex-grow-1 fw-bold" onclick="generateMatrix()" style="font-size:15px;padding:10px">
                 <i class="bi bi-play-circle-fill me-2"></i> Gerar Matriz Bibliométrica
             </button>
+            {{ help('matrix.generate') }}
         </div>
     </div>
 </div>
@@ -105,7 +108,7 @@
     </div>
     <h5 class="fw-bold" style="color:var(--bm-text)">Pronto para Gerar a Matriz Bibliométrica</h5>
     <p class="text-muted mx-auto" style="max-width:600px;font-size:13.5px">
-        Escolha as duas dimensões desejadas no painel acima (ex: <strong>Autores x Palavras-chave</strong>, <strong>País x Instituição</strong>, <strong>Grupo Temático x Ano</strong>) e clique no botão verde <strong>"Gerar Matriz Bibliométrica"</strong> para iniciar o processamento.
+        Escolha as duas dimensões no painel acima (ex.: <strong>Palavras-chave × País</strong>, <strong>Autores × Ano</strong>, <strong>Grupo Temático × Ano</strong>) e clique em <strong>"Gerar Matriz Bibliométrica"</strong>.
     </p>
 </div>
 
@@ -133,7 +136,7 @@
 <div id="matrixReportCard" class="bm-card mb-4" style="display:none;background:rgba(79,142,247,0.04);border:1px solid rgba(79,142,247,0.2)">
     <div class="d-flex align-items-center justify-content-between mb-3 border-bottom border-secondary border-opacity-10 pb-2">
         <h6 class="fw-bold m-0" style="color:var(--bm-accent)">
-            <i class="bi bi-file-earmark-check-fill me-1"></i> Relatório de Processamento da Matriz
+            <i class="bi bi-file-earmark-check-fill me-1"></i> Relatório de Processamento da Matriz {{ help('matrix.report') }}
         </h6>
         <span class="badge text-bg-success" style="font-size:11px">Concluído com Sucesso</span>
     </div>
@@ -143,7 +146,7 @@
             <div class="fw-bold text-accent h5 m-0 font-monospace" id="reportTime">0 ms</div>
         </div>
         <div class="col-6 col-md-2">
-            <div class="text-muted mb-1">Artigos Analisados</div>
+            <div class="text-muted mb-1">Artigos Analisados {{ help('matrix.total_docs') }}</div>
             <div class="fw-bold h5 m-0" id="reportTotalDocs">0</div>
         </div>
         <div class="col-6 col-md-2">
@@ -151,15 +154,15 @@
             <div class="fw-bold h5 m-0" id="statDimensions">0 x 0</div>
         </div>
         <div class="col-6 col-md-2">
-            <div class="text-muted mb-1">Total Conexões</div>
+            <div class="text-muted mb-1">Total Conexões {{ help('matrix.total_pairs') }}</div>
             <div class="fw-bold h5 m-0" id="statTotalPairs">0</div>
         </div>
         <div class="col-6 col-md-2">
-            <div class="text-muted mb-1">Células Ativas</div>
+            <div class="text-muted mb-1">Células Ativas {{ help('matrix.active_cells') }}</div>
             <div class="fw-bold text-success h5 m-0" id="statActiveCells">0</div>
         </div>
         <div class="col-6 col-md-2">
-            <div class="text-muted mb-1">Densidade</div>
+            <div class="text-muted mb-1">Densidade {{ help('matrix.density') }}</div>
             <div class="fw-bold text-warning h5 m-0" id="statDensity">0%</div>
         </div>
     </div>
@@ -168,11 +171,14 @@
 {# ── Main Matrix Display Pane ────────────────────────────────────────────── #}
 <div id="matrixResultsPane" class="bm-card mb-4" style="display:none">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="fw-bold m-0" id="matrixTitle" style="color:var(--bm-text)">
-            Matriz Cruzada
-        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="fw-bold m-0" id="matrixTitle" style="color:var(--bm-text)">
+                Matriz Cruzada
+            </h5>
+            {{ help('matrix.table') }}
+        </div>
         <div style="font-size:11.5px;color:var(--bm-text-muted)">
-            Valores representam a frequência de co-ocorrência em documentos do projeto.
+            Cada célula = nº de documentos com o item da linha e o da coluna.
         </div>
     </div>
 
@@ -191,7 +197,7 @@
 {# ── Saved Matrices Section ──────────────────────────────────────────────── #}
 <div class="bm-card">
     <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-        <i class="bi bi-bookmarks text-accent me-1"></i> Matrizes Salvas do Projeto
+        <i class="bi bi-bookmarks text-accent me-1"></i> Matrizes Salvas do Projeto {{ help('matrix.saved') }}
     </h6>
     {% if savedMatrices is empty %}
         <div class="text-muted" style="font-size:13px">Nenhuma matriz salva ainda neste projeto. Monte a matriz acima e clique em "Salvar Matriz".</div>
@@ -211,7 +217,8 @@
                     {% for m in savedMatrices %}
                         <tr>
                             <td class="fw-bold">{{ m.name }}</td>
-                            <td><span class="badge text-bg-primary">{{ m.rowDimension }}</span> x <span class="badge text-bg-info">{{ m.columnDimension }}</span></td>
+                            <td><span class="badge text-bg-primary">{{ dimensions[m.rowDimension].label ?? m.rowDimension }}</span> × <span class="badge text-bg-info">{{ dimensions[m.columnDimension].label ?? m.columnDimension }}</span>
+                                <div class="text-muted" style="font-size:11px">mín. {{ m.minCellWeight }} · até {{ m.maxRows }} × {{ m.maxCols }}{% if m.description %} · {{ m.description }}{% endif %}</div></td>
                             <td>{{ m.useThesaurus ? '✅ Sim' : '❌ Não' }}</td>
                             <td class="text-muted">{{ m.createdAt|date('d/m/Y H:i') }}</td>
                             <td class="text-end">
@@ -245,7 +252,7 @@
                 <form id="formSaveMatrix">
                     <input type="hidden" name="_token" value="{{ csrf_token('matrix_save_' ~ project.id) }}">
                     <div class="mb-3">
-                        <label class="form-label" for="matrixName">Nome da Matriz <span class="text-danger">*</span></label>
+                        <label class="form-label" for="matrixName">Nome da Matriz <span class="text-danger">*</span> {{ help('matrix.save_name') }}</label>
                         <input type="text" class="form-control" id="matrixName" name="name" placeholder="Ex: Matriz Palavras-Chave x Países" required>
                     </div>
                     <div class="mb-3">
@@ -266,6 +273,10 @@
 {% block javascripts %}
 <script>
 let currentMatrixData = null;
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 let loadingTimerInterval = null;
 
 function showLoadingState(rowLabel, colLabel, useThesaurus) {
@@ -353,7 +364,7 @@ function renderMatrix(data) {
     document.getElementById('statDensity').textContent = `${data.density}%`;
 
     document.getElementById('matrixTitle').innerHTML = `
-        <i class="bi bi-grid-3x3 text-accent me-2"></i> ${data.rowDimension} <span class="text-muted">vs</span> ${data.colDimension}
+        <i class="bi bi-grid-3x3 text-accent me-2"></i> ${escapeHtml(data.rowDimension)} <span class="text-muted">vs</span> ${escapeHtml(data.colDimension)}
     `;
 
     const head = document.getElementById('matrixHead');
@@ -380,7 +391,7 @@ function renderMatrix(data) {
 
     // Render Table Header
     const trHead = document.createElement('tr');
-    trHead.innerHTML = `<th class="text-start" style="min-width:180px">${data.rowDimension} \\ ${data.colDimension}</th>`;
+    trHead.innerHTML = `<th class="text-start" style="min-width:180px">${escapeHtml(data.rowDimension)} \\ ${escapeHtml(data.colDimension)}</th>`;
     data.cols.forEach(c => {
         const th = document.createElement('th');
         th.style.maxWidth = '120px';
@@ -394,7 +405,7 @@ function renderMatrix(data) {
     // Render Table Body
     data.rows.forEach(r => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="text-start fw-bold" style="background:var(--bm-bg)">${r}</td>`;
+        tr.innerHTML = `<td class="text-start fw-bold" style="background:var(--bm-bg)">${escapeHtml(r)}</td>`;
 
         data.cols.forEach(c => {
             const val = data.matrix[r][c] || 0;
