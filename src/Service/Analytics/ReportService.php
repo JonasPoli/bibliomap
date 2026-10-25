@@ -18,7 +18,7 @@ class ReportService
                     COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0))   AS citation_count
              FROM author_identity a
-             JOIN document_author da ON a.id = da.author_identity_id
+             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?
              GROUP BY a.id, a.preferred_name',
             [$projectId]
@@ -41,7 +41,7 @@ class ReportService
                     MIN(d.year) AS first_year,
                     MAX(d.year) AS last_year
              FROM author_identity a
-             JOIN document_author da ON a.id = da.author_identity_id
+             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?' . $searchSql . '
              GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC, citation_count DESC',
@@ -63,7 +63,7 @@ class ReportService
             $citRows = $this->conn->fetchAllAssociative(
                 "SELECT da.author_identity_id AS author_id, COALESCE(d.cited_by, 0) AS cited_by
                  FROM document d
-                 JOIN document_author da ON da.document_id = d.id
+                 JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON da.document_id = d.id
                  WHERE d.project_id = ? AND da.author_identity_id IN ($placeholders)
                  ORDER BY da.author_identity_id, d.cited_by DESC",
                 [$projectId]
@@ -461,7 +461,7 @@ class ReportService
             'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0)) AS citation_count
              FROM author_identity a
-             JOIN document_author da ON a.id = da.author_identity_id
+             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
              JOIN document d ON d.id = da.document_id AND d.project_id = ?
              GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC LIMIT 10',

@@ -177,7 +177,7 @@ class WosImporter implements BibliographicImporterInterface
 
         // Year
         $py = $this->field($raw, 'PY');
-        $dto->year = $py && ctype_digit($py) ? (int) $py : null;
+        $dto->year = $py !== null && ctype_digit($py) ? (int) $py : null;
 
         // DOI — WoS uses DI tag
         $dto->doi = $this->normalizeDoi($this->field($raw, 'DI'));
@@ -211,7 +211,8 @@ class WosImporter implements BibliographicImporterInterface
 
         // Times cited
         $tc = $this->field($raw, 'TC');
-        $dto->citedBy = $tc && ctype_digit($tc) ? (int) $tc : null;
+        // "0" é falsy em PHP: comparar com null para não perder artigos sem citações
+        $dto->citedBy = $tc !== null && ctype_digit($tc) ? (int) $tc : null;
 
         // Open Access
         $dto->openAccessStatus = $this->field($raw, 'OA');

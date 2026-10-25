@@ -37,7 +37,7 @@ class IndicatorService
                  SELECT da.author_identity_id,
                         COUNT(DISTINCT da.document_id) AS doc_count,
                         SUM(d.cited_by)                AS total_citations
-                 FROM document_author da
+                 FROM (SELECT DISTINCT author_identity_id, document_id FROM document_author) da
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY da.author_identity_id
                  ORDER BY doc_count DESC, total_citations DESC
@@ -182,7 +182,7 @@ class IndicatorService
             'SELECT
                COUNT(*)                      AS total_docs,
                SUM(cited_by)                 AS total_citations,
-               AVG(cited_by)                 AS avg_citations,
+               AVG(COALESCE(cited_by, 0))    AS avg_citations,
                MAX(cited_by)                 AS max_citations,
                COUNT(DISTINCT source_title)  AS total_sources,
                COUNT(DISTINCT year)          AS total_years,
