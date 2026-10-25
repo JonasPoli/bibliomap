@@ -449,12 +449,12 @@ class ReportService
         );
 
         // Annual production
-        $annual = $this->conn->fetchAllAssociative(
+        $annual = IndicatorService::fillYearGaps($this->conn->fetchAllAssociative(
             'SELECT year, COUNT(*) AS doc_count, SUM(COALESCE(cited_by,0)) AS citation_count
              FROM document WHERE project_id = ? AND year IS NOT NULL
              GROUP BY year ORDER BY year ASC',
             [$projectId]
-        );
+        ), ['doc_count' => 0, 'citation_count' => 0]);
 
         // Top 5 authors
         $topAuthors = $this->conn->fetchAllAssociative(

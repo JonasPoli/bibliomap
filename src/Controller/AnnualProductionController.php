@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Service\Analytics\IndicatorService;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -36,6 +37,10 @@ class AnnualProductionController extends AbstractController
              ORDER BY year ASC',
             [$id]
         );
+
+        // Anos sem publicação não aparecem no GROUP BY: preenche com zero para que
+        // gráfico, crescimento e média móvel não "pulem" anos.
+        $rows = IndicatorService::fillYearGaps($rows, ['doc_count' => 0, 'citation_count' => 0, 'avg_citations' => 0]);
 
         // Augment with cumulative, growth and moving average
         $cumulative = 0;
@@ -79,13 +84,13 @@ class AnnualProductionController extends AbstractController
         $firstYear   = $totalYears > 0 ? $annualData[0]['year'] : 'N/A';
         $lastYear    = $totalYears > 0 ? $annualData[$totalYears - 1]['year'] : 'N/A';
 
-        // Average annual growth (compound)
+        // Average annual growth (compound) — ((N_último / N_primeiro)^(1 / (último ano − primeiro ano)) − 1) × 100
         $cagr = null;
         if ($totalYears >= 2) {
             $startCount = $annualData[0]['doc_count'];
             $endCount   = $annualData[$totalYears - 1]['doc_count'];
             if ($startCount > 0) {
-                $cagr = round((pow($endCount / $startCount, 1 / ($totalYears - 1)) - 1) * 100, 1);
+                $cagr = round((pow($endCount / $startCount, 1 / ($lastYear - $firstYear)) - 1) * 100, 1);
             }
         }
 

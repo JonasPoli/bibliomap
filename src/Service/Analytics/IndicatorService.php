@@ -17,14 +17,33 @@ class IndicatorService
 
     public function annualProduction(int $projectId): array
     {
-        return $this->conn->fetchAllAssociative(
-            'SELECT year, COUNT(*) AS count, SUM(cited_by) AS total_citations
+        return self::fillYearGaps($this->conn->fetchAllAssociative(
+            'SELECT year, COUNT(*) AS count, SUM(COALESCE(cited_by, 0)) AS total_citations
              FROM document
              WHERE project_id = ? AND year IS NOT NULL
              GROUP BY year
              ORDER BY year',
             [$projectId]
-        );
+        ), ['count' => 0, 'total_citations' => 0]);
+    }
+
+    /**
+     * Anos sem documentos não aparecem no GROUP BY; insere-os com valores zerados
+     * para que séries temporais e taxas de crescimento não pulem anos.
+     *
+     * @param array<int, array<string, mixed>> $rows ordenadas por 'year'
+     */
+    public static function fillYearGaps(array $rows, array $zero): array
+    {
+        if (!$rows) {
+            return [];
+        }
+        $byYear = array_column($rows, null, 'year');
+        $filled = [];
+        for ($y = (int) $rows[0]['year']; $y <= (int) end($rows)['year']; $y++) {
+            $filled[] = $byYear[$y] ?? ['year' => $y] + $zero;
+        }
+        return $filled;
     }
 
     // ── Top authors ───────────────────────────────────────────────────────────
@@ -107,7 +126,7 @@ class IndicatorService
 
     public function citationsPerYear(int $projectId): array
     {
-        return $this->conn->fetchAllAssociative(
+        return self::fillYearGaps($this->conn->fetchAllAssociative(
             'SELECT year,
                     SUM(cited_by)  AS total_citations,
                     AVG(cited_by)  AS avg_citations,
@@ -118,7 +137,7 @@ class IndicatorService
              GROUP BY year
              ORDER BY year',
             [$projectId]
-        );
+        ), ['total_citations' => 0, 'avg_citations' => 0, 'max_citations' => 0, 'doc_count' => 0]);
     }
 
     // ── H-Index ───────────────────────────────────────────────────────────────
