@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Revista Científica
+        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Revista Científica {{ help('admin.journals.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Altere as informações cadastrais e a classificação Qualis do periódico.</p>
 </div>
@@ -24,18 +24,18 @@
 
         <div class="row g-3 mb-4">
             <div class="col-md-12">
-                <label class="form-label">Título do Periódico / Revista *</label>
+                <label class="form-label">Título do Periódico / Revista * {{ help('admin.journals.form.title') }}</label>
                 <input type="text" name="title" class="form-control" placeholder="Ex: Nature" value="{{ journal.title }}" required>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">ISSN *</label>
+                <label class="form-label">ISSN * {{ help('admin.journals.form.issn') }}</label>
                 <input type="text" name="issn" class="form-control" placeholder="Ex: 0028-0836" value="{{ journal.issn }}" required>
                 <small class="text-muted-bm" style="font-size:11px">Pode conter traços ou espaços (ex: 1530-6984).</small>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Estrato Qualis</label>
+                <label class="form-label">Estrato Qualis {{ help('admin.journals.form.qualis') }}</label>
                 <select name="qualis" class="form-select">
                     <option value="" {% if journal.qualis is empty %}selected{% endif %}>Nenhum estrato / Nulo</option>
                     <option value="A1" {% if journal.qualis == 'A1' %}selected{% endif %}>A1</option>
@@ -48,10 +48,13 @@
                     <option value="B4" {% if journal.qualis == 'B4' %}selected{% endif %}>B4</option>
                     <option value="C" {% if journal.qualis == 'C' %}selected{% endif %}>C</option>
                 </select>
+                <a href="{{ path('app_admin_journals_sucupira_lookup', {id: journal.id}) }}" target="_blank" class="d-inline-block mt-1" style="font-size:11.5px;text-decoration:none">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Conferir na Plataforma Sucupira
+                </a>
             </div>
 
             <div class="col-md-12">
-                <label class="form-label" style="font-weight:600">Bases de Dados Acadêmicas</label>
+                <label class="form-label" style="font-weight:600">Bases de Dados Acadêmicas {{ help('admin.journals.form.databases') }}</label>
                 <div class="d-flex flex-wrap gap-4 mt-1">
                     {% for db in databases %}
                         <div class="form-check">
@@ -69,9 +72,9 @@
             </div>
 
             <div class="col-md-12 mt-3">
-                <label class="form-label" style="font-weight:600">Variações do Nome do Periódico / Tesauro (uma por linha)</label>
+                <label class="form-label" style="font-weight:600">Variações do Nome do Periódico (uma por linha) {{ help('admin.journals.form.variations') }}</label>
                 <textarea name="variations" class="form-control font-monospace" rows="6" placeholder="Insira outras formas de escrita ou variações abreviadas deste periódico, uma por linha...">{{ variationsText }}</textarea>
-                <small class="text-muted-bm" style="font-size:11px">Variações adicionais registradas para unificação deste periódico na normatização bibliométrica.</small>
+                <small class="text-muted-bm" style="font-size:11px">Apagar uma linha remove a variação ao salvar.</small>
             </div>
         </div>
 

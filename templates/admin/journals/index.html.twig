@@ -19,18 +19,21 @@
             <li><a class="dropdown-item" href="{{ path('app_admin_journals_export_thesaurus', {format: 'csv'}) }}"><i class="bi bi-filetype-csv me-2"></i>CSV (.csv)</a></li>
         </ul>
     </div>
+    <span class="d-inline-flex align-items-center">{{ help('admin.journals.export_thesaurus') }}</span>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
         <i class="bi bi-upload me-1"></i> Importar Tesauro
     </button>
     <a href="{{ path('app_admin_journals_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-download me-1"></i> Exportar CSV
     </a>
+    <span class="d-inline-flex align-items-center">{{ help('admin.journals.export_csv') }}</span>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
     <button type="submit" form="mergeForm" id="btn-merge-journals" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 revistas na tabela para mesclar">
         <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
     </button>
+    <span class="d-inline-flex align-items-center">{{ help('admin.journals.merge_selected') }}</span>
     <a href="{{ path('app_admin_journals_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Nova Revista
     </a>
@@ -40,7 +43,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-journal-bookmark text-accent me-2"></i>Gerenciamento de Revistas / Periódicos
+        <i class="bi bi-journal-bookmark text-accent me-2"></i>Gerenciamento de Revistas / Periódicos {{ help('admin.journals.page') }}
     </h1>
     <p class="bm-page-subtitle">Gerencie o cadastro de veículos científicos e suas respectivas classificações Qualis CAPES.</p>
 </div>
@@ -49,9 +52,11 @@
 <div class="bm-card mb-4">
     <form method="GET" action="{{ path('app_admin_journals_index') }}" class="row g-2">
         <div class="col-md-7">
-            <input type="text" name="search" class="form-control" placeholder="Buscar por título da revista ou ISSN..." value="{{ search }}">
+            <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.journals.search') }}</label>
+            <input type="text" name="search" class="form-control" placeholder="Título, variação ou ISSN..." value="{{ search }}">
         </div>
         <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:12px">Estrato Qualis {{ help('admin.journals.qualis_filter') }}</label>
             <select name="qualis" class="form-select">
                 <option value="all" {% if qualis == 'all' %}selected{% endif %}>Todos os estratos Qualis</option>
                 <option value="A1" {% if qualis == 'A1' %}selected{% endif %}>A1</option>
@@ -65,7 +70,7 @@
                 <option value="C" {% if qualis == 'C' %}selected{% endif %}>C</option>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
         </div>
     </form>
@@ -106,10 +111,11 @@
                                     <i class="bi bi-arrow-down-up ms-1 text-muted" style="opacity: 0.3; font-size: 10px;"></i>
                                 {% endif %}
                             </a>
+                            {{ help('admin.journals.form.issn') }}
                         </th>
-                        <th>Bases</th>
+                        <th>Bases {{ help('admin.journals.form.databases') }}</th>
                         <th style="text-align:center">
-                            <a href="{{ path('app_admin_journals_index', {search: search, qualis: qualis, sort: 'qualis', direction: currentSort == 'qualis' and currentDirection == 'ASC' ? 'DESC' : 'ASC'}) }}" style="color:inherit; text-decoration:none" class="d-inline-flex align-items-center justify-content-center w-100">
+                            <a href="{{ path('app_admin_journals_index', {search: search, qualis: qualis, sort: 'qualis', direction: currentSort == 'qualis' and currentDirection == 'ASC' ? 'DESC' : 'ASC'}) }}" style="color:inherit; text-decoration:none" class="d-inline-flex align-items-center justify-content-center">
                                 Qualis
                                 {% if currentSort == 'qualis' %}
                                     <i class="bi bi-sort-alpha-{{ currentDirection|lower == 'asc' ? 'down' : 'up' }} ms-1 text-accent"></i>
@@ -117,6 +123,7 @@
                                     <i class="bi bi-arrow-down-up ms-1 text-muted" style="opacity: 0.3; font-size: 10px;"></i>
                                 {% endif %}
                             </a>
+                            {{ help('admin.journals.col_qualis') }}
                         </th>
                         <th style="width:140px;text-align:right">Ações</th>
                     </tr>
@@ -271,16 +278,16 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('import_journals') }}">
                 <div class="modal-header border-bottom border-bm">
                     <h5 class="modal-title" id="importModalLabel" style="font-weight:700">
-                        <i class="bi bi-upload text-accent me-2"></i>Importar Revistas via CSV
+                        <i class="bi bi-upload text-accent me-2"></i>Importar Revistas via CSV {{ help('admin.journals.import_csv') }}
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" style="font-size:13.5px">
-                    <p class="text-muted-bm mb-3">Envie um arquivo CSV contendo os periódicos. As colunas esperadas são:</p>
+                    <p class="text-muted-bm mb-3">Envie um CSV separado por <b>vírgula</b> com as colunas abaixo (títulos com vírgula devem ficar entre aspas):</p>
                     <div class="bg-black bg-opacity-25 p-3 rounded-3 font-monospace mb-3" style="font-size:12px;border:1px solid var(--bm-border)">
-                        issn;title;qualis<br>
-                        2053-1583;2D Materials;A2<br>
-                        1530-6984;Nano Letters;A1
+                        issn,title,qualis<br>
+                        2053-1583,2D Materials,A2<br>
+                        1530-6984,Nano Letters,A1
                     </div>
                     <p class="text-muted-bm mb-3">Registros com o mesmo ISSN que já existirem terão seus dados atualizados.</p>
                     <div class="mb-3">
@@ -307,7 +314,7 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('import_journals_thesaurus') }}">
                 <div class="modal-header border-bottom border-bm">
                     <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">
-                        <i class="bi bi-upload text-accent me-2"></i>Importar Tesauro de Revistas
+                        <i class="bi bi-upload text-accent me-2"></i>Importar Tesauro de Revistas {{ help('admin.journals.import_thesaurus') }}
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

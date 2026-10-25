@@ -14,7 +14,7 @@
         <div>
             <h1 class="bm-page-title">
                 <i class="bi bi-mortarboard me-2 text-accent"></i>
-                Gerenciar Lentes Teóricas
+                Gerenciar Lentes Teóricas {{ help('admin.lenses.page') }}
             </h1>
             <p class="bm-page-subtitle">Adicione, edite ou remova autores e seus formatos de citação para a mineração do corpus.</p>
         </div>
@@ -28,8 +28,9 @@
 
 {# Filters Card #}
 <div class="bm-card mb-4" style="padding: 16px;">
-    <form method="GET" action="{{ path('app_admin_theoretical_lenses_index') }}" class="row g-2 align-items-center">
+    <form method="GET" action="{{ path('app_admin_theoretical_lenses_index') }}" class="row g-2 align-items-end">
         <div class="col-md-5">
+            <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.lenses.search') }}</label>
             <div class="input-group input-group-sm">
                 <span class="input-group-text border-bm" style="background:rgba(255,255,255,0.02);color:var(--bm-text-muted)">
                     <i class="bi bi-search"></i>
@@ -38,6 +39,7 @@
             </div>
         </div>
         <div class="col-md-4">
+            <label class="form-label mb-1" style="font-size:12px">Área de pesquisa {{ help('admin.lenses.form.field') }}</label>
             <select name="field" class="form-select form-select-sm">
                 <option value="">Todas as Áreas de Pesquisa</option>
                 {% for field in fields %}
@@ -77,9 +79,9 @@
                     <tr style="color:var(--bm-text-muted); border-color:var(--bm-border)">
                         <th style="width: 60px;">ID</th>
                         <th>Autor / Pensador</th>
-                        <th>Área / Categoria</th>
-                        <th>Palavras-Chave de Busca</th>
-                        <th>Formatos de Citação</th>
+                        <th>Área / Categoria {{ help('admin.lenses.form.category') }}</th>
+                        <th>Palavras-Chave de Busca {{ help('admin.lenses.form.terms') }}</th>
+                        <th>Formatos de Citação {{ help('admin.lenses.form.citations') }}</th>
                         <th class="text-end" style="width: 140px;">Ações</th>
                     </tr>
                 </thead>

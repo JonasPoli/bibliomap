@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-plus-circle text-accent me-2"></i>Cadastrar Nova Instituição
+        <i class="bi bi-plus-circle text-accent me-2"></i>Cadastrar Nova Instituição {{ help('admin.institutions.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Preencha as informações cadastrais e dados e-MEC para a nova instituição de ensino.</p>
 </div>
@@ -25,50 +25,55 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('new_institution') }}">
 
                 <!-- Section 1: Informações Básicas -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-info-circle me-1"></i> Informações Principais</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-info-circle me-1"></i> Informações Principais {{ help('admin.institutions.section_main') }}</h5>
                 <div class="row g-3 mb-4">
-                    <div class="col-12">
-                        <label class="form-label">Nome Oficial Completo *</label>
+                    <div class="col-md-8">
+                        <label class="form-label">Nome Oficial Completo * {{ help('admin.institutions.form.official_name') }}</label>
                         <input type="text" name="officialName" class="form-control" placeholder="Ex: Universidade de Brasília" required>
                     </div>
 
+                    <div class="col-md-4">
+                        <label class="form-label">Nome Curto {{ help('admin.institutions.form.short_name') }}</label>
+                        <input type="text" name="shortName" class="form-control" placeholder="Ex: Univ. de Brasília">
+                    </div>
+
                     <div class="col-md-6">
-                        <label class="form-label">Razão Social (Mantenedora)</label>
+                        <label class="form-label">Razão Social (Mantenedora) {{ help('admin.institutions.form.razao_social') }}</label>
                         <input type="text" name="razaoSocial" class="form-control" placeholder="Ex: FUNDACAO UNIVERSIDADE DE BRASILIA">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Sigla Oficial</label>
+                        <label class="form-label">Sigla Oficial {{ help('admin.institutions.form.sigla') }}</label>
                         <input type="text" name="sigla" class="form-control" placeholder="Ex: UNB">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">CNPJ</label>
+                        <label class="form-label">CNPJ {{ help('admin.institutions.form.cnpj') }}</label>
                         <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Código IES (e-MEC)</label>
+                        <label class="form-label">Código IES (e-MEC) {{ help('admin.institutions.form.codigo_ies') }}</label>
                         <input type="number" name="codigoIes" class="form-control" placeholder="Ex: 2">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Código Mantenedora</label>
+                        <label class="form-label">Código Mantenedora {{ help('admin.institutions.form.codigo_mantenedora') }}</label>
                         <input type="number" name="codigoMantenedora" class="form-control" placeholder="Ex: 2">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Situação e-MEC</label>
+                        <label class="form-label">Situação e-MEC {{ help('admin.institutions.form.situacao') }}</label>
                         <input type="text" name="situacaoIes" class="form-control" value="Ativa" placeholder="Ex: Ativa">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Ano de Fundação <span class="text-muted">(opcional)</span></label>
+                        <label class="form-label">Ano de Fundação <span class="text-muted">(opcional)</span> {{ help('admin.institutions.form.years') }}</label>
                         <input type="number" name="foundationYear" class="form-control" placeholder="Ex: 1953">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Ano de Extinção / Fim <span class="text-muted">(opcional)</span></label>
+                        <label class="form-label">Ano de Extinção / Fim <span class="text-muted">(opcional)</span> {{ help('admin.institutions.form.years') }}</label>
                         <input type="number" name="extinctionYear" class="form-control" placeholder="Ex: 1991">
                     </div>
                 </div>
@@ -76,25 +81,25 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 2: Classificação e Organização Académica -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-diagram-3 me-1"></i> Classificação Acadêmica & Jurídica</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-diagram-3 me-1"></i> Classificação Acadêmica & Jurídica {{ help('admin.institutions.section_classification') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Organização Acadêmica</label>
+                        <label class="form-label">Organização Acadêmica {{ help('admin.institutions.form.organizacao') }}</label>
                         <input type="text" name="organizacaoAcademica" class="form-control" placeholder="Ex: Universidade">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Categoria Administrativa</label>
+                        <label class="form-label">Categoria Administrativa {{ help('admin.institutions.form.categoria_adm') }}</label>
                         <input type="text" name="categoriaAdministrativa" class="form-control" placeholder="Ex: Pública Federal">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Tipo de Credenciamento</label>
+                        <label class="form-label">Tipo de Credenciamento {{ help('admin.institutions.form.credenciamento') }}</label>
                         <input type="text" name="tipoCredenciamento" class="form-control" placeholder="Ex: EAD - Superior / Presencial">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Natureza Jurídica</label>
+                        <label class="form-label">Natureza Jurídica {{ help('admin.institutions.form.natureza') }}</label>
                         <input type="text" name="natureza" class="form-control" placeholder="Ex: Pessoa Jurídica de Direito Público - Federal">
                     </div>
                 </div>
@@ -102,10 +107,10 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 3: Endereço e Localização -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-geo-alt me-1"></i> Localização & Endereço</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-geo-alt me-1"></i> Localização & Endereço {{ help('admin.institutions.section_location') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <label class="form-label">País</label>
+                        <label class="form-label">País {{ help('admin.institutions.form.country') }}</label>
                         <select name="countryId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for c in countries %}
@@ -115,7 +120,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Estado</label>
+                        <label class="form-label">Estado {{ help('admin.institutions.form.state') }}</label>
                         <select name="stateId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for s in states %}
@@ -125,7 +130,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Cidade</label>
+                        <label class="form-label">Cidade {{ help('admin.institutions.form.city') }}</label>
                         <select name="cityId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for ct in cities %}
@@ -143,7 +148,7 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 4: Contatos e Observações -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-telephone me-1"></i> Contatos e Gestão</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-telephone me-1"></i> Contatos e Gestão {{ help('admin.institutions.section_contact') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label class="form-label">Site Oficial</label>
@@ -162,8 +167,9 @@
 
                     <div class="col-12">
                         <div class="form-check form-switch">
+                            <input type="hidden" name="status" value="0">
                             <input class="form-check-input" type="checkbox" name="status" id="status" value="1" checked>
-                            <label class="form-check-label" for="status">Instituição Ativa</label>
+                            <label class="form-check-label" for="status">Instituição Ativa</label> {{ help('admin.institutions.form.status') }}
                         </div>
                     </div>
 
@@ -175,10 +181,8 @@
 
                 <!-- Variations Textarea -->
                 <div class="mb-4">
-                    <h5 class="mb-2 fw-bold">Variações de Escrita</h5>
-                    <p style="font-size:12px;color:var(--bm-text-muted)">
-                        Adicione variações de escrita da instituição (uma por linha).
-                    </p>
+                    <h5 class="mb-2 fw-bold">Variações de Escrita {{ help('admin.institutions.form.variations') }}</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">Uma grafia por linha.</p>
                     <textarea name="variationsText" class="form-control font-monospace" rows="4" placeholder="Ex: Univ. de Brasília&#10;Universidade de Brasilia"></textarea>
                 </div>
 

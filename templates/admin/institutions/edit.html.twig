@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-pencil text-accent me-2"></i>Editar: {{ institution.officialName }}
+        <i class="bi bi-pencil text-accent me-2"></i>Editar: {{ institution.officialName }} {{ help('admin.institutions.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Modifique os dados e-MEC, informações cadastrais e variações desta instituição.</p>
 </div>
@@ -23,52 +23,63 @@
         <div class="bm-card">
             <form method="POST" action="{{ path('app_admin_institutions_edit', {id: institution.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('edit_institution_' ~ institution.id) }}">
+                {# Campos e-MEC sem campo visível nesta tela: reenviados para não serem apagados ao salvar #}
+                <input type="hidden" name="institutionType" value="{{ institution.institutionType }}">
+                <input type="hidden" name="ciEad" value="{{ institution.ciEad }}">
+                <input type="hidden" name="anoCiEad" value="{{ institution.anoCiEad }}">
+                <input type="hidden" name="dataCriacao" value="{{ institution.dataCriacao ? institution.dataCriacao|date('Y-m-d') : '' }}">
+                <input type="hidden" name="sinalizacoesVigentes" value="{{ institution.sinalizacoesVigentes }}">
 
                 <!-- Section 1: Informações Básicas -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-info-circle me-1"></i> Informações Principais</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-info-circle me-1"></i> Informações Principais {{ help('admin.institutions.section_main') }}</h5>
                 <div class="row g-3 mb-4">
-                    <div class="col-12">
-                        <label class="form-label">Nome Oficial Completo *</label>
+                    <div class="col-md-8">
+                        <label class="form-label">Nome Oficial Completo * {{ help('admin.institutions.form.official_name') }}</label>
                         <input type="text" name="officialName" class="form-control" value="{{ institution.officialName }}" required>
                     </div>
 
+                    <div class="col-md-4">
+                        <label class="form-label">Nome Curto {{ help('admin.institutions.form.short_name') }}</label>
+                        <input type="text" name="shortName" class="form-control" placeholder="Ex: Univ. de Brasília" value="{{ institution.shortName }}">
+                    </div>
+
                     <div class="col-md-6">
-                        <label class="form-label">Razão Social (Mantenedora)</label>
+                        <label class="form-label">Razão Social (Mantenedora) {{ help('admin.institutions.form.razao_social') }}</label>
                         <input type="text" name="razaoSocial" class="form-control" placeholder="Ex: FUNDACAO UNIVERSIDADE DE BRASILIA" value="{{ institution.razaoSocial }}">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Sigla Oficial</label>
+                        <label class="form-label">Sigla Oficial {{ help('admin.institutions.form.sigla') }}</label>
                         <input type="text" name="sigla" class="form-control" placeholder="Ex: UNB" value="{{ institution.sigla }}">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">CNPJ</label>
+                        <label class="form-label">CNPJ {{ help('admin.institutions.form.cnpj') }}</label>
                         <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00" value="{{ institution.cnpj }}">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Código IES (e-MEC)</label>
+                        <label class="form-label">Código IES (e-MEC) {{ help('admin.institutions.form.codigo_ies') }}</label>
                         <input type="number" name="codigoIes" class="form-control" placeholder="Ex: 2" value="{{ institution.codigoIes }}">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Código Mantenedora</label>
+                        <label class="form-label">Código Mantenedora {{ help('admin.institutions.form.codigo_mantenedora') }}</label>
                         <input type="number" name="codigoMantenedora" class="form-control" placeholder="Ex: 2" value="{{ institution.codigoMantenedora }}">
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Situação e-MEC</label>
+                        <label class="form-label">Situação e-MEC {{ help('admin.institutions.form.situacao') }}</label>
                         <input type="text" name="situacaoIes" class="form-control" placeholder="Ex: Ativa" value="{{ institution.situacaoIes }}">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Ano de Fundação <span class="text-muted">(opcional)</span></label>
+                        <label class="form-label">Ano de Fundação <span class="text-muted">(opcional)</span> {{ help('admin.institutions.form.years') }}</label>
                         <input type="number" name="foundationYear" class="form-control" placeholder="Ex: 1953" value="{{ institution.foundationYear }}">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">Ano de Extinção / Fim <span class="text-muted">(opcional)</span></label>
+                        <label class="form-label">Ano de Extinção / Fim <span class="text-muted">(opcional)</span> {{ help('admin.institutions.form.years') }}</label>
                         <input type="number" name="extinctionYear" class="form-control" placeholder="Ex: 1991" value="{{ institution.extinctionYear }}">
                     </div>
                 </div>
@@ -76,25 +87,25 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 2: Classificação e Organização Acadêmica -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-diagram-3 me-1"></i> Classificação Acadêmica & Jurídica</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-diagram-3 me-1"></i> Classificação Acadêmica & Jurídica {{ help('admin.institutions.section_classification') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Organização Acadêmica</label>
+                        <label class="form-label">Organização Acadêmica {{ help('admin.institutions.form.organizacao') }}</label>
                         <input type="text" name="organizacaoAcademica" class="form-control" placeholder="Ex: Universidade" value="{{ institution.organizacaoAcademica }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Categoria Administrativa</label>
+                        <label class="form-label">Categoria Administrativa {{ help('admin.institutions.form.categoria_adm') }}</label>
                         <input type="text" name="categoriaAdministrativa" class="form-control" placeholder="Ex: Pública Federal" value="{{ institution.categoriaAdministrativa }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Tipo de Credenciamento</label>
+                        <label class="form-label">Tipo de Credenciamento {{ help('admin.institutions.form.credenciamento') }}</label>
                         <input type="text" name="tipoCredenciamento" class="form-control" placeholder="Ex: EAD - Superior / Presencial" value="{{ institution.tipoCredenciamento }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Natureza Jurídica</label>
+                        <label class="form-label">Natureza Jurídica {{ help('admin.institutions.form.natureza') }}</label>
                         <input type="text" name="natureza" class="form-control" placeholder="Ex: Pessoa Jurídica de Direito Público - Federal" value="{{ institution.natureza }}">
                     </div>
                 </div>
@@ -102,10 +113,10 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 3: Indicadores MEC / IGC -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-award me-1"></i> Indicadores de Qualidade MEC</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-award me-1"></i> Indicadores de Qualidade MEC {{ help('admin.institutions.section_indicators') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-3">
-                        <label class="form-label">IGC (Índice Geral)</label>
+                        <label class="form-label">IGC (Índice Geral) {{ help('admin.institutions.form.igc') }}</label>
                         <input type="text" name="igc" class="form-control" placeholder="Ex: 5" value="{{ institution.igc }}">
                     </div>
                     <div class="col-md-3">
@@ -113,7 +124,7 @@
                         <input type="number" name="anoIgc" class="form-control" placeholder="2023" value="{{ institution.anoIgc }}">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">CI (Conceito Inst.)</label>
+                        <label class="form-label">CI (Conceito Inst.) {{ help('admin.institutions.form.ci') }}</label>
                         <input type="text" name="ci" class="form-control" placeholder="Ex: 5" value="{{ institution.ci }}">
                     </div>
                     <div class="col-md-3">
@@ -125,10 +136,10 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 4: Endereço e Coordenadas -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-geo-alt me-1"></i> Localização & Endereço</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-geo-alt me-1"></i> Localização & Endereço {{ help('admin.institutions.section_location') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <label class="form-label">País</label>
+                        <label class="form-label">País {{ help('admin.institutions.form.country') }}</label>
                         <select name="countryId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for c in countries %}
@@ -138,7 +149,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Estado</label>
+                        <label class="form-label">Estado {{ help('admin.institutions.form.state') }}</label>
                         <select name="stateId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for s in states %}
@@ -148,7 +159,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">Cidade</label>
+                        <label class="form-label">Cidade {{ help('admin.institutions.form.city') }}</label>
                         <select name="cityId" class="form-select">
                             <option value="">Selecione...</option>
                             {% for ct in cities %}
@@ -163,12 +174,12 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Latitude</label>
+                        <label class="form-label">Latitude {{ help('admin.institutions.form.coordinates') }}</label>
                         <input type="text" name="latitude" class="form-control" placeholder="-15.7655" value="{{ institution.latitude }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Longitude</label>
+                        <label class="form-label">Longitude {{ help('admin.institutions.form.coordinates') }}</label>
                         <input type="text" name="longitude" class="form-control" placeholder="-47.8721" value="{{ institution.longitude }}">
                     </div>
                 </div>
@@ -176,7 +187,7 @@
                 <hr class="my-4 border-bm">
 
                 <!-- Section 5: Contato e Gestão -->
-                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-telephone me-1"></i> Contatos e Gestão</h5>
+                <h5 class="fw-bold mb-3 text-accent"><i class="bi bi-telephone me-1"></i> Contatos e Gestão {{ help('admin.institutions.section_contact') }}</h5>
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label class="form-label">Site Oficial</label>
@@ -204,14 +215,15 @@
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label">String Vantagepoint</label>
+                        <label class="form-label">String VantagePoint {{ help('admin.institutions.form.vantagepoint') }}</label>
                         <input type="text" name="vantagepoint" class="form-control font-monospace" placeholder="**UNB0 1 UNIVERSIDADE DE BRASILIA" value="{{ institution.vantagepoint }}">
                     </div>
 
                     <div class="col-12">
                         <div class="form-check form-switch">
+                            <input type="hidden" name="status" value="0">
                             <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if institution.isStatus() %}checked{% endif %}>
-                            <label class="form-check-label" for="status">Instituição Ativa</label>
+                            <label class="form-check-label" for="status">Instituição Ativa</label> {{ help('admin.institutions.form.status') }}
                         </div>
                     </div>
 
@@ -223,10 +235,8 @@
 
                 <!-- Variations Textarea -->
                 <div class="mb-4">
-                    <h5 class="mb-2 fw-bold">Edição em Massa das Variações</h5>
-                    <p style="font-size:12px;color:var(--bm-text-muted)">
-                        Adicione variações de escrita da instituição (uma por linha). O sistema usará esta lista para vincular os artigos automaticamente.
-                    </p>
+                    <h5 class="mb-2 fw-bold">Variações de Escrita {{ help('admin.institutions.form.variations') }}</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">Uma grafia por linha. Apagar uma linha remove a variação ao salvar.</p>
                     <textarea name="variationsText" class="form-control font-monospace" rows="5" placeholder="UNB&#10;Univ. de Brasília&#10;Universidade de Brasilia">{{ variationsText }}</textarea>
                 </div>
 
@@ -241,10 +251,7 @@
     <!-- Right Column: Variation list & Merge Card -->
     <div class="col-lg-4">
         <div class="bm-card mb-4">
-            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
-            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
-                Variações registradas para esta instituição. Você pode desmembrar qualquer uma para torná-la uma instituição independente.
-            </p>
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas {{ help('admin.institutions.edit.variations_list') }}</h5>
             {% set hasAlternatives = false %}
             <div class="list-group list-group-flush border-bm rounded">
                 {% for v in institution.variations %}
@@ -268,9 +275,9 @@
         </div>
 
         <div class="bm-card">
-            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Instituição</h5>
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Instituição {{ help('admin.institutions.edit.merge') }}</h5>
             <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
-                Transfira todos os artigos vinculados e variações para a instituição selecionada abaixo, excluindo este registro permanentemente.
+                Move documentos, nomes e variações desta instituição para o destino e exclui este registro. Não pode ser desfeito.
             </p>
             <form action="{{ path('app_admin_institutions_merge', {id: institution.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir esta instituição? A ação não poderá ser desfeita.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('merge_institution_' ~ institution.id) }}">

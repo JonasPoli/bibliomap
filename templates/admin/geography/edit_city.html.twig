@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-pencil text-accent me-2"></i>Editar Cidade: {{ city.officialName }}
+        <i class="bi bi-pencil text-accent me-2"></i>Editar Cidade: {{ city.officialName }} {{ help('admin.geography.city.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Modifique as informações gerais e variações para esta cidade.</p>
 </div>
@@ -27,17 +27,17 @@
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label">Nome da Cidade *</label>
+                        <label class="form-label">Nome da Cidade * {{ help('admin.geography.city.name') }}</label>
                         <input type="text" name="officialName" class="form-control" placeholder="Ex: São Carlos" value="{{ city.officialName }}" required>
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Código IBGE / Oficial</label>
+                        <label class="form-label">Código IBGE / Oficial {{ help('admin.geography.city.code') }}</label>
                         <input type="text" name="officialCode" class="form-control" placeholder="Ex: 3548906" value="{{ city.officialCode }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">País *</label>
+                        <label class="form-label">País * {{ help('admin.geography.city.country') }}</label>
                         <select name="countryId" class="form-select" required>
                             <option value="">Selecione...</option>
                             {% for c in countries %}
@@ -47,7 +47,7 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Estado *</label>
+                        <label class="form-label">Estado * {{ help('admin.geography.city.state') }}</label>
                         <select name="stateId" class="form-select" required>
                             <option value="">Selecione...</option>
                             {% for s in states %}
@@ -58,18 +58,17 @@
 
                     <div class="col-12">
                         <div class="form-check form-switch mt-2">
+                            <input type="hidden" name="status" value="0">
                             <input class="form-check-input" type="checkbox" name="status" id="status" value="1" {% if city.isStatus() %}checked{% endif %}>
-                            <label class="form-check-label" for="status">Cidade Ativa</label>
+                            <label class="form-check-label" for="status">Cidade Ativa</label> {{ help('admin.geography.status') }}
                         </div>
                     </div>
                 </div>
 
                 <!-- Variations Input -->
                 <div class="mb-4">
-                    <h5 class="mb-2" style="font-weight:700">Edição em Massa das Variações</h5>
-                    <p style="font-size:12px;color:var(--bm-text-muted)">
-                        Adicione variações de escrita da cidade (uma por linha).
-                    </p>
+                    <h5 class="mb-2" style="font-weight:700">Variações de Escrita {{ help('admin.geography.city.variations') }}</h5>
+                    <p style="font-size:12px;color:var(--bm-text-muted)">Uma grafia por linha. Apagar uma linha remove a variação ao salvar.</p>
                     <textarea name="variationsText" class="form-control font-monospace" rows="6" placeholder="São Carlos&#10;Sao Carlos&#10;S. Carlos">{{ variationsText }}</textarea>
                 </div>
 
@@ -85,10 +84,7 @@
     <div class="col-lg-4">
         <!-- Variations List -->
         <div class="bm-card mb-4">
-            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas</h5>
-            <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
-                Variações registradas para esta cidade. Você pode desmembrar qualquer uma para torná-la uma cidade independente.
-            </p>
+            <h5 style="font-weight:700" class="mb-3">Variações Cadastradas {{ help('admin.geography.city.variations_list') }}</h5>
             {% set hasAlternatives = false %}
             <div class="list-group list-group-flush border-bm rounded">
                 {% for v in city.variations %}
@@ -113,9 +109,9 @@
 
         <!-- Merge Card -->
         <div class="bm-card">
-            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Cidade</h5>
+            <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Cidade {{ help('admin.geography.city.merge') }}</h5>
             <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
-                Transfira todos os artigos vinculados e variações para a cidade selecionada abaixo, excluindo este registro permanentemente.
+                Move os documentos e as variações desta cidade para o destino e a exclui. Não pode ser desfeito.
             </p>
             <form action="{{ path('app_admin_geography_city_merge', {id: city.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir esta cidade? A ação não poderá ser desfeita.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('merge_city_' ~ city.id) }}">

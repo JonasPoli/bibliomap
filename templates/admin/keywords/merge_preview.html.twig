@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Palavras-Chave
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Palavras-Chave {{ help('admin.keywords.merge.page') }}
     </h1>
     <p class="bm-page-subtitle">Compare registros de palavras-chave lado a lado, selecione o registro Principal (Master) e defina qual termo preferido e tipo devem ser mantidos.</p>
 </div>
@@ -28,7 +28,7 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
-                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master) {{ help('admin.keywords.merge.master') }}
                 </h5>
                 <p class="text-muted-bm mb-0" style="font-size:13px">A palavra-chave selecionada como Master será preservada. Os demais registros serão mesclados e convertidos em variações do Tesauro.</p>
             </div>
@@ -60,7 +60,7 @@
     <!-- Comparison Table -->
     <div class="bm-card mb-4">
         <h5 class="mb-3" style="font-weight:700">
-            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos {{ help('admin.keywords.merge.fields') }}
         </h5>
         
         <div class="table-responsive">
@@ -79,7 +79,7 @@
                 <tbody>
                     {# Original Keyword #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Termo Original (Chave)</td>
+                        <td class="fw-bold bg-bm-card">Termo Original (Chave) {{ help('admin.keywords.merge.term') }}</td>
                         {% for kw in keywords %}
                             <td>
                                 <div class="form-check">
@@ -105,7 +105,7 @@
 
                     {# Keyword Type #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Tipo da Palavra-chave</td>
+                        <td class="fw-bold bg-bm-card">Tipo da Palavra-chave {{ help('admin.keywords.form.type') }}</td>
                         {% for kw in keywords %}
                             <td>
                                 <div class="form-check">
@@ -123,10 +123,10 @@
     <!-- Variations Consolidation Preview -->
     <div class="bm-card mb-4 border-info">
         <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
-            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações e Sinônimos (Tesauro)
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações e Sinônimos (Tesauro) {{ help('admin.keywords.merge.variations') }}
         </h5>
         <p class="text-muted-bm mb-3" style="font-size:13px">
-            Todas os termos e variações das palavras-chave selecionadas serão unificados e mantidos no registro Master.
+            Todos os termos e variações abaixo passarão a pertencer ao registro Master.
         </p>
 
         <div class="d-flex flex-wrap gap-2 p-3 bg-bm-card border-bm rounded-3" style="max-height:160px;overflow-y:auto">
@@ -146,6 +146,24 @@
         <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? A palavra-chave Master será atualizada e as outras serão removidas.');">
             <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Palavras-Chave
         </button>
+        <span class="d-inline-flex align-items-center">{{ help('admin.keywords.merge.confirm') }}</span>
     </div>
 </form>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Ao trocar o registro Master, pré-seleciona os valores da coluna dele (ainda é possível ajustar linha a linha).
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="master_id"]').forEach(master => {
+                master.addEventListener('change', () => {
+                    if (!master.checked) return;
+                    document.querySelectorAll('input[type="radio"][name^="fields["]').forEach(field => {
+                        if (field.id.slice(field.id.lastIndexOf('_') + 1) === master.value) field.checked = true;
+                    });
+                });
+            });
+        });
+    </script>
 {% endblock %}

@@ -19,12 +19,14 @@
             <li><a class="dropdown-item" href="{{ path('app_admin_geography_export_thesaurus', {format: 'csv'}) }}"><i class="bi bi-filetype-csv me-2"></i>CSV (.csv)</a></li>
         </ul>
     </div>
+    <span class="d-inline-flex align-items-center">{{ help('admin.geography.export_thesaurus') }}</span>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
         <i class="bi bi-upload me-1"></i> Importar Tesauro
     </button>
     <button type="submit" form="mergeForm" id="btn-merge-geography" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 países na tabela para mesclar">
         <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
     </button>
+    <span class="d-inline-flex align-items-center">{{ help('admin.geography.merge_selected') }}</span>
     <a href="{{ path('app_admin_geography_country_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Novo País
     </a>
@@ -40,12 +42,16 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-globe text-accent me-2"></i>Estruturas Geográficas
+        <i class="bi bi-globe text-accent me-2"></i>Estruturas Geográficas {{ help('admin.geography.page') }}
     </h1>
+    <p class="bm-page-subtitle">Países, estados e cidades usados para reconhecer a localização dos documentos e montar os mapas.</p>
+</div>
+
 <!-- Search Filter Card -->
 <div class="bm-card mb-4">
-    <form method="GET" action="{{ path('app_admin_geography_index') }}" class="row g-2 align-items-center">
+    <form method="GET" action="{{ path('app_admin_geography_index') }}" class="row g-2 align-items-end">
         <div class="col-md-10">
+            <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.geography.search') }}</label>
             <div class="input-group">
                 <span class="input-group-text border-bm bg-bm-card text-muted-bm"><i class="bi bi-search"></i></span>
                 <input type="text" name="search" class="form-control border-bm bg-bm-card text-bm" placeholder="Buscar por país, estado, cidade, código ISO, sigla ou variações do Tesauro..." value="{{ search }}">
@@ -81,7 +87,7 @@
         <!-- Tab 1: Countries -->
         <div class="tab-pane fade show active" id="tab-countries" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <div style="font-size:13.5px;color:var(--bm-text-muted)">Países cadastrados e ativos para geolocalização.</div>
+                <div style="font-size:13.5px;color:var(--bm-text-muted)">Países cadastrados {{ help('admin.geography.countries_tab') }}</div>
                 <div class="d-flex gap-2">
                     <a href="{{ path('app_admin_geography_export', {type: 'countries'}) }}" class="btn btn-sm btn-bm-secondary">
                         <i class="bi bi-download me-1"></i> Exportar Países (CSV)
@@ -89,6 +95,7 @@
                     <button class="btn btn-sm btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#importCountriesModal">
                         <i class="bi bi-upload me-1"></i> Importar Países (CSV)
                     </button>
+                    <span class="d-inline-flex align-items-center">{{ help('admin.geography.countries_csv') }}</span>
                 </div>
             </div>
             <form id="mergeForm" action="{{ path('app_admin_geography_merge_preview') }}" method="POST">
@@ -101,12 +108,12 @@
                             </th>
                             <th>Nome Oficial</th>
                             <th>Nome Comum</th>
-                            <th>Sigla</th>
-                            <th>Código ISO</th>
+                            <th>Sigla {{ help('admin.geography.country.sigla') }}</th>
+                            <th>Código ISO {{ help('admin.geography.country.iso_code') }}</th>
                             <th>Continente</th>
-                            <th>Período Histórico</th>
-                            <th>Variações</th>
-                            <th>Status</th>
+                            <th>Período Histórico {{ help('admin.geography.country.period') }}</th>
+                            <th>Variações {{ help('admin.geography.col_variations') }}</th>
+                            <th>Status {{ help('admin.geography.status') }}</th>
                             <th style="width:100px;text-align:right">Ações</th>
                         </tr>
                     </thead>
@@ -157,6 +164,8 @@
                                     </a>
                                 </td>
                             </tr>
+                        {% else %}
+                            <tr><td colspan="10" class="text-center text-muted-bm py-4">Nenhum país encontrado.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -167,7 +176,7 @@
         <!-- Tab 2: States -->
         <div class="tab-pane fade" id="tab-states" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <div style="font-size:13.5px;color:var(--bm-text-muted)">Estados ou províncias cadastrados.</div>
+                <div style="font-size:13.5px;color:var(--bm-text-muted)">Estados ou províncias cadastrados {{ help('admin.geography.states_tab') }}</div>
                 <div class="d-flex gap-2">
                     <a href="{{ path('app_admin_geography_export', {type: 'states'}) }}" class="btn btn-sm btn-bm-secondary">
                         <i class="bi bi-download me-1"></i> Exportar Estados (CSV)
@@ -175,6 +184,7 @@
                     <button class="btn btn-sm btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#importStatesModal">
                         <i class="bi bi-upload me-1"></i> Importar Estados (CSV)
                     </button>
+                    <span class="d-inline-flex align-items-center">{{ help('admin.geography.states_csv') }}</span>
                 </div>
             </div>
             <div class="table-responsive">
@@ -184,10 +194,10 @@
                             <th>Nome</th>
                             <th>Sigla</th>
                             <th>País</th>
-                            <th>Região</th>
-                            <th>Código IBGE/Oficial</th>
-                            <th>Variações</th>
-                            <th>Status</th>
+                            <th>Região {{ help('admin.geography.state.region') }}</th>
+                            <th>Código IBGE/Oficial {{ help('admin.geography.state.code') }}</th>
+                            <th>Variações {{ help('admin.geography.col_variations') }}</th>
+                            <th>Status {{ help('admin.geography.status') }}</th>
                             <th style="width:100px;text-align:right">Ações</th>
                         </tr>
                     </thead>
@@ -228,6 +238,8 @@
                                     </a>
                                 </td>
                             </tr>
+                        {% else %}
+                            <tr><td colspan="8" class="text-center text-muted-bm py-4">Nenhum estado encontrado.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -237,7 +249,7 @@
         <!-- Tab 3: Cities -->
         <div class="tab-pane fade" id="tab-cities" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <div style="font-size:13.5px;color:var(--bm-text-muted)">Cidades cadastradas e associadas a estados e países.</div>
+                <div style="font-size:13.5px;color:var(--bm-text-muted)">Cidades cadastradas {{ help('admin.geography.cities_tab') }}</div>
                 <div class="d-flex gap-2">
                     <a href="{{ path('app_admin_geography_export', {type: 'cities'}) }}" class="btn btn-sm btn-bm-secondary">
                         <i class="bi bi-download me-1"></i> Exportar Cidades (CSV)
@@ -245,6 +257,7 @@
                     <button class="btn btn-sm btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#importCitiesModal">
                         <i class="bi bi-upload me-1"></i> Importar Cidades (CSV)
                     </button>
+                    <span class="d-inline-flex align-items-center">{{ help('admin.geography.cities_csv') }}</span>
                 </div>
             </div>
             <div class="table-responsive">
@@ -254,9 +267,9 @@
                             <th>Nome da Cidade</th>
                             <th>Estado</th>
                             <th>País</th>
-                            <th>Código IBGE/Oficial</th>
-                            <th>Variações</th>
-                            <th>Status</th>
+                            <th>Código IBGE/Oficial {{ help('admin.geography.city.code') }}</th>
+                            <th>Variações {{ help('admin.geography.col_variations') }}</th>
+                            <th>Status {{ help('admin.geography.status') }}</th>
                             <th style="width:100px;text-align:right">Ações</th>
                         </tr>
                     </thead>
@@ -296,6 +309,8 @@
                                     </a>
                                 </td>
                             </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="text-center text-muted-bm py-4">Nenhuma cidade encontrada.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -311,14 +326,14 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" style="font-weight:700">Importar Países via CSV</h5>
+                <h5 class="modal-title" style="font-weight:700">Importar Países via CSV {{ help('admin.geography.countries_csv') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ path('app_admin_geography_import', {type: 'countries'}) }}" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_countries') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione o arquivo CSV contendo os países. Registros existentes com o mesmo nome serão atualizados para evitar duplicados.
+                        Mesmo layout do <b>Exportar Países</b> (separado por vírgula): <code>official_name</code>, <code>common_name</code>, <code>sigla</code>, <code>iso_code</code>, <code>continente</code>, <code>nationality</code>, <code>status</code>, <code>variations</code>. Países com o mesmo nome são atualizados.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -339,15 +354,15 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" style="font-weight:700">Importar Estados via CSV</h5>
+                <h5 class="modal-title" style="font-weight:700">Importar Estados via CSV {{ help('admin.geography.states_csv') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ path('app_admin_geography_import', {type: 'states'}) }}" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_states') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione o arquivo CSV com estados/províncias. Eles devem conter a coluna de correspondência com o país.
-                      </p>
+                        Mesmo layout do <b>Exportar Estados</b> (separado por vírgula): <code>official_name</code>, <code>sigla</code>, <code>country_name</code>, <code>region_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
+                    </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
                         <input type="file" name="csv_file" class="form-control" accept=".csv" required>
@@ -367,14 +382,14 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" style="font-weight:700">Importar Cidades via CSV</h5>
+                <h5 class="modal-title" style="font-weight:700">Importar Cidades via CSV {{ help('admin.geography.cities_csv') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ path('app_admin_geography_import', {type: 'cities'}) }}" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_cities') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione o arquivo CSV com cidades. O sistema as vinculará aos países e estados correspondentes conforme as colunas especificadas.
+                        Mesmo layout do <b>Exportar Cidades</b> (separado por vírgula): <code>official_name</code>, <code>state_sigla</code>, <code>country_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -395,7 +410,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">Importar Tesauro Geográfico</h5>
+                <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">Importar Tesauro de Países {{ help('admin.geography.import_thesaurus') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ path('app_admin_geography_import_thesaurus') }}" method="POST" enctype="multipart/form-data">

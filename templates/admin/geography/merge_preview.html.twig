@@ -13,9 +13,9 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Países
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Países {{ help('admin.geography.merge.page') }}
     </h1>
-    <p class="bm-page-subtitle">Compare registros geográficos de países lado a lado, selecione o registro Principal (Master) e defina quais códigos ISO e datas de fundação/extinção devem ser mantidos.</p>
+    <p class="bm-page-subtitle">Compare os países lado a lado, escolha o registro principal (Master) e os nomes e anos que devem prevalecer.</p>
 </div>
 
 <form action="{{ path('app_admin_geography_merge_execute') }}" method="POST">
@@ -28,7 +28,7 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
-                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master) {{ help('admin.geography.merge.master') }}
                 </h5>
                 <p class="text-muted-bm mb-0" style="font-size:13px">O país selecionado como Master será mantido no sistema. Os demais serão mesclados e suas variações históricas serão unificadas no Tesauro.</p>
             </div>
@@ -49,7 +49,7 @@
                         </div>
                         <div class="mt-2" style="font-size:13px;color:var(--bm-text)">
                             <div class="fw-bold">{{ c.commonName }}</div>
-                            <small class="text-muted-bm">ISO: {{ c.isoAlpha2 ?? '—' }} / {{ c.isoAlpha3 ?? '—' }}</small>
+                            <small class="text-muted-bm">Sigla: {{ c.sigla ?? '—' }} · ISO: {{ c.isoCode ?? '—' }} · {{ c.variations|length }} variações</small>
                         </div>
                     </div>
                 </div>
@@ -60,7 +60,7 @@
     <!-- Comparison Table -->
     <div class="bm-card mb-4">
         <h5 class="mb-3" style="font-weight:700">
-            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos {{ help('admin.geography.merge.fields') }}
         </h5>
         
         <div class="table-responsive">
@@ -103,41 +103,23 @@
                         {% endfor %}
                     </tr>
 
-                    {# ISO Alpha-2 #}
+                    {# Sigla e código ISO: exibidos para conferência; o Master mantém os seus #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Código ISO Alpha-2</td>
+                        <td class="fw-bold bg-bm-card">Sigla / Código ISO {{ help('admin.geography.merge.codes') }}</td>
                         {% for c in countries %}
-                            <td>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="fields[isoAlpha2]" value="{{ c.isoAlpha2 }}" id="iso2_{{ c.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label font-monospace text-accent fw-bold" for="iso2_{{ c.id }}">{{ c.isoAlpha2 ?? '—' }}</label>
-                                </div>
-                            </td>
-                        {% endfor %}
-                    </tr>
-
-                    {# ISO Alpha-3 #}
-                    <tr>
-                        <td class="fw-bold bg-bm-card">Código ISO Alpha-3</td>
-                        {% for c in countries %}
-                            <td>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="fields[isoAlpha3]" value="{{ c.isoAlpha3 }}" id="iso3_{{ c.id }}" {% if loop.first %}checked{% endif %}>
-                                    <label class="form-check-label font-monospace text-accent" for="iso3_{{ c.id }}">{{ c.isoAlpha3 ?? '—' }}</label>
-                                </div>
-                            </td>
+                            <td class="font-monospace text-accent">{{ c.sigla ?? '—' }} / {{ c.isoCode ?? '—' }}</td>
                         {% endfor %}
                     </tr>
 
                     {# Foundation & Extinction Years #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Período Histórico (Fundação / Extinção)</td>
+                        <td class="fw-bold bg-bm-card">Ano de Fundação {{ help('admin.geography.merge.period') }}</td>
                         {% for c in countries %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[foundationYear]" value="{{ c.foundationYear }}" id="fy_{{ c.id }}" {% if loop.first %}checked{% endif %}>
                                     <label class="form-check-label" for="fy_{{ c.id }}">
-                                        Fund: {{ c.foundationYear ?? '—' }} | Ext: {{ c.extinctionYear ?? '—' }}
+                                        {{ c.foundationYear ?? '—' }}
                                     </label>
                                 </div>
                             </td>
@@ -151,10 +133,10 @@
     <!-- Variations Consolidation Preview -->
     <div class="bm-card mb-4 border-info">
         <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
-            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Nomes Geográficos (Tesauro)
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Nomes Geográficos (Tesauro) {{ help('admin.geography.merge.variations') }}
         </h5>
         <p class="text-muted-bm mb-3" style="font-size:13px">
-            Todas as grafias e variações históricas dos países selecionados serão unificadas no registro Master.
+            Todas as grafias abaixo passarão a apontar para o país Master.
         </p>
 
         <div class="d-flex flex-wrap gap-2 p-3 bg-bm-card border-bm rounded-3" style="max-height:160px;overflow-y:auto">
@@ -174,6 +156,24 @@
         <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? O país Master será atualizado e os outros serão removidos.');">
             <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Países
         </button>
+        <span class="d-inline-flex align-items-center">{{ help('admin.geography.merge.confirm') }}</span>
     </div>
 </form>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Ao trocar o registro Master, pré-seleciona os valores da coluna dele (ainda é possível ajustar linha a linha).
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="master_id"]').forEach(master => {
+                master.addEventListener('change', () => {
+                    if (!master.checked) return;
+                    document.querySelectorAll('input[type="radio"][name^="fields["]').forEach(field => {
+                        if (field.id.slice(field.id.lastIndexOf('_') + 1) === master.value) field.checked = true;
+                    });
+                });
+            });
+        });
+    </script>
 {% endblock %}

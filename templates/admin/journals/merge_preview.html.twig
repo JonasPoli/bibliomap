@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Revistas / Periódicos
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Revistas / Periódicos {{ help('admin.journals.merge.page') }}
     </h1>
     <p class="bm-page-subtitle">Compare registros de periódicos lado a lado, selecione o registro Principal (Master) e defina qual título, ISSN e Qualis devem prevalecer.</p>
 </div>
@@ -28,7 +28,7 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
-                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master)
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione o Registro Principal (Master) {{ help('admin.journals.merge.master') }}
                 </h5>
                 <p class="text-muted-bm mb-0" style="font-size:13px">A revista selecionada como Master será mantida. As demais serão mescladas e seus títulos serão convertidos em variações do Tesauro.</p>
             </div>
@@ -60,7 +60,7 @@
     <!-- Comparison Table -->
     <div class="bm-card mb-4">
         <h5 class="mb-3" style="font-weight:700">
-            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos {{ help('admin.journals.merge.fields') }}
         </h5>
         
         <div class="table-responsive">
@@ -92,7 +92,7 @@
 
                     {# ISSN #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">ISSN</td>
+                        <td class="fw-bold bg-bm-card">ISSN {{ help('admin.journals.merge.issn') }}</td>
                         {% for j in journals %}
                             <td>
                                 <div class="form-check">
@@ -105,7 +105,7 @@
 
                     {# Qualis #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Qualis</td>
+                        <td class="fw-bold bg-bm-card">Qualis {{ help('admin.journals.form.qualis') }}</td>
                         {% for j in journals %}
                             <td>
                                 <div class="form-check">
@@ -123,7 +123,7 @@
     <!-- Variations Consolidation Preview -->
     <div class="bm-card mb-4 border-info">
         <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
-            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Títulos (Tesauro)
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Títulos (Tesauro) {{ help('admin.journals.merge.variations') }}
         </h5>
         <p class="text-muted-bm mb-3" style="font-size:13px">
             Todos os títulos e variações anteriores serão unificados e mantidos no registro Master.
@@ -146,6 +146,24 @@
         <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? A revista Master será atualizada e as outras serão removidas.');">
             <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Revistas
         </button>
+        <span class="d-inline-flex align-items-center">{{ help('admin.journals.merge.confirm') }}</span>
     </div>
 </form>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Ao trocar o registro Master, pré-seleciona os valores da coluna dele (ainda é possível ajustar linha a linha).
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="master_id"]').forEach(master => {
+                master.addEventListener('change', () => {
+                    if (!master.checked) return;
+                    document.querySelectorAll('input[type="radio"][name^="fields["]').forEach(field => {
+                        if (field.id.slice(field.id.lastIndexOf('_') + 1) === master.value) field.checked = true;
+                    });
+                });
+            });
+        });
+    </script>
 {% endblock %}

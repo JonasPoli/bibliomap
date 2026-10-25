@@ -14,7 +14,7 @@
         <div>
             <h1 class="bm-page-title">
                 <i class="bi bi-database me-2 text-accent"></i>
-                Gerenciar Bases de Dados
+                Gerenciar Bases de Dados {{ help('admin.databases.page') }}
             </h1>
             <p class="bm-page-subtitle">Configure as bases acadêmicas suportadas no sistema, seus padrões de identificação e logos.</p>
         </div>
@@ -28,8 +28,9 @@
 
 {# Filters Card #}
 <div class="bm-card mb-4" style="padding: 16px;">
-    <form method="GET" action="{{ path('app_admin_academic_databases_index') }}" class="row g-2 align-items-center">
+    <form method="GET" action="{{ path('app_admin_academic_databases_index') }}" class="row g-2 align-items-end">
         <div class="col-md-9">
+            <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.databases.search') }}</label>
             <div class="input-group input-group-sm">
                 <span class="input-group-text border-bm" style="background:rgba(255,255,255,0.02);color:var(--bm-text-muted)">
                     <i class="bi bi-search"></i>
@@ -64,10 +65,10 @@
                     <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size: 12px;">
                         <th style="width: 60px;">ID</th>
                         <th>Base de Dados</th>
-                        <th>Chave (Acronym)</th>
-                        <th>Formats</th>
-                        <th>Colunas de Assinatura (CSV)</th>
-                        <th class="text-end" style="width: 160px;">Ações</th>
+                        <th>Chave (Acronym) {{ help('admin.databases.form.acronym') }}</th>
+                        <th>Formatos {{ help('admin.databases.form.formats') }}</th>
+                        <th>Colunas de Assinatura (CSV) {{ help('admin.databases.form.signature') }}</th>
+                        <th class="text-end" style="width: 160px;">Ações {{ help('admin.databases.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -107,7 +108,7 @@
                                     {{ db.signatureColumns|length }} colunas de assinatura
                                 </span>
                             {% else %}
-                                <span class="text-muted-bm">Nenhuma (detecção customizada/desativada)</span>
+                                <span class="text-muted-bm">Nenhuma (sem detecção por colunas)</span>
                             {% endif %}
                         </td>
                         <td class="text-end">

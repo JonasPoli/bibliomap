@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-plus-circle text-accent me-2"></i>Nova Revista Científica
+        <i class="bi bi-plus-circle text-accent me-2"></i>Nova Revista Científica {{ help('admin.journals.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Cadastre um novo periódico ou veículo científico na base de dados.</p>
 </div>
@@ -24,18 +24,18 @@
 
         <div class="row g-3 mb-4">
             <div class="col-md-12">
-                <label class="form-label">Título do Periódico / Revista *</label>
+                <label class="form-label">Título do Periódico / Revista * {{ help('admin.journals.form.title') }}</label>
                 <input type="text" name="title" class="form-control" placeholder="Ex: Nature" value="{{ journal.title }}" required>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">ISSN *</label>
+                <label class="form-label">ISSN * {{ help('admin.journals.form.issn') }}</label>
                 <input type="text" name="issn" class="form-control" placeholder="Ex: 0028-0836" value="{{ journal.issn }}" required>
                 <small class="text-muted-bm" style="font-size:11px">Pode conter traços ou espaços (ex: 1530-6984).</small>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Estrato Qualis</label>
+                <label class="form-label">Estrato Qualis {{ help('admin.journals.form.qualis') }}</label>
                 <select name="qualis" class="form-select">
                     <option value="" {% if journal.qualis is empty %}selected{% endif %}>Nenhum estrato / Nulo</option>
                     <option value="A1" {% if journal.qualis == 'A1' %}selected{% endif %}>A1</option>
@@ -51,7 +51,7 @@
             </div>
 
             <div class="col-md-12">
-                <label class="form-label" style="font-weight:600">Bases de Dados Acadêmicas</label>
+                <label class="form-label" style="font-weight:600">Bases de Dados Acadêmicas {{ help('admin.journals.form.databases') }}</label>
                 <div class="d-flex flex-wrap gap-4 mt-1">
                     {% for db in databases %}
                         <div class="form-check">

@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Instituições
+        <i class="bi bi-intersect text-warning me-2"></i>Mesclar e Consolidar Instituições {{ help('admin.institutions.merge.page') }}
     </h1>
     <p class="bm-page-subtitle">Compare instituições de ensino e pesquisa lado a lado, selecione a instituição Principal (Master) e defina individualmente o valor de cada atributo.</p>
 </div>
@@ -28,7 +28,7 @@
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h5 class="mb-1" style="font-weight:700;color:var(--bm-text)">
-                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione a Instituição Principal (Master)
+                    <i class="bi bi-star-fill text-warning me-2"></i>1. Selecione a Instituição Principal (Master) {{ help('admin.institutions.merge.master') }}
                 </h5>
                 <p class="text-muted-bm mb-0" style="font-size:13px">A instituição selecionada como Master será mantida. As demais serão mescladas e todos os seus nomes/siglas virarão variações do Tesauro.</p>
             </div>
@@ -60,7 +60,7 @@
     <!-- Comparison Table -->
     <div class="bm-card mb-4">
         <h5 class="mb-3" style="font-weight:700">
-            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos
+            <i class="bi bi-layout-split text-accent me-2"></i>2. Escolha os Valores a Serem Mantidos {{ help('admin.institutions.merge.fields') }}
         </h5>
         
         <div class="table-responsive">
@@ -440,13 +440,13 @@
 
                     {# Anos de Fundação / Extinção #}
                     <tr>
-                        <td class="fw-bold bg-bm-card">Período Histórico</td>
+                        <td class="fw-bold bg-bm-card">Ano de Fundação {{ help('admin.institutions.merge.period') }}</td>
                         {% for inst in institutions %}
                             <td>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="fields[foundationYear]" value="{{ inst.foundationYear }}" id="fy_{{ inst.id }}" {% if loop.first %}checked{% endif %}>
                                     <label class="form-check-label" for="fy_{{ inst.id }}">
-                                        Fund: {{ inst.foundationYear ?? '—' }} | Ext: {{ inst.extinctionYear ?? '—' }}
+                                        {{ inst.foundationYear ?? '—' }}
                                     </label>
                                 </div>
                             </td>
@@ -473,10 +473,10 @@
     <!-- Variations Consolidation Preview -->
     <div class="bm-card mb-4 border-info">
         <h5 class="mb-2" style="font-weight:700;color:var(--bm-text)">
-            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Nome (Tesauro)
+            <i class="bi bi-tags-fill text-info me-2"></i>3. Consolidação de Variações de Nome (Tesauro) {{ help('admin.institutions.merge.variations') }}
         </h5>
         <p class="text-muted-bm mb-3" style="font-size:13px">
-            Todas os nomes oficiais, siglas e variações cadastradas de todos os registros selecionados serão automaticamente unificados sem duplicações e vinculados ao registro Master.
+            Nomes oficiais, nomes curtos, siglas, razões sociais e variações de todos os registros passarão a pertencer ao Master, sem repetição.
         </p>
 
         <div class="d-flex flex-wrap gap-2 p-3 bg-bm-card border-bm rounded-3" style="max-height:160px;overflow-y:auto">
@@ -496,6 +496,24 @@
         <button type="submit" class="btn btn-bm-primary px-4 py-2" onclick="return confirm('Confirmar a mesclagem? A instituição Master será atualizada e as outras serão removidas.');">
             <i class="bi bi-intersect me-1"></i> Confirmar Mesclagem de Instituições
         </button>
+        <span class="d-inline-flex align-items-center">{{ help('admin.institutions.merge.confirm') }}</span>
     </div>
 </form>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Ao trocar o registro Master, pré-seleciona os valores da coluna dele (ainda é possível ajustar linha a linha).
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="master_id"]').forEach(master => {
+                master.addEventListener('change', () => {
+                    if (!master.checked) return;
+                    document.querySelectorAll('input[type="radio"][name^="fields["]').forEach(field => {
+                        if (field.id.slice(field.id.lastIndexOf('_') + 1) === master.value) field.checked = true;
+                    });
+                });
+            });
+        });
+    </script>
 {% endblock %}

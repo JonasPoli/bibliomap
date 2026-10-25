@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Base de Dados Acadêmica
+        <i class="bi bi-pencil-square text-accent me-2"></i>Editar Base de Dados Acadêmica {{ help('admin.databases.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Modifique as informações de cadastro, formatos e colunas de assinatura para detecção automática.</p>
 </div>
@@ -24,14 +24,14 @@
 
         <div class="row g-3 mb-4">
             <div class="col-md-6">
-                <label class="form-label">Nome da Base *</label>
+                <label class="form-label">Nome da Base * {{ help('admin.databases.form.name') }}</label>
                 <input type="text" name="name" class="form-control" value="{{ database.name }}" required>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Sigla/Chave de Identificação *</label>
+                <label class="form-label">Sigla/Chave de Identificação * {{ help('admin.databases.form.acronym') }}</label>
                 <input type="text" name="acronym" class="form-control" value="{{ database.acronym }}" required>
-                <small class="text-muted-bm" style="font-size:11px">Deve ser em letras minúsculas (ex: scopus, wos, scielo, lens).</small>
+                <small class="text-muted-bm" style="font-size:11px">Salva em minúsculas (ex: scopus, wos, lens, pubmed).</small>
             </div>
 
             <div class="col-md-6">
@@ -40,30 +40,30 @@
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Caminho do Logo</label>
+                <label class="form-label">Caminho do Logo {{ help('admin.databases.form.logo') }}</label>
                 <input type="text" name="logo" class="form-control" value="{{ database.logo }}">
                 <small class="text-muted-bm" style="font-size:11px">Caminho relativo a /public (ex: /img/Scopus_logo.svg).</small>
             </div>
 
             <div class="col-md-12">
-                <label class="form-label">Formatos de Arquivo Suportados</label>
+                <label class="form-label">Formatos de Arquivo Suportados {{ help('admin.databases.form.formats') }}</label>
                 <input type="text" name="fileFormats" class="form-control" value="{{ database.fileFormats ? database.fileFormats|join(', ') : '' }}" placeholder="Ex: csv, ris, txt">
                 <small class="text-muted-bm" style="font-size:11px">Formatos separados por vírgula (ex: csv, ris).</small>
             </div>
 
             <div class="col-md-12">
-                <label class="form-label">Colunas de Assinatura (para detecção automática em arquivos CSV)</label>
+                <label class="form-label">Colunas de Assinatura (detecção automática de CSV) {{ help('admin.databases.form.signature') }}</label>
                 <textarea name="signatureColumns" class="form-control" rows="4" placeholder="PMID&#10;Title&#10;Authors&#10;Citation">{{ database.signatureColumns ? database.signatureColumns|join('\n') : '' }}</textarea>
-                <small class="text-muted-bm" style="font-size:11px">Uma coluna por linha. O sistema calcula a taxa de acerto de cabeçalho com base nestas colunas.</small>
+                <small class="text-muted-bm" style="font-size:11px">Uma coluna por linha, escrita exatamente como no cabeçalho do CSV.</small>
             </div>
 
             <div class="col-md-12">
-                <label class="form-label">Descrição</label>
+                <label class="form-label">Descrição {{ help('admin.databases.form.description') }}</label>
                 <textarea name="description" class="form-control" rows="3">{{ database.description }}</textarea>
             </div>
 
             <div class="col-md-12">
-                <label class="form-label">Instruções para Exportação/Importação (Markdown/HTML)</label>
+                <label class="form-label">Instruções para Exportação/Importação (texto simples) {{ help('admin.databases.form.instructions') }}</label>
                 <textarea name="importInstructions" class="form-control" rows="6">{{ database.importInstructions }}</textarea>
                 <small class="text-muted-bm" style="font-size:11px">Estas instruções serão exibidas no painel de importação ao selecionar esta base.</small>
             </div>

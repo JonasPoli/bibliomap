@@ -19,18 +19,21 @@
             <li><a class="dropdown-item" href="{{ path('app_admin_keywords_export_thesaurus', {format: 'csv'}) }}"><i class="bi bi-filetype-csv me-2"></i>CSV (.csv)</a></li>
         </ul>
     </div>
+    <span class="d-inline-flex align-items-center">{{ help('admin.keywords.export_thesaurus') }}</span>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
         <i class="bi bi-upload me-1"></i> Importar Tesauro
     </button>
     <a href="{{ path('app_admin_keywords_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-download me-1"></i> Exportar CSV
     </a>
+    <span class="d-inline-flex align-items-center">{{ help('admin.keywords.export_csv') }}</span>
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importModal">
         <i class="bi bi-upload me-1"></i> Importar CSV
     </button>
     <button type="submit" form="mergeForm" id="btn-merge-keywords" class="btn btn-sm btn-bm-warning px-3 py-2" disabled title="Selecione de 2 a 5 palavras-chave na tabela para mesclar">
         <i class="bi bi-intersect me-1"></i> Mesclar (<span id="merge-count">0</span>)
     </button>
+    <span class="d-inline-flex align-items-center">{{ help('admin.keywords.merge_selected') }}</span>
     <a href="{{ path('app_admin_keywords_new') }}" class="btn btn-sm btn-bm-primary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-plus-circle me-1"></i> Nova Palavra-chave
     </a>
@@ -40,7 +43,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-tags text-accent me-2"></i>Gerenciamento de Palavras-chave
+        <i class="bi bi-tags text-accent me-2"></i>Gerenciamento de Palavras-chave {{ help('admin.keywords.page') }}
     </h1>
     <p class="bm-page-subtitle">Gerencie o cadastro de palavras-chave oficiais, tipos (autor, indexadas, mesh) e variações.</p>
 </div>
@@ -49,24 +52,27 @@
 <div class="bm-card mb-4">
     <form method="GET" action="{{ path('app_admin_keywords_index') }}" class="row g-2">
         <div class="col-md-5">
-            <input type="text" name="search" class="form-control" placeholder="Buscar por termo da palavra-chave..." value="{{ search }}">
+            <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.keywords.search') }}</label>
+            <input type="text" name="search" class="form-control" placeholder="Termo ou variação..." value="{{ search }}">
         </div>
         <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:12px">Tipo {{ help('admin.keywords.form.type') }}</label>
             <select name="type" class="form-select">
                 <option value="all" {% if type == 'all' %}selected{% endif %}>Todos os Tipos</option>
-                <option value="author" {% if type == 'author' %}selected{% endif %}>Autor (Author Keyword)</option>
-                <option value="indexed" {% if type == 'indexed' %}selected{% endif %}>Indexada (Keyword Plus)</option>
+                <option value="author_keyword" {% if type == 'author_keyword' %}selected{% endif %}>Autor (Author Keywords)</option>
+                <option value="indexed_keyword" {% if type == 'indexed_keyword' %}selected{% endif %}>Indexada (Keywords Plus / Index Keywords)</option>
                 <option value="mesh" {% if type == 'mesh' %}selected{% endif %}>Medical Subject Headings (MeSH)</option>
             </select>
         </div>
         <div class="col-md-2">
+            <label class="form-label mb-1" style="font-size:12px">Status {{ help('admin.keywords.form.status') }}</label>
             <select name="status" class="form-select">
                 <option value="all" {% if status == 'all' %}selected{% endif %}>Todos os Status</option>
                 <option value="active" {% if status == 'active' %}selected{% endif %}>Ativas (Registradas)</option>
                 <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inativas (Brutas)</option>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
         </div>
     </form>
@@ -80,7 +86,8 @@
             Nenhuma palavra-chave encontrada.
         </div>
     {% else %}
-        <form id="mergeForm" action="{{ path('app_admin_keywords_merge_preview') }}" method="POST">
+        {# Formulário de mesclagem vazio: as caixas usam form="mergeForm" para não aninhar com os formulários de exclusão de cada linha #}
+        <form id="mergeForm" action="{{ path('app_admin_keywords_merge_preview') }}" method="POST"></form>
         <div class="table-responsive">
             <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
                 <thead>
@@ -88,10 +95,10 @@
                         <th style="width:36px;text-align:center">
                             <i class="bi bi-intersect text-warning" title="Marque até 5 para mesclar"></i>
                         </th>
-                        <th>Termo Original</th>
-                        <th>Tipo</th>
-                        <th>Variações</th>
-                        <th>Status</th>
+                        <th>Termo Original {{ help('admin.keywords.col_term') }}</th>
+                        <th>Tipo {{ help('admin.keywords.form.type') }}</th>
+                        <th>Variações {{ help('admin.keywords.col_variations') }}</th>
+                        <th>Status {{ help('admin.keywords.form.status') }}</th>
                         <th style="width:140px;text-align:right">Ações</th>
                     </tr>
                 </thead>
@@ -99,7 +106,7 @@
                     {% for kw in keywords %}
                         <tr class="border-bm">
                             <td style="text-align:center">
-                                <input type="checkbox" name="ids[]" value="{{ kw.id }}" class="form-check-input merge-checkbox" style="cursor:pointer">
+                                <input type="checkbox" name="ids[]" value="{{ kw.id }}" class="form-check-input merge-checkbox" form="mergeForm" style="cursor:pointer">
                             </td>
                             <td>
                                 <div style="font-weight:600" class="text-accent">{{ kw.keywordOriginal }}</div>
@@ -108,9 +115,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if kw.keywordType == 'author' %}
+                                {% if kw.keywordType == 'author_keyword' %}
                                     <span class="badge bg-primary-subtle text-primary border me-1">Autor</span>
-                                {% elseif kw.keywordType == 'indexed' %}
+                                {% elseif kw.keywordType == 'indexed_keyword' %}
                                     <span class="badge bg-info-subtle text-info border me-1">Indexada</span>
                                 {% elseif kw.keywordType == 'mesh' %}
                                     <span class="badge bg-warning-subtle text-warning border me-1">MeSH</span>
@@ -188,20 +195,21 @@
             </div>
         {% endif %}
     {% endif %}
+</div>
 
 <!-- Import CSV Modal -->
 <div class="modal fade animate__animated animate__fadeIn" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importModalLabel" style="font-weight:700">Importar Palavras-chave via CSV</h5>
+                <h5 class="modal-title" id="importModalLabel" style="font-weight:700">Importar Palavras-chave via CSV {{ help('admin.keywords.import_csv') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ path('app_admin_keywords_import') }}" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_keywords') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione o arquivo CSV contendo as colunas <code>term</code>, <code>type</code> (author, indexed, mesh), <code>status</code> e <code>variations</code> (separadas por ponto e vírgula).
+                        CSV separado por <b>vírgula</b>, com cabeçalho <code>term</code>, <code>type</code> (author, indexed ou mesh), <code>status</code> (1 ou 0) e <code>variations</code> (grafias separadas por ponto e vírgula dentro da célula).
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -222,7 +230,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">Importar Tesauro de Palavras-Chave</h5>
+                <h5 class="modal-title" id="importThesaurusModalLabel" style="font-weight:700">Importar Tesauro de Palavras-Chave {{ help('admin.keywords.import_thesaurus') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ path('app_admin_keywords_import_thesaurus') }}" method="POST" enctype="multipart/form-data">
@@ -248,4 +256,25 @@
 
 {% block javascripts %}
     {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('.merge-checkbox');
+            const btnMerge = document.getElementById('btn-merge-keywords');
+            const mergeCount = document.getElementById('merge-count');
+
+            function updateMergeState() {
+                const count = document.querySelectorAll('.merge-checkbox:checked').length;
+                if (mergeCount) mergeCount.textContent = count;
+
+                const enabled = count >= 2 && count <= 5;
+                btnMerge.disabled = !enabled;
+                btnMerge.classList.toggle('btn-warning', enabled);
+                btnMerge.classList.toggle('btn-bm-warning', !enabled);
+
+                checkboxes.forEach(cb => { cb.disabled = !cb.checked && count >= 5; });
+            }
+
+            checkboxes.forEach(cb => cb.addEventListener('change', updateMergeState));
+        });
+    </script>
 {% endblock %}

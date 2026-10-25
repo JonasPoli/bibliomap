@@ -1,0 +1,1341 @@
+# Ajuda contextual ("?") — cadastros de autoridade do Admin:
+# autores, instituições, geografia, revistas/Qualis, palavras-chave,
+# bases de dados acadêmicas e lentes teóricas.
+# Cada entrada: title, what, how, not, example. Aceita **negrito** e quebras de linha.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AUTORES
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.authors.page:
+  title: "Cadastro de autores (tesauro de autores)"
+  what: "Lista as **identidades de autor** usadas por todos os projetos. Cada identidade tem um nome preferido e várias **variações** (grafias) que os arquivos do WoS, Scopus, Lens e PubMed trazem para a mesma pessoa."
+  how: "Busque o autor, abra o lápis para corrigir nome, ORCID e grafias, ou marque de 2 a 5 linhas e use **Mesclar** para unir duplicatas. Depois de alterar grafias, rode a **Sincronização** do projeto para que os documentos passem a apontar para a identidade correta."
+  not: "Não é a lista de autores de um projeto específico: o cadastro é global e uma alteração aqui afeta todos os projetos que usam esse autor. Também não busca dados no ORCID nem no Lattes."
+  example: "Numa revisão sobre extensão universitária, “Silva, M. A.”, “Silva MA” e “Maria Aparecida da Silva” aparecem como três autores no ranking. Aqui você junta as três grafias numa só identidade e o h-index dela passa a somar os documentos das três."
+
+admin.authors.search:
+  title: "Busca de autores"
+  what: "Procura o texto digitado no nome preferido, no nome normalizado, em qualquer variação cadastrada e no ORCID."
+  how: "Digite parte do nome (sobrenome costuma bastar) ou um ORCID e clique em **Filtrar**. Acentos e pontuação são ignorados na comparação com as formas normalizadas. A lista mostra 100 autores por página, em ordem alfabética."
+  not: "Não busca pelo título dos artigos nem pela instituição do autor. Não diferencia homônimos: dois “Santos, J.” diferentes aparecem juntos."
+  example: "Para achar todas as formas de “Paulo Freire”, busque “freire”: aparecem “Freire, Paulo”, “FREIRE P” e “Freire, P. R. N.”, prontos para serem conferidos e mesclados."
+
+admin.authors.status_filter:
+  title: "Filtro de status"
+  what: "Mostra só autores **Ativos** (status 1, já conferidos) ou só **Inativos/Pendentes** (status 0, marcados para revisão na importação)."
+  how: "Escolha a opção e clique em Filtrar. Use “Inativos” para revisar os nomes suspeitos que a importação criou."
+  not: "O status não impede que o autor seja vinculado aos documentos: autores pendentes continuam aparecendo nos relatórios."
+  example: "Depois de importar 2.000 registros do Scopus, filtre “Inativos” e encontre nomes como “Universidade Federal” ou “Grupo 3”, que a importação marcou porque parecem instituição ou contêm números."
+
+admin.authors.export_thesaurus:
+  title: "Exportar tesauro de autores"
+  what: "Baixa todas as identidades com suas grafias, no formato do **VantagePoint (.the)** ou em **CSV**."
+  how: "No .the, cada autor vira uma linha “**#nome preferido” seguida de linhas “100 1 ^grafia$”, tudo em minúsculas. No CSV (separado por ponto e vírgula) há uma linha por grafia, com as colunas preferred_name e variant_name."
+  not: "Não exporta ORCID, status nem documentos. Com o cadastro inteiro (mais de 150 mil autores) o arquivo é grande e pode demorar alguns minutos."
+  example: "Para limpar os autores no VantagePoint antes de gerar uma rede de coautoria, exporte o .the, aplique-o no VantagePoint e as grafias “Poli J” e “Poli, Jonas” já saem agrupadas."
+
+admin.authors.import_thesaurus:
+  title: "Importar tesauro de autores"
+  what: "Lê um arquivo .the (VantagePoint) ou .csv e acrescenta grafias às identidades. Cada termo preferido é procurado pelo nome normalizado; se não existir, um novo autor ativo é criado."
+  how: "No .the, linhas que começam com ** são o nome preferido e as seguintes são as grafias. No CSV use vírgula como separador e colunas preferred_name e variant_name (uma linha por grafia). Depois rode a Sincronização dos projetos."
+  not: "Não apaga grafias nem autores e não mexe em ORCID. O CSV gerado por “Exportar tesauro” sai com ponto e vírgula: para reimportá-lo, salve-o antes como CSV separado por vírgula."
+  example: "Um colega do grupo de pesquisa já tem um tesauro de 3.000 autores de enfermagem feito no VantagePoint. Importe o .the e as grafias dele passam a valer para todos os projetos da plataforma."
+
+admin.authors.export_csv:
+  title: "Exportar autores (CSV)"
+  what: "Baixa um CSV com uma linha por autor: name, orcid, status e variations (as grafias dentro da célula, separadas por ponto e vírgula)."
+  how: "Clique e abra o arquivo no Excel ou LibreOffice escolhendo **ponto e vírgula** como separador e codificação UTF-8."
+  not: "Não inclui os documentos nem métricas do autor. Para reimportar, converta o arquivo para separador vírgula (a importação lê vírgula)."
+  example: "Para revisar no Excel os 500 autores mais frequentes do seu corpus antes da qualificação, exporte, filtre e corrija os ORCIDs faltantes."
+
+admin.authors.import_csv:
+  title: "Importar autores (CSV)"
+  what: "Cria ou atualiza autores em massa a partir de um CSV separado por **vírgula** com as colunas name, orcid, status e variations."
+  how: "Cada linha procura o autor primeiro pelo ORCID e, se não achar, pelo nome normalizado. Encontrado: o nome preferido e o status são atualizados e, se a linha trouxer ORCID, ele substitui o anterior. Não encontrado: um autor novo é criado. As grafias da coluna variations (separadas por ponto e vírgula) são acrescentadas."
+  not: "Não remove grafias existentes nem apaga autores. Linhas sem name são ignoradas. Colunas como surname ou initials não são lidas."
+  example: "Linha: name = “Jonas Poli”, orcid = “0000-0002-1825-0097”, status = 1, variations = “Poli J;Poli, Jonas”. Se o ORCID já existir, o registro é atualizado em vez de duplicado."
+
+admin.authors.merge_selected:
+  title: "Mesclar autores selecionados"
+  what: "Abre a tela de comparação para unir de 2 a 5 autores duplicados num só registro."
+  how: "Marque as caixas da primeira coluna (o botão só habilita com 2 a 5 marcadas) e clique em **Mesclar**. Na tela seguinte você escolhe o registro principal e o nome final."
+  not: "Atenção: nesta fusão em lote os documentos ligados aos registros secundários **perdem o vínculo** com o autor (o vínculo não é transferido). Para autores com documentos, prefira **Mesclar Autor** na tela de edição, que transfere os documentos."
+  example: "Ao encontrar “Fernandes, Ana Lúcia” e “Fernandes, A. L.” como duas linhas sem documentos importados ainda, marque ambas e mescle para deixar o tesauro limpo antes da próxima importação."
+
+admin.authors.col_preferred:
+  title: "Nome preferido"
+  what: "É o nome que aparece nos relatórios, rankings e redes para essa identidade."
+  how: "Para trocá-lo, abra o lápis e edite o campo “Nome Completo / Preferido”."
+  not: "Não precisa coincidir com a grafia dos artigos: as grafias ficam nas variações."
+  example: "Use “Maria Aparecida da Silva” como preferido mesmo que os artigos tragam “Silva, M. A.”."
+
+admin.authors.col_normalized:
+  title: "Nome normalizado"
+  what: "Versão do nome usada para comparar grafias: minúsculas, sem acentos e com pontuação trocada por espaço."
+  how: "É gerado automaticamente ao salvar o nome preferido. Duas grafias com o mesmo normalizado são tratadas como iguais."
+  not: "Não pode ser editado diretamente e não resolve abreviações: “Silva, M.” e “Silva, Maria” continuam diferentes."
+  example: "“Gonçalves, José-Carlos” vira “goncalves jose carlos”."
+
+admin.authors.col_variations:
+  title: "Variações (grafias)"
+  what: "Quantas grafias estão ligadas a essa identidade, incluindo a grafia oficial do nome preferido."
+  how: "Na Sincronização de um projeto, o nome que veio no arquivo é normalizado e procurado entre essas grafias; se bater, o documento é ligado a este autor."
+  not: "Não é o número de artigos do autor."
+  example: "Um autor com 6 variações pode reunir “Poli J”, “Poli, J.”, “POLI JONAS” e outras formas vindas de bases diferentes."
+
+admin.authors.form_page:
+  title: "Formulário do autor"
+  what: "Cria ou edita uma identidade de autor: nome preferido, ORCID e lista de grafias."
+  how: "Preencha o nome preferido, o ORCID (se houver) e cole as grafias, uma por linha. Ao salvar, as grafias valem para todos os projetos na próxima Sincronização."
+  not: "Não vincula documentos imediatamente nem altera métricas já calculadas: é preciso sincronizar o projeto."
+  example: "Cadastre “Boaventura de Sousa Santos” com as grafias “Santos, B. S.”, “Santos BS” e “de Sousa Santos, Boaventura” antes de rodar a análise de citações."
+
+admin.authors.form.name:
+  title: "Nome preferido"
+  what: "Nome oficial da identidade, exibido nos relatórios. Ao salvar, ele é limpo (espaços e pontuação nas bordas) e gera o nome normalizado."
+  how: "Escreva o nome completo como deve aparecer na tese. Se trocar o nome de um autor existente, a grafia antiga deixa de ser variação: se ela ainda aparece nos artigos, copie-a para a lista de variações."
+  not: "Não é usado para buscar o autor no ORCID ou no Lattes."
+  example: "Troque “SILVA M A” por “Maria Aparecida da Silva” e mantenha “SILVA M A” na lista de variações."
+
+admin.authors.form.orcid:
+  title: "ORCID"
+  what: "Identificador internacional do pesquisador (16 dígitos em 4 blocos). É gravado com o link https://orcid.org/… e usado para reconhecer o autor na importação CSV."
+  how: "Cole só o número, no formato 0000-0000-0000-0000. Salvar substitui o ORCID anterior; deixar vazio remove o ORCID."
+  not: "O número não é validado nem consultado na internet: confira no site do ORCID antes de salvar."
+  example: "0000-0002-1825-0097 é o ORCID de exemplo da própria documentação do ORCID."
+
+admin.authors.form.status:
+  title: "Status do autor"
+  what: "Ativo (1) = identidade conferida. Pendente/Bruto (0) = criada pela importação com sinal de alerta (nome de uma palavra só, com números ou com cara de instituição) e listada em **Admin › Revisão e Deduplicação**."
+  how: "Para aprovar autores pendentes, use a tela Revisão e Deduplicação ou a coluna status da importação CSV."
+  not: "Nesta versão, o interruptor dos formulários de autor não é gravado ao salvar. O status também não impede o vínculo com documentos."
+  example: "“Grupo de Estudos 2” entra como Pendente; na fila de revisão você o move para Instituições ou o descarta."
+
+admin.authors.form.variations:
+  title: "Variações de nome"
+  what: "Grafias alternativas do mesmo autor. Cada uma é normalizada e usada na Sincronização para ligar os documentos a esta identidade."
+  how: "Uma grafia por linha. Ao salvar a edição, linhas novas são criadas e grafias que você apagou da caixa são **removidas**. O nome preferido é mantido automaticamente."
+  not: "Não use para coautores ou homônimos: se “Santos, J.” pode ser duas pessoas, deixe-o fora para não juntar produções de pessoas diferentes."
+  example: "Para Jonas Poli: “Poli J”, “Poli, J.” e “POLI, JONAS”, uma por linha."
+
+admin.authors.edit.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as grafias alternativas desta identidade. O botão **Desmembrar** transforma uma grafia num autor novo e independente."
+  how: "Ao desmembrar, o sistema cria o autor com essa grafia como nome, move para ele os vínculos de documentos cujo nome original é exatamente essa grafia e retira a grafia deste autor. Você é levado à edição do novo autor."
+  not: "Não separa por coautoria ou por ano: grafias iguais de pessoas diferentes continuam juntas. Para desfazer, mescle os dois autores de novo."
+  example: "“Santos, R.” estava agrupado em Renato Santos, mas parte dos artigos é de Regina Santos. Desmembre “Santos, R.” e depois reorganize as grafias de cada um."
+
+admin.authors.edit.merge:
+  title: "Mesclar este autor em outro"
+  what: "Une este registro ao autor escolhido: documentos, grafias, nome preferido (como variação) e ORCID passam para o destino e este registro é excluído."
+  how: "Escolha o destino e clique em **Mesclar e Excluir**. Se os dois autores estavam no mesmo artigo, o vínculo duplicado é removido para não contar o artigo duas vezes."
+  not: "Não pode ser desfeito. A lista de destino mostra apenas os 500 primeiros autores em ordem alfabética: se o destino não aparecer, abra a edição dele e mescle no sentido inverso, ou peça ao suporte."
+  example: "“Freire, P.” (12 artigos) mesclado em “Paulo Freire” (40 artigos): o destino passa a ter 52 artigos e “Freire, P.” vira uma de suas grafias."
+
+admin.authors.merge.page:
+  title: "Mesclar autores em lote"
+  what: "Compara de 2 a 5 autores lado a lado para consolidá-los num registro principal (Master)."
+  how: "1) Escolha o Master. 2) Escolha o nome preferido final. 3) Confira as grafias que serão reunidas. 4) Confirme."
+  not: "Os documentos ligados aos registros secundários **não são transferidos**: esses vínculos são apagados junto com os registros. Use esta tela para duplicatas sem documentos; para as demais, use “Mesclar Autor” na edição."
+  example: "Três cadastros de “Saviani, D.” criados por importações antigas e sem documentos: mescle aqui e mantenha “Dermeval Saviani” como nome."
+
+admin.authors.merge.master:
+  title: "Registro principal (Master)"
+  what: "O registro que continua existindo, com o mesmo número (#id). Os outros são excluídos."
+  how: "Marque o registro mais completo. Ao trocar o Master, os valores da coluna dele são pré-selecionados na tabela abaixo."
+  not: "Escolher o Master não traz automaticamente os documentos dos outros registros."
+  example: "Entre #120 (com ORCID) e #985 (sem ORCID), escolha #120 como Master."
+
+admin.authors.merge.fields:
+  title: "Valores a manter"
+  what: "Define, campo a campo, qual valor o Master terá depois da fusão."
+  how: "Marque em cada linha a coluna cujo valor deve ficar. O nome escolhido também gera o novo nome normalizado."
+  not: "Os valores descartados não se perdem como grafia: todos os nomes viram variações do Master."
+  example: "Mantenha “Dermeval Saviani” em vez de “SAVIANI D”."
+
+admin.authors.merge.orcid:
+  title: "ORCID na fusão"
+  what: "Todos os ORCIDs dos registros selecionados são copiados para o Master; não há escolha de um só."
+  how: "Confira se os ORCIDs são da mesma pessoa. Se forem diferentes, os registros provavelmente são pessoas distintas e não devem ser mesclados."
+  not: "Não valida o ORCID na internet."
+  example: "Dois registros com ORCIDs diferentes indicam homônimos, como dois “Silva, A.” de universidades distintas."
+
+admin.authors.merge.variations:
+  title: "Consolidação das grafias"
+  what: "Mostra todas as grafias que passarão a pertencer ao Master: nomes preferidos e variações de todos os registros, sem repetição."
+  how: "Revise a lista. Grafias que não são do mesmo autor indicam que algum registro não deveria entrar na fusão: volte e desmarque-o."
+  not: "Não permite remover grafias aqui; faça isso depois na edição do Master."
+  example: "Ao ver “Santos, R.” na lista de uma fusão de Renato Santos, confirme antes se não há artigos de outra pessoa com essa grafia."
+
+admin.authors.merge.confirm:
+  title: "Confirmar fusão"
+  what: "Executa a fusão: atualiza o Master, copia grafias e ORCIDs e exclui os demais registros."
+  how: "Clique e confirme na janela do navegador. Ao final, volte à listagem e confira o Master."
+  not: "Não pode ser desfeita e não transfere os documentos dos registros secundários."
+  example: "Após mesclar 3 cadastros duplicados de “Saviani, D.”, a listagem passa a mostrar só “Dermeval Saviani” com 5 variações."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INSTITUIÇÕES
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.institutions.page:
+  title: "Cadastro de instituições"
+  what: "Tesauro global de universidades e centros de pesquisa, com dados do e-MEC. É ele que transforma os textos de afiliação dos artigos em instituições padronizadas nos rankings e mapas."
+  how: "Na **Sincronização** de um projeto, cada afiliação do documento é normalizada e comparada, por inteiro, com o nome oficial, nome curto, sigla e variações das instituições **ativas**. Se bater, o documento é ligado à instituição e herda o país, o estado e a cidade cadastrados nela."
+  not: "Não é uma busca por trecho: “Univ Fed Santa Catarina, Dept Enfermagem” só casa se essa grafia (ou outra que normalize igual) estiver cadastrada. Os campos do e-MEC (IGC, CI, CNPJ) são informativos e não entram nos cálculos."
+  example: "Num corpus de 1.500 artigos sobre saúde coletiva, “UFSC”, “Univ Fed Santa Catarina” e “Federal University of Santa Catarina” viram uma só instituição no ranking depois que essas grafias são cadastradas e o projeto é sincronizado."
+
+admin.institutions.search:
+  title: "Busca de instituições"
+  what: "Procura o texto no nome oficial, nome curto, sigla, razão social, CNPJ, string VantagePoint, variações e no nome do país, estado ou cidade. Números também buscam pelo código IES e código da mantenedora."
+  how: "Digite e clique em Filtrar; o “x” limpa o filtro. A lista mostra 100 instituições por página."
+  not: "Não procura dentro das observações nem pelo nome do reitor."
+  example: "Digite “Florianópolis” para listar as instituições cadastradas nessa cidade, ou “585” para achar a IES com esse código e-MEC."
+
+admin.institutions.export_thesaurus:
+  title: "Exportar tesauro de instituições"
+  what: "Baixa o nome oficial de cada instituição com todas as variações, em VantagePoint (.the) ou CSV."
+  how: "No .the, cada instituição é uma linha “**#nome oficial” seguida das grafias, tudo em minúsculas. No CSV (ponto e vírgula) há uma linha por grafia: preferred_name;variant_name."
+  not: "Não exporta dados do e-MEC, localização nem status."
+  example: "Exporte o .the para aplicar a mesma limpeza de afiliações no VantagePoint antes de montar uma matriz instituição × ano."
+
+admin.institutions.import_thesaurus:
+  title: "Importar tesauro de instituições"
+  what: "Lê um .the ou .csv e acrescenta grafias às instituições. O termo preferido é procurado pelo nome oficial ou pela sigla (normalizados); se não existir, é criada uma instituição nova, ativa, com o nome em “Título Próprio”."
+  how: "No CSV, use vírgula como separador e colunas preferred_name e variant_name. Depois sincronize os projetos para refazer os vínculos."
+  not: "Não apaga nem altera grafias existentes, não preenche país/estado/cidade das instituições novas e não lê dados do e-MEC. O CSV do “Exportar tesauro” usa ponto e vírgula: converta para vírgula antes de reimportar."
+  example: "Importe o tesauro de afiliações de um projeto antigo do VantagePoint com 800 entradas para reaproveitar o trabalho de limpeza já feito."
+
+admin.institutions.export_csv:
+  title: "Exportar instituições (CSV)"
+  what: "Baixa um CSV (separado por vírgula) com os dados cadastrais e e-MEC de todas as instituições, localização e variações."
+  how: "Abra no Excel ou LibreOffice com separador vírgula e UTF-8. A coluna variations lista as grafias separadas por ponto e vírgula."
+  not: "Não traz contagem de documentos nem dados de produção."
+  example: "Exporte para conferir quais universidades federais ainda estão sem cidade ou coordenadas antes de gerar o mapa de colaboração."
+
+admin.institutions.import_csv:
+  title: "Importar instituições (CSV)"
+  what: "Cria ou atualiza instituições em massa usando o mesmo layout do Exportar CSV. A instituição é reconhecida pelo nome oficial (normalizado)."
+  how: "Colunas lidas: official_name (obrigatória), short_name, sigla, razao_social, cnpj, codigo_ies, institution_type, natureza, country_name, state_sigla, city_name, official_website, institutional_email, status, notes e variations. País, UF e cidade precisam existir no cadastro de Geografia."
+  not: "As demais colunas do arquivo exportado (IGC, CI, coordenadas, reitor etc.) são ignoradas. Variações que não estiverem na coluna variations são removidas da instituição atualizada."
+  example: "Linha com official_name = “Universidade Federal de Santa Catarina”, sigla = “UFSC”, country_name = “Brasil”, state_sigla = “SC”, city_name = “Florianópolis”."
+
+admin.institutions.merge_selected:
+  title: "Mesclar instituições selecionadas"
+  what: "Abre a tela de comparação para unir de 2 a 5 instituições duplicadas num registro principal."
+  how: "Marque as caixas da primeira coluna e clique em **Mesclar** (o botão só habilita com 2 a 5 marcadas)."
+  not: "Nesta fusão em lote os vínculos de documentos dos registros secundários são apagados, não transferidos: depois dela, rode a **Sincronização** dos projetos para religá-los pelo tesauro. Para fundir uma instituição com documentos sem esse passo, use “Mesclar Instituição” na edição."
+  example: "“UNB”, “Universidade de Brasília” e “Univ Brasilia” cadastradas separadamente: mescle as três e mantenha a que tem código IES."
+
+admin.institutions.col_emec:
+  title: "Identificação e-MEC"
+  what: "Código IES (número da instituição no cadastro e-MEC do Ministério da Educação) e CNPJ."
+  how: "Use o código IES para conferir a instituição em emec.mec.gov.br e evitar duplicatas com nomes parecidos."
+  not: "Não é usado para vincular documentos; instituições estrangeiras não têm esses códigos."
+  example: "A Universidade de Brasília tem código IES 2; duas linhas com o mesmo código são quase sempre duplicatas."
+
+admin.institutions.col_type:
+  title: "Organização acadêmica e categoria"
+  what: "Mostra a organização acadêmica (ex.: Universidade, Centro Universitário, Faculdade) e a categoria administrativa (ex.: Pública Federal, Privada sem fins lucrativos), como no e-MEC."
+  how: "Quando a organização não está preenchida, aparece o tipo de instituição; quando a categoria não está, aparece a natureza jurídica. “—” indica que nada foi cadastrado."
+  not: "Não é calculado a partir dos artigos e não filtra relatórios."
+  example: "Para separar a produção de universidades públicas e privadas na discussão da tese, confira se essas colunas estão preenchidas nas instituições do seu corpus."
+
+admin.institutions.col_variations:
+  title: "Variações da instituição"
+  what: "Quantas grafias estão ligadas à instituição, incluindo nome oficial, nome curto, sigla e razão social, que são gravados como variações automaticamente."
+  how: "Na Sincronização, cada afiliação do documento é normalizada e comparada com essas grafias."
+  not: "Não é o número de documentos da instituição."
+  example: "A UFSC pode ter 25 variações, de “UFSC” a “Federal University of Santa Catarina” e “Univ Fed Santa Catarina”."
+
+admin.institutions.form_page:
+  title: "Formulário da instituição"
+  what: "Cadastra ou edita uma instituição: nomes, dados e-MEC, localização, contatos e grafias."
+  how: "O essencial para a análise é: nome oficial, sigla, país/estado/cidade, status ativo e a lista de variações. O restante é cadastro de referência."
+  not: "Salvar não religa documentos automaticamente: rode a Sincronização do projeto depois de mudar nomes, variações ou localização."
+  example: "Ao cadastrar a Universidade Federal da Fronteira Sul, preencha “UFFS” como sigla, Chapecó/SC como localização e as grafias em inglês que aparecem no Scopus."
+
+admin.institutions.section_main:
+  title: "Informações principais"
+  what: "Nomes e identificadores da instituição. Nome oficial, nome curto, sigla e razão social viram variações automaticamente ao salvar."
+  how: "Preencha pelo menos o nome oficial. Copie os dados do e-MEC quando a instituição for brasileira."
+  not: "Os códigos e o CNPJ não são usados para casar afiliações."
+  example: "Nome oficial “Universidade de Brasília”, sigla “UnB”, razão social “Fundação Universidade de Brasília”, código IES 2."
+
+admin.institutions.form.official_name:
+  title: "Nome oficial"
+  what: "Nome padronizado que aparece nos rankings, mapas e redes. Também é a chave usada para reconhecer a instituição na importação CSV e no tesauro."
+  how: "Use o nome completo oficial, em português para instituições brasileiras."
+  not: "Mudar o nome não renomeia relatórios já gerados até que o projeto seja sincronizado de novo."
+  example: "“Universidade Federal do Rio Grande do Sul”, e não “UFRGS - Porto Alegre”."
+
+admin.institutions.form.short_name:
+  title: "Nome curto"
+  what: "Forma reduzida do nome. É gravada como variação e também é comparada com as afiliações na Sincronização."
+  how: "Preencha quando a instituição é conhecida por uma forma abreviada que não é sigla."
+  not: "Não substitui o nome oficial nos relatórios."
+  example: "“Univ. de Brasília” para a Universidade de Brasília."
+
+admin.institutions.form.razao_social:
+  title: "Razão social (mantenedora)"
+  what: "Nome jurídico da entidade mantenedora, como no e-MEC. É gravado como variação da instituição."
+  how: "Copie do cadastro e-MEC. Útil quando os artigos citam a fundação em vez da universidade."
+  not: "Não cria uma instituição separada para a mantenedora."
+  example: "“Fundação Universidade de Brasília” para a UnB."
+
+admin.institutions.form.sigla:
+  title: "Sigla"
+  what: "Sigla oficial. É gravada como variação e comparada com as afiliações dos documentos."
+  how: "Digite como a instituição usa (ex.: UnB, UFSC). Maiúsculas e minúsculas não importam na comparação."
+  not: "Cuidado com siglas ambíguas: “UFS” existe em mais de um contexto e pode ligar artigos à instituição errada."
+  example: "Com a sigla “UFSC”, afiliações que trazem só “UFSC” passam a contar para a Universidade Federal de Santa Catarina."
+
+admin.institutions.form.cnpj:
+  title: "CNPJ"
+  what: "CNPJ da instituição ou da mantenedora, apenas para referência cadastral."
+  how: "Digite com ou sem pontuação."
+  not: "Não é validado nem usado em nenhuma análise."
+  example: "00.038.174/0001-43 (Fundação Universidade de Brasília)."
+
+admin.institutions.form.codigo_ies:
+  title: "Código IES (e-MEC)"
+  what: "Número que identifica a instituição de ensino superior no cadastro e-MEC."
+  how: "Consulte em emec.mec.gov.br e digite só o número. Ele pode ser usado na busca desta tela."
+  not: "Não é usado para vincular documentos e não existe para instituições estrangeiras."
+  example: "Código IES 2 = Universidade de Brasília."
+
+admin.institutions.form.codigo_mantenedora:
+  title: "Código da mantenedora"
+  what: "Número da entidade mantenedora no e-MEC."
+  how: "Copie do e-MEC; ajuda a identificar instituições do mesmo grupo mantenedor."
+  not: "Não agrupa instituições nos relatórios."
+  example: "Várias faculdades de um mesmo grupo privado compartilham o código da mantenedora."
+
+admin.institutions.form.situacao:
+  title: "Situação no e-MEC"
+  what: "Situação da IES no e-MEC (ex.: Ativa, Extinta, Em extinção). Texto livre, informativo."
+  how: "Copie do e-MEC. Se ficar vazio, é gravado “Ativa”."
+  not: "Não é o mesmo que o interruptor “Instituição Ativa”: só o interruptor afeta a Sincronização."
+  example: "Uma faculdade incorporada por outra pode estar “Extinta” no e-MEC e mesmo assim continuar ativa aqui para reconhecer artigos antigos."
+
+admin.institutions.form.years:
+  title: "Anos de fundação e extinção"
+  what: "Período de existência da instituição, para referência histórica."
+  how: "Digite apenas o ano com 4 dígitos; deixe a extinção vazia se a instituição ainda existe."
+  not: "Não filtra documentos por ano nem impede vínculos fora do período."
+  example: "Fundação 1962 para a UnB; uma escola isolada incorporada em 1991 teria extinção 1991."
+
+admin.institutions.section_classification:
+  title: "Classificação acadêmica e jurídica"
+  what: "Organização acadêmica, categoria administrativa, credenciamento e natureza jurídica, conforme o e-MEC."
+  how: "Preencha copiando os termos do e-MEC, para manter o padrão entre instituições."
+  not: "São textos livres e não alimentam filtros ou gráficos."
+  example: "Universidade · Pública Federal · Presencial e EAD · Pessoa Jurídica de Direito Público - Federal."
+
+admin.institutions.form.organizacao:
+  title: "Organização acadêmica"
+  what: "Tipo de IES no e-MEC: Universidade, Centro Universitário, Faculdade, Instituto Federal etc."
+  how: "Use exatamente o termo do e-MEC. Aparece na coluna “Organização / Categoria” da listagem."
+  not: "Não muda a forma como os documentos são contados."
+  example: "“Instituto Federal” para o IFSC."
+
+admin.institutions.form.categoria_adm:
+  title: "Categoria administrativa"
+  what: "Classificação do e-MEC quanto à mantença: Pública Federal, Estadual, Municipal, Privada com ou sem fins lucrativos, Especial."
+  how: "Copie do e-MEC. Aparece na listagem ao lado da organização acadêmica."
+  not: "Não é calculada nem usada nos relatórios."
+  example: "“Pública Estadual” para a USP."
+
+admin.institutions.form.credenciamento:
+  title: "Tipo de credenciamento"
+  what: "Modalidades em que a IES é credenciada pelo MEC (presencial, EAD ou ambas)."
+  how: "Texto livre; copie do e-MEC."
+  not: "Não indica a modalidade dos artigos ou cursos analisados."
+  example: "“Presencial e EAD”."
+
+admin.institutions.form.natureza:
+  title: "Natureza jurídica"
+  what: "Natureza jurídica da mantenedora (ex.: Pessoa Jurídica de Direito Público - Federal). Mostrada na listagem quando a categoria administrativa está vazia."
+  how: "Copie do e-MEC ou do cartão CNPJ."
+  not: "Não é validada."
+  example: "“Pessoa Jurídica de Direito Privado - Sem fins lucrativos - Fundação”."
+
+admin.institutions.section_indicators:
+  title: "Indicadores de qualidade do MEC"
+  what: "IGC (Índice Geral de Cursos) e CI (Conceito Institucional), com o ano de referência. Ambos vão de 1 a 5."
+  how: "Copie os valores e anos do e-MEC ou do INEP. Ficam visíveis na listagem para consulta."
+  not: "São só referência cadastral: não ponderam produção, não entram em rankings nem medem a qualidade dos artigos."
+  example: "IGC 5 (2023) e CI 5 (2020) para uma universidade federal bem avaliada."
+
+admin.institutions.form.igc:
+  title: "IGC — Índice Geral de Cursos"
+  what: "Indicador do INEP/MEC que resume a qualidade dos cursos de graduação e pós-graduação da IES, em faixas de 1 a 5."
+  how: "Digite a faixa e o ano de divulgação no campo ao lado."
+  not: "Não é usado em nenhum cálculo bibliométrico desta plataforma."
+  example: "IGC 4, ano 2023."
+
+admin.institutions.form.ci:
+  title: "CI — Conceito Institucional"
+  what: "Nota de 1 a 5 da avaliação externa in loco da instituição pelo MEC."
+  how: "Digite o conceito e o ano da avaliação."
+  not: "Não muda com o tempo sozinho: atualize quando sair nova avaliação."
+  example: "CI 5, ano 2020."
+
+admin.institutions.section_location:
+  title: "Localização da instituição"
+  what: "País, estado e cidade da instituição. Quando um documento é ligado à instituição na Sincronização, esses lugares também são ligados ao documento e aparecem nos mapas e rankings geográficos."
+  how: "Escolha os três níveis. As listas mostram só países, estados e cidades ativos do cadastro de Geografia."
+  not: "Não é a localização do autor: se a instituição tem vários campi, fica registrada só a sede."
+  example: "UFSC com Brasil / Santa Catarina / Florianópolis: todo artigo com afiliação UFSC passa a contar para Florianópolis no mapa."
+
+admin.institutions.form.country:
+  title: "País da instituição"
+  what: "País herdado pelos documentos ligados a esta instituição."
+  how: "Escolha na lista (só países ativos)."
+  not: "Não substitui o país lido do endereço do artigo: os dois são considerados."
+  example: "Brasil para a UnB; Portugal para a Universidade de Coimbra."
+
+admin.institutions.form.state:
+  title: "Estado da instituição"
+  what: "Estado/UF herdado pelos documentos ligados à instituição."
+  how: "Escolha na lista. Confira se o estado pertence ao país escolhido: a tela não verifica."
+  not: "Não filtra a lista de cidades automaticamente."
+  example: "Distrito Federal (DF) para a UnB."
+
+admin.institutions.form.city:
+  title: "Cidade da instituição"
+  what: "Cidade herdada pelos documentos ligados à instituição, usada nos mapas por cidade."
+  how: "Escolha na lista; se a cidade não existir, cadastre-a antes em Admin › Geografia."
+  not: "A tela não verifica se a cidade é do estado escolhido."
+  example: "Brasília para a UnB."
+
+admin.institutions.form.coordinates:
+  title: "Latitude e longitude"
+  what: "Coordenadas da sede da instituição em graus decimais."
+  how: "Use ponto como separador decimal e sinal negativo para Sul e Oeste. Copie do Google Maps (clique com o botão direito no local)."
+  not: "Os mapas atuais desta plataforma não usam essas coordenadas; são dados de referência."
+  example: "UnB: latitude -15.7655, longitude -47.8721."
+
+admin.institutions.section_contact:
+  title: "Contatos e gestão"
+  what: "Site, e-mail, telefone, endereço, reitor e representante legal: dados de referência da instituição."
+  how: "Preencha se forem úteis para a equipe; nenhum é obrigatório."
+  not: "Nenhum desses campos é usado na análise bibliométrica."
+  example: "Site https://www.unb.br e e-mail institucional para contato do grupo de pesquisa."
+
+admin.institutions.form.vantagepoint:
+  title: "String VantagePoint"
+  what: "Texto de referência da instituição no formato de tesauro do VantagePoint, guardado para compatibilidade com tesauros antigos."
+  how: "Cole a linha do tesauro original, se existir. Ele entra na busca desta tela."
+  not: "Não é usado para casar afiliações; para isso, use as variações."
+  example: "**UNB0 1 UNIVERSIDADE DE BRASILIA"
+
+admin.institutions.form.status:
+  title: "Instituição ativa"
+  what: "Só instituições ativas, e as grafias delas, entram na Sincronização. Inativar tira a instituição do reconhecimento de afiliações."
+  how: "Desmarque para inativar e salve. Os vínculos já existentes somem do projeto na próxima Sincronização."
+  not: "Inativar não apaga a instituição nem as variações."
+  example: "Inative um registro genérico como “Hospital” que estava ligando artigos de hospitais diferentes à mesma instituição."
+
+admin.institutions.form.variations:
+  title: "Variações de escrita"
+  what: "Grafias alternativas da instituição, comparadas na Sincronização com cada afiliação dos documentos depois de normalizadas (minúsculas, sem acentos e pontuação)."
+  how: "Uma grafia por linha. Ao salvar, grafias apagadas da caixa são removidas; nome oficial, nome curto, sigla e razão social são mantidos automaticamente."
+  not: "A comparação é da afiliação inteira: “Univ Fed Santa Catarina” não casa com “Univ Fed Santa Catarina Hosp Univ”. Cadastre cada forma que aparece nos arquivos."
+  example: "Para a UFSC: “Univ Fed Santa Catarina”, “Federal University of Santa Catarina”, “Universidade Federal de Santa Catarina UFSC”."
+
+admin.institutions.edit.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as grafias alternativas e as razões sociais desta instituição. **Desmembrar** cria uma instituição nova e ativa com essa grafia como nome, copiando país, estado, cidade, tipo e natureza."
+  how: "Clique em Desmembrar e confirme; você vai para a edição da nova instituição. Depois sincronize o projeto para que as afiliações com essa grafia passem para a nova instituição."
+  not: "O desmembramento não move os vínculos de documentos já existentes: eles só mudam na próxima Sincronização."
+  example: "“Hospital Universitário Polydoro Ernani de São Thiago” estava como grafia da UFSC; desmembre para que o hospital apareça separado no ranking."
+
+admin.institutions.edit.merge:
+  title: "Mesclar esta instituição em outra"
+  what: "Transfere os vínculos de documentos e as variações desta instituição para a escolhida, cria variações com o nome oficial, nome curto, sigla e razão social deste registro e o exclui."
+  how: "Escolha a instituição de destino e clique em Mesclar e Excluir. Se um documento estava ligado às duas, fica um vínculo só."
+  not: "Não pode ser desfeito e não copia dados e-MEC ou localização deste registro para o destino."
+  example: "“Univ Brasilia” (criada pelo tesauro, 340 documentos) mesclada em “Universidade de Brasília”: o destino ganha os 340 documentos e a grafia."
+
+admin.institutions.merge.page:
+  title: "Mesclar instituições em lote"
+  what: "Compara de 2 a 5 instituições e consolida tudo num registro principal (Master), escolhendo campo a campo os dados que ficam."
+  how: "1) Escolha o Master. 2) Ajuste os valores por linha. 3) Confira as grafias reunidas. 4) Confirme. Depois rode a Sincronização dos projetos."
+  not: "Os vínculos de documentos dos registros secundários são apagados junto com eles; só voltam (para o Master) na próxima Sincronização, graças às variações copiadas."
+  example: "Três cadastros da Unicamp vindos de tesauros diferentes: mescle mantendo o que tem código IES e coordenadas, e sincronize os projetos."
+
+admin.institutions.merge.master:
+  title: "Instituição principal (Master)"
+  what: "Registro que continua existindo, com o mesmo #id; os demais são excluídos."
+  how: "Escolha o cadastro mais completo (com código IES e localização). Ao trocar o Master, a tabela abaixo pré-seleciona os valores dele."
+  not: "Não transfere sozinho os documentos dos outros registros."
+  example: "Entre “Universidade Estadual de Campinas” (#45, com IES) e “UNICAMP” (#9120), escolha #45."
+
+admin.institutions.merge.fields:
+  title: "Valores a manter"
+  what: "Define, linha a linha, qual valor o Master terá. Linhas como coordenadas, CI, CI-EAD, IGC e localização copiam o conjunto inteiro (valor e ano, ou país/estado/cidade) da coluna escolhida."
+  how: "Marque a coluna desejada em cada linha. Se marcar um valor vazio (—), o campo do Master fica vazio."
+  not: "Nomes descartados não se perdem: viram variações do Master."
+  example: "Mantenha o nome oficial da coluna #45 e as coordenadas da coluna #9120, se só ela tiver latitude e longitude."
+
+admin.institutions.merge.period:
+  title: "Ano de fundação na fusão"
+  what: "Escolhe qual ano de fundação o Master terá."
+  how: "Marque a coluna com o ano correto."
+  not: "O ano de extinção não é alterado pela fusão: o Master mantém o dele."
+  example: "Marque 1966 se o registro #45 trouxer o ano correto de fundação."
+
+admin.institutions.merge.variations:
+  title: "Consolidação das grafias"
+  what: "Todas as grafias que passarão a apontar para o Master: nomes oficiais, nomes curtos, siglas, razões sociais e variações de todos os registros."
+  how: "Revise: se aparecer grafia de outra instituição, algum registro não deveria entrar na fusão."
+  not: "Grafias não podem ser removidas aqui; faça isso depois na edição do Master."
+  example: "Ao ver “UNESP” numa fusão da Unicamp, cancele e retire o registro errado."
+
+admin.institutions.merge.confirm:
+  title: "Confirmar fusão de instituições"
+  what: "Atualiza o Master com os valores escolhidos, copia as grafias e exclui os demais registros."
+  how: "Confirme e, em seguida, rode a Sincronização dos projetos afetados para religar os documentos."
+  not: "Não pode ser desfeita."
+  example: "Após a fusão, sincronize o projeto de revisão sistemática para que os 120 artigos da Unicamp voltem a aparecer no ranking."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GEOGRAFIA (países, estados, cidades)
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.geography.page:
+  title: "Estruturas geográficas"
+  what: "Cadastro global de países, estados e cidades, com suas grafias. Ele traduz os nomes de lugar dos artigos (ex.: “Brazil”, “Brasil”, “BR”) para um único país, estado ou cidade nos mapas e rankings geográficos."
+  how: "Na **Sincronização** de um projeto, cada termo de localização do documento é normalizado e procurado primeiro entre os países, depois entre os estados e por fim entre as cidades ativos, incluindo suas variações. Lugares das instituições reconhecidas também são ligados ao documento."
+  not: "Não geocodifica endereços nem consulta serviços externos: o que não estiver cadastrado aparece como “não reconhecido” na Sincronização."
+  example: "Num corpus internacional sobre educação a distância, cadastrar “Republic of Korea” e “South Korea” como variações de Coreia do Sul faz o país aparecer uma vez só no mapa de produção."
+
+admin.geography.search:
+  title: "Busca geográfica"
+  what: "Filtra as três abas ao mesmo tempo pelo texto digitado: nomes, siglas, códigos ISO, região, país ou estado de origem e variações."
+  how: "Digite e clique em Filtrar; os contadores das abas mostram quantos itens de cada tipo correspondem."
+  not: "Não busca por código IBGE."
+  example: "Digite “Paraná” para ver o estado e todas as cidades cadastradas nele."
+
+admin.geography.export_thesaurus:
+  title: "Exportar tesauro geográfico"
+  what: "Baixa os **países** (nome comum) com todas as variações, em VantagePoint (.the) ou CSV."
+  how: "No .the, cada país é uma linha “**#nome” seguida das grafias em minúsculas. No CSV (ponto e vírgula), uma linha por grafia: preferred_name;variant_name."
+  not: "Estados e cidades não entram neste arquivo; para eles, use os botões de CSV de cada aba."
+  example: "Exporte o .the para padronizar países no VantagePoint antes de montar uma rede de colaboração internacional."
+
+admin.geography.import_thesaurus:
+  title: "Importar tesauro de países"
+  what: "Lê um .the ou .csv e acrescenta grafias aos **países**. O termo preferido é procurado pelo nome comum, oficial ou sigla; se não existir, um país novo é criado."
+  how: "No CSV, use vírgula como separador e colunas preferred_name e variant_name. Depois sincronize os projetos."
+  not: "Não cria estados nem cidades. Países novos recebem sigla e código ISO provisórios (as primeiras letras do nome): corrija-os na edição. O CSV do “Exportar tesauro” usa ponto e vírgula; converta para vírgula antes de reimportar."
+  example: "Importar o termo “Cabo Verde” com a variação “Cape Verde” cria o país, se ele ainda não existir, já reconhecendo a grafia em inglês."
+
+admin.geography.merge_selected:
+  title: "Mesclar países selecionados"
+  what: "Abre a comparação para unir de 2 a 5 **países** duplicados. Só a aba Países tem seleção em lote."
+  how: "Marque as caixas na aba Países e clique em Mesclar."
+  not: "Atenção: os registros secundários são excluídos com tudo o que depende deles: **estados e cidades** cadastrados nesses países também são apagados e os vínculos de documentos se perdem até a próxima Sincronização. Para estados e cidades, use “Mesclar” na tela de edição."
+  example: "Dois cadastros, “Brasil” e “Brazil”, sem estados no segundo: mescle mantendo “Brasil” como Master."
+
+admin.geography.countries_tab:
+  title: "Aba Países"
+  what: "Lista todos os países com sigla, código ISO, continente, período histórico e número de grafias."
+  how: "Use Editar para ajustar grafias e dados, ou marque caixas para mesclar duplicatas."
+  not: "A bandeira é ilustrativa (vem da sigla de 2 letras); sigla errada mostra bandeira errada ou nenhuma."
+  example: "Confira se “Alemanha”, “Germany” e “Deutschland” estão como variações de um único país."
+
+admin.geography.countries_csv:
+  title: "Exportar/importar países (CSV)"
+  what: "Exporta ou importa países com as colunas official_name, common_name, sigla, iso_code, continente, nationality, status e variations (grafias separadas por ponto e vírgula)."
+  how: "O arquivo usa vírgula como separador. Na importação, o país é reconhecido pelo nome oficial ou comum (e por variações já cadastradas); existentes são atualizados, os demais criados."
+  not: "Anos de fundação e extinção não entram no CSV. Grafias que não estiverem na coluna variations são removidas do país atualizado."
+  example: "Exporte, corrija no Excel o continente de 30 países africanos e reimporte o mesmo arquivo."
+
+admin.geography.states_tab:
+  title: "Aba Estados"
+  what: "Lista estados, províncias ou unidades federativas, com país, região e código oficial."
+  how: "Use Editar para corrigir sigla, região ou grafias."
+  not: "Estados dos EUA podem ter sido criados automaticamente pela Sincronização (quando o endereço traz “CA 94305 USA”, por exemplo), com nome igual à sigla: complete o nome."
+  example: "Corrija um estado criado como “CA” para “Califórnia”, mantendo “CA” como sigla."
+
+admin.geography.states_csv:
+  title: "Exportar/importar estados (CSV)"
+  what: "CSV com official_name, sigla, country_name, region_name, official_code, status e variations."
+  how: "Separador vírgula. O país precisa existir (pelo nome); linhas de países desconhecidos são ignoradas. Regiões que não existirem são criadas. O estado é reconhecido pelo nome ou sigla dentro do país."
+  not: "Não importa cidades. Grafias fora da coluna variations são removidas do estado atualizado."
+  example: "Importe as 27 UFs do Brasil com region_name “Sul”, “Sudeste” etc. e o código IBGE de cada uma."
+
+admin.geography.cities_tab:
+  title: "Aba Cidades"
+  what: "Lista as cidades cadastradas, com estado, país e código oficial."
+  how: "Cadastre as cidades das instituições do seu corpus para que apareçam no mapa por cidade."
+  not: "Não contém todos os municípios do país: só os cadastrados aqui."
+  example: "Para um estudo sobre universidades do Sul, cadastre Pelotas, Santa Maria e Chapecó."
+
+admin.geography.cities_csv:
+  title: "Exportar/importar cidades (CSV)"
+  what: "CSV com official_name, state_sigla, country_name, official_code, status e variations."
+  how: "Separador vírgula. País (pelo nome) e estado (pela sigla, dentro do país) precisam existir. A cidade é reconhecida pelo nome dentro do mesmo país e estado."
+  not: "Linhas com país desconhecido são ignoradas. Grafias fora da coluna variations são removidas da cidade atualizada."
+  example: "Importe os municípios de Santa Catarina com o código IBGE de 7 dígitos (ex.: 4205407 para Florianópolis)."
+
+admin.geography.col_variations:
+  title: "Variações (grafias)"
+  what: "Quantas grafias do lugar estão cadastradas, incluindo nome oficial, nome comum e sigla, que viram variações automaticamente."
+  how: "Na Sincronização, os termos de localização dos documentos são normalizados e comparados com essas grafias."
+  not: "Não é o número de documentos do lugar."
+  example: "Estados Unidos pode ter “USA”, “United States”, “U.S.A.” e “EUA” como variações."
+
+admin.geography.status:
+  title: "Status ativo"
+  what: "Só países, estados e cidades ativos são usados para reconhecer lugares na Sincronização e aparecem nas listas de seleção dos formulários."
+  how: "Desmarque para tirar o lugar do reconhecimento e salve. Os vínculos existentes somem na próxima Sincronização do projeto."
+  not: "Inativar não apaga o registro nem suas grafias."
+  example: "Inative “Iugoslávia” se você não quer que artigos antigos sejam atribuídos a um país extinto."
+
+admin.geography.country.form_page:
+  title: "Formulário do país"
+  what: "Cadastra ou edita um país e suas grafias."
+  how: "Preencha nome oficial e nome comum, sigla de 2 letras, código ISO de 3 letras e as grafias. Depois sincronize os projetos."
+  not: "Salvar não religa documentos automaticamente."
+  example: "Coreia do Sul: oficial “República da Coreia”, comum “Coreia do Sul”, sigla KR, ISO KOR."
+
+admin.geography.country.official_name:
+  title: "Nome oficial do país"
+  what: "Nome completo do país. Também é usado para reconhecer o país nos documentos e na importação CSV."
+  how: "Escreva o nome oficial, em português ou inglês, como preferir manter no cadastro."
+  not: "Não é o nome mostrado nos relatórios (para isso, veja o nome comum)."
+  example: "“República Federativa do Brasil”."
+
+admin.geography.country.common_name:
+  title: "Nome comum do país"
+  what: "Nome curto usado nas listas, mapas e relatórios. Também vira grafia reconhecida."
+  how: "Use a forma mais conhecida."
+  not: "Não precisa ser igual ao que vem nos artigos; as outras formas ficam nas variações."
+  example: "“Brasil”."
+
+admin.geography.country.sigla:
+  title: "Sigla do país (2 letras)"
+  what: "Código de 2 letras (padrão ISO 3166-1 alfa-2). É usado para a bandeira na listagem e também vira grafia reconhecida."
+  how: "Digite em maiúsculas, como BR, PT, US."
+  not: "Siglas também casam com termos dos artigos: uma sigla errada pode ligar documentos ao país errado."
+  example: "BR para Brasil; DE para Alemanha."
+
+admin.geography.country.iso_code:
+  title: "Código ISO (3 letras)"
+  what: "Código de 3 letras (ISO 3166-1 alfa-3) do país, para referência. O código “USA” identifica os Estados Unidos no tratamento de endereços americanos."
+  how: "Digite em maiúsculas: BRA, PRT, USA."
+  not: "Não é usado para reconhecer o país nos textos dos artigos."
+  example: "BRA para Brasil; KOR para Coreia do Sul."
+
+admin.geography.country.continent:
+  title: "Continente"
+  what: "Continente do país, para referência e organização do cadastro."
+  how: "Use sempre a mesma grafia (ex.: “América do Sul”, “Europa”)."
+  not: "Não alimenta filtros ou agrupamentos nos relatórios."
+  example: "“América do Sul” para Brasil e Chile."
+
+admin.geography.country.nationality:
+  title: "Nacionalidade"
+  what: "Gentílico do país, apenas informativo."
+  how: "Preencha se útil para o cadastro."
+  not: "Não é usado para reconhecer o país nos artigos."
+  example: "“Brasileiro”."
+
+admin.geography.country.period:
+  title: "Período histórico"
+  what: "Anos de fundação e extinção do país, para lidar com países que mudaram (URSS, Iugoslávia, Tchecoslováquia)."
+  how: "Digite só os anos; deixe a extinção vazia se o país ainda existe. Na listagem, países extintos aparecem em vermelho."
+  not: "Não filtra documentos por ano nem impede que artigos sejam ligados ao país."
+  example: "URSS: fundação 1922, extinção 1991."
+
+admin.geography.country.variations:
+  title: "Variações do país"
+  what: "Grafias alternativas do país, em qualquer idioma, comparadas na Sincronização com os termos de localização dos documentos."
+  how: "Uma por linha. Nome oficial, nome comum e sigla são incluídos automaticamente. Na edição, apagar uma linha remove a grafia ao salvar."
+  not: "Evite grafias ambíguas (ex.: “Guinea” sozinha pode ser de três países diferentes)."
+  example: "Para Alemanha: Germany, Deutschland, Fed Rep Ger."
+
+admin.geography.country.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as grafias alternativas do país. **Desmembrar** cria um país novo e ativo com essa grafia como nome e a retira deste país."
+  how: "Clique em Desmembrar; você vai para a edição do novo país para completar sigla e ISO. Sincronize o projeto em seguida."
+  not: "Não move vínculos de documentos imediatamente: eles mudam na próxima Sincronização."
+  example: "“Ireland” estava como grafia do Reino Unido por engano: desmembre para criar a Irlanda."
+
+admin.geography.country.merge:
+  title: "Mesclar este país em outro"
+  what: "Move os vínculos de documentos e as grafias deste país para o destino, cria grafias com o nome oficial, comum e sigla deste país e o exclui."
+  how: "Escolha o país de destino e confirme."
+  not: "Não pode ser desfeito. **Estados, regiões e cidades deste país são excluídos junto** e instituições ligadas a ele ficam sem país. Mova-os para o destino antes de mesclar."
+  example: "“Brazil” (cadastro duplicado, sem estados) mesclado em “Brasil”: os documentos passam para “Brasil”."
+
+admin.geography.state.form_page:
+  title: "Formulário do estado"
+  what: "Cadastra ou edita um estado, província ou UF, ligado a um país e opcionalmente a uma região."
+  how: "Preencha nome, sigla, país, região, código oficial e grafias. Depois sincronize os projetos."
+  not: "Salvar não religa documentos automaticamente."
+  example: "Santa Catarina: sigla SC, país Brasil, região Sul, código IBGE 42."
+
+admin.geography.state.name:
+  title: "Nome do estado"
+  what: "Nome oficial, mostrado nos relatórios e usado para reconhecer o estado nos documentos."
+  how: "Escreva com acentos; a comparação ignora acentos e maiúsculas."
+  not: "Se dois estados de países diferentes tiverem o mesmo nome, os artigos só são ligados a um deles: diferencie-os com grafias específicas."
+  example: "“São Paulo”."
+
+admin.geography.state.sigla:
+  title: "Sigla / UF"
+  what: "Sigla do estado. É reconhecida nos documentos e usada na importação CSV de cidades e instituições (coluna state_sigla)."
+  how: "Digite em maiúsculas: SP, SC, CA."
+  not: "Siglas de 2 letras podem coincidir com palavras ou siglas de outros países; confira os resultados da Sincronização."
+  example: "SC para Santa Catarina."
+
+admin.geography.state.country:
+  title: "País do estado"
+  what: "País ao qual o estado pertence. Quando um documento é ligado ao estado, o país também é ligado."
+  how: "Escolha na lista (só países ativos)."
+  not: "Trocar o país de um estado não atualiza as cidades dele."
+  example: "Brasil para Paraná."
+
+admin.geography.state.region:
+  title: "Região"
+  what: "Região do país à qual o estado pertence (ex.: Sul, Nordeste), para agrupamento no cadastro."
+  how: "Escolha na lista ou deixe vazio. Regiões são criadas pela importação CSV de estados (coluna region_name)."
+  not: "Não cria nem edita regiões nesta tela."
+  example: "Região Sul para RS, SC e PR."
+
+admin.geography.state.code:
+  title: "Código oficial (IBGE)"
+  what: "Código oficial do estado; no Brasil, o código IBGE de 2 dígitos."
+  how: "Digite só os números."
+  not: "Não é usado para reconhecer o estado nos artigos."
+  example: "35 = São Paulo; 42 = Santa Catarina."
+
+admin.geography.state.variations:
+  title: "Variações do estado"
+  what: "Grafias alternativas do estado, usadas na Sincronização."
+  how: "Uma por linha. Nome e sigla são incluídos automaticamente. Na edição, apagar uma linha remove a grafia ao salvar."
+  not: "Não inclua nomes de cidades: “Rio de Janeiro” como grafia do estado faz a cidade ser contada como estado."
+  example: "Para São Paulo: “Sao Paulo State”, “Estado de São Paulo”."
+
+admin.geography.state.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as grafias alternativas do estado. **Desmembrar** cria um estado novo com essa grafia como nome, no mesmo país e região, com sigla provisória (2 primeiras letras)."
+  how: "Desmembre e ajuste a sigla na tela do novo estado. Sincronize os projetos depois."
+  not: "Os vínculos de documentos só mudam na próxima Sincronização."
+  example: "“Mato Grosso do Sul” cadastrado como grafia de Mato Grosso: desmembre e corrija a sigla para MS."
+
+admin.geography.state.merge:
+  title: "Mesclar este estado em outro"
+  what: "Move os vínculos de documentos e as grafias deste estado para o destino, acrescenta nome e sigla como grafias do destino e exclui este estado."
+  how: "Escolha o estado de destino e confirme."
+  not: "Não pode ser desfeito. Cidades e instituições ligadas a este estado ficam **sem estado**: ajuste-as depois."
+  example: "“Sta Catarina” (criado por importação) mesclado em “Santa Catarina”."
+
+admin.geography.city.form_page:
+  title: "Formulário da cidade"
+  what: "Cadastra ou edita uma cidade, ligada a país e estado."
+  how: "Preencha nome, código IBGE, país, estado e grafias. Depois sincronize os projetos."
+  not: "Salvar não religa documentos automaticamente."
+  example: "Florianópolis: código 4205407, Brasil, Santa Catarina."
+
+admin.geography.city.name:
+  title: "Nome da cidade"
+  what: "Nome oficial, usado nos relatórios e para reconhecer a cidade nos documentos."
+  how: "Escreva com acentos; a comparação ignora acentos e maiúsculas."
+  not: "Cidades homônimas (ex.: Santa Maria, RS e DF) são comparadas só pelo nome, e os artigos acabam ligados a apenas uma delas: cadastre grafias específicas quando necessário."
+  example: "“São Carlos”."
+
+admin.geography.city.code:
+  title: "Código IBGE / oficial"
+  what: "Código oficial do município; no Brasil, o código IBGE de 7 dígitos."
+  how: "Consulte no site do IBGE e digite só os números."
+  not: "Não é usado para reconhecer a cidade nos artigos."
+  example: "3548906 = São Carlos (SP)."
+
+admin.geography.city.country:
+  title: "País da cidade"
+  what: "País da cidade. Quando um documento é ligado à cidade, o país também é ligado."
+  how: "Escolha na lista (só países ativos)."
+  not: "A tela não verifica se o estado escolhido é desse país."
+  example: "Brasil para Campinas."
+
+admin.geography.city.state:
+  title: "Estado da cidade"
+  what: "Estado da cidade. Quando um documento é ligado à cidade, o estado também é ligado."
+  how: "Escolha na lista (só estados ativos)."
+  not: "A lista mostra estados de todos os países: confira a sigla."
+  example: "São Paulo (SP) para Campinas."
+
+admin.geography.city.variations:
+  title: "Variações da cidade"
+  what: "Grafias alternativas da cidade, usadas na Sincronização."
+  how: "Uma por linha. O nome oficial é incluído automaticamente. Na edição, apagar uma linha remove a grafia ao salvar."
+  not: "Não inclua bairros ou campi como grafia da cidade sem necessidade."
+  example: "Para São Carlos: “Sao Carlos”, “S. Carlos”."
+
+admin.geography.city.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as grafias alternativas da cidade. **Desmembrar** cria uma cidade nova com essa grafia, no mesmo país e estado."
+  how: "Desmembre e complete os dados na tela da nova cidade; sincronize os projetos depois."
+  not: "Os vínculos de documentos só mudam na próxima Sincronização."
+  example: "“Santo André” estava como grafia de São Bernardo do Campo: desmembre."
+
+admin.geography.city.merge:
+  title: "Mesclar esta cidade em outra"
+  what: "Move os vínculos de documentos e as grafias desta cidade para o destino, acrescenta o nome como grafia e exclui esta cidade."
+  how: "Escolha a cidade de destino e confirme."
+  not: "Não pode ser desfeito. Instituições ligadas a esta cidade ficam sem cidade: ajuste-as depois."
+  example: "“Florianopolis” (sem acento, duplicada) mesclada em “Florianópolis”."
+
+admin.geography.merge.page:
+  title: "Mesclar países em lote"
+  what: "Compara de 2 a 5 países e consolida tudo num país principal (Master)."
+  how: "1) Escolha o Master. 2) Escolha nomes e ano de fundação. 3) Confira as grafias. 4) Confirme e sincronize os projetos."
+  not: "Os países secundários são excluídos com seus **estados, regiões e cidades**, e os vínculos de documentos deles se perdem até a próxima Sincronização. Use só para duplicatas sem estados e cidades."
+  example: "“EUA” e “United States” cadastrados em separado, o segundo sem estados: mescle com “Estados Unidos” como Master."
+
+admin.geography.merge.master:
+  title: "País principal (Master)"
+  what: "O país que continua existindo; os demais são excluídos."
+  how: "Escolha o que tem estados e cidades cadastrados. Ao trocar o Master, a tabela pré-seleciona os valores dele."
+  not: "Estados e cidades dos outros países não são transferidos."
+  example: "Escolha “Brasil” (27 estados) em vez de “Brazil” (nenhum estado)."
+
+admin.geography.merge.fields:
+  title: "Valores a manter"
+  what: "Define, linha a linha, nome comum, nome oficial e ano de fundação do Master."
+  how: "Marque a coluna desejada em cada linha."
+  not: "Nomes descartados viram grafias do Master; não se perdem."
+  example: "Mantenha “Estados Unidos” como nome comum e “United States of America” como oficial."
+
+admin.geography.merge.codes:
+  title: "Sigla e código ISO"
+  what: "Mostra a sigla e o código ISO de cada país, para conferência."
+  how: "Confira se são o mesmo país. O Master mantém a sigla e o código dele; corrija depois na edição, se preciso."
+  not: "Não é possível escolher a sigla de outro registro nesta tela."
+  example: "BR/BRA e BR/— indicam o mesmo país, com o segundo cadastro incompleto."
+
+admin.geography.merge.period:
+  title: "Ano de fundação na fusão"
+  what: "Escolhe o ano de fundação do Master."
+  how: "Marque a coluna com o ano correto."
+  not: "O ano de extinção não muda: o Master mantém o dele."
+  example: "Escolha 1822 para o Brasil."
+
+admin.geography.merge.variations:
+  title: "Consolidação das grafias"
+  what: "Todas as grafias (nomes comum e oficial e variações) que passarão a apontar para o Master."
+  how: "Revise a lista; se aparecer grafia de outro país, cancele e retire o registro errado."
+  not: "Grafias não podem ser removidas aqui."
+  example: "Ao ver “Niger” numa fusão de “Nigéria”, cancele: são países diferentes."
+
+admin.geography.merge.confirm:
+  title: "Confirmar fusão de países"
+  what: "Atualiza o Master, copia as grafias e exclui os outros países, com seus estados e cidades."
+  how: "Confirme e rode a Sincronização dos projetos afetados."
+  not: "Não pode ser desfeita."
+  example: "Depois de mesclar “Brazil” em “Brasil”, sincronize o projeto para que os 900 artigos brasileiros voltem ao mapa."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REVISTAS E QUALIS
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.journals.page:
+  title: "Revistas e Qualis"
+  what: "Cadastro global de periódicos com ISSN e estrato **Qualis CAPES** (A1 a C). É dele que sai o Qualis mostrado nos documentos e relatórios dos projetos."
+  how: "Na **Sincronização** de um projeto, o ISSN de cada documento (sem hífen e espaços) é comparado com o ISSN das revistas daqui; se bater, o documento recebe o estrato dessa revista. ISSNs desconhecidos são cadastrados automaticamente, sem Qualis."
+  not: "O vínculo é feito **só pelo ISSN**: o título e as variações não ligam documentos. Um único estrato é guardado por revista, sem separar área de avaliação nem quadriênio."
+  example: "Numa revisão com 800 artigos de educação, 120 vieram sem Qualis porque o periódico entrou só pelo ISSN eletrônico. Cadastre o estrato dessas revistas aqui e sincronize o projeto."
+
+admin.journals.search:
+  title: "Busca de revistas"
+  what: "Procura no título, no ISSN, no estrato e nas variações de título."
+  how: "Digite parte do título ou o ISSN com hífen, como ele está cadastrado (ex.: 1984-0411), e clique em Filtrar. Clique nos cabeçalhos Periódico, ISSN ou Qualis para ordenar."
+  not: "Não busca pelas bases de dados em que a revista está indexada."
+  example: "Busque “1984-0411” ou “Educação em Revista” para conferir o estrato antes de citar a revista na tese."
+
+admin.journals.qualis_filter:
+  title: "Filtro por estrato Qualis"
+  what: "Mostra só as revistas com o estrato escolhido."
+  how: "Escolha A1 a C e clique em Filtrar; combine com a busca por texto."
+  not: "Não há opção para listar revistas sem estrato: elas aparecem com “—” na coluna Qualis."
+  example: "Filtre A1 para listar os periódicos de maior estrato cadastrados e conferir se os principais da sua área estão presentes."
+
+admin.journals.col_qualis:
+  title: "Estrato Qualis"
+  what: "Classificação da CAPES para periódicos: **A1** (mais alto), A2, A3, A4, B1, B2, B3, B4 e **C** (peso zero). As cores agrupam A1–A2, A3–A4, B1–B2, B3–B4 e C."
+  how: "Clique no estrato para abrir a consulta em tempo real na Plataforma Sucupira e conferir a classificação oficial por área. “—” indica revista sem estrato cadastrado."
+  not: "O Qualis avalia o periódico para fins de avaliação da pós-graduação; não mede a qualidade de um artigo específico nem é fator de impacto."
+  example: "Um artigo em revista A1 e outro em revista C podem ter o mesmo número de citações: o estrato diz respeito ao veículo, não ao texto."
+
+admin.journals.export_thesaurus:
+  title: "Exportar tesauro de revistas"
+  what: "Baixa o título de cada revista com suas variações, em VantagePoint (.the) ou CSV."
+  how: "No .the, cada revista é uma linha “**#título” seguida das variações em minúsculas. No CSV (ponto e vírgula), uma linha por variação."
+  not: "Não exporta ISSN nem Qualis; para isso, use Exportar CSV."
+  example: "Use o .the no VantagePoint para unificar “Rev. Bras. Educ.” e “Revista Brasileira de Educação” no campo de fonte."
+
+admin.journals.import_thesaurus:
+  title: "Importar tesauro de revistas"
+  what: "Acrescenta variações de título às revistas a partir de um .the ou .csv. O termo preferido é procurado pelo título; se não existir, é criada uma revista nova **sem ISSN**."
+  how: "No CSV, use vírgula e colunas preferred_name e variant_name."
+  not: "Revistas criadas sem ISSN nunca se ligam a documentos (o vínculo é por ISSN). O CSV do Exportar tesauro usa ponto e vírgula: converta para vírgula antes de reimportar."
+  example: "Importe um tesauro de abreviaturas de títulos de enfermagem para facilitar a busca nesta tela."
+
+admin.journals.export_csv:
+  title: "Exportar revistas (CSV)"
+  what: "Baixa todas as revistas com issn, title e qualis, separados por ponto e vírgula."
+  how: "Abra no Excel ou LibreOffice com separador ponto e vírgula e UTF-8."
+  not: "Não inclui variações nem bases de dados. Para reimportar, converta para separador vírgula."
+  example: "Exporte para cruzar no Excel a lista de revistas do seu corpus com os estratos e montar a tabela de periódicos da dissertação."
+
+admin.journals.import_csv:
+  title: "Importar revistas (CSV)"
+  what: "Cria ou atualiza revistas em massa. A revista é reconhecida pelo ISSN (sem hífen e espaços)."
+  how: "CSV separado por **vírgula** com cabeçalho issn, title, qualis. Linhas sem ISSN ou sem título são ignoradas. Existentes têm título, ISSN e Qualis substituídos."
+  not: "Uma célula de qualis vazia **apaga** o estrato da revista existente. Não altera variações nem bases. Arquivos separados por ponto e vírgula não são lidos."
+  example: "Para atualizar o estrato de 50 revistas após a divulgação de um novo Qualis, monte um CSV com issn, title e qualis só dessas 50 e importe."
+
+admin.journals.merge_selected:
+  title: "Mesclar revistas selecionadas"
+  what: "Abre a comparação para unir de 2 a 5 cadastros da mesma revista."
+  how: "Marque as caixas e clique em Mesclar (habilita com 2 a 5 marcadas)."
+  not: "Cuidado com ISSN impresso e eletrônico da mesma revista: cada registro guarda um só ISSN, e os documentos com o ISSN do registro excluído deixam de ter Qualis; na próxima Sincronização esse ISSN é recadastrado sem estrato. Mescle só duplicatas de mesmo ISSN ou cadastros sem ISSN."
+  example: "Dois cadastros “Educação & Sociedade” com o mesmo ISSN 0101-7330, um com título abreviado: mescle e mantenha o título completo."
+
+admin.journals.form_page:
+  title: "Formulário da revista"
+  what: "Cadastra ou edita título, ISSN, estrato Qualis, bases de dados e variações de título de um periódico."
+  how: "O ISSN é obrigatório e único. Depois de salvar, sincronize os projetos para atualizar o Qualis dos documentos."
+  not: "Salvar não muda o Qualis dos documentos já sincronizados até a próxima Sincronização."
+  example: "Cadastre “Revista Brasileira de Enfermagem”, ISSN 0034-7167, estrato conferido na Sucupira."
+
+admin.journals.form.title:
+  title: "Título do periódico"
+  what: "Nome da revista exibido nesta tela e nos relatórios de periódicos."
+  how: "Use o título oficial completo."
+  not: "Não é usado para ligar documentos à revista (isso é feito pelo ISSN)."
+  example: "“Revista Brasileira de Educação”."
+
+admin.journals.form.issn:
+  title: "ISSN"
+  what: "Número internacional da revista (8 caracteres, o último pode ser X). É a chave que liga os documentos à revista e ao Qualis."
+  how: "Digite com ou sem hífen. Hífen e espaços são ignorados na comparação; não pode haver duas revistas com o mesmo ISSN."
+  not: "Cada cadastro guarda um ISSN só. Se os documentos trazem o ISSN eletrônico e a revista está com o impresso, eles não se ligam: cadastre o outro ISSN como revista própria com o mesmo estrato."
+  example: "1413-2478 (Revista Brasileira de Educação, impressa) e 1809-449X (eletrônica) precisam de dois cadastros para que ambos recebam Qualis."
+
+admin.journals.form.qualis:
+  title: "Estrato Qualis"
+  what: "Estrato CAPES desta revista (A1, A2, A3, A4, B1, B2, B3, B4 ou C). É copiado para os documentos com o mesmo ISSN na Sincronização."
+  how: "Confira na Sucupira (link abaixo do campo, na edição) e escolha o estrato. “Nenhum estrato” deixa a revista sem Qualis."
+  not: "Guarda um único estrato: se a revista tem classificações diferentes por área ou por quadriênio, registre a que vale para a sua análise e informe o critério no método."
+  example: "Escolha A2 para uma revista classificada A2 no Qualis 2017–2020."
+
+admin.journals.form.databases:
+  title: "Bases de dados acadêmicas"
+  what: "Bases em que a revista aparece (Scopus, WoS, Lens, PubMed…). Na listagem, são mostradas como logotipos."
+  how: "Marque as bases. A Sincronização também marca automaticamente a base de onde vieram os documentos daquela revista."
+  not: "Não é uma verificação oficial de indexação: indica onde a revista apareceu nos dados importados ou onde você a marcou."
+  example: "Uma revista com documentos importados do Scopus e da Web of Science aparece com os dois logotipos."
+
+admin.journals.form.variations:
+  title: "Variações do título"
+  what: "Outras formas de escrita do título (abreviações, traduções). Entram na busca desta tela e no tesauro exportado."
+  how: "Uma por linha. Ao salvar, linhas apagadas são removidas."
+  not: "Não ligam documentos à revista: o vínculo é sempre pelo ISSN."
+  example: "“Rev. Bras. Educ.”, “Brazilian Journal of Education”."
+
+admin.journals.merge.page:
+  title: "Mesclar revistas em lote"
+  what: "Compara de 2 a 5 revistas e consolida tudo num registro principal (Master)."
+  how: "1) Escolha o Master. 2) Escolha título, ISSN e Qualis. 3) Confira os títulos que viram variações. 4) Confirme."
+  not: "Os documentos dos registros excluídos perdem o vínculo com a revista. Bases de dados marcadas nos registros excluídos não passam para o Master."
+  example: "Três cadastros sem ISSN criados por importação de tesauro, todos para “Educação em Revista”: mescle num só."
+
+admin.journals.merge.master:
+  title: "Revista principal (Master)"
+  what: "Registro que continua existindo; os demais são excluídos."
+  how: "Escolha o cadastro cujo ISSN é o usado nos documentos do seu corpus. Ao trocar o Master, a tabela pré-seleciona os valores dele."
+  not: "O ISSN interno de comparação do Master não muda, mesmo que você escolha o ISSN de outra coluna."
+  example: "Escolha #812 (ISSN 0101-7330, com 300 documentos ligados) como Master."
+
+admin.journals.merge.fields:
+  title: "Valores a manter"
+  what: "Define título, ISSN e Qualis do Master."
+  how: "Marque a coluna desejada em cada linha. Marcar um Qualis vazio deixa o Master sem estrato."
+  not: "Títulos descartados viram variações; ISSNs descartados se perdem."
+  example: "Mantenha o título completo de uma coluna e o Qualis A2 de outra."
+
+admin.journals.merge.issn:
+  title: "ISSN na fusão"
+  what: "Escolhe o ISSN exibido no Master."
+  how: "Prefira manter o ISSN do próprio Master."
+  not: "Escolher o ISSN de outra coluna muda só o texto exibido: a ligação com os documentos continua usando o ISSN original do Master."
+  example: "Se o Master tem 0101-7330, mantenha 0101-7330 nesta linha."
+
+admin.journals.merge.variations:
+  title: "Títulos que viram variações"
+  what: "Títulos e variações de todos os registros, que passarão a ser variações do Master."
+  how: "Revise: títulos de outra revista indicam um registro errado na seleção."
+  not: "Não liga documentos (o vínculo é por ISSN)."
+  example: "“Educ. Rev.” e “Educação em Revista” passam a ser variações do mesmo periódico."
+
+admin.journals.merge.confirm:
+  title: "Confirmar fusão de revistas"
+  what: "Atualiza o Master e exclui os outros registros."
+  how: "Confirme e rode a Sincronização dos projetos para recalcular o Qualis dos documentos."
+  not: "Não pode ser desfeita."
+  example: "Após a fusão, sincronize o projeto e confira na listagem de documentos se o Qualis continua preenchido."
+
+admin.journals.sucupira.page:
+  title: "Consulta Sucupira em tempo real"
+  what: "Consulta agora, na Plataforma Sucupira da CAPES, a classificação Qualis do ISSN desta revista. Procura primeiro no quadriênio **2021–2024** e, se não achar, no **2017–2020**."
+  how: "Compare o estrato oficial com o “Qualis cadastrado aqui”. Se forem diferentes, clique em **Editar Qualis desta revista** e corrija."
+  not: "Não grava nada automaticamente. Depende do site da CAPES: se ele estiver lento ou fora do ar, a tabela vem vazia."
+  example: "A revista está como B1 no cadastro, mas a Sucupira mostra A3 no quadriênio 2017–2020: edite e troque para A3."
+
+admin.journals.sucupira.official:
+  title: "Abrir na Sucupira oficial"
+  what: "Abre a mesma consulta na página oficial da Sucupira, numa nova aba, para você conferir ou citar a fonte."
+  how: "Clique logo após abrir esta tela; a sessão aberta com a Sucupira expira em alguns minutos."
+  not: "Se a sessão expirar, a página oficial abre sem resultado: faça a busca por ISSN manualmente."
+  example: "Abra a página oficial e imprima em PDF para anexar ao relatório de qualificação como evidência do estrato."
+
+admin.journals.sucupira.table:
+  title: "Classificação por área de avaliação"
+  what: "Cada linha é uma área de avaliação da CAPES em que o periódico aparece, com o estrato informado pela Sucupira."
+  how: "Confira o estrato na linha da sua área. O selo acima indica de qual quadriênio vieram os dados."
+  not: "Não é a lista de artigos da revista nem uma avaliação feita por esta plataforma."
+  example: "Uma revista pode aparecer em Educação e em Ensino; confira se o estrato é o mesmo nas duas."
+
+admin.journals.sucupira.area:
+  title: "Área de avaliação"
+  what: "Área da CAPES (ex.: Educação, Enfermagem, Ensino) em que o periódico foi listado."
+  how: "Procure a área do seu programa de pós-graduação."
+  not: "Não é a área temática dos artigos publicados."
+  example: "“EDUCAÇÃO” para um programa de pós-graduação em Educação."
+
+admin.journals.sucupira.mother_area:
+  title: "Área-mãe"
+  what: "Área de avaliação responsável por classificar o periódico. No Qualis 2017–2020, cada periódico recebeu um estrato único, definido a partir da sua área-mãe."
+  how: "Use para entender por que uma revista de outra área aparece classificada na sua."
+  not: "Não indica que a revista seja de baixa relevância para as outras áreas."
+  example: "Uma revista de saúde coletiva pode ter área-mãe “Saúde Coletiva” e aparecer também em Enfermagem com o mesmo estrato."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PALAVRAS-CHAVE
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.keywords.page:
+  title: "Cadastro de palavras-chave"
+  what: "Tesauro global de palavras-chave, separado por tipo (do autor, indexadas, MeSH), com as grafias e sinônimos de cada termo. É ele que junta “e-learning”, “elearning” e “electronic learning” num só termo nas nuvens, redes e mapas temáticos."
+  how: "Cadastre as grafias no termo preferido e rode a **Sincronização** do projeto: cada palavra-chave dos documentos é normalizada e, se casar com uma grafia de um termo **ativo do mesmo tipo**, o documento passa a apontar para esse termo."
+  not: "Não cria palavras-chave novas nos documentos nem traduz automaticamente: sinônimos e traduções precisam ser cadastrados como variações."
+  example: "Numa revisão sobre ensino remoto com 2.300 artigos, cadastrar “remote teaching”, “emergency remote teaching” e “ensino remoto emergencial” como variações de um mesmo termo faz o tema aparecer com a frequência correta no mapa temático."
+
+admin.keywords.search:
+  title: "Busca de palavras-chave"
+  what: "Procura no termo original, no termo de exibição, no tipo e nas variações cadastradas."
+  how: "Digite parte do termo e clique em Filtrar; combine com os filtros de tipo e status. São 100 termos por página."
+  not: "Não busca nos títulos ou resumos dos documentos."
+  example: "Busque “learning” para ver de uma vez “machine learning”, “e-learning” e “deep learning” e decidir quais agrupar."
+
+admin.keywords.form.type:
+  title: "Tipo de palavra-chave"
+  what: "**Autor**: termos escolhidos pelos autores (Author Keywords). **Indexada**: termos atribuídos pela base (Keywords Plus da WoS, Index Keywords da Scopus). **MeSH**: descritores do PubMed."
+  how: "Escolha o tipo correspondente à origem do termo. Variações só valem dentro do mesmo tipo: um termo do autor não agrupa palavras indexadas."
+  not: "Trocar o tipo de um termo não muda o tipo das palavras já ligadas aos documentos; elas só são reagrupadas na próxima Sincronização, comparando com termos do tipo delas."
+  example: "“Sustainability” aparece como palavra do autor e também como Keywords Plus: são dois cadastros, um de cada tipo."
+
+admin.keywords.form.status:
+  title: "Status da palavra-chave"
+  what: "Ativa (1) = termo conferido; só termos ativos, e suas variações, são usados para reagrupar palavras na Sincronização. Pendente/Bruta (0) = criada pela importação com sinal de alerta (ex.: contém números ou parece nome de autor) e listada em **Admin › Revisão e Deduplicação**."
+  how: "Para ativar, marque o interruptor e salve, ou aprove na fila de revisão."
+  not: "Inativar não apaga o termo nem remove as palavras já ligadas aos documentos."
+  example: "“COVID-19” entrou como pendente por conter números; confira e ative para que as variações “covid 19” e “Covid19” sejam agrupadas."
+
+admin.keywords.col_term:
+  title: "Termo original"
+  what: "O termo como foi cadastrado. Abaixo, em cinza, aparece o termo de exibição (versão limpa) quando é diferente."
+  how: "Clique no lápis para editar o termo e suas variações."
+  not: "Não é necessariamente a forma mais frequente nos artigos."
+  example: "Original “  Machine-Learning.” e exibição “Machine-Learning” (sem espaços e ponto final)."
+
+admin.keywords.col_variations:
+  title: "Variações do termo"
+  what: "Quantas grafias e sinônimos estão ligados ao termo, incluindo a própria grafia oficial."
+  how: "Na Sincronização, palavras dos documentos que casam com essas grafias passam a contar para este termo."
+  not: "Não é a frequência do termo no corpus."
+  example: "“Ensino a distância” com 7 variações pode reunir “EaD”, “educação a distância” e “distance education”."
+
+admin.keywords.export_thesaurus:
+  title: "Exportar tesauro de palavras-chave"
+  what: "Baixa cada termo com suas variações, em VantagePoint (.the) ou CSV."
+  how: "No .the, cada termo é uma linha “**#termo” seguida das variações em minúsculas. No CSV (ponto e vírgula), uma linha por variação: preferred_name;variant_name."
+  not: "Não separa por tipo nem exporta status."
+  example: "Exporte o .the e aplique no VantagePoint para que a co-ocorrência de palavras saia já padronizada."
+
+admin.keywords.import_thesaurus:
+  title: "Importar tesauro de palavras-chave"
+  what: "Acrescenta variações aos termos a partir de um .the ou .csv. O termo preferido é procurado pelo termo original normalizado, de qualquer tipo; se não existir, é criado como palavra do autor, ativa."
+  how: "No CSV, use vírgula e colunas preferred_name e variant_name. Depois sincronize os projetos."
+  not: "Não apaga variações. O CSV do “Exportar tesauro” usa ponto e vírgula: converta para vírgula antes de reimportar."
+  example: "Importe um tesauro de 1.200 sinônimos de enfermagem feito pelo grupo no VantagePoint."
+
+admin.keywords.export_csv:
+  title: "Exportar palavras-chave (CSV)"
+  what: "Baixa um CSV com term, type, status e variations, separado por ponto e vírgula."
+  how: "Abra no Excel com separador ponto e vírgula e UTF-8. As variações vêm na mesma célula, separadas por ponto e vírgula."
+  not: "Não traz a frequência dos termos. Para reimportar, converta o separador para vírgula."
+  example: "Exporte para revisar com o orientador quais termos devem ser agrupados antes da análise de co-palavras."
+
+admin.keywords.import_csv:
+  title: "Importar palavras-chave (CSV)"
+  what: "Cria ou atualiza termos em massa a partir de um CSV separado por **vírgula** com term, type, status e variations."
+  how: "Cada linha procura o termo pelo texto normalizado e pelo tipo (author, indexed ou mesh; também aceita author_keyword e indexed_keyword). Existentes têm exibição e status atualizados; os demais são criados. As variações da célula são acrescentadas."
+  not: "Não remove variações existentes. Tipos desconhecidos viram palavra do autor."
+  example: "Linha: term = “Educação a distância”, type = author, status = 1, variations = “EaD;educacao a distancia;distance education”."
+
+admin.keywords.merge_selected:
+  title: "Mesclar palavras-chave selecionadas"
+  what: "Abre a comparação para unir de 2 a 5 termos num registro principal."
+  how: "Marque as caixas e clique em Mesclar (habilita com 2 a 5 marcadas)."
+  not: "Nesta fusão em lote, as ocorrências nos documentos dos termos excluídos são **apagadas**, não transferidas. Para termos que já aparecem em documentos, use “Mesclar Palavra-chave” na tela de edição, que transfere as ocorrências."
+  example: "Use o lote para limpar termos duplicados criados por importação de tesauro e que ainda não têm documentos."
+
+admin.keywords.form_page:
+  title: "Formulário da palavra-chave"
+  what: "Cria ou edita um termo: texto, tipo, status e variações."
+  how: "Preencha o termo preferido, escolha o tipo e liste as grafias e sinônimos. Depois sincronize os projetos."
+  not: "Salvar não altera documentos imediatamente."
+  example: "Termo “Educação a distância”, tipo Autor, variações “EaD”, “e-learning”, “distance education”."
+
+admin.keywords.form.term:
+  title: "Termo preferido"
+  what: "Forma do termo exibida nos relatórios. Ao salvar, gera a versão de exibição (limpa) e a normalizada (sem acentos, minúsculas, sem pontuação)."
+  how: "Escreva como deve aparecer na tese. O termo é mantido automaticamente como variação oficial."
+  not: "Se trocar o termo, a grafia antiga deixa de ser variação: inclua-a na lista abaixo se ela ainda aparece nos artigos."
+  example: "Troque “e-learning” por “Educação a distância” e mantenha “e-learning” nas variações."
+
+admin.keywords.form.variations:
+  title: "Variações do termo"
+  what: "Grafias, plurais, siglas e traduções que devem contar como este termo."
+  how: "Uma por linha. Na edição, linhas apagadas são removidas ao salvar."
+  not: "Não use termos mais amplos ou mais estreitos como sinônimos (ex.: “aprendizagem” não é variação de “aprendizagem baseada em problemas”): isso distorce o mapa temático."
+  example: "Para “Aprendizagem baseada em problemas”: “ABP”, “PBL”, “problem-based learning”, “problem based learning”."
+
+admin.keywords.edit.variations_list:
+  title: "Variações cadastradas e desmembrar"
+  what: "Lista as variações alternativas. **Desmembrar** cria um termo novo, ativo e do mesmo tipo, com essa grafia; as ocorrências nos documentos escritas exatamente assim passam para o novo termo."
+  how: "Clique em Desmembrar e confirme; você vai para a edição do novo termo."
+  not: "Só move ocorrências com grafia idêntica (inclusive maiúsculas e acentos)."
+  example: "“PBL” estava agrupado em “Aprendizagem baseada em projetos”, mas no seu corpus significa “problem-based learning”: desmembre."
+
+admin.keywords.edit.merge:
+  title: "Mesclar este termo em outro"
+  what: "Transfere as ocorrências nos documentos e as variações deste termo para o destino, acrescenta este termo como variação do destino e o exclui."
+  how: "Escolha o destino (a lista mostra até 500 termos do mesmo tipo, em ordem alfabética) e confirme. Se um documento tinha os dois termos, fica um só."
+  not: "Não pode ser desfeito. A lista de destino não mostra termos de outro tipo."
+  example: "“elearning” (45 ocorrências) mesclado em “E-learning” (210): o destino passa a 255, menos os documentos que tinham os dois."
+
+admin.keywords.merge.page:
+  title: "Mesclar palavras-chave em lote"
+  what: "Compara de 2 a 5 termos e consolida tudo num termo principal (Master)."
+  how: "1) Escolha o Master. 2) Escolha termo original, exibição e tipo. 3) Confira as variações. 4) Confirme."
+  not: "As ocorrências nos documentos dos termos excluídos são apagadas e não voltam com a Sincronização. Use só para termos sem documentos."
+  example: "Três termos “Big data”, “Big-Data” e “BIG DATA” criados por tesauros antigos, sem documentos: mescle num só."
+
+admin.keywords.merge.master:
+  title: "Termo principal (Master)"
+  what: "O termo que continua existindo; os demais são excluídos."
+  how: "Escolha o termo com mais ocorrências. Ao trocar o Master, a tabela pré-seleciona os valores dele."
+  not: "Não transfere as ocorrências dos outros termos."
+  example: "Escolha “E-learning” (#120) como Master."
+
+admin.keywords.merge.fields:
+  title: "Valores a manter"
+  what: "Define termo original, termo de exibição e tipo do Master."
+  how: "Marque a coluna desejada em cada linha."
+  not: "Termos descartados viram variações do Master."
+  example: "Mantenha “Big data” como exibição e o tipo Autor."
+
+admin.keywords.merge.term:
+  title: "Termo original na fusão"
+  what: "Texto do termo que o Master terá depois da fusão."
+  how: "Escolha a forma correta."
+  not: "A versão normalizada usada nas comparações continua sendo a do Master original; se o texto escolhido for bem diferente, edite o Master depois e salve para atualizá-la."
+  example: "Escolha “Big data” em vez de “BIG DATA”."
+
+admin.keywords.merge.variations:
+  title: "Consolidação das variações"
+  what: "Todos os termos e variações dos registros selecionados, que passarão a ser variações do Master."
+  how: "Revise: um termo de sentido diferente indica seleção errada."
+  not: "Variações não podem ser removidas aqui."
+  example: "Ao ver “data mining” numa fusão de “big data”, cancele e retire esse registro."
+
+admin.keywords.merge.confirm:
+  title: "Confirmar fusão de palavras-chave"
+  what: "Atualiza o Master, copia as variações e exclui os outros termos."
+  how: "Confirme e sincronize os projetos para reagrupar as palavras dos documentos."
+  not: "Não pode ser desfeita e não transfere ocorrências dos termos excluídos."
+  example: "Depois da fusão, a listagem passa a mostrar só “Big data” com as demais formas como variações."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BASES DE DADOS ACADÊMICAS
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.databases.page:
+  title: "Bases de dados acadêmicas"
+  what: "Cadastro das fontes de onde vêm os arquivos importados (Scopus, Web of Science, Lens, PubMed…): nome, chave, logotipo, formatos aceitos, colunas de assinatura e instruções exibidas na tela de importação."
+  how: "Edite uma base para ajustar as instruções que os pesquisadores leem ao importar, ou as colunas usadas para reconhecer automaticamente um CSV."
+  not: "Cadastrar uma base nova não cria um importador: só as bases com leitor programado (hoje Scopus, Web of Science, Lens e PubMed) conseguem de fato importar arquivos."
+  example: "Atualize as instruções da Scopus quando a interface de exportação mudar, para que os mestrandos saibam quais campos marcar."
+
+admin.databases.search:
+  title: "Busca de bases"
+  what: "Procura no nome, na chave e na descrição das bases."
+  how: "Digite e clique em Filtrar. A lista mostra 20 bases por página."
+  not: "Não busca revistas indexadas na base."
+  example: "Digite “med” para achar PubMed/MEDLINE."
+
+admin.databases.actions:
+  title: "Editar e excluir bases"
+  what: "O lápis abre o cadastro da base; a lixeira a exclui."
+  how: "Prefira editar a excluir: a base pode estar ligada a centenas de revistas."
+  not: "Excluir remove as associações da base com as revistas e ela deixa de aparecer na importação; não apaga documentos já importados."
+  example: "Exclua apenas bases criadas por engano, como uma duplicata “Scopus 2”."
+
+admin.databases.form_page:
+  title: "Formulário da base de dados"
+  what: "Cadastra ou edita uma fonte de dados bibliográficos."
+  how: "Nome e chave são obrigatórios. Preencha formatos e colunas de assinatura se quiser que arquivos CSV dessa base sejam reconhecidos automaticamente."
+  not: "Não configura como os campos do arquivo são lidos: isso é feito pelo importador da base, no código."
+  example: "Lens.org: chave “lens”, formatos “csv”, colunas de assinatura “Lens ID”, “Title”, “Source Title”."
+
+admin.databases.form.name:
+  title: "Nome da base"
+  what: "Nome exibido na tela de importação, nos logotipos e nas listas de bases das revistas."
+  how: "Use o nome oficial da base."
+  not: "Não é usado para reconhecer arquivos."
+  example: "“Web of Science Core Collection”."
+
+admin.databases.form.acronym:
+  title: "Chave da base"
+  what: "Identificador curto e único, gravado em minúsculas. Liga a base ao importador correspondente e aos documentos importados dela (campo de origem do documento)."
+  how: "Use as chaves já esperadas pelo sistema: scopus, wos, lens, pubmed."
+  not: "Não troque a chave de uma base em uso: documentos e revistas importados com a chave antiga deixam de ser associados a ela."
+  example: "“wos” para a Web of Science."
+
+admin.databases.form.logo:
+  title: "Logotipo"
+  what: "Caminho da imagem do logotipo, relativo à pasta pública do site."
+  how: "Envie o arquivo para /public/img e informe o caminho, começando por /img/."
+  not: "Não faz upload: o arquivo precisa já estar no servidor."
+  example: "/img/Scopus_logo.svg"
+
+admin.databases.form.formats:
+  title: "Formatos de arquivo"
+  what: "Extensões aceitas para a base, exibidas na tela de importação. O formato **csv** habilita o reconhecimento automático pelas colunas de assinatura."
+  how: "Separe por vírgula, em minúsculas: csv, ris, txt, nbib."
+  not: "Incluir um formato aqui não ensina o sistema a lê-lo; depende do importador existente."
+  example: "PubMed: “csv, nbib”."
+
+admin.databases.form.signature:
+  title: "Colunas de assinatura"
+  what: "Nomes de colunas típicos do CSV exportado pela base. Ao enviar um CSV, o sistema calcula a fração dessas colunas presentes no cabeçalho e sugere a base com maior acerto."
+  how: "Uma coluna por linha, escrita exatamente como no cabeçalho (maiúsculas, acentos e espaços contam). Escolha colunas exclusivas da base."
+  not: "Só vale para CSV e só para bases com csv nos formatos. Colunas genéricas como “Title” existem em todas as bases e não ajudam a diferenciar."
+  example: "Scopus: “EID”, “Source title”, “Link”. Lens: “Lens ID”, “Source Title”."
+
+admin.databases.form.description:
+  title: "Descrição"
+  what: "Texto curto sobre a base. Aparece na tela de importação quando a base não tem instruções próprias."
+  how: "Explique em uma ou duas frases o que a base cobre."
+  not: "Não aceita formatação."
+  example: "“Base multidisciplinar da Elsevier, forte em ciências da saúde e engenharias.”"
+
+admin.databases.form.instructions:
+  title: "Instruções de exportação"
+  what: "Passo a passo exibido na tela de importação quando o pesquisador escolhe esta base."
+  how: "Escreva em texto simples; as quebras de linha são mantidas."
+  not: "Markdown e HTML não são interpretados: aparecem como texto."
+  example: "1. Faça a busca na Scopus. 2. Selecione todos os resultados. 3. Export › CSV › marque “All available information”."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LENTES TEÓRICAS
+# ─────────────────────────────────────────────────────────────────────────────
+
+admin.lenses.page:
+  title: "Lentes teóricas"
+  what: "Cadastro de autores e correntes teóricas (Bauman, Foucault, Latour…) que o relatório **Lentes Teóricas** procura no corpus de cada projeto, para mostrar quais referenciais aparecem nos artigos."
+  how: "Cada lente tem termos de busca (procurados nos títulos, resumos e referências) e formatos de citação (procurados nas referências). Depois de alterar uma lente, use **Recalcular** no relatório do projeto."
+  not: "Não é análise semântica nem leitura do texto completo: é busca de palavras exatas. Um artigo que discute Bourdieu sem usar os termos cadastrados não é encontrado."
+  example: "Numa tese sobre plataformas digitais na educação, cadastre a lente de Shoshana Zuboff com termos “capitalismo de vigilância” e “surveillance capitalism” e citações “ZUBOFF, S.”."
+
+admin.lenses.search:
+  title: "Busca de lentes"
+  what: "Procura no nome, na categoria e na descrição das lentes."
+  how: "Digite e clique em Filtrar; combine com o filtro de área. A lista mostra 20 lentes por página, das mais recentes para as mais antigas."
+  not: "Não busca dentro dos termos ou formatos de citação."
+  example: "Digite “Bourdieu” para conferir se a lente já existe antes de cadastrá-la."
+
+admin.lenses.form_page:
+  title: "Formulário da lente teórica"
+  what: "Cadastra ou edita um referencial teórico a ser procurado no corpus."
+  how: "Nome, área, categoria e descrição são obrigatórios. O que define os resultados são os termos de busca e os formatos de citação."
+  not: "Salvar não atualiza relatórios já calculados: use Recalcular no relatório Lentes Teóricas do projeto."
+  example: "Lente “Pierre Bourdieu”, área Sociologia da Educação, categoria Teoria dos Campos, termos “habitus, capital cultural, campo científico”."
+
+admin.lenses.form.name:
+  title: "Autor ou pensador"
+  what: "Nome exibido no card da lente no relatório."
+  how: "Use o nome completo do autor de referência."
+  not: "O nome sozinho não é procurado no corpus: inclua-o nos termos ou nos formatos de citação."
+  example: "“Zygmunt Bauman”."
+
+admin.lenses.form.field:
+  title: "Área de pesquisa"
+  what: "Área ou linha a que a lente pertence. Serve para filtrar a lista e agrupar as lentes no relatório."
+  how: "Use nomes consistentes entre lentes (ex.: sempre “Educação”, não “Educacao” em uma e “Educação” em outra)."
+  not: "Não restringe em quais projetos a lente é procurada: todas as lentes são testadas em todos os projetos."
+  example: "“Saúde Coletiva”."
+
+admin.lenses.form.category:
+  title: "Corrente ou categoria teórica"
+  what: "Escola de pensamento da lente, usada para agrupar lentes no relatório."
+  how: "Use o nome da corrente teórica."
+  not: "Não é procurada no texto dos artigos."
+  example: "“Modernidade Líquida” para Bauman; “Teoria Ator-Rede” para Latour."
+
+admin.lenses.form.terms:
+  title: "Termos de busca no corpus"
+  what: "Palavras ou expressões procuradas, como palavra inteira e sem diferenciar maiúsculas, no título e no resumo de cada artigo (“citação direta”) e também nas referências."
+  how: "Separe por vírgula. São gravados em minúsculas. Inclua variações com e sem acento e em inglês, pois a busca não ignora acentos."
+  not: "Termos muito genéricos (“poder”, “rede”) geram muitos falsos positivos. Um termo de uma só palavra não encontra plurais."
+  example: "Bauman: “bauman, modernidade líquida, modernidade liquida, liquid modernity, amor líquido”."
+
+admin.lenses.form.citations:
+  title: "Formatos de citação"
+  what: "Formas como o autor aparece nas listas de referências. Um artigo conta como “nas refs” quando alguma dessas formas, ou algum termo de busca, aparece nas referências dele."
+  how: "Um formato por linha, nos estilos usados pelas bases (ABNT, APA, abreviado)."
+  not: "Só funciona para documentos importados com as referências citadas (ex.: WoS e Scopus com referências completas). Sobrenomes comuns geram falsos positivos."
+  example: "“BAUMAN, Z.”, “Bauman, Z.”, “BAUMAN Z”."
+
+admin.lenses.form.appearance:
+  title: "Ícone e cor"
+  what: "Ícone e cor que identificam a lente nos cards do relatório."
+  how: "Escolha um ícone ligado ao tema e uma cor distinta das demais lentes da mesma área."
+  not: "Não interferem na busca."
+  example: "Ícone de olho e cor vermelha para Foucault (poder e vigilância)."
+
+admin.lenses.form.description:
+  title: "Descrição acadêmica"
+  what: "Parágrafo que explica a contribuição do autor e como a lente se conecta à pesquisa. Aparece no relatório para orientar o pesquisador."
+  how: "Escreva 3 a 5 frases, com os conceitos centrais."
+  not: "Não é usado na busca."
+  example: "“Bauman descreve a modernidade líquida, marcada pela fluidez dos vínculos sociais e pela individualização; útil para analisar trabalho docente precarizado.”"

@@ -13,7 +13,7 @@
 {% block body %}
 <div class="bm-page-header">
     <h1 class="bm-page-title">
-        <i class="bi bi-pencil-square me-2 text-accent"></i>Editar Lente Teórica: {{ lens.name }}
+        <i class="bi bi-pencil-square me-2 text-accent"></i>Editar Lente Teórica: {{ lens.name }} {{ help('admin.lenses.form_page') }}
     </h1>
     <p class="bm-page-subtitle">Modifique as configurações, termos ou formatos de citação desta lente.</p>
 </div>
@@ -26,18 +26,18 @@
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label for="nameInput" class="form-label">Nome do Autor / Pensador *</label>
+                        <label for="nameInput" class="form-label">Nome do Autor / Pensador * {{ help('admin.lenses.form.name') }}</label>
                         <input type="text" class="form-control" id="nameInput" name="name" required placeholder="Ex: Zygmunt Bauman" value="{{ lens.name }}">
                     </div>
                     <div class="col-md-6">
-                        <label for="researchFieldInput" class="form-label">Área de Pesquisa / Linha *</label>
+                        <label for="researchFieldInput" class="form-label">Área de Pesquisa / Linha * {{ help('admin.lenses.form.field') }}</label>
                         <input type="text" class="form-control" id="researchFieldInput" name="researchField" required placeholder="Ex: Sociologia, Saúde Coletiva, Educação" value="{{ lens.researchField }}">
                     </div>
                 </div>
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label for="categoryInput" class="form-label">Corrente / Categoria Teórica *</label>
+                        <label for="categoryInput" class="form-label">Corrente / Categoria Teórica * {{ help('admin.lenses.form.category') }}</label>
                         <input type="text" class="form-control" id="categoryInput" name="category" required placeholder="Ex: Sociologia Líquida, Construtivismo" value="{{ lens.category }}">
                     </div>
                     <div class="col-md-6">
@@ -50,15 +50,15 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="termsInput" class="form-label">Palavras-Chave de Busca no Corpus (Separadas por vírgula) *</label>
+                    <label for="termsInput" class="form-label">Palavras-Chave de Busca no Corpus (separadas por vírgula) * {{ help('admin.lenses.form.terms') }}</label>
                     <textarea class="form-control" id="termsInput" name="terms" rows="2" required placeholder="Ex: bauman, modernidade liquida, liquido, amor liquido, individualizacao">{{ lens.terms|join(', ') }}</textarea>
                     <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
-                        Termos textuais a serem minerados nos <strong>títulos e resumos</strong> dos artigos científicos do usuário.
+                        Procurados como palavra inteira nos <strong>títulos e resumos</strong> e também nas referências.
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label for="citationFormatsInput" class="form-label">Formatos de Citação nas Referências Bibliográficas (Um por linha) *</label>
+                    <label for="citationFormatsInput" class="form-label">Formatos de Citação nas Referências (um por linha) * {{ help('admin.lenses.form.citations') }}</label>
                     <textarea class="form-control" id="citationFormatsInput" name="citationFormats" rows="4" required placeholder="Ex: BAUMAN, Z.&#10;BAUMAN, Zygmunt&#10;BAUMAN Z&#10;Bauman, Z.">{{ lens.citationFormats|join("\n") }}</textarea>
                     <div style="font-size: 11.5px; color: var(--bm-text-muted); margin-top: 4px;">
                         Padrões de citação literária usados na <strong>bibliografia</strong> para identificar quando este autor foi citado de fato.
@@ -66,7 +66,7 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="iconInput" class="form-label">Ícone Visual Representativo</label>
+                    <label for="iconInput" class="form-label">Ícone Visual Representativo {{ help('admin.lenses.form.appearance') }}</label>
                     <select class="form-select" id="iconInput" name="icon">
                         <option value="bi-mortarboard" {{ lens.icon == 'bi-mortarboard' ? 'selected' : '' }}>🎓 Mortarboard (Acadêmico Geral)</option>
                         <option value="bi-diagram-3-fill" {{ lens.icon == 'bi-diagram-3-fill' ? 'selected' : '' }}>🌐 Diagram (Redes, Sistemas, Atores)</option>
@@ -82,7 +82,7 @@
                 </div>
 
                 <div class="mb-4">
-                    <label for="descriptionInput" class="form-label">Conexão Teórica / Descrição Acadêmica *</label>
+                    <label for="descriptionInput" class="form-label">Conexão Teórica / Descrição Acadêmica * {{ help('admin.lenses.form.description') }}</label>
                     <textarea class="form-control" id="descriptionInput" name="description" rows="4" required placeholder="Escreva um parágrafo que explique a contribuição deste autor e como sua linha teórica se conecta com investigações científicas contemporâneas...">{{ lens.description }}</textarea>
                 </div>
 
