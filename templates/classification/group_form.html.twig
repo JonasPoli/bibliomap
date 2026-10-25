@@ -8,8 +8,8 @@
         <i class="bi bi-arrow-left me-1"></i> Voltar
     </a>
     <div>
-        <h1 class="bm-page-title">{{ mode == 'edit' ? 'Editar Grupo' : 'Novo Grupo de Classificação' }}</h1>
-        <p class="bm-page-subtitle">{{ mode == 'edit' ? 'Altere o nome, tipo, termos e critérios do grupo.' : 'Defina o tipo, termos, critérios avançados e cor do novo grupo.' }}</p>
+        <h1 class="bm-page-title">{{ mode == 'edit' ? 'Editar Grupo' : 'Novo Grupo de Classificação' }} {{ help('classification.form.page') }}</h1>
+        <p class="bm-page-subtitle">Nome, tipo e termos bastam na maioria dos casos. Depois de salvar, execute a classificação para aplicar.</p>
     </div>
 </div>
 
@@ -35,12 +35,12 @@
                 {# ── 1. Basic Group Info ── #}
                 <div class="row g-3 mb-3">
                     <div class="col-md-8">
-                        <label class="form-label" for="name">Nome do Grupo <span style="color:var(--bm-danger)">*</span></label>
+                        <label class="form-label" for="name">Nome do Grupo <span style="color:var(--bm-danger)">*</span> {{ help('classification.form.name') }}</label>
                         <input type="text" id="name" name="name" class="form-control"
-                               value="{{ group.name }}" placeholder="Ex: Robótica e Mecanização" required>
+                               value="{{ group.name }}" placeholder="Ex: Extensão universitária" required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="type">Tipo <span style="color:var(--bm-danger)">*</span></label>
+                        <label class="form-label" for="type">Tipo <span style="color:var(--bm-danger)">*</span> {{ help('classification.form.type') }}</label>
                         <select id="type" name="type" class="form-select" onchange="updateTypeInfo(this.value)">
                             <option value="normal"       {{ group.type == 'normal'       ? 'selected' : '' }}>🗂 Normal / Temático</option>
                             <option value="validator"    {{ group.type == 'validator'    ? 'selected' : '' }}>✅ Validador</option>
@@ -53,7 +53,7 @@
                 <div id="typeInfo" class="alert bm-alert mb-3" style="font-size:12.5px"></div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="description">Descrição</label>
+                    <label class="form-label" for="description">Descrição {{ help('classification.form.description') }}</label>
                     <textarea id="description" name="description" class="form-control" rows="2"
                               placeholder="Descreva o foco temático deste grupo…">{{ group.description }}</textarea>
                 </div>
@@ -61,8 +61,8 @@
                 {# ── 2. Classification Terms Area ── #}
                 <div class="mb-4">
                     <label class="form-label fw-bold" style="font-size:13px">
-                        <i class="bi bi-tag text-accent me-1"></i> Termos de Classificação
-                        <span style="font-size:11px;font-weight:400;color:var(--bm-text-muted)">(separe por vírgula ou pressione Enter/Tab)</span>
+                        <i class="bi bi-tag text-accent me-1"></i> Termos de Classificação {{ help('classification.form.terms') }}
+                        <span style="font-size:11px;font-weight:400;color:var(--bm-text-muted)">(basta um aparecer no documento · Enter, Tab ou vírgula para adicionar)</span>
                     </label>
                     <div id="chipsContainer" style="min-height:80px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('termInput').focus()">
                     </div>
@@ -72,7 +72,8 @@
                                placeholder="Digite um termo e pressione Enter, Tab ou vírgula…"
                                style="font-family:monospace;font-size:13px">
                     </div>
-                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                    <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+                        <span style="font-size:11.5px;color:var(--bm-text-muted)">Atalhos {{ help('classification.form.presets') }}</span>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('machine learning,neural network,deep learning,algorithm,artificial intelligence')">+ IA básica</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('robot,drone,uav,autonomous,harvester')">+ Robótica</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTerms('irrigation,water,moisture,groundwater')">+ Recursos Hídricos</button>
@@ -83,42 +84,70 @@
                 {# ── 3. Advanced Criteria Section ── #}
                 <div class="mb-4" style="background:rgba(255,255,255,0.02);border:1px solid var(--bm-border);border-radius:12px;padding:20px">
                     <h6 style="font-weight:700;color:var(--bm-accent);margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:15px;border-bottom:1px solid var(--bm-border);padding-bottom:10px">
-                        <i class="bi bi-sliders"></i> Critérios de Filtragem e Mapeamento Avançado
+                        <i class="bi bi-search"></i> Onde e como procurar os termos
                     </h6>
 
                     {# A. Match fields selection #}
                     <div class="mb-4">
                         <label class="form-label fw-bold" style="font-size:13px;color:var(--bm-text)">
-                            <i class="bi bi-file-text text-accent me-1"></i> Campos Bibliográficos a Analisar:
+                            <i class="bi bi-file-text text-accent me-1"></i> Campos Bibliográficos a Analisar {{ help('classification.form.match_fields') }}
                         </label>
                         <div class="d-flex flex-wrap gap-2" style="font-size:13px">
                             {% set currentFields = group.matchFields ?? ['title', 'abstract', 'author_keywords', 'indexed_keywords'] %}
                             <label class="d-inline-flex align-items-center gap-2 p-2 px-3 rounded" style="background:var(--bm-bg);border:1px solid var(--bm-border);cursor:pointer">
                                 <input class="form-check-input m-0" type="checkbox" name="match_fields[]" value="title" id="mf_title" {{ 'title' in currentFields ? 'checked' : '' }}>
-                                <span class="fw-semibold" style="color:var(--bm-text)">Título (`TI`)</span>
+                                <span class="fw-semibold" style="color:var(--bm-text)">Título (TI)</span>
                             </label>
                             <label class="d-inline-flex align-items-center gap-2 p-2 px-3 rounded" style="background:var(--bm-bg);border:1px solid var(--bm-border);cursor:pointer">
                                 <input class="form-check-input m-0" type="checkbox" name="match_fields[]" value="abstract" id="mf_abstract" {{ 'abstract' in currentFields ? 'checked' : '' }}>
-                                <span class="fw-semibold" style="color:var(--bm-text)">Abstract / Resumo (`AB`)</span>
+                                <span class="fw-semibold" style="color:var(--bm-text)">Abstract / Resumo (AB)</span>
                             </label>
                             <label class="d-inline-flex align-items-center gap-2 p-2 px-3 rounded" style="background:var(--bm-bg);border:1px solid var(--bm-border);cursor:pointer">
                                 <input class="form-check-input m-0" type="checkbox" name="match_fields[]" value="author_keywords" id="mf_akw" {{ 'author_keywords' in currentFields ? 'checked' : '' }}>
-                                <span class="fw-semibold" style="color:var(--bm-text)">Palavras-chave do Autor (`DE`)</span>
+                                <span class="fw-semibold" style="color:var(--bm-text)">Palavras-chave do Autor (DE)</span>
                             </label>
                             <label class="d-inline-flex align-items-center gap-2 p-2 px-3 rounded" style="background:var(--bm-bg);border:1px solid var(--bm-border);cursor:pointer">
                                 <input class="form-check-input m-0" type="checkbox" name="match_fields[]" value="indexed_keywords" id="mf_ikw" {{ 'indexed_keywords' in currentFields ? 'checked' : '' }}>
-                                <span class="fw-semibold" style="color:var(--bm-text)">Keywords Plus (`ID`)</span>
+                                <span class="fw-semibold" style="color:var(--bm-text)">Keywords Plus (ID)</span>
                             </label>
                         </div>
                     </div>
 
-                    {# B. QUALIS Strata Filter (NEW!) #}
+                    {# F. Thesaurus integration toggle #}
+                    <div class="p-3 rounded" style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.2);font-size:13px">
+                        {# hidden 0 garante que desmarcar seja salvo (checkbox desmarcado não é enviado) #}
+                        <input type="hidden" name="use_thesaurus" value="0">
+                        <label class="d-flex align-items-center gap-2 m-0" style="cursor:pointer">
+                            <input class="form-check-input m-0 flex-shrink-0" type="checkbox" id="use_thesaurus" name="use_thesaurus" value="1" {{ group.useThesaurus ? 'checked' : '' }} style="width:2.4em;height:1.2em">
+                            <span class="fw-bold" style="color:var(--bm-accent)">
+                                <i class="bi bi-journal-check me-1"></i> Expandir termos com sinônimos do Tesauro
+                            </span>
+                            {{ help('classification.form.thesaurus') }}
+                        </label>
+                        <div style="font-size:11.5px;color:var(--bm-text-muted);margin-left:3.2em;margin-top:4px">
+                            Acrescenta os sinônimos do conceito quando o termo é idêntico a um rótulo do Tesauro ou a uma palavra-chave normalizada.
+                        </div>
+                    </div>
+                </div>
+
+                {# ── 3b. Filtros de restrição (opcionais, recolhidos) ── #}
+                {% set activeFilters = (group.qualisFilter ? 1 : 0) + (group.startYear is not null or group.endYear is not null ? 1 : 0) + (group.authorsFilter ? 1 : 0) + (group.institutionNature ? 1 : 0) + (group.continente ? 1 : 0) + (group.countryIds ? 1 : 0) %}
+                <details class="mb-4" id="restrictFilters" {{ activeFilters > 0 ? 'open' : '' }} style="background:rgba(255,255,255,0.02);border:1px solid var(--bm-border);border-radius:12px;padding:14px 20px">
+                    <summary style="cursor:pointer;font-weight:700;color:var(--bm-accent);font-size:15px;list-style:none;display:flex;align-items:center;gap:8px">
+                        <i class="bi bi-funnel"></i> Filtros de restrição <span style="font-weight:400;font-size:12px;color:var(--bm-text-muted)">(opcionais · só para grupos Normais)</span>
+                        {% if activeFilters > 0 %}<span class="badge text-bg-primary" style="font-size:10px">{{ activeFilters }} ativo{{ activeFilters > 1 ? 's' : '' }}</span>{% endif %}
+                        {{ help('classification.form.filters') }}
+                        <i class="bi bi-chevron-down ms-auto" style="font-size:12px;color:var(--bm-text-muted)"></i>
+                    </summary>
+                    <div style="font-size:12px;color:var(--bm-text-muted);margin:10px 0 16px">O documento precisa atender a <strong>todos</strong> os filtros preenchidos, além de conter um termo. Filtro vazio não restringe.</div>
+
+                    {# B. QUALIS Strata Filter #}
                     <div class="mb-4">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <label class="form-label fw-bold m-0" style="font-size:13px">
-                                <i class="bi bi-award-fill text-warning me-1"></i> Filtro por Estrato Qualis CAPES da Revista:
+                                <i class="bi bi-award-fill text-warning me-1"></i> Estrato Qualis CAPES do periódico {{ help('classification.form.qualis') }}
                             </label>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="btn btn-xs btn-outline-secondary" onclick="toggleQualis('A')" style="font-size:11px;padding:2px 8px">+ Qualis A</button>
                                 <button type="button" class="btn btn-xs btn-outline-secondary" onclick="toggleQualis('B')" style="font-size:11px;padding:2px 8px">+ Qualis B</button>
                                 <button type="button" class="btn btn-xs btn-outline-secondary" onclick="toggleQualis('all')" style="font-size:11px;padding:2px 8px">Selecionar Todos</button>
@@ -146,7 +175,7 @@
                             {% endfor %}
                         </div>
                         <div style="font-size:11.5px;color:var(--bm-text-muted);margin-top:6px">
-                            <i class="bi bi-info-circle me-1"></i>Se nenhum estrato for selecionado, o grupo aceitará trabalhos de qualquer Qualis (ou sem classificação Qualis).
+                            <i class="bi bi-info-circle me-1"></i>Nenhum marcado = aceita qualquer estrato, inclusive sem Qualis. Com algum marcado, artigos sem Qualis ficam de fora.
                         </div>
                     </div>
 
@@ -154,7 +183,7 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-3">
                             <label class="form-label fw-bold" for="start_year" style="font-size:13px">
-                                <i class="bi bi-calendar-event text-accent me-1"></i> Ano Inicial
+                                <i class="bi bi-calendar-event text-accent me-1"></i> Ano Inicial {{ help('classification.form.years') }}
                             </label>
                             <input type="number" id="start_year" name="start_year" class="form-control form-control-sm"
                                    value="{{ group.startYear }}" placeholder="Ex: 2015" min="1900" max="2100">
@@ -168,11 +197,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold" for="authors_filter" style="font-size:13px">
-                                <i class="bi bi-people text-accent me-1"></i> Filtro de Autores Especificados
+                                <i class="bi bi-people text-accent me-1"></i> Autores (sobrenomes) {{ help('classification.form.authors') }}
                             </label>
                             <input type="text" id="authors_filter" name="authors_filter" class="form-control form-control-sm"
                                    value="{{ group.authorsFilter ? group.authorsFilter|join(', ') : '' }}"
-                                   placeholder="Ex: Silva, J.; Smith, A. (separe por vírgula)">
+                                   placeholder="Ex: Molin, Amaral, Smith (só sobrenomes, separados por vírgula)">
                         </div>
                     </div>
 
@@ -180,7 +209,7 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-7">
                             <label class="form-label fw-bold" style="font-size:13px">
-                                <i class="bi bi-building text-accent me-1"></i> Natureza Jurídica / Tipo de Instituição:
+                                <i class="bi bi-building text-accent me-1"></i> Natureza da instituição {{ help('classification.form.nature') }}
                             </label>
                             {% set currentNatures = group.institutionNature ?? [] %}
                             <div class="d-flex flex-wrap gap-2" style="font-size:12px">
@@ -194,7 +223,7 @@
                         </div>
                         <div class="col-md-5">
                             <label class="form-label fw-bold" for="continente" style="font-size:13px">
-                                <i class="bi bi-globe text-accent me-1"></i> Continente / Região
+                                <i class="bi bi-globe text-accent me-1"></i> Continente {{ help('classification.form.continent') }}
                             </label>
                             <select id="continente" name="continente" class="form-select form-select-sm" onchange="filterCountriesByContinent(this.value)">
                                 <option value="">(Todos os continentes)</option>
@@ -209,9 +238,9 @@
                     <div class="mb-4">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <label class="form-label fw-bold m-0" style="font-size:13px">
-                                <i class="bi bi-geo-alt text-accent me-1"></i> Filtro de Países de Afiliação
+                                <i class="bi bi-geo-alt text-accent me-1"></i> Países de afiliação {{ help('classification.form.countries') }}
                             </label>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="btn btn-xs btn-outline-secondary" onclick="toggleAllCountries(true)" style="font-size:11px;padding:2px 8px">Selecionar Todos</button>
                                 <button type="button" class="btn btn-xs btn-outline-secondary" onclick="toggleAllCountries(false)" style="font-size:11px;padding:2px 8px">Limpar Seleção</button>
                             </div>
@@ -247,25 +276,12 @@
                             {% endfor %}
                         </div>
                     </div>
-
-                    {# F. Thesaurus integration toggle #}
-                    <div class="p-3 rounded" style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.2);font-size:13px">
-                        <label class="d-flex align-items-center gap-2 m-0" style="cursor:pointer">
-                            <input class="form-check-input m-0 flex-shrink-0" type="checkbox" id="use_thesaurus" name="use_thesaurus" value="1" {{ group.useThesaurus ? 'checked' : '' }} style="width:2.4em;height:1.2em">
-                            <span class="fw-bold" style="color:var(--bm-accent)">
-                                <i class="bi bi-journal-check me-1"></i> Utilizar Tesauro Global para expansão automática de sinônimos e conceitos
-                            </span>
-                        </label>
-                        <div style="font-size:11.5px;color:var(--bm-text-muted);margin-left:3.2em;margin-top:4px">
-                            Quando ativado, os termos pesquisados neste grupo incluirão automaticamente suas variações gramaticais e sinônimos cadastrados no Tesauro Global do BiblioMap.
-                        </div>
-                    </div>
-                </div>
+                </details>
 
                 {# ── 4. Styling & Execution Order ── #}
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <label class="form-label" for="color">Cor Destaque</label>
+                        <label class="form-label" for="color">Cor Destaque {{ help('classification.form.color') }}</label>
                         <div class="d-flex align-items-center gap-2">
                             <input type="color" id="color" name="color" value="{{ group.color ?? '#4f8ef7' }}"
                                    style="width:50px;height:38px;padding:2px;border-radius:6px;border:1px solid var(--bm-border);background:var(--bm-bg)">
@@ -276,7 +292,7 @@
                         </div>
                     </div>
                     <div class="col-md-5">
-                        <label class="form-label">Ícone</label>
+                        <label class="form-label" for="icon">Ícone {{ help('classification.form.icon') }}</label>
                         <div style="display:flex;align-items:center;gap:.6rem">
                             <div id="iconPreviewWrap" style="width:40px;height:40px;flex-shrink:0;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--bm-accent)">
                                 <i id="iconPreview" class="bi {{ group.icon ?? 'bi-collection' }}"></i>
@@ -290,10 +306,10 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="position">Ordem de Processamento</label>
+                        <label class="form-label" for="position">Posição (ordem) {{ help('classification.form.position') }}</label>
                         <input type="number" id="position" name="position" class="form-control"
                                value="{{ group.position }}" min="0" max="999">
-                        <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Menor = processado primeiro</div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Menor = aparece primeiro</div>
                     </div>
                 </div>
 
@@ -314,25 +330,21 @@
         <div class="bm-card mb-3" style="position:sticky;top:20px">
             <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:12px"><i class="bi bi-info-circle text-accent me-1"></i> Tipos de Grupo</h6>
             <div class="d-flex flex-column gap-2" style="font-size:12.5px">
-                <div><span class="badge text-bg-warning">Validador</span> <span style="color:var(--bm-text-muted)">O documento DEVE conter um desses termos. Se não, vai para Ruído.</span></div>
-                <div><span class="badge text-bg-danger">Ruído</span> <span style="color:var(--bm-text-muted)">Se encontrado, descarta o documento como falso positivo.</span></div>
-                <div><span class="badge text-bg-primary">Normal</span> <span style="color:var(--bm-text-muted)">Classificação temática. Avaliado após validadores e ruídos.</span></div>
-                <div><span class="badge text-bg-secondary">Sem Grupo</span> <span style="color:var(--bm-text-muted)">Documentos sem enquadramento ao final.</span></div>
+                <div><span class="badge text-bg-warning">Validador</span> {{ help('classification.type.validator') }} <span style="color:var(--bm-text-muted)">O documento precisa conter um destes termos; senão, vai para o Ruído.</span></div>
+                <div><span class="badge text-bg-danger">Ruído</span> {{ help('classification.type.noise') }} <span style="color:var(--bm-text-muted)">Se contiver um destes termos, sai da análise temática.</span></div>
+                <div><span class="badge text-bg-primary">Normal</span> {{ help('classification.type.normal') }} <span style="color:var(--bm-text-muted)">Categoria temática. O documento entra em todos os grupos que casarem.</span></div>
+                <div><span class="badge text-bg-secondary">Sem Classificação</span> {{ help('classification.type.unclassified') }} <span style="color:var(--bm-text-muted)">Recebe quem sobrou. Criado automaticamente.</span></div>
             </div>
 
             <hr style="border-color:var(--bm-border);margin:16px 0">
 
-            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:10px"><i class="bi bi-award text-warning me-1"></i> Mapeamento por Qualis</h6>
-            <p style="font-size:12px;color:var(--bm-text-muted);line-height:1.6;margin-bottom:12px">
-                Você pode criar grupos focados em periódicos de elite (ex: selecionar apenas <strong style="color:#2ea043">Qualis A1 e A2</strong>) para segmentar artigos com maior impacto bibliométrico.
-            </p>
-
-            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:10px"><i class="bi bi-lightbulb text-accent me-1"></i> Dicas Úteis</h6>
+            <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:10px"><i class="bi bi-lightbulb text-accent me-1"></i> Como o motor decide {{ help('classification.form.tips') }}</h6>
             <ul style="font-size:12px;color:var(--bm-text-muted);line-height:1.7;padding-left:16px;margin:0">
-                <li>Os termos são comparados em <strong style="color:var(--bm-text)">minúsculas</strong> nos campos bibliográficos selecionados.</li>
-                <li>Filtros avançados (Qualis, Ano, País, Natureza) funcionam como **critérios cumulativos**.</li>
-                <li>Validadores são verificados antes dos grupos temáticos normais.</li>
-                <li>A ordem de processamento (posição) determina a precedência dos grupos.</li>
+                <li>Ordem: ano mínimo → Ruído → Validador → Temáticos → Sem Classificação.</li>
+                <li>Busca por <strong style="color:var(--bm-text)">trecho de texto</strong>, sem diferenciar maiúsculas: “vigor” também acha “vigorous”.</li>
+                <li>Sem AND/OR, aspas ou curingas; acentos contam.</li>
+                <li>Filtros de restrição se somam (todos precisam ser atendidos).</li>
+                <li>Salvar não reclassifica: execute a classificação depois.</li>
             </ul>
         </div>
     </div>
@@ -404,10 +416,10 @@
 {% block javascripts %}
 <script>
 const typeInfoMap = {
-    normal:       ['primary', 'bi-collection', 'Grupo temático. O motor busca este grupo após validar o documento e verificar ruídos. Primeiro grupo com match vence.'],
-    validator:    ['warning',  'bi-shield-check', 'O documento DEVE conter pelo menos um desses termos. Caso contrário, é enviado automaticamente ao grupo de Ruído.'],
-    noise:        ['danger',   'bi-ban', 'Se qualquer um desses termos for encontrado no documento, ele é descartado como falso positivo. Verificado ANTES dos grupos temáticos.'],
-    unclassified: ['secondary','bi-question-circle', 'Grupo especial para documentos que não se enquadraram em nenhum grupo temático. Criado automaticamente; evite duplicar.'],
+    normal:       ['primary', 'bi-collection', 'Grupo temático. Verificado depois do Ruído e do Validador. O documento entra em todos os grupos temáticos cujos termos aparecem nele.'],
+    validator:    ['warning',  'bi-shield-check', 'O documento precisa conter pelo menos um destes termos. Caso contrário, vai para o primeiro grupo de Ruído (ou para Sem Classificação, se não houver Ruído).'],
+    noise:        ['danger',   'bi-ban', 'Se qualquer um destes termos aparecer no documento, ele sai da análise temática (falso positivo). Verificado antes de tudo. Os filtros de restrição não se aplicam a este tipo.'],
+    unclassified: ['secondary','bi-question-circle', 'Grupo especial para documentos que não se enquadraram em nenhum grupo temático. O motor já cria um automaticamente; um segundo nunca recebe documentos.'],
 };
 
 function updateTypeInfo(type) {
@@ -489,7 +501,13 @@ function updateCountryBadges() {
         badge.className = 'badge text-bg-primary d-inline-flex align-items-center gap-1';
         badge.style.fontSize = '11px';
         badge.style.padding = '4px 8px';
-        badge.innerHTML = `${val} <button type="button" class="btn-close btn-close-white" style="font-size:8px;margin-left:4px" onclick="uncheckCountry('${val.replace(/'/g, "\\'")}')"></button>`;
+        badge.textContent = val;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'btn-close btn-close-white';
+        close.style.cssText = 'font-size:8px;margin-left:4px';
+        close.addEventListener('click', () => uncheckCountry(val));
+        badge.appendChild(close);
         container.appendChild(badge);
     });
 }
@@ -521,7 +539,14 @@ function renderChips() {
         const chip = document.createElement('span');
         chip.className = 'term-chip';
         chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:5px;padding:3px 8px;font-size:11.5px;font-family:monospace;color:var(--bm-accent)';
-        chip.innerHTML = `${term} <button type="button" onclick="removeTerm('${term.replace(/'/g,"\\'")}',this)" style="background:none;border:none;cursor:pointer;padding:0;color:var(--bm-text-muted);font-size:13px;line-height:1" title="Remover">&times;</button>`;
+        chip.textContent = term + ' ';
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.title = 'Remover';
+        rm.innerHTML = '&times;';
+        rm.style.cssText = 'background:none;border:none;cursor:pointer;padding:0;color:var(--bm-text-muted);font-size:13px;line-height:1';
+        rm.addEventListener('click', (e) => { e.stopPropagation(); removeTerm(term); });
+        chip.appendChild(rm);
         container.appendChild(chip);
     });
     document.getElementById('termsHidden').value = [...terms].join(',');
@@ -530,8 +555,9 @@ function removeTerm(term) { terms.delete(term); renderChips(); }
 
 function addSingleCleanTerm(t) {
     if (!t) return;
-    let clean = t.trim().toLowerCase();
-    clean = clean.replace(/^[.,;:]+|[.,;:]+$/g, '').trim();
+    let clean = t.trim().toLowerCase().replace(/\s+/g, ' ');
+    // remove pontuação e aspas/parênteses das pontas (ex.: colado de uma string de busca)
+    clean = clean.replace(/^[.,;:"'“”()\[\]]+|[.,;:"'“”()\[\]]+$/g, '').trim();
     if (clean) {
         terms.add(clean);
     }
@@ -539,15 +565,10 @@ function addSingleCleanTerm(t) {
 
 function addTerm(raw) {
     if (!raw) return;
-    const commaParts = raw.split(/[,;\n\r\t]+/);
-    commaParts.forEach(part => {
-        let p = part.trim();
-        if (!p) return;
-        const andParts = p.split(/\s+(?:e|and)\s+/i);
-        andParts.forEach(sub => {
-            addSingleCleanTerm(sub);
-        });
-    });
+    // separadores: vírgula, ponto e vírgula, quebra de linha, tab e operadores booleanos
+    // em MAIÚSCULAS (AND/OR) de uma string de busca colada. Expressões como
+    // "teaching and learning" ou "ensino e aprendizagem" são mantidas inteiras.
+    raw.split(/[,;\n\r\t]+|\s+(?:AND|OR)\s+/).forEach(addSingleCleanTerm);
 }
 
 function addTerms(csv) {
@@ -555,7 +576,7 @@ function addTerms(csv) {
     renderChips();
 }
 
-'{{ group.terms|join(',') }}'.split(',').filter(t => t.trim()).forEach(t => addTerm(t));
+({{ group.terms|json_encode|raw }}).forEach(t => addSingleCleanTerm(t));
 renderChips();
 
 const termInput = document.getElementById('termInput');

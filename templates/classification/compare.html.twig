@@ -6,11 +6,11 @@
 <div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-columns-gap text-accent me-2"></i> Relatórios Comparativos entre Grupos Temáticos
+            <i class="bi bi-columns-gap text-accent me-2"></i> Relatórios Comparativos entre Grupos Temáticos {{ help('classification.compare.page') }}
         </h1>
         <p class="bm-page-subtitle">Analise volume, evolução temporal, sobreposição de palavras-chave, perfil geográfico e de impacto entre grupos.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
         <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-folder me-1"></i> Gerenciar Grupos
         </a>
@@ -20,6 +20,7 @@
         <button id="btnExportCsv" class="btn btn-bm-primary" onclick="exportComparisonCsv()">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </button>
+        {{ help('classification.compare.export_csv') }}
     </div>
 </div>
 
@@ -27,7 +28,7 @@
 <div class="bm-card mb-4">
     <div class="d-flex align-items-center justify-content-between mb-2">
         <h6 class="fw-bold m-0" style="color:var(--bm-text)">
-            <i class="bi bi-check2-square text-accent me-1"></i> Selecione os Grupos para Comparar
+            <i class="bi bi-check2-square text-accent me-1"></i> Selecione os Grupos para Comparar {{ help('classification.compare.selector') }}
         </h6>
         <div>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllGroups(true)">Selecionar Todos</button>
@@ -53,25 +54,25 @@
 <div class="row g-3 mb-4" id="summaryCardsRow">
     <div class="col-md-3">
         <div class="bm-card text-center p-3">
-            <div class="text-muted" style="font-size:12px">Total de Grupos Analisados</div>
+            <div class="text-muted" style="font-size:12px">Total de Grupos Analisados {{ help('classification.compare.card_groups') }}</div>
             <div class="h2 fw-bold text-accent m-0" id="cardTotalGroups">0</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="bm-card text-center p-3">
-            <div class="text-muted" style="font-size:12px">Corpus Total do Projeto</div>
+            <div class="text-muted" style="font-size:12px">Corpus Total do Projeto {{ help('classification.compare.card_corpus') }}</div>
             <div class="h2 fw-bold m-0" id="cardTotalDocs">0</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="bm-card text-center p-3">
-            <div class="text-muted" style="font-size:12px">Doc. Classificados no Top Tema</div>
+            <div class="text-muted" style="font-size:12px">Documentos no Maior Grupo {{ help('classification.compare.card_top') }}</div>
             <div class="h2 fw-bold text-success m-0" id="cardTopGroupDocs">0</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="bm-card text-center p-3">
-            <div class="text-muted" style="font-size:12px">Média de Citações Geral</div>
+            <div class="text-muted" style="font-size:12px">Média de Citações Geral {{ help('classification.compare.card_avg') }}</div>
             <div class="h2 fw-bold text-warning m-0" id="cardAvgCitations">0</div>
         </div>
     </div>
@@ -83,7 +84,7 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-                <i class="bi bi-bar-chart-line text-accent me-1"></i> Volume e Citações por Grupo
+                <i class="bi bi-bar-chart-line text-accent me-1"></i> Volume e Citações por Grupo {{ help('classification.compare.summary') }}
             </h6>
             <div class="table-responsive">
                 <table class="table table-sm text-center align-middle" style="font-size:13px">
@@ -91,9 +92,9 @@
                         <tr class="table-dark">
                             <th class="text-start">Grupo</th>
                             <th>Docs</th>
-                            <th>% Corpus</th>
+                            <th>% Corpus {{ help('classification.compare.col_pct') }}</th>
                             <th>Total Citações</th>
-                            <th>Média Citações</th>
+                            <th>Média Citações {{ help('classification.compare.col_avg') }}</th>
                         </tr>
                     </thead>
                     <tbody id="summaryTableBody">
@@ -108,7 +109,7 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-                <i class="bi bi-graph-up text-accent me-1"></i> Evolução Temporal Comparada
+                <i class="bi bi-graph-up text-accent me-1"></i> Evolução Temporal Comparada {{ help('classification.compare.temporal') }}
             </h6>
             <div style="position:relative;height:260px">
                 <canvas id="chartTemporal"></canvas>
@@ -122,17 +123,17 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-2" style="color:var(--bm-text)">
-                <i class="bi bi-intersect text-accent me-1"></i> Sobreposição Temática &amp; Índice de Jaccard
+                <i class="bi bi-intersect text-accent me-1"></i> Sobreposição Temática &amp; Índice de Jaccard {{ help('classification.compare.overlap') }}
             </h6>
-            <p style="font-size:11.5px;color:var(--bm-text-muted)">Grau de semelhança entre pares de grupos com base no Tesauro Global.</p>
+            <p style="font-size:11.5px;color:var(--bm-text-muted)">Vocabulário em comum entre pares de grupos (palavras-chave ou conceitos do Tesauro presentes em 2+ documentos de cada grupo).</p>
             <div class="table-responsive">
                 <table class="table table-sm text-center align-middle" style="font-size:12.5px">
                     <thead>
                         <tr class="table-dark">
                             <th class="text-start">Par de Grupos</th>
-                            <th>Interseção</th>
-                            <th>União</th>
-                            <th>Índice Jaccard</th>
+                            <th>Interseção {{ help('classification.compare.col_intersection') }}</th>
+                            <th>União {{ help('classification.compare.col_union') }}</th>
+                            <th>Índice Jaccard {{ help('classification.compare.col_jaccard') }}</th>
                         </tr>
                     </thead>
                     <tbody id="overlapTableBody">
@@ -147,7 +148,7 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-                <i class="bi bi-globe2 text-accent me-1"></i> Perfil Geográfico Comparado (Países)
+                <i class="bi bi-globe2 text-accent me-1"></i> Perfil Geográfico Comparado (Países) {{ help('classification.compare.geographic') }}
             </h6>
             <div id="geographicContainer" style="font-size:12.5px">
                 <div class="text-muted">Carregando…</div>
@@ -161,7 +162,7 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-                <i class="bi bi-building text-accent me-1"></i> Perfil Institucional &amp; Natureza Jurídica
+                <i class="bi bi-building text-accent me-1"></i> Perfil Institucional &amp; Natureza Jurídica {{ help('classification.compare.institutional') }}
             </h6>
             <div id="institutionalContainer" style="font-size:12.5px">
                 <div class="text-muted">Carregando…</div>
@@ -173,7 +174,7 @@
     <div class="col-lg-6">
         <div class="bm-card h-100">
             <h6 class="fw-bold mb-3" style="color:var(--bm-text)">
-                <i class="bi bi-award text-accent me-1"></i> Estratos Qualis Predominantes por Grupo
+                <i class="bi bi-award text-accent me-1"></i> Estratos Qualis Predominantes por Grupo {{ help('classification.compare.qualis') }}
             </h6>
             <div id="qualisContainer" style="font-size:12.5px">
                 <div class="text-muted">Carregando…</div>
@@ -184,9 +185,26 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 let temporalChart = null;
+
+// Escapa texto vindo do banco (nomes de grupos, países, instituições) antes de usar em innerHTML
+function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function asObject(obj) { return (obj && typeof obj === 'object') ? obj : {}; }
+
+function showPanelsMessage(msg) {
+    document.getElementById('summaryTableBody').innerHTML = `<tr><td colspan="5" class="text-muted">${esc(msg)}</td></tr>`;
+    document.getElementById('overlapTableBody').innerHTML = `<tr><td colspan="4" class="text-muted">${esc(msg)}</td></tr>`;
+    ['geographicContainer', 'institutionalContainer', 'qualisContainer'].forEach(id => {
+        document.getElementById(id).innerHTML = `<div class="text-muted">${esc(msg)}</div>`;
+    });
+    ['cardTotalGroups', 'cardTopGroupDocs', 'cardAvgCitations'].forEach(id => document.getElementById(id).textContent = '0');
+    if (temporalChart) { temporalChart.destroy(); temporalChart = null; }
+}
 
 function getSelectedGroupIds() {
     return Array.from(document.querySelectorAll('.group-chk:checked')).map(c => c.value);
@@ -200,13 +218,17 @@ function selectAllGroups(flag) {
 function loadComparisonData() {
     const ids = getSelectedGroupIds();
     if (ids.length === 0) {
-        document.getElementById('summaryTableBody').innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum grupo selecionado.</td></tr>';
+        showPanelsMessage('Nenhum grupo selecionado.');
         return;
     }
 
     fetch(`{{ path('app_classification_compare_data', {id: project.id}) }}?groups=${ids.join(',')}`)
         .then(res => res.json())
         .then(data => {
+            if (!data || data.error || !data.summary) {
+                showPanelsMessage((data && data.error) || 'Não foi possível carregar a comparação.');
+                return;
+            }
             renderSummary(data.summary);
             renderTemporal(data.temporal);
             renderOverlap(data.overlap);
@@ -214,7 +236,7 @@ function loadComparisonData() {
             renderInstitutional(data.institutions);
             renderQualis(data.qualis);
         })
-        .catch(err => console.error(err));
+        .catch(err => { console.error(err); showPanelsMessage('Erro ao carregar a comparação.'); });
 }
 
 function renderSummary(summary) {
@@ -236,8 +258,8 @@ function renderSummary(summary) {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="text-start fw-bold" style="color:${g.color || 'var(--bm-text)'}">
-                <i class="bi ${g.icon || 'bi-collection'} me-1"></i> ${g.group_name}
+            <td class="text-start fw-bold" style="color:${esc(g.color || 'var(--bm-text)')}">
+                <i class="bi ${esc(g.icon || 'bi-collection')} me-1"></i> ${esc(g.group_name)}
             </td>
             <td><span class="badge text-bg-primary">${g.doc_count}</span></td>
             <td>${g.percentage}%</td>
@@ -298,7 +320,7 @@ function renderOverlap(overlap) {
     pairs.forEach(p => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="text-start fw-bold">${p.groupA} <span class="text-muted">&amp;</span> ${p.groupB}</td>
+            <td class="text-start fw-bold">${esc(p.groupA)} <span class="text-muted">&amp;</span> ${esc(p.groupB)}</td>
             <td><span class="badge text-bg-info">${p.intersection}</span></td>
             <td>${p.union}</td>
             <td><span class="badge text-bg-warning">${(p.jaccard * 100).toFixed(1)}%</span></td>
@@ -309,7 +331,7 @@ function renderOverlap(overlap) {
 
 function renderGeographic(geo) {
     const container = document.getElementById('geographicContainer');
-    container.innerHTML = '';
+    container.innerHTML = Object.keys(asObject(arguments[0])).length ? '' : '<div class="text-muted">Nenhum documento dos grupos marcados tem instituição vinculada.</div>';
 
     Object.values(geo).forEach(g => {
         const div = document.createElement('div');
@@ -318,10 +340,10 @@ function renderGeographic(geo) {
         div.style.border = '1px solid var(--bm-border)';
 
         const topCountries = Object.entries(g.countries).sort((a,b) => b[1] - a[1]).slice(0, 5);
-        const countriesHtml = topCountries.map(([c, count]) => `<span class="badge text-bg-secondary me-1">${c}: ${count}</span>`).join('');
+        const countriesHtml = topCountries.map(([c, count]) => `<span class="badge text-bg-secondary me-1">${esc(c)}: ${count}</span>`).join('');
 
         div.innerHTML = `
-            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div class="fw-bold mb-1" style="color:${esc(g.color || 'var(--bm-text)')}">${esc(g.name)}</div>
             <div>${countriesHtml || '<span class="text-muted">Sem dados de país</span>'}</div>
         `;
         container.appendChild(div);
@@ -330,7 +352,7 @@ function renderGeographic(geo) {
 
 function renderInstitutional(inst) {
     const container = document.getElementById('institutionalContainer');
-    container.innerHTML = '';
+    container.innerHTML = Object.keys(asObject(arguments[0])).length ? '' : '<div class="text-muted">Nenhum documento dos grupos marcados tem instituição vinculada.</div>';
 
     Object.values(inst).forEach(g => {
         const div = document.createElement('div');
@@ -339,10 +361,10 @@ function renderInstitutional(inst) {
         div.style.border = '1px solid var(--bm-border)';
 
         const topNatures = Object.entries(g.natures).sort((a,b) => b[1] - a[1]).slice(0, 4);
-        const naturesHtml = topNatures.map(([n, count]) => `<span class="badge text-bg-info me-1">${n}: ${count}</span>`).join('');
+        const naturesHtml = topNatures.map(([n, count]) => `<span class="badge text-bg-info me-1">${esc(n)}: ${count}</span>`).join('');
 
         div.innerHTML = `
-            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div class="fw-bold mb-1" style="color:${esc(g.color || 'var(--bm-text)')}">${esc(g.name)}</div>
             <div>${naturesHtml || '<span class="text-muted">Sem dados de instituição</span>'}</div>
         `;
         container.appendChild(div);
@@ -351,7 +373,7 @@ function renderInstitutional(inst) {
 
 function renderQualis(qualis) {
     const container = document.getElementById('qualisContainer');
-    container.innerHTML = '';
+    container.innerHTML = Object.keys(asObject(arguments[0])).length ? '' : '<div class="text-muted">Sem documentos nos grupos marcados.</div>';
 
     Object.values(qualis).forEach(g => {
         const div = document.createElement('div');
@@ -360,10 +382,10 @@ function renderQualis(qualis) {
         div.style.border = '1px solid var(--bm-border)';
 
         const topQualis = Object.entries(g.qualis).sort((a,b) => b[1] - a[1]);
-        const qualisHtml = topQualis.map(([q, count]) => `<span class="badge text-bg-warning me-1">${q}: ${count}</span>`).join('');
+        const qualisHtml = topQualis.map(([q, count]) => `<span class="badge text-bg-warning me-1">${esc(q)}: ${count}</span>`).join('');
 
         div.innerHTML = `
-            <div class="fw-bold mb-1" style="color:${g.color || 'var(--bm-text)'}">${g.name}</div>
+            <div class="fw-bold mb-1" style="color:${esc(g.color || 'var(--bm-text)')}">${esc(g.name)}</div>
             <div>${qualisHtml || '<span class="text-muted">Sem dados de Qualis</span>'}</div>
         `;
         container.appendChild(div);

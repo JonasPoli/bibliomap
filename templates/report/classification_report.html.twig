@@ -99,6 +99,7 @@
 <button class="btn-bm-secondary no-print" onclick="window.print()" style="padding:6px 14px;font-size:13px">
     <i class="bi bi-printer me-1"></i> Imprimir / PDF
 </button>
+<span class="no-print">{{ help('common.print') }}</span>
 {% endblock %}
 
 {% block body %}
@@ -124,7 +125,7 @@
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
         <div>
             <div style="font-size:.72rem;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">
-                <i class="bi bi-grid-3x3-gap me-1"></i>Relatório de Classificação
+                <i class="bi bi-grid-3x3-gap me-1"></i>Relatório de Classificação {{ help('classification.report.page') }}
             </div>
             <h1 style="font-size:1.5rem;font-weight:800;margin:0">{{ project.title }}</h1>
             <p style="color:var(--bm-text-muted);margin:.35rem 0 0;font-size:.88rem">
@@ -135,19 +136,19 @@
     <div class="hero-kpis">
         <div class="hero-kpi">
             <div class="val">{{ data.kpis.total_classified|number_format(0,',','.') }}</div>
-            <div class="lbl">Artigos classificados</div>
+            <div class="lbl">Artigos classificados {{ help('classification.report.kpi_classified') }}</div>
         </div>
         <div class="hero-kpi">
             <div class="val">{{ data.kpis.total_groups }}</div>
-            <div class="lbl">Grupos temáticos</div>
+            <div class="lbl">Grupos temáticos {{ help('classification.report.kpi_groups') }}</div>
         </div>
         <div class="hero-kpi">
             <div class="val">{{ data.kpis.total_cit|number_format(0,',','.') }}</div>
-            <div class="lbl">Citações acumuladas</div>
+            <div class="lbl">Citações acumuladas {{ help('classification.report.kpi_citations') }}</div>
         </div>
         <div class="hero-kpi">
             <div class="val">{{ data.kpis.year_min }}–{{ data.kpis.year_max }}</div>
-            <div class="lbl">Período analisado</div>
+            <div class="lbl">Período do corpus {{ help('classification.report.kpi_period') }}</div>
         </div>
     </div>
 </div>
@@ -156,26 +157,26 @@
 
     {# ── SEÇÃO 1: Distribuição ────────────────────────────────────── #}
     <div id="dist" style="margin-bottom:2rem">
-        <div class="section-title"><span>📦</span> Distribuição por Categoria Temática</div>
+        <div class="section-title"><span>📦</span> Distribuição por Categoria Temática {{ help('classification.report.distribution') }}</div>
         <div class="section-sub">Volume de publicações e impacto de citações por grupo</div>
         <div class="row g-3">
             <div class="col-12 col-xl-6">
                 <div class="bm-card h-100">
-                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Volume por Categoria</div>
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Volume por Categoria {{ help('classification.report.volume') }}</div>
                     <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Total de artigos por grupo</div>
                     <div class="chart-wrap" style="height:320px"><canvas id="chartVolume"></canvas></div>
                 </div>
             </div>
             <div class="col-12 col-xl-6">
                 <div class="bm-card h-100">
-                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Citações por Categoria</div>
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Citações por Categoria {{ help('classification.report.citations') }}</div>
                     <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Soma total de citações — proxy de impacto científico</div>
                     <div class="chart-wrap" style="height:320px"><canvas id="chartCitations"></canvas></div>
                 </div>
             </div>
         </div>
         <div class="bm-card" style="margin-top:1rem">
-            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Média de Citações por Artigo</div>
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Média de Citações por Artigo {{ help('classification.report.avg_cit') }}</div>
             <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Índice de impacto por unidade — identifica categorias de maior influência relativa</div>
             <div class="chart-wrap" style="height:200px"><canvas id="chartAvgCit"></canvas></div>
         </div>
@@ -183,32 +184,32 @@
 
     {# ── SEÇÃO 2: Top 3 ───────────────────────────────────────────── #}
     <div id="top3" style="margin-bottom:2rem">
-        <div class="section-title"><span>🏆</span> Top 3 Artigos Mais Citados por Categoria</div>
+        <div class="section-title"><span>🏆</span> Top 3 Artigos Mais Citados por Categoria {{ help('classification.report.top3') }}</div>
         <div class="section-sub">Os trabalhos mais influentes em cada grupo — referências essenciais para a revisão da literatura</div>
         <div id="top3Container"></div>
     </div>
 
     {# ── SEÇÃO 3: Crescimento ─────────────────────────────────────── #}
     <div id="crescimento" style="margin-bottom:2rem">
-        <div class="section-title"><span>📈</span> Evolução Temporal da Produção</div>
+        <div class="section-title"><span>📈</span> Evolução Temporal da Produção {{ help('classification.report.growth') }}</div>
         <div class="section-sub">Tendência de crescimento anual — identifica áreas emergentes vs. consolidadas</div>
         <div class="bm-card">
-            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Produção Científica Anual por Grupo</div>
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Produção Científica Anual por Grupo {{ help('classification.report.growth_chart') }}</div>
             <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Número de publicações por ano (top 6 grupos em volume)</div>
             <div class="chart-wrap" style="height:380px"><canvas id="chartGrowth"></canvas></div>
         </div>
         <div class="row g-3" style="margin-top:0.5rem">
             <div class="col-12 col-xl-6">
                 <div class="bm-card h-100">
-                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Taxa de Crescimento Recente</div>
-                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Crescimento relativo entre antepenúltimo e último ano completo com dados</div>
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Taxa de Crescimento Recente {{ help('classification.report.accel') }}</div>
+                    <div id="accelSub" style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Variação percentual entre dois anos recentes (o último ano com dados é ignorado por poder estar incompleto)</div>
                     <div class="chart-wrap" style="height:300px"><canvas id="chartAccel"></canvas></div>
                 </div>
             </div>
             <div class="col-12 col-xl-6">
                 <div class="bm-card h-100">
-                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Concentração Temática do Corpus</div>
-                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Distribuição proporcional dos artigos classificados</div>
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Concentração Temática {{ help('classification.report.pie') }}</div>
+                    <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Participação de cada grupo na soma das classificações temáticas</div>
                     <div class="chart-wrap" style="height:300px"><canvas id="chartPie"></canvas></div>
                 </div>
             </div>
@@ -217,18 +218,18 @@
 
     {# ── SEÇÃO 4: Heatmap ─────────────────────────────────────────── #}
     <div id="heatmap" style="margin-bottom:2rem">
-        <div class="section-title"><span>🔥</span> Heatmap: Produção × Ano × Grupo</div>
+        <div class="section-title"><span>🔥</span> Heatmap: Produção × Ano × Grupo {{ help('classification.report.heatmap') }}</div>
         <div class="section-sub">Intensidade de publicação — revela padrões temporais e ondas de interesse científico</div>
         <div class="bm-card">
             <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Mapa de Calor — Publicações por Grupo e Ano</div>
-            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:.75rem">Intensidade relativa ao máximo de cada grupo (cor mais intensa = pico daquele grupo)</div>
+            <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:.75rem">Últimos 12 anos do corpus · intensidade relativa ao máximo de cada grupo (cor mais intensa = pico daquele grupo)</div>
             <div id="heatmapContainer" style="overflow-x:auto"></div>
         </div>
     </div>
 
     {# ── SEÇÃO 5: Impacto ─────────────────────────────────────────── #}
     <div id="impacto" style="margin-bottom:2rem">
-        <div class="section-title"><span>⚡</span> Análise Multidimensional de Impacto</div>
+        <div class="section-title"><span>⚡</span> Análise Multidimensional de Impacto {{ help('classification.report.impact') }}</div>
         <div class="section-sub">Comparação entre volume, citações totais, média e artigo mais citado por grupo</div>
         <div class="bm-card">
             <div id="statTableContainer" style="overflow-x:auto"></div>
@@ -237,22 +238,22 @@
 
     {# ── SEÇÃO 6: Periódicos ──────────────────────────────────────── #}
     <div id="periodicos" style="margin-bottom:2rem">
-        <div class="section-title"><span>📰</span> Principais Periódicos por Categoria</div>
+        <div class="section-title"><span>📰</span> Principais Periódicos por Categoria {{ help('classification.report.journals') }}</div>
         <div class="section-sub">Top 5 periódicos mais prolíficos — mapa dos veículos de publicação mais relevantes por tema</div>
         <div id="journalsContainer"></div>
     </div>
 
     {# ── SEÇÃO 7: Insights ────────────────────────────────────────── #}
     <div id="insights" style="margin-bottom:2rem">
-        <div class="section-title"><span>💡</span> Insights Estratégicos Detectados</div>
-        <div class="section-sub">Padrões relevantes calculados automaticamente a partir dos dados deste projeto</div>
+        <div class="section-title"><span>💡</span> Insights Estratégicos Detectados {{ help('classification.report.insights') }}</div>
+        <div class="section-sub">Frases geradas por regras simples a partir dos dados deste projeto — confira nos gráficos antes de citar</div>
         <div id="insightsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem"></div>
     </div>
 
     {# ── SEÇÃO 8: Maturidade ──────────────────────────────────────── #}
     <div id="maturidade" style="margin-bottom:2rem">
-        <div class="section-title"><span>🔍</span> Mapa de Maturidade</div>
-        <div class="section-sub">Volume × impacto médio × citações totais — quadrante sup. dir. = área consolidada e influente</div>
+        <div class="section-title"><span>🔍</span> Mapa de Maturidade {{ help('classification.report.maturity') }}</div>
+        <div class="section-sub">Volume × impacto médio × citações totais — canto superior direito = área consolidada e influente</div>
         <div class="bm-card">
             <div style="font-weight:600;font-size:.9rem;margin-bottom:.2rem">Análise de Maturidade por Categoria</div>
             <div style="font-size:.75rem;color:var(--bm-text-muted);margin-bottom:1rem">Eixo X: nº artigos | Eixo Y: média cit/artigo | Tamanho da bolha: total de citações</div>
@@ -296,9 +297,13 @@ const groupColors = groups.map((g, i) =>
 
 function shortLabel(s, n = 24) { return s.length > n ? s.slice(0, n) + '\u2026' : s; }
 function fmt(n) { return (n||0).toLocaleString('pt-BR'); }
+// Escapa texto do banco (títulos, resumos, nomes) antes de inserir via innerHTML
+function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ── Chart defaults ──────────────────────────────────────────────────────
 Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--bm-text-muted').trim() || '#8b949e';
+// Cor de texto forte do tema atual (antes era fixa e ficava ilegível no tema claro)
+const textColor = getComputedStyle(document.documentElement).getPropertyValue('--bm-text').trim() || '#e6edf3';
 Chart.defaults.font.family = 'Inter, sans-serif';
 Chart.defaults.plugins.legend.labels.boxWidth  = 12;
 Chart.defaults.plugins.legend.labels.padding   = 14;
@@ -321,7 +326,7 @@ new Chart(document.getElementById('chartVolume'), {
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.raw)} artigos` } } },
         scales: {
             x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
-            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 11 } } }
+            y: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } }
         },
         maintainAspectRatio: false
     }
@@ -344,7 +349,7 @@ new Chart(document.getElementById('chartCitations'), {
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.raw)} citações` } } },
         scales: {
             x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color } },
-            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 11 } } }
+            y: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } }
         },
         maintainAspectRatio: false
     }
@@ -412,6 +417,10 @@ const accelData = groups.map(g => {
     return { g, rate: prev > 0 ? Math.round((last - prev) / prev * 100) : (last > 0 ? 200 : 0) };
 }).sort((a, b) => b.rate - a.rate);
 
+if (yPrev !== undefined && yLast !== undefined) {
+    document.getElementById('accelSub').textContent =
+        `Variação % de artigos entre ${yPrev} e ${yLast} (o último ano com dados é ignorado por poder estar incompleto)`;
+}
 new Chart(document.getElementById('chartAccel'), {
     type: 'bar',
     data: {
@@ -424,10 +433,10 @@ new Chart(document.getElementById('chartAccel'), {
     },
     options: {
         indexAxis: 'y',
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` +${ctx.raw}% (${yPrev}\u2192${yLast})` } } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw > 0 ? '+' : ''}${ctx.raw}% (${yPrev}\u2192${yLast})` } } },
         scales: {
             x: { grid: { color: gridColor }, ticks: { color: Chart.defaults.color, callback: v => v + '%' } },
-            y: { grid: { display: false }, ticks: { color: '#e6edf3', font: { size: 10 } } }
+            y: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } }
         },
         maintainAspectRatio: false
     }
@@ -442,7 +451,7 @@ new Chart(document.getElementById('chartPie'), {
         datasets: [{
             data: groups.map(g => (stats[g.id] || {}).total || 0),
             backgroundColor: groupColors,
-            borderColor: '#161b22', borderWidth: 2, hoverOffset: 8
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bm-card-bg').trim() || '#161b22', borderWidth: 2, hoverOffset: 8
         }]
     },
     options: {
@@ -496,7 +505,7 @@ groups.forEach((g, gi) => {
     block.innerHTML =
         `<div class="group-bar">
             <div class="group-dot" style="background:${groupColors[gi]}"></div>
-            ${g.name}
+            ${esc(g.name)}
             <span class="group-cnt">${fmt(s.total)} artigos</span>
          </div>` +
         papers.map((p, pi) =>
@@ -504,21 +513,21 @@ groups.forEach((g, gi) => {
                 <div class="d-flex align-items-start gap-3 w-100">
                     <div class="paper-medal">${pi === 0 ? '🥇' : pi === 1 ? '🥈' : '🥉'}</div>
                     <div class="paper-body" style="flex: 1; min-width: 0;">
-                        <div class="paper-title" style="font-size: 14px; font-weight: 700; color: #e6edf3;">${p.title || '(sem título)'}</div>
+                        <div class="paper-title" style="font-size: 14px; font-weight: 700; color: var(--bm-text);">${esc(p.title || '(sem título)')}</div>
                         <div style="font-size: 12.5px; color: #8b949e; margin-top: 6px;">
-                            <strong style="color: #e6edf3">Autores:</strong> ${p.authors}
+                            <strong style="color: var(--bm-text)">Autores:</strong> ${esc(p.authors)}
                         </div>
                         <div class="paper-meta mt-2" style="display: flex; flex-wrap: wrap; gap: 0.8rem; font-size: 11.5px; color: var(--bm-text-muted);">
                             <span><i class="bi bi-calendar3 me-1"></i>${p.year || '—'}</span>
-                            <span><i class="bi bi-journal-text me-1"></i>${p.source_title || '—'}</span>
-                            ${p.doi ? `<a class="paper-doi" href="https://doi.org/${p.doi}" target="_blank" rel="noopener"><i class="bi bi-link-45deg me-1"></i>${p.doi}</a>` : ''}
+                            <span><i class="bi bi-journal-text me-1"></i>${esc(p.source_title || '—')}</span>
+                            ${p.doi ? `<a class="paper-doi" href="https://doi.org/${encodeURI(p.doi)}" target="_blank" rel="noopener"><i class="bi bi-link-45deg me-1"></i>${esc(p.doi)}</a>` : ''}
                         </div>
                         
                         ${p.keywords ? `
                         <div style="font-size: 11.5px; margin-top: 8px; color: var(--bm-text-muted);">
-                            <strong style="color: #e6edf3; display: block; margin-bottom: 4px;">Palavras-chave:</strong>
+                            <strong style="color: var(--bm-text); display: block; margin-bottom: 4px;">Palavras-chave:</strong>
                             <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                ${p.keywords.split('; ').map(k => `<span class="badge" style="background: rgba(79,142,247,0.08); color: var(--bm-accent); border: 1px solid rgba(79,142,247,0.18); font-weight: 500; font-size: 10px; padding: 3px 6px;">${k}</span>`).join('')}
+                                ${p.keywords.split('; ').map(k => `<span class="badge" style="background: rgba(79,142,247,0.08); color: var(--bm-accent); border: 1px solid rgba(79,142,247,0.18); font-weight: 500; font-size: 10px; padding: 3px 6px;">${esc(k)}</span>`).join('')}
                             </div>
                         </div>` : ''}
 
@@ -527,7 +536,7 @@ groups.forEach((g, gi) => {
                             <summary style="cursor: pointer; user-select: none; color: var(--bm-accent); font-weight: 600; font-size: 12px; outline: none; list-style: none;">
                                 <i class="bi bi-chevron-right me-1" style="font-size: 9px;"></i><i class="bi bi-file-text me-1"></i>Ver Resumo (Abstract)
                             </summary>
-                            <p style="margin-top: 8px; line-height: 1.6; font-style: italic; color: #8b949e; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 6px; border-left: 2px solid var(--bm-border);">${p.abstract}</p>
+                            <p style="margin-top: 8px; line-height: 1.6; font-style: italic; color: #8b949e; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 6px; border-left: 2px solid var(--bm-border);">${esc(p.abstract)}</p>
                         </details>` : ''}
                     </div>
                     <div class="cit-badge ms-auto" style="flex-shrink: 0;">
@@ -558,7 +567,7 @@ document.getElementById('statTableContainer').innerHTML =
         return `<tr>
             <td><div style="display:flex;align-items:center;gap:.5rem">
                 <div style="width:9px;height:9px;border-radius:50%;background:${groupColors[i]};flex-shrink:0"></div>
-                <span style="font-weight:500">${g.name}</span>
+                <span style="font-weight:500">${esc(g.name)}</span>
             </div></td>
             <td>${fmt(s.total)}<div class="bar-i" style="width:${w}px;background:${groupColors[i]}55;border:1px solid ${groupColors[i]}"></div></td>
             <td>${fmt(s.total_cit)}</td>
@@ -576,12 +585,14 @@ hHtml += `<div></div>` + heatYears.map(y => `<div class="hm-hdr">${y}</div>`).jo
 groups.forEach((g, gi) => {
     const vals = heatYears.map(y => (growth[g.id] || {})[y] || 0);
     const mx = Math.max(...vals, 1);
-    hHtml += `<div class="hm-lbl" title="${g.name}">${g.name.length > 22 ? g.name.slice(0, 22) + '\u2026' : g.name}</div>`;
-    vals.forEach(v => {
+    hHtml += `<div class="hm-lbl" title="${esc(g.name)}">${esc(g.name.length > 22 ? g.name.slice(0, 22) + '\u2026' : g.name)}</div>`;
+    vals.forEach((v, vi) => {
         const pct = Math.round(v / mx * 100);
-        const bg = v === 0 ? 'rgba(48,54,61,0.3)' : `${groupColors[gi]}${Math.max(18, pct).toString(16).padStart(2, '0')}`;
+        // alfa em hexadecimal 0–255 proporcional ao pico do grupo (mínimo ~18%)
+        const alpha = Math.round(Math.max(18, pct) * 2.55).toString(16).padStart(2, '0');
+        const bg = v === 0 ? 'rgba(48,54,61,0.3)' : `${groupColors[gi]}${alpha}`;
         const tc = pct > 55 ? '#fff' : pct > 25 ? groupColors[gi] : Chart.defaults.color;
-        hHtml += `<div class="hm-cell" style="background:${bg};color:${tc}" title="${g.name} · ${heatYears[vals.indexOf(v)]} · ${v} art.">${v || ''}</div>`;
+        hHtml += `<div class="hm-cell" style="background:${bg};color:${tc}" title="${esc(g.name)} · ${heatYears[vi]} · ${v} art.">${v || ''}</div>`;
     });
 });
 hHtml += '</div>';
@@ -600,12 +611,12 @@ groups.forEach((g, gi) => {
     card.innerHTML =
         `<div style="display:flex;align-items:center;gap:.5rem;font-weight:600;font-size:.88rem;margin-bottom:.2rem">
             <span style="width:9px;height:9px;border-radius:50%;background:${groupColors[gi]};display:inline-block;flex-shrink:0"></span>
-            ${g.name.length > 30 ? g.name.slice(0, 30) + '\u2026' : g.name}
+            ${esc(g.name.length > 30 ? g.name.slice(0, 30) + '\u2026' : g.name)}
          </div>
          <div style="font-size:.72rem;color:var(--bm-text-muted);margin-bottom:.75rem">Top 5 periódicos por volume</div>` +
         jls.map(j =>
             `<div class="prog-row">
-                <div class="prog-lbl" title="${j.name}">${j.name.length > 28 ? j.name.slice(0, 28) + '\u2026' : j.name}</div>
+                <div class="prog-lbl" title="${esc(j.name)}">${esc(j.name.length > 28 ? j.name.slice(0, 28) + '\u2026' : j.name)}</div>
                 <div class="prog-wrap"><div class="prog-bar" style="width:${Math.round(j.n / mx * 100)}%;background:${groupColors[gi]}"></div></div>
                 <div class="prog-val">${j.n}</div>
             </div>`
@@ -626,7 +637,7 @@ function buildInsights() {
         ins.push({
             icon: '⚖️',
             title: `Paradoxo Volume × Impacto`,
-            text: `<span class="ins-hl">${top.name}</span> lidera em impacto médio com <span class="ins-hl">${topS.avg_cit} cit/artigo</span>, enquanto <span class="ins-hl">${bot.name}</span> tem apenas ${botS.avg_cit}. Maior volume ≠ maior influência.`
+            text: `<span class="ins-hl">${esc(top.name)}</span> lidera em impacto médio com <span class="ins-hl">${topS.avg_cit} cit/artigo</span>, enquanto <span class="ins-hl">${esc(bot.name)}</span> tem ${botS.avg_cit}. Maior volume ≠ maior influência.`
         });
     }
 
@@ -636,7 +647,7 @@ function buildInsights() {
         ins.push({
             icon: '🚀',
             title: `Maior Crescimento Recente`,
-            text: `<span class="ins-hl">${top.g.name}</span> teve crescimento de <span class="ins-hl">+${top.rate}%</span> entre ${yPrev} e ${yLast}, sendo a área que mais acelerou neste período.`
+            text: `<span class="ins-hl">${esc(top.g.name)}</span> teve crescimento de <span class="ins-hl">+${top.rate}%</span> entre ${yPrev} e ${yLast}, sendo a área que mais acelerou neste período.`
         });
     }
 
@@ -648,7 +659,7 @@ function buildInsights() {
             ins.push({
                 icon: '📊',
                 title: `Concentração Temática`,
-                text: `<span class="ins-hl">${dominant.name}</span> representa <span class="ins-hl">${domPct}%</span> dos artigos classificados. Considere se esta concentração reflete o campo ou um viés de busca.`
+                text: `<span class="ins-hl">${esc(dominant.name)}</span> representa <span class="ins-hl">${domPct}%</span> das classificações temáticas. Considere se esta concentração reflete o campo ou um viés de busca.`
             });
         }
     }
@@ -663,7 +674,7 @@ function buildInsights() {
             ins.push({
                 icon: '🏅',
                 title: `Artigo Mais Influente do Corpus`,
-                text: `Em <span class="ins-hl">${g.name}</span>: "${topPaper.title.length > 80 ? topPaper.title.slice(0, 80) + '…' : topPaper.title}" (${topPaper.year}) com <span class="ins-hl">${fmt(topPaper.cited_by)} citações</span>.`
+                text: `Em <span class="ins-hl">${esc(g.name)}</span>: "${esc(topPaper.title.length > 80 ? topPaper.title.slice(0, 80) + '…' : topPaper.title)}" (${topPaper.year}) com <span class="ins-hl">${fmt(topPaper.cited_by)} citações</span>.`
             });
         }
     }
@@ -675,7 +686,7 @@ function buildInsights() {
         ins.push({
             icon: '💎',
             title: `Nicho de Alta Qualidade`,
-            text: `<span class="ins-hl">${g.name}</span> tem apenas <span class="ins-hl">${fmt(s.total)} artigos</span> (${Math.round((s.total || 0) / totalAll * 100)}% do corpus), mas impacto médio de <span class="ins-hl">${s.avg_cit} cit/artigo</span>. Área seleta e influente.`
+            text: `<span class="ins-hl">${esc(g.name)}</span> tem apenas <span class="ins-hl">${fmt(s.total)} artigos</span> (${Math.round((s.total || 0) / totalAll * 100)}% do corpus), mas impacto médio de <span class="ins-hl">${s.avg_cit} cit/artigo</span>. Área seleta e influente.`
         });
     }
 
@@ -690,8 +701,8 @@ function buildInsights() {
         const g = highJournalShare[0];
         ins.push({
             icon: '🌐',
-            title: `Maior Diversidade de Periódicos`,
-            text: `<span class="ins-hl">${g.name}</span> apresenta a maior diversidade de periódicos — nenhum veículo concentra mais de 10% da produção do grupo. Campo plural e interdisciplinar.`
+            title: `Alta Diversidade de Periódicos`,
+            text: `<span class="ins-hl">${esc(g.name)}</span> tem produção dispersa — nenhum periódico concentra 10% ou mais dos artigos do grupo. Indício de campo plural e interdisciplinar.`
         });
     }
 

@@ -6,17 +6,19 @@
 <div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-collection-fill me-2 text-accent"></i>Classificação Temática
+            <i class="bi bi-collection-fill me-2 text-accent"></i>Classificação Temática {{ help('classification.index.page') }}
         </h1>
         <p class="bm-page-subtitle">Crie grupos, defina termos de classificação e aplique o motor automático ao corpus.</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
         <a href="{{ path('app_classification_groups_export_csv', {id: project.id}) }}" class="btn btn-bm-secondary" title="Exportar cadastro de grupos em CSV">
             <i class="bi bi-file-earmark-arrow-down me-1"></i> Exportar Grupos (CSV)
         </a>
+        {{ help('classification.index.export_groups') }}
         <button type="button" class="btn btn-bm-secondary" data-bs-toggle="modal" data-bs-target="#modalImportGroupsCsv" title="Importar grupos de um arquivo CSV">
             <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Grupos (CSV)
         </button>
+        {{ help('classification.index.import_groups') }}
         {% if hasResult %}
         <a href="{{ path('app_classification_results', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-list-ul me-1"></i> Ver Resultados
@@ -24,9 +26,11 @@
         <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-download me-1"></i> Exportar Resultados
         </a>
+        {{ help('classification.index.export_results') }}
         <a href="{{ path('app_classification_export_vosviewer', {id: project.id}) }}" class="btn btn-bm-secondary">
             <i class="bi bi-diagram-3 me-1"></i> VOSviewer
         </a>
+        {{ help('classification.index.vosviewer') }}
         {% endif %}
         <a href="{{ path('app_classification_group_new', {id: project.id}) }}" class="btn btn-bm-primary">
             <i class="bi bi-plus-lg me-1"></i> Novo Grupo
@@ -49,7 +53,7 @@
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value text-accent">{{ groups|length }}</div>
-            <div class="bm-stat-label">Grupos</div>
+            <div class="bm-stat-label">Grupos {{ help('classification.index.stats') }}</div>
         </div>
     </div>
     {% set normal_count = groups|filter(g => g.type == 'normal')|length %}
@@ -58,19 +62,19 @@
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value" style="color:var(--bm-success)">{{ normal_count }}</div>
-            <div class="bm-stat-label">Temáticos</div>
+            <div class="bm-stat-label">Temáticos {{ help('classification.type.normal') }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value" style="color:var(--bm-danger)">{{ noise_count }}</div>
-            <div class="bm-stat-label">Ruído</div>
+            <div class="bm-stat-label">Ruído {{ help('classification.type.noise') }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
             <div class="bm-stat-value" style="color:var(--bm-warning)">{{ val_count }}</div>
-            <div class="bm-stat-label">Validadores</div>
+            <div class="bm-stat-label">Validadores {{ help('classification.type.validator') }}</div>
         </div>
     </div>
 </div>
@@ -94,10 +98,10 @@
 
         {# Group by type #}
         {% set type_labels = {
-            'validator':    ['Validadores', 'warning',   'bi-shield-check',    'Documentos devem conter ao menos um desses termos para serem considerados relevantes.'],
-            'noise':        ['Ruído / Falso Positivo', 'danger', 'bi-ban',       'Documentos com esses termos são descartados como falsos positivos.'],
-            'normal':       ['Grupos Temáticos', 'primary',  'bi-collection',     'Documentos são enquadrados no primeiro grupo cujos termos correspondem.'],
-            'unclassified': ['Sem Classificação', 'secondary', 'bi-question-circle', 'Documentos válidos que não se enquadraram em nenhum grupo temático.']
+            'validator':    ['Validadores', 'warning',   'bi-shield-check',    'Documentos devem conter ao menos um desses termos para serem considerados relevantes.', 'classification.type.validator'],
+            'noise':        ['Ruído / Falso Positivo', 'danger', 'bi-ban',       'Documentos com esses termos saem da análise temática (falsos positivos).', 'classification.type.noise'],
+            'normal':       ['Grupos Temáticos', 'primary',  'bi-collection',     'Cada documento validado entra em todos os grupos cujos termos aparecem nele.', 'classification.type.normal'],
+            'unclassified': ['Sem Classificação', 'secondary', 'bi-question-circle', 'Documentos válidos que não se enquadraram em nenhum grupo temático.', 'classification.type.unclassified']
         } %}
 
         {% for type_key, type_info in type_labels %}
@@ -108,6 +112,7 @@
                     <i class="bi {{ type_info[2] }} text-{{ type_info[1] }}"></i>
                     <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--bm-text-muted)">{{ type_info[0] }}</span>
                     <span class="badge text-bg-{{ type_info[1] }}" style="font-size:10px">{{ type_groups|length }}</span>
+                    {{ help(type_info[4]) }}
                 </div>
                 <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:8px;padding-left:26px">
                     {{ type_info[3] }}
@@ -165,7 +170,7 @@
     <div class="col-lg-4">
         <div class="bm-card mb-3" style="background:linear-gradient(135deg,rgba(79,142,247,0.08),rgba(168,85,247,0.08));border-color:rgba(79,142,247,0.3)">
             <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:8px">
-                <i class="bi bi-lightning-fill text-accent me-1"></i> Motor de Classificação
+                <i class="bi bi-lightning-fill text-accent me-1"></i> Motor de Classificação {{ help('classification.index.engine') }}
             </h6>
             <p style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.55;margin-bottom:16px">
                 Processa todos os documentos do projeto em sequência:<br>
@@ -185,23 +190,25 @@
 
                 <div class="mb-3">
                     <label for="min_year" class="form-label" style="font-size:12.5px;color:var(--bm-text)">
-                        <i class="bi bi-calendar-minus me-1"></i>Ano Mínimo (filtro temporal)
+                        <i class="bi bi-calendar-minus me-1"></i>Ano Mínimo (filtro temporal) {{ help('classification.index.min_year') }}
                     </label>
                     <input type="number" id="min_year" name="min_year" class="form-control"
                            value="{{ project.classificationMinYear }}"
                            placeholder="Ex: 2000" min="1900" max="2100"
                            style="font-size:13px">
                     <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
-                        Documentos com ano &lt; este valor serão classificados como <strong style="color:var(--bm-danger)">Ruído</strong>.
-                        Deixe vazio para não filtrar.
+                        Anteriores a este ano vão para o <strong style="color:var(--bm-danger)">Ruído</strong>. Vazio = sem filtro.
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-bm-primary w-100" id="runBtn">
-                    <i class="bi bi-play-fill me-1"></i> Executar Classificação
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="submit" class="btn btn-bm-primary flex-grow-1" id="runBtn">
+                        <i class="bi bi-play-fill me-1"></i> Executar Classificação
+                    </button>
+                    {{ help('classification.index.run') }}
+                </div>
                 <div style="font-size:11px;color:var(--bm-text-muted);margin-top:8px;text-align:center">
-                    ⚠️ Sobrescreve resultados anteriores · Classifica em <strong>múltiplos grupos</strong>
+                    ⚠️ Substitui os resultados anteriores, inclusive ajustes manuais
                 </div>
             </form>
             {% endif %}
@@ -210,7 +217,7 @@
         {% if hasResult %}
         <div class="bm-card">
             <h6 style="font-weight:700;color:var(--bm-text);margin-bottom:12px">
-                <i class="bi bi-pie-chart-fill text-accent me-1"></i> Distribuição
+                <i class="bi bi-pie-chart-fill text-accent me-1"></i> Distribuição {{ help('classification.index.distribution') }}
             </h6>
             {% set total_classified = counts|reduce((carry, v) => carry + v, 0) %}
             {% for group in groups %}
@@ -289,16 +296,17 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('groups_import_' ~ project.id) }}">
                     <div class="mb-3">
-                        <label for="csv_file" class="form-label fw-bold" style="font-size:13px">Selecione o arquivo CSV:</label>
+                        <label for="csv_file" class="form-label fw-bold" style="font-size:13px">Selecione o arquivo CSV: {{ help('classification.index.import_file') }}</label>
                         <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
                     </div>
                     <div class="p-3 rounded mb-2" style="background:var(--bm-bg);border:1px solid var(--bm-border);font-size:12px;color:var(--bm-text-muted)">
-                        <strong style="color:var(--bm-text)"><i class="bi bi-info-circle text-accent me-1"></i> Estrutura esperada do cabeçalho CSV:</strong><br>
+                        <strong style="color:var(--bm-text)"><i class="bi bi-info-circle text-accent me-1"></i> Estrutura esperada do cabeçalho CSV:</strong> {{ help('classification.index.import_format') }}<br>
                         <code class="d-block text-accent my-1" style="font-size:11px;word-break:break-all">nome;tipo;cor;icone;posicao;termos;campos_match;ano_inicio;ano_fim;qualis;natureza_instituicao;continente;paises;autores;usar_tesauro</code>
                         <div class="mt-2" style="line-height:1.5">
-                            • <strong>termos</strong>: separados por ponto e vírgula ou vírgula (ex: <code>machine learning; deep learning</code>)<br>
+                            • <strong>termos</strong>: separados por vírgula (ex: <code>machine learning, deep learning</code>) ou por ponto e vírgula com o campo entre aspas (<code>"machine learning; deep learning"</code>)<br>
                             • <strong>usar_tesauro</strong>: <code>1</code> (sim) ou <code>0</code> (não)<br>
-                            • <strong>tipo</strong>: <code>normal</code>, <code>validator</code>, <code>noise</code>
+                            • <strong>tipo</strong>: <code>normal</code>, <code>validator</code>, <code>noise</code><br>
+                            • Cada linha cria um grupo <strong>novo</strong> (não atualiza grupos de mesmo nome)
                         </div>
                     </div>
                 </div>

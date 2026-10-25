@@ -1,0 +1,596 @@
+# Ajuda contextual (ícone "?") — Classificação Temática, comparação entre grupos
+# e relatório de classificação. Formato: title, what, how, not, example.
+# Uso no Twig: {{ help('classification.index.page') }}
+
+# ─── Tipos de grupo (usados na lista de grupos e no formulário) ────────────────
+
+classification.type.validator:
+  title: "Grupo Validador"
+  what: "Define o recorte do corpus: só segue para os grupos temáticos o documento que contém **pelo menos um** termo de algum validador."
+  how: "Cadastre termos amplos que todo documento relevante deveria ter. Havendo mais de um validador, basta o documento passar em qualquer um deles. Quem não passa vai para o primeiro grupo de Ruído (pela posição)."
+  not: "Não classifica tema nenhum, só filtra. Se não existir grupo de Ruído, quem falha na validação cai em **Sem Classificação**, e não é descartado."
+  example: "Numa busca do WoS sobre agricultura de precisão que trouxe 10.452 registros, um validador com “precision agriculture, remote sensing, ndvi, drone” separa os artigos que de fato tratam do tema dos que só citam “precision” em outro sentido."
+
+classification.type.noise:
+  title: "Grupo de Ruído (falso positivo)"
+  what: "Descarta documentos que contêm termos que denunciam outro assunto. É verificado antes dos validadores e dos grupos temáticos."
+  how: "Liste termos típicos dos falsos positivos. Se o documento contiver qualquer um, vai para o primeiro grupo de Ruído que bater e não entra em mais nenhum grupo. O primeiro Ruído (pela posição) também recebe os documentos reprovados pelo ano mínimo e pelos validadores."
+  not: "Não apaga documentos do projeto: eles continuam no corpus e nos outros relatórios. Não use termos curtos e genéricos, pois a busca é por trecho de texto e pode descartar artigos bons."
+  example: "Numa revisão sobre extensão universitária, o termo “extension” traz artigos de medicina (“hip extension”, “knee extension”). Um Ruído com “hip extension, knee extension, tumor extension” tira esses artigos da análise."
+
+classification.type.normal:
+  title: "Grupos Temáticos (normais)"
+  what: "São as categorias da sua análise. Cada documento validado entra em **todos** os grupos temáticos cujos termos aparecem nele (multiclassificação)."
+  how: "Crie um grupo por eixo temático da pesquisa, com 5 a 20 termos característicos. Os filtros opcionais do grupo (anos, Qualis, país, autores…) restringem ainda mais quem pode entrar."
+  not: "Não é “o primeiro que bater vence”: o mesmo artigo pode estar em dois ou mais grupos, e por isso a soma dos grupos pode passar do total de documentos."
+  example: "No projeto de agricultura de precisão, “Monitoramento da lavoura” (ndvi, canopy, vegetation index…) recebeu 1.816 artigos e “Aplicação localizada de insumos” (variable rate, spot spraying…) 82; 30 artigos ficaram nos dois."
+
+classification.type.unclassified:
+  title: "Sem Classificação"
+  what: "Grupo especial que recebe os documentos que não entraram em nenhum grupo temático. O motor cria um automaticamente na primeira execução."
+  how: "Abra este grupo em Resultados para descobrir temas que faltam: leia títulos, anote termos recorrentes e acrescente-os a um grupo existente ou a um grupo novo. Depois execute de novo."
+  not: "Não é lixo nem ruído: são documentos válidos ainda sem tema. Não crie um segundo grupo deste tipo; o motor usa apenas o primeiro."
+  example: "Após a primeira rodada, 8.584 de 10.452 artigos ficaram sem classificação. Lendo uma amostra, o pesquisador viu muitos títulos com “yield prediction” e criou o grupo “Previsão de produtividade”."
+
+# ─── Página de grupos (index) ──────────────────────────────────────────────────
+
+classification.index.page:
+  title: "Classificação Temática"
+  what: "Organiza o corpus em categorias temáticas definidas por você, a partir de termos procurados no título, resumo e palavras-chave de cada documento."
+  how: "1) Crie os grupos (Temáticos e, se precisar, Validador e Ruído). 2) Clique em **Executar Classificação**. 3) Revise em Resultados e ajuste termos. 4) Use o Comparativo e o Relatório de Classificação na análise."
+  not: "Não é classificação por inteligência artificial nem por similaridade: o documento só entra num grupo se contiver literalmente um dos termos (ou um sinônimo do Tesauro)."
+  example: "Numa dissertação sobre extensão universitária com 1.200 artigos do Scopus, a pesquisadora criou os grupos “Formação docente”, “Saúde comunitária” e “Tecnologia social” para comparar a produção e o impacto de cada eixo."
+
+classification.index.export_groups:
+  title: "Exportar Grupos (CSV)"
+  what: "Baixa o cadastro de todos os grupos (nome, tipo, cor, ícone, posição, termos e filtros) num CSV separado por ponto e vírgula, que abre no Excel."
+  how: "Use como backup antes de grandes mudanças ou para levar os mesmos grupos a outro projeto, com **Importar Grupos (CSV)**."
+  not: "Não exporta os documentos classificados. Para isso use **Exportar Resultados**."
+  example: "Antes de refinar os termos com a orientadora, o mestrando exportou “grupos_classificacao_projeto_13.csv” para poder comparar a versão nova com a antiga."
+
+classification.index.import_groups:
+  title: "Importar Grupos (CSV)"
+  what: "Cria grupos em lote a partir de um CSV no mesmo formato da exportação."
+  how: "Prepare o arquivo com o cabeçalho indicado na janela, uma linha por grupo, colunas separadas por ponto e vírgula. Termos podem ser separados por “;” ou “,”."
+  not: "Não atualiza grupos existentes: cada linha vira um grupo **novo**, mesmo com nome repetido. Apague os antigos antes, se quiser substituir."
+  example: "Um grupo de pesquisa padronizou 12 categorias para todas as revisões do laboratório; cada aluno importa o mesmo CSV no seu projeto e começa já com os grupos prontos."
+
+classification.index.import_file:
+  title: "Arquivo CSV de grupos"
+  what: "O arquivo com os grupos a criar. A primeira linha (cabeçalho) é ignorada; cada linha seguinte vira um grupo."
+  how: "No Excel em português, “Salvar como → CSV UTF-8” já usa ponto e vírgula como separador. Campo que tenha “;” dentro (lista de termos, por exemplo) precisa estar entre aspas. Linhas com nome vazio são puladas."
+  not: "Não aceita XLSX nem arquivos separados por vírgula: a coluna inteira seria lida como o nome do grupo."
+  example: "Linha de exemplo: Formação docente;normal;#4f8ef7;bi-mortarboard;10;teacher training, teacher education;\"title; abstract\";;;;;;;;1"
+
+classification.index.import_format:
+  title: "Colunas do CSV"
+  what: "Ordem esperada das colunas. Só **nome** é obrigatório; colunas vazias usam o padrão (tipo normal, todos os campos, Tesauro ligado)."
+  how: "Listas internas (termos, campos_match, qualis, países, autores) usam “;” e, nesse caso, o campo vai entre aspas; nos termos também vale a vírgula. campos_match aceita title, abstract, author_keywords, indexed_keywords. Países por sigla (BR, US) ou nome. usar_tesauro: 1 ou 0."
+  not: "Tipo inválido vira “normal” sem aviso. Arquivos antigos sem a coluna qualis (14 colunas) ainda são aceitos, com as colunas deslocadas."
+  example: "Grupo de elite brasileiro: Elite BR;normal;#2ea043;bi-award;20;extensão universitária;title;;;\"A1; A2\";;;BR;;1"
+
+classification.index.export_results:
+  title: "Exportar Resultados (CSV)"
+  what: "Baixa um CSV com uma linha por documento: título, ano, DOI, grupos em que entrou, tipos, termos que casaram, se houve ajuste manual e data da classificação."
+  how: "Abra no Excel e filtre pela coluna Grupos (separados por “|”) para montar quadros de categorização ou conferir amostras."
+  not: "Não traz autores, resumo nem citações; para isso use a exportação geral do projeto."
+  example: "Para o apêndice da tese, o doutorando exportou o CSV e entregou à banca a lista dos 1.868 artigos classificados com o termo que justificou cada enquadramento."
+
+classification.index.vosviewer:
+  title: "Exportar categorias para o VOSviewer"
+  what: "Gera um arquivo .txt com cabeçalho “label” e, em cada linha, os grupos temáticos de um documento separados por “;”."
+  how: "Use como lista de categorias/rótulos ao montar mapas no VOSviewer, por exemplo para colorir itens pelo grupo temático."
+  not: "Inclui só documentos que estão em ao menos um grupo temático (ruído e sem classificação ficam de fora), na ordem do ID interno; por isso as linhas não correspondem 1 a 1 ao arquivo original do WoS ou Scopus."
+  example: "Um artigo que caiu em “Monitoramento da lavoura” e “Aplicação localizada de insumos” aparece como “Monitoramento da lavoura;Aplicação localizada de insumos”."
+
+classification.index.stats:
+  title: "Resumo dos grupos"
+  what: "Mostra quantos grupos o projeto tem, no total e por tipo (Temáticos, Ruído e Validadores)."
+  how: "Confira se a estrutura está como você planejou antes de executar: em geral, vários Temáticos, nenhum ou um Validador e um Ruído."
+  not: "Não mostra quantos documentos foram classificados: veja o painel **Distribuição** ou a tela de Resultados."
+  example: "Um projeto com 12 Temáticos, 1 Validador e 0 Ruído funciona, mas os documentos reprovados pelo validador irão para “Sem Classificação”, já que não há Ruído para recebê-los."
+
+classification.index.engine:
+  title: "Motor de Classificação"
+  what: "Processa cada documento nesta ordem: ⓪ ano mínimo → ① Ruído → ② Validadores → ③ todos os Temáticos → ④ Sem Classificação."
+  how: "Os termos são procurados como **trecho de texto**, sem diferenciar maiúsculas de minúsculas, nos campos escolhidos em cada grupo. Um documento reprovado em ⓪, ① ou ② não passa para as etapas seguintes."
+  not: "Não usa operadores AND/OR/NOT, aspas nem curingas (*): cada termo é procurado literalmente. Acentos contam: “extensão” não encontra “extensao”."
+  example: "O termo “vigor” classifica tanto “maize vigor detection” quanto “vigorous growth”, porque a busca é por trecho. Para evitar isso, use expressões mais longas, como “seed vigor”."
+
+classification.index.min_year:
+  title: "Ano mínimo (filtro temporal)"
+  what: "Manda para o Ruído todo documento publicado **antes** deste ano. O valor fica salvo no projeto e é reaplicado nas próximas execuções."
+  how: "Digite o ano (ex.: 2000) e clique em Executar. Deixe vazio para não filtrar. Esses documentos ficam no primeiro grupo de Ruído com o termo “year<2000”."
+  not: "Não filtra documentos sem ano. Se não houver grupo de Ruído, os documentos antigos não são descartados: caem em “Sem Classificação”."
+  example: "A busca no WoS trouxe artigos de 1941 a 2026, mas a revisão cobre a era dos drones. Com ano mínimo 2010, os artigos anteriores saem dos grupos temáticos e dos relatórios de classificação."
+
+classification.index.run:
+  title: "Executar Classificação"
+  what: "Apaga todos os resultados anteriores do projeto e classifica de novo todos os documentos com os grupos e termos atuais."
+  how: "Execute depois de criar ou editar grupos. Ao terminar, você é levado à tela de Resultados com o resumo: classificados, ruído, sem grupo e quantos ficaram em vários grupos."
+  not: "Não preserva ajustes manuais: documentos que você moveu em Resultados voltam ao enquadramento automático."
+  example: "Com 10 mil documentos e o Tesauro ligado, a execução pode levar alguns segundos. Não feche a página enquanto o botão mostra “Processando…”."
+
+classification.index.distribution:
+  title: "Distribuição"
+  what: "Quantidade de documentos em cada grupo na última execução, com barra proporcional."
+  how: "Compare o tamanho dos grupos e veja se “Sem Classificação” está grande demais, sinal de que faltam grupos ou termos."
+  not: "As barras são proporcionais à soma das classificações; como um documento pode estar em vários grupos, os números somados passam do total de documentos."
+  example: "Com 1.816 em “Monitoramento da lavoura”, 82 em “Aplicação localizada” e 8.584 sem classificação, fica claro que 82% do corpus ainda não tem tema."
+
+# ─── Formulário de grupo ───────────────────────────────────────────────────────
+
+classification.form.page:
+  title: "Cadastro de grupo"
+  what: "Define um grupo: nome, tipo, termos de busca e, opcionalmente, filtros que restringem quais documentos podem entrar nele."
+  how: "Preencha nome, tipo e termos; isso basta na maioria dos casos. Abra **Filtros de restrição** só se o grupo precisar ser limitado por ano, Qualis, autores ou origem geográfica."
+  not: "Salvar não reclassifica nada: depois de salvar, volte à tela de grupos e clique em **Executar Classificação**."
+  example: "Grupo “Extensão rural digital”: tipo Normal; termos “extension service, rural advisory, farmer advisory, agricultural extension”; campos título, resumo e palavras-chave; demais filtros vazios."
+
+classification.form.name:
+  title: "Nome do grupo"
+  what: "Rótulo do grupo em resultados, gráficos, exportações e no arquivo do VOSviewer."
+  how: "Use nomes curtos e descritivos (até ~30 caracteres), de preferência os mesmos do texto da dissertação."
+  not: "O nome não é usado na busca; só os termos definem quem entra no grupo."
+  example: "“Saúde comunitária” em vez de “Grupo 3 – trabalhos que falam de saúde na comunidade”."
+
+classification.form.type:
+  title: "Tipo do grupo"
+  what: "Define o papel do grupo no motor: **Normal** (categoria temática), **Validador** (precisa conter), **Ruído** (descarta) ou **Sem Classificação** (destino dos que sobram)."
+  how: "Para categorias de análise, use Normal. Use Validador para delimitar o recorte e Ruído para remover falsos positivos conhecidos."
+  not: "Não crie manualmente um “Sem Classificação”: o motor já cria um, e um segundo nunca recebe documentos."
+  example: "Na revisão sobre extensão universitária: Validador “university, higher education, college”; Ruído “hip extension, knee extension”; Normais “Formação docente”, “Saúde comunitária”."
+
+classification.form.description:
+  title: "Descrição"
+  what: "Texto livre sobre o foco do grupo. Aparece na lista de grupos e no topo da tela de Resultados."
+  how: "Registre o critério conceitual do grupo, útil para justificar a categorização na metodologia."
+  not: "Não interfere na classificação."
+  example: "“Trabalhos sobre ações extensionistas voltadas à formação continuada de professores da educação básica.”"
+
+classification.form.terms:
+  title: "Termos de classificação"
+  what: "Palavras ou expressões que, se encontradas no documento, o colocam neste grupo. Basta **um** termo aparecer."
+  how: "Digite e pressione Enter, Tab ou vírgula. Pode colar uma lista separada por vírgula, ponto e vírgula ou quebra de linha. Prefira expressões de 2 a 3 palavras no idioma dos resumos (em geral inglês)."
+  not: "Não aceita lógica booleana: AND/OR, aspas e * são lidos como texto. Termos curtos casam dentro de outras palavras (“art” acha “article” e “part”)."
+  example: "Grupo “Extensão universitária”: “university extension, extension project, community outreach, service-learning, extensão universitária”. Assim entram artigos em inglês e em português."
+
+classification.form.presets:
+  title: "Atalhos de termos"
+  what: "Botões que acrescentam de uma vez listas prontas de termos em inglês (IA, robótica, recursos hídricos, clima)."
+  how: "Clique para adicionar e depois remova pelo “×” os termos que não servem."
+  not: "São só sugestões genéricas da área de agro/tecnologia; não substituem termos pensados para a sua pergunta de pesquisa."
+  example: "Num grupo “Robótica agrícola”, clicar em “+ Robótica” adiciona robot, drone, uav, autonomous e harvester; o pesquisador removeu “autonomous” porque trazia muitos artigos de carros autônomos."
+
+classification.form.match_fields:
+  title: "Campos onde procurar"
+  what: "Em quais partes do registro os termos deste grupo são procurados: título, resumo e palavras-chave."
+  how: "Deixe tudo marcado para máxima cobertura. Desmarque o resumo quando quiser só documentos centrados no tema (título e palavras-chave são mais restritivos). Sem nada marcado, valem os 4 campos."
+  not: "Hoje “Palavras-chave do Autor” e “Keywords Plus” procuram no mesmo conjunto de palavras-chave do documento; o sistema não separa as duas origens."
+  example: "No grupo “Formação docente”, buscar só no título e nas palavras-chave reduziu de 420 para 160 artigos, eliminando trabalhos que citavam professores apenas de passagem no resumo."
+
+classification.form.thesaurus:
+  title: "Expandir com o Tesauro"
+  what: "Quando ligado, cada termo é ampliado com os sinônimos do mesmo conceito no Tesauro e com as variações gravadas para a palavra-chave correspondente."
+  how: "A expansão só acontece quando o termo é **idêntico** a um rótulo do Tesauro ou a uma palavra-chave normalizada. Deixe ligado depois de normalizar as palavras-chave do projeto."
+  not: "Não cria sinônimos por conta própria nem traduz. Termo que não existe no Tesauro é procurado só como foi digitado."
+  example: "Se o Tesauro liga “remote sensing” a “remote-sensing” e “sensoriamento remoto”, o termo “remote sensing” passa a encontrar as três formas."
+
+classification.form.filters:
+  title: "Filtros de restrição"
+  what: "Condições extras que o documento precisa cumprir, **além** de conter um termo, para entrar neste grupo."
+  how: "Todos os filtros preenchidos precisam ser atendidos ao mesmo tempo (E). Filtro vazio não restringe nada. Só valem para grupos do tipo Normal."
+  not: "Não servem para Validador nem Ruído (o motor ignora esses filtros nesses tipos). Filtros demais podem esvaziar o grupo."
+  example: "Grupo “Extensão em universidades públicas brasileiras”: termos de extensão + País Brasil + Natureza Pública. Só entram artigos com termo, autor filiado a instituição brasileira e instituição pública."
+
+classification.form.qualis:
+  title: "Estrato Qualis do periódico"
+  what: "Restringe o grupo a artigos publicados em periódicos com os estratos Qualis CAPES marcados."
+  how: "Marque os estratos desejados (os botões “+ Qualis A” e “+ Qualis B” marcam um bloco inteiro). Nenhum marcado = aceita qualquer estrato, inclusive sem Qualis."
+  not: "Com algum estrato marcado, artigos sem Qualis identificado ficam de fora. Qualis avalia o periódico, não o artigo."
+  example: "Para destacar a produção de alto impacto, o grupo “Monitoramento – elite” usa os mesmos termos do grupo principal e só A1 e A2. No projeto de agricultura de precisão, 511 dos 1.816 artigos do grupo estão em A1–A2."
+
+classification.form.years:
+  title: "Ano inicial e final"
+  what: "Limita o grupo a documentos publicados dentro do intervalo, com os dois anos incluídos."
+  how: "Preencha um ou os dois campos. Deixe vazio para não limitar."
+  not: "Documentos sem ano ficam fora sempre que algum dos campos estiver preenchido. Para cortar o corpus inteiro, use o **Ano mínimo** da tela de grupos."
+  example: "Para estudar a fase recente de um tema, crie “Agricultura 4.0 (2016–2025)” com os termos de agricultura digital e anos 2016 a 2025."
+
+classification.form.authors:
+  title: "Filtro de autores"
+  what: "Só aceita documentos em que algum autor contenha um dos nomes informados."
+  how: "Digite **sobrenomes** separados por vírgula (ex.: Molin, Inamasu). A comparação é por trecho, sem diferenciar maiúsculas de minúsculas, com o nome como veio da base (ex.: “Molin, JP”)."
+  not: "Não use “Sobrenome, Inicial”: a vírgula separa autores, e “Silva, J” vira dois filtros (“silva” e “j”), o segundo aceitando quase todos os nomes."
+  example: "Para isolar a produção de um laboratório, digite os sobrenomes dos seus pesquisadores, como “Molin, Amaral”, e veja quantos artigos do grupo têm participação deles."
+
+classification.form.nature:
+  title: "Natureza da instituição"
+  what: "Só aceita documentos com pelo menos uma instituição de afiliação cuja natureza contenha uma das opções marcadas."
+  how: "Marque uma ou mais opções. A comparação é por trecho do campo “natureza” do cadastro de instituições."
+  not: "Depende do cadastro: muitas instituições estão sem natureza, e textos como “Pessoa Jurídica de Direito Público – Federal” não contêm “Pública”. Confira o cadastro antes de confiar no filtro."
+  example: "Para comparar produção pública e privada, crie dois grupos com os mesmos termos, um com “Pública” e outro com “Privada”, depois de revisar a natureza das 30 instituições mais frequentes."
+
+classification.form.continent:
+  title: "Continente"
+  what: "Só aceita documentos com ao menos uma instituição afiliada em país desse continente. Também filtra a lista de países logo abaixo."
+  how: "Escolha um continente ou deixe “(Todos os continentes)”."
+  not: "Países cadastrados como “Europa/Ásia” ou “América Central” não entram em “Europa” ou “América do Norte”. Documentos sem país identificado ficam de fora."
+  example: "Grupo “Agricultura de precisão na América do Sul”: mesmos termos do grupo principal + continente América do Sul. No projeto 13, 232 artigos do grupo têm instituição sul-americana."
+
+classification.form.countries:
+  title: "Países de afiliação"
+  what: "Só aceita documentos com ao menos uma instituição afiliada nos países marcados."
+  how: "Pesquise pelo nome ou sigla e marque. “Selecionar Todos” marca só os países visíveis no filtro atual. Nenhum marcado = qualquer país."
+  not: "Usa o país das instituições vinculadas ao documento, não o país do periódico nem a nacionalidade dos autores."
+  example: "Para medir a contribuição brasileira, crie “Monitoramento – Brasil” com os termos do grupo principal e só Brasil marcado."
+
+classification.form.color:
+  title: "Cor do grupo"
+  what: "Cor usada nas barras, gráficos, abas e cartões do grupo em todas as telas e relatórios."
+  how: "Escolha no seletor ou digite o código hexadecimal (#2ea043). Use cores bem diferentes entre grupos que serão comparados."
+  not: "Não muda a classificação. Evite preto (#000000): o relatório o troca por uma cor automática."
+  example: "Verde para “Sustentabilidade”, azul para “Sensoriamento” e laranja para “Robótica” deixam o gráfico de evolução legível até impresso."
+
+classification.form.icon:
+  title: "Ícone"
+  what: "Ícone Bootstrap exibido ao lado do nome do grupo nas listas e abas."
+  how: "Clique em **Escolher** e pesquise em inglês (robot, leaf, book) ou digite o nome, como “bi-robot”."
+  not: "É só visual: não influencia a classificação nem as cores dos gráficos."
+  example: "“bi-mortarboard” para “Formação docente” e “bi-heart-pulse” para “Saúde comunitária”."
+
+classification.form.position:
+  title: "Posição (ordem)"
+  what: "Número que ordena os grupos nas listas, abas e exportações (menor primeiro). Entre grupos de Ruído, define qual é o primeiro."
+  how: "Use saltos de 10 (10, 20, 30…) para poder encaixar grupos depois. Dê ao Ruído principal a menor posição entre os Ruídos."
+  not: "Não dá prioridade entre grupos temáticos: o documento entra em todos os que casarem, qualquer que seja a posição."
+  example: "Com dois Ruídos (“Medicina”, posição 1, e “Engenharia civil”, posição 2), documentos anteriores ao ano mínimo ou reprovados no validador vão para “Medicina”."
+
+classification.form.tips:
+  title: "Como o motor decide"
+  what: "Resumo das regras que o motor aplica a cada documento ao executar a classificação."
+  how: "Ordem: ano mínimo → Ruído → Validador → todos os Temáticos → Sem Classificação. A busca é por trecho de texto e não diferencia maiúsculas de minúsculas."
+  not: "Limitação atual: palavras que no documento começam com maiúscula acentuada (ex.: “Ética” ou “Água” no início do título) podem não ser encontradas pelo termo em minúsculas. Confira esses casos em Resultados."
+  example: "Um artigo com “drone” no título, sem nenhum termo de Ruído e aprovado pelo Validador, entra em “Robótica” e também em “Sensoriamento” se contiver “multispectral”."
+
+# ─── Resultados ────────────────────────────────────────────────────────────────
+
+classification.results.page:
+  title: "Resultados da Classificação"
+  what: "Lista, grupo a grupo, os documentos classificados na última execução, com o termo que justificou cada enquadramento."
+  how: "Escolha o grupo nas abas. Os documentos aparecem do mais citado para o menos citado, 100 por página. Corrija casos isolados com **Mover para**; erros sistemáticos se resolvem editando os termos."
+  not: "Não mostra documentos importados depois da última execução; para incluí-los, execute de novo."
+  example: "Ao abrir “Aplicação localizada de insumos” (82 artigos), a pesquisadora viu 5 artigos de pulverização em pomar entrando pelo termo “vra” e decidiu trocá-lo por “variable rate application”."
+
+classification.results.total_docs:
+  title: "Documentos únicos classificados"
+  what: "Número de documentos distintos com algum resultado, incluindo Ruído e Sem Classificação."
+  how: "Deve bater com o total de documentos do projeto; se for menor, execute a classificação de novo (podem ter entrado documentos depois)."
+  not: "Não é a soma das abas: um documento em dois grupos conta uma vez aqui e duas vezes nas abas."
+  example: "No projeto 13 aparecem 10.452 documentos únicos, enquanto as abas somam 10.482 (30 artigos estão em dois grupos)."
+
+classification.results.rerun:
+  title: "Re-executar"
+  what: "Roda o motor de novo com os grupos atuais e o mesmo ano mínimo salvo no projeto."
+  how: "Use depois de editar termos ou filtros. O resultado substitui completamente o anterior."
+  not: "Apaga os ajustes feitos com **Mover para**. Se você corrigiu documentos à mão, exporte o CSV antes."
+  example: "Depois de acrescentar “canopy cover” ao grupo “Monitoramento da lavoura”, clique em Re-executar para ver o novo total do grupo."
+
+classification.results.tabs:
+  title: "Abas de grupos"
+  what: "Uma aba por grupo, com o número de documentos que entraram nele."
+  how: "Clique para listar os documentos do grupo. A aba “Sem grupo” só aparece quando há documentos movidos manualmente para fora de qualquer grupo."
+  not: "Os números das abas não somam o total do corpus: há documentos em mais de um grupo."
+  example: "Comece pela aba “Sem Classificação” para achar temas que ficaram de fora e pelas abas de Ruído para conferir se nenhum artigo bom foi descartado."
+
+classification.results.no_group:
+  title: "Sem grupo (movidos manualmente)"
+  what: "Documentos que você tirou de um grupo com **Mover para → Sem grupo**. Eles ficam sem nenhum grupo vinculado."
+  how: "Use para separar casos duvidosos e revisá-los depois."
+  not: "Não é o mesmo que o grupo “Sem Classificação” criado pelo motor, e some na próxima execução, quando tudo é reclassificado."
+  example: "Durante a leitura, o doutorando moveu 12 artigos ambíguos para “Sem grupo” para discutir com a orientadora antes de decidir o tema de cada um."
+
+classification.results.matched_term:
+  title: "Termo que casou"
+  what: "O primeiro termo do grupo encontrado no documento, que justificou a entrada dele no grupo. No Ruído por ano aparece “year<2000”."
+  how: "Abra o resumo do cartão: o termo é destacado em amarelo onde aparece. Termos que trazem muitos falsos positivos devem ser trocados por expressões mais longas."
+  not: "Não lista todos os termos presentes, só o primeiro encontrado. Se veio de um sinônimo do Tesauro, pode ser diferente do termo cadastrado."
+  example: "Um artigo de fisiologia vegetal entrou em “Monitoramento da lavoura” pelo termo “canopy”; trocar por “canopy monitoring” e “canopy cover” resolveu."
+
+classification.results.multi_groups:
+  title: "Grupos do documento"
+  what: "Quando o documento está em mais de um grupo, a lista “Grupos:” mostra todos eles."
+  how: "Use para identificar trabalhos de interface entre temas, bons candidatos a discussão na revisão."
+  not: "Não indica grupo principal: todos têm o mesmo peso."
+  example: "Um artigo sobre drones com sensores multiespectrais para aplicar fertilizante em taxa variável aparece em “Monitoramento da lavoura” e “Aplicação localizada de insumos”."
+
+classification.results.move:
+  title: "Mover para outro grupo"
+  what: "Corrige à mão o enquadramento de um documento: troca o grupo da classificação e a marca como **Manual**."
+  how: "Escolha o grupo de destino na lista do cartão e clique em Mover. O cartão some da lista atual."
+  not: "Não é permanente: a próxima execução apaga o ajuste. Em documentos que estão em vários grupos, só uma das classificações é trocada."
+  example: "Um artigo de pulverização com drone caiu só em “Monitoramento”; o pesquisador o moveu para “Aplicação localizada de insumos” para a contagem final do capítulo."
+
+classification.results.bibtex:
+  title: "BibTeX e links"
+  what: "**BibTeX** monta a referência do documento para colar no Zotero, Mendeley ou LaTeX; **DOI** abre o artigo na editora."
+  how: "Clique em BibTeX, depois em Copiar, e no Zotero use “Importar da área de transferência”."
+  not: "O BibTeX é gerado com os dados importados (sempre como @article) e pode ter erros de acentuação ou tipo; confira antes de usar."
+  example: "Ao selecionar os 3 artigos mais citados de cada grupo para a fundamentação teórica, o mestrando copiou o BibTeX de cada um direto para a biblioteca do Zotero."
+
+classification.results.copy_title:
+  title: "Copiar nome reduzido"
+  what: "O ícone de prancheta ao lado do título copia “Autores - Ano - Título”, sem “:” e “/”, com no máximo 250 caracteres."
+  how: "Use para nomear o PDF do artigo na sua pasta de leitura."
+  not: "Não é uma referência ABNT nem APA."
+  example: "“Silva, AB; Souza, CD - 2021 - Drone-based NDVI monitoring in soybean” vira o nome do PDF baixado."
+
+classification.results.qualis_badge:
+  title: "Selo Qualis"
+  what: "Estrato Qualis CAPES do periódico em que o documento foi publicado, quando identificado."
+  how: "Cores: verde A1–A2, azul A3–A4, amarelo B1–B2, laranja B3–B4, vermelho C."
+  not: "Não avalia o artigo em si, e não aparece quando o periódico não foi encontrado na base Qualis."
+  example: "Na aba de um grupo, ver vários selos A1 entre os mais citados indica um tema publicado em periódicos de alto estrato."
+
+# ─── Comparativo entre grupos ──────────────────────────────────────────────────
+
+classification.compare.page:
+  title: "Comparativo entre grupos"
+  what: "Coloca lado a lado os grupos escolhidos: volume, citações, evolução anual, semelhança de palavras-chave, países, natureza institucional e Qualis."
+  how: "Marque os grupos na barra superior; todos os painéis se atualizam na hora. Por padrão vêm marcados os grupos temáticos."
+  not: "Não reclassifica: usa o resultado da última execução. Se mudou termos, execute a classificação antes."
+  example: "Para a discussão da tese, o pesquisador comparou “Monitoramento da lavoura” e “Aplicação localizada de insumos”: 1.816 contra 82 artigos, com média de 23,0 e 19,5 citações."
+
+classification.compare.export_csv:
+  title: "Exportar CSV do comparativo"
+  what: "Baixa a tabela de volume e citações dos grupos marcados: docs, % do corpus, total e média de citações."
+  how: "Marque os grupos e clique. Sem nenhum marcado, exporta todos os grupos temáticos."
+  not: "Não exporta os demais painéis (evolução, Jaccard, países, natureza, Qualis)."
+  example: "O CSV virou a Tabela 4 da dissertação, com os números de cada eixo temático."
+
+classification.compare.selector:
+  title: "Grupos para comparar"
+  what: "Escolhe quais grupos entram em todos os painéis da página."
+  how: "Marque dois ou mais para ver a sobreposição de Jaccard. Incluir “Sem Classificação” ajuda a contrastar o que já tem tema com o que não tem."
+  not: "Incluir Ruído mistura falsos positivos na média de citações e nos perfis."
+  example: "Marcando os 3 grupos, o pesquisador viu que “Sem Classificação” tem 8.584 artigos e média de 15,6 citações, abaixo dos grupos temáticos."
+
+classification.compare.card_groups:
+  title: "Total de grupos analisados"
+  what: "Quantos grupos estão marcados e entraram na comparação."
+  how: "Confira se corresponde à sua seleção."
+  not: "Não mostra o total de grupos do projeto."
+  example: "Com 3 grupos marcados, o cartão mostra 3."
+
+classification.compare.card_corpus:
+  title: "Corpus total do projeto"
+  what: "Número de documentos do projeto, classificados ou não. É o denominador do “% Corpus”."
+  how: "Use como referência para o peso de cada grupo."
+  not: "Não é o número de documentos classificados nem exclui o ruído."
+  example: "No projeto de agricultura de precisão, 10.452 documentos importados do WoS."
+
+classification.compare.card_top:
+  title: "Documentos no maior grupo"
+  what: "Quantidade de documentos do maior grupo entre os marcados."
+  how: "Compare com o corpus total para saber o peso do tema dominante."
+  not: "Não indica qual é o grupo; veja a tabela de volume logo abaixo."
+  example: "1.816, do grupo “Monitoramento da lavoura”, quando só os grupos temáticos estão marcados."
+
+classification.compare.card_avg:
+  title: "Média de citações geral"
+  what: "Soma das citações dos grupos marcados dividida pela soma dos documentos desses grupos."
+  how: "Use como referência para saber se um grupo está acima ou abaixo da média do conjunto."
+  not: "Documentos que estão em dois grupos entram duas vezes no cálculo. Citações dependem da base e da data de exportação."
+  example: "(41.843 + 1.597) ÷ (1.816 + 82) ≈ 22,9 citações por documento."
+
+classification.compare.summary:
+  title: "Volume e citações por grupo"
+  what: "Para cada grupo: documentos, percentual do corpus, total de citações e média de citações por documento."
+  how: "Grupos pequenos com média alta indicam nichos influentes; grupos grandes com média baixa, temas volumosos mas menos citados."
+  not: "Citações não medem qualidade e favorecem artigos antigos. A média ignora documentos sem informação de citação."
+  example: "“Monitoramento da lavoura”: 1.816 docs (17,4%), 41.843 citações, média 23,04."
+
+classification.compare.col_pct:
+  title: "% do corpus"
+  what: "Documentos do grupo ÷ total de documentos do projeto × 100."
+  how: "Indica o peso do tema no conjunto recuperado pela busca."
+  not: "Os percentuais não somam 100%: há documentos em vários grupos, no Ruído e sem classificação."
+  example: "1.816 ÷ 10.452 = 17,4%."
+
+classification.compare.col_avg:
+  title: "Média de citações"
+  what: "Citações totais do grupo ÷ documentos do grupo com contagem de citação informada."
+  how: "Compare grupos de tamanhos diferentes; o total favorece grupos grandes, a média não."
+  not: "Um único artigo muito citado pode inflar a média de um grupo pequeno; confira o Top 3 no Relatório de Classificação."
+  example: "41.843 citações ÷ 1.816 artigos = 23,04."
+
+classification.compare.temporal:
+  title: "Evolução temporal comparada"
+  what: "Linha com o número de documentos de cada grupo por ano de publicação."
+  how: "Procure grupos que crescem mais rápido (temas emergentes) ou que estabilizaram. Passe o mouse para ver os valores."
+  not: "Documentos sem ano não aparecem. O último ano costuma estar incompleto, porque a base ainda está indexando."
+  example: "A curva de “Monitoramento da lavoura” passa de 46 artigos em 2019 para 552 em 2025, acompanhando a popularização dos drones."
+
+classification.compare.overlap:
+  title: "Sobreposição temática (Jaccard)"
+  what: "Mede o quanto dois grupos compartilham palavras-chave. Para cada grupo, entram as palavras-chave (ou o conceito do Tesauro) presentes em pelo menos 2 documentos dele."
+  how: "Jaccard = palavras-chave em comum ÷ palavras-chave distintas dos dois grupos juntos. Valores altos indicam grupos parecidos, que talvez devam ser fundidos ou redefinidos."
+  not: "Não compara documentos, só vocabulário. Palavras-chave genéricas (ex.: “agriculture”) elevam a semelhança sem significar tema comum."
+  example: "“Monitoramento da lavoura” e “Aplicação localizada de insumos” compartilham 92 de 1.429 palavras-chave: Jaccard 6,4%, ou seja, grupos bem distintos."
+
+classification.compare.col_intersection:
+  title: "Interseção"
+  what: "Quantidade de palavras-chave (ou conceitos) presentes nos dois grupos."
+  how: "Quanto maior em relação à União, mais parecidos os grupos."
+  not: "Não é o número de documentos em comum."
+  example: "92 palavras-chave em comum entre os dois grupos temáticos do projeto 13."
+
+classification.compare.col_union:
+  title: "União"
+  what: "Quantidade de palavras-chave distintas somando os dois grupos, sem repetir as comuns."
+  how: "É o denominador do índice de Jaccard."
+  not: "Não é a soma simples dos vocabulários dos dois grupos."
+  example: "1.429 palavras-chave distintas entre “Monitoramento” e “Aplicação localizada”."
+
+classification.compare.col_jaccard:
+  title: "Índice de Jaccard"
+  what: "Interseção ÷ União, em %. 0% = nenhum vocabulário em comum; 100% = vocabulários idênticos."
+  how: "Como referência prática: abaixo de 10%, grupos distintos; acima de 30%, vale revisar se não são o mesmo tema."
+  not: "Não é teste estatístico nem tem limiar oficial; use como indicador exploratório."
+  example: "92 ÷ 1.429 = 6,4%."
+
+classification.compare.geographic:
+  title: "Perfil geográfico (países)"
+  what: "Os 5 países mais frequentes em cada grupo, contando documentos com instituição afiliada naquele país."
+  how: "Compare a participação de cada país entre os temas. “Não Informado” = instituição vinculada sem país cadastrado."
+  not: "Documentos sem instituição vinculada não entram. Um documento com instituições de 2 países conta nos dois."
+  example: "Em “Monitoramento da lavoura”, aparecem Brasil 232 e China 14, mas 1.075 documentos têm instituição sem país, sinal de que o cadastro de instituições precisa de revisão."
+
+classification.compare.institutional:
+  title: "Natureza institucional"
+  what: "As 4 naturezas jurídicas mais frequentes nas instituições afiliadas aos documentos de cada grupo."
+  how: "Use para comparar a participação de instituições públicas, privadas e empresas entre os temas."
+  not: "Os números somam instituição por instituição, então um documento com 3 instituições da mesma natureza pode contar até 3 vezes. Depende do cadastro: “Não Informado” costuma dominar."
+  example: "Se “Aplicação localizada” mostrar mais “Empresa” que os demais grupos, é indício de tema puxado pela indústria; confira o cadastro antes de afirmar."
+
+classification.compare.qualis:
+  title: "Estratos Qualis por grupo"
+  what: "Distribuição dos documentos de cada grupo pelos estratos Qualis CAPES do periódico (A1 a C, ou “Sem Qualis”)."
+  how: "Compare a proporção de A1–A2 entre grupos para discutir em que estratos cada tema é publicado."
+  not: "“Sem Qualis” inclui periódicos estrangeiros não avaliados e documentos sem ISSN; não significa baixa qualidade."
+  example: "Em “Monitoramento da lavoura”: A1 384, A2 127 e Sem Qualis 1.054 artigos."
+
+# ─── Relatório de Classificação ────────────────────────────────────────────────
+
+classification.report.page:
+  title: "Relatório de Classificação"
+  what: "Relatório pronto para a dissertação com volume, impacto, evolução, periódicos e destaques de cada grupo **temático** (tipo Normal)."
+  how: "Rode a classificação antes. Navegue pelas seções e use **Imprimir / PDF** para anexar ao trabalho."
+  not: "Ignora grupos de Ruído, Validador e Sem Classificação."
+  example: "No projeto de agricultura de precisão, o relatório compara “Monitoramento da lavoura” e “Aplicação localizada de insumos” e mostra os 3 artigos mais citados de cada um."
+
+classification.report.kpi_classified:
+  title: "Artigos classificados"
+  what: "Soma dos documentos de todos os grupos temáticos."
+  how: "Use como ordem de grandeza da parte do corpus que tem tema definido."
+  not: "Um documento em 2 grupos conta 2 vezes, então este número pode ser maior que o de artigos distintos."
+  example: "1.816 + 82 = 1.898, embora sejam 1.868 artigos distintos (30 estão nos dois grupos)."
+
+classification.report.kpi_groups:
+  title: "Grupos temáticos"
+  what: "Quantidade de grupos do tipo Normal no projeto, inclusive os que ficaram sem documentos."
+  how: "Confira se todos os eixos planejados estão presentes."
+  not: "Não conta Ruído, Validador nem Sem Classificação."
+  example: "2 grupos temáticos no projeto 13."
+
+classification.report.kpi_citations:
+  title: "Citações acumuladas"
+  what: "Soma das citações (cited by da base) dos documentos dos grupos temáticos."
+  how: "Indica o impacto total da parte classificada do corpus."
+  not: "Documentos em vários grupos têm as citações somadas mais de uma vez. O valor é o da data em que a base foi exportada."
+  example: "41.843 + 1.597 = 43.440 citações."
+
+classification.report.kpi_period:
+  title: "Período analisado"
+  what: "Ano mais antigo e mais recente entre **todos** os documentos do projeto."
+  how: "Use para descrever a janela temporal do corpus na metodologia."
+  not: "Não considera o ano mínimo da classificação nem só os documentos classificados."
+  example: "1941–2026 num corpus do WoS sem filtro de ano na busca."
+
+classification.report.distribution:
+  title: "Distribuição por categoria"
+  what: "Três gráficos por grupo: número de artigos, total de citações e média de citações por artigo."
+  how: "Leia em conjunto: volume mostra o tamanho do tema; citações totais, o impacto acumulado; a média, a influência por artigo."
+  not: "Não normaliza pela idade dos artigos: grupos com artigos antigos tendem a ter mais citações."
+  example: "“Monitoramento” lidera em volume (1.816) e média (23,0 cit/artigo); “Aplicação localizada” tem 82 artigos e 19,5 de média."
+
+classification.report.volume:
+  title: "Volume por categoria"
+  what: "Número de documentos em cada grupo temático."
+  how: "Identifique os temas dominantes e os marginais do corpus."
+  not: "A soma das barras pode passar do total de artigos distintos (multiclassificação)."
+  example: "Barra de 1.816 para “Monitoramento” contra 82 para “Aplicação localizada”."
+
+classification.report.citations:
+  title: "Citações por categoria"
+  what: "Soma das citações dos documentos de cada grupo."
+  how: "Mostra o impacto acumulado de cada tema."
+  not: "Favorece grupos grandes e antigos; para comparar influência por artigo, use a média."
+  example: "41.843 citações em “Monitoramento” contra 1.597 em “Aplicação localizada”."
+
+classification.report.avg_cit:
+  title: "Média de citações por artigo"
+  what: "Citações do grupo ÷ documentos do grupo (sem citação conta como 0), ordenado do maior para o menor."
+  how: "Compare a influência relativa dos temas independentemente do tamanho."
+  not: "Um artigo muito citado distorce a média de grupos pequenos; confira o Top 3."
+  example: "23,0 cit/artigo em “Monitoramento” e 19,5 em “Aplicação localizada”."
+
+classification.report.top3:
+  title: "Top 3 mais citados por categoria"
+  what: "Os três documentos com mais citações em cada grupo, com autores, ano, periódico, DOI, palavras-chave e resumo."
+  how: "Use como ponto de partida da fundamentação teórica de cada eixo temático."
+  not: "Mais citado não significa mais relevante para sua pergunta; artigos recentes importantes ainda têm poucas citações."
+  example: "Em “Monitoramento da lavoura”, o artigo mais citado é a referência obrigatória sobre índices de vegetação por drone."
+
+classification.report.growth:
+  title: "Evolução temporal da produção"
+  what: "Seção com a produção anual por grupo, a taxa de crescimento recente e a participação de cada grupo."
+  how: "Combine os gráficos para separar temas emergentes (crescendo) de consolidados (estáveis)."
+  not: "O último ano costuma estar incompleto na base; não conclua queda só por ele."
+  example: "Se “Aplicação localizada” cresce 150% enquanto “Monitoramento” cresce 20%, o primeiro é o tema emergente do período."
+
+classification.report.growth_chart:
+  title: "Produção científica anual por grupo"
+  what: "Linhas com o número de documentos por ano dos 6 maiores grupos."
+  how: "Passe o mouse para ver todos os grupos no mesmo ano."
+  not: "Grupos além do 6º maior não aparecem neste gráfico (veja o heatmap). Documentos sem ano ficam de fora."
+  example: "“Monitoramento da lavoura” sai de 3 artigos em 2015 para 552 em 2025; os 189 de 2026 refletem um ano ainda em curso, não uma queda."
+
+classification.report.accel:
+  title: "Taxa de crescimento recente"
+  what: "Variação percentual de documentos de cada grupo entre dois anos recentes: (ano final − ano inicial) ÷ ano inicial × 100. Os anos usados aparecem no subtítulo."
+  how: "O ano mais recente com dados é ignorado, por poder estar incompleto. Valores positivos indicam aceleração."
+  not: "Com poucos artigos por ano a taxa oscila muito. Quando o grupo tinha 0 no ano inicial e algum artigo no final, o gráfico mostra +200% por convenção."
+  example: "Grupo com 10 artigos em 2021 e 25 em 2023: (25 − 10) ÷ 10 = +150%."
+
+classification.report.pie:
+  title: "Concentração temática"
+  what: "Participação de cada grupo na soma das classificações temáticas."
+  how: "Passe o mouse para ver quantidade e percentual de cada fatia."
+  not: "O percentual é sobre a soma dos grupos (com documentos repetidos), não sobre o corpus inteiro nem sobre artigos distintos."
+  example: "“Monitoramento” = 1.816 ÷ 1.898 ≈ 96% das classificações temáticas."
+
+classification.report.heatmap:
+  title: "Mapa de calor grupo × ano"
+  what: "Número de documentos por grupo nos últimos 12 anos do corpus. A cor é relativa ao pico de cada grupo."
+  how: "Leia cada linha separadamente: a célula mais intensa é o ano de pico daquele grupo. Passe o mouse para ver o valor."
+  not: "Não compara intensidade entre grupos: a cor mais forte de um grupo pequeno pode valer 5 artigos e a de um grande, 200."
+  example: "A linha de “Aplicação localizada” mostra artigos espalhados até 2019 e concentração entre 2021 e 2024."
+
+classification.report.impact:
+  title: "Análise multidimensional de impacto"
+  what: "Tabela com artigos, citações totais, média de citações e citações do artigo mais citado de cada grupo."
+  how: "A média fica verde a partir de 20 cit/artigo e amarela a partir de 12, só como guia visual."
+  not: "As faixas de cor são fixas e não consideram a área nem a idade dos artigos."
+  example: "“Monitoramento”: 1.816 artigos, 41.843 citações, média 23,0 (verde)."
+
+classification.report.journals:
+  title: "Principais periódicos por categoria"
+  what: "Os 5 periódicos com mais documentos em cada grupo."
+  how: "Use para escolher onde submeter seu artigo e para citar os veículos centrais de cada tema."
+  not: "Conta pelo nome do periódico como veio da base; variações de grafia aparecem como periódicos diferentes."
+  example: "Se “Computers and Electronics in Agriculture” lidera em dois grupos, é o veículo central da área."
+
+classification.report.insights:
+  title: "Insights detectados"
+  what: "Frases geradas automaticamente com regras simples: maior e menor média de citações, maior crescimento, concentração acima de 40%, artigo mais citado, nicho (menos de 5% e média acima de 12), diversidade de periódicos e defasagem de citações."
+  how: "Use como pista para a discussão, conferindo cada afirmação nos gráficos."
+  not: "Não é análise estatística nem interpretação definitiva; os limiares são fixos e arbitrários."
+  example: "“Monitoramento da lavoura representa 96% dos artigos classificados”: sinal para discutir se isso vem do campo ou da string de busca."
+
+classification.report.maturity:
+  title: "Mapa de maturidade"
+  what: "Gráfico de bolhas: eixo X = nº de artigos, eixo Y = média de citações, tamanho = citações totais."
+  how: "Canto superior direito = tema grande e influente (consolidado); superior esquerdo = nicho influente; inferior direito = tema volumoso e pouco citado."
+  not: "Não tem linhas de quadrante fixas; a leitura é relativa aos grupos do próprio projeto."
+  example: "“Monitoramento” aparece à direita e no alto (1.816 artigos, 23 cit/art); “Aplicação localizada”, à esquerda e um pouco abaixo."

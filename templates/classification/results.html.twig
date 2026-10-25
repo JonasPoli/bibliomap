@@ -6,20 +6,22 @@
 <div class="bm-page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div>
         <h1 class="bm-page-title">
-            <i class="bi bi-list-ul me-2 text-accent"></i>Resultados da Classificação
+            <i class="bi bi-list-ul me-2 text-accent"></i>Resultados da Classificação {{ help('classification.results.page') }}
         </h1>
         <p class="bm-page-subtitle">{{ project.title }}</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
         <a href="{{ path('app_classification_index', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
             <i class="bi bi-sliders me-1"></i> Grupos
         </a>
         <a href="{{ path('app_classification_export', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </a>
+        {{ help('classification.index.export_results') }}
         <a href="{{ path('app_classification_export_vosviewer', {id: project.id}) }}" class="btn btn-bm-secondary" style="font-size:12.5px">
             <i class="bi bi-diagram-3 me-1"></i> VOSviewer
         </a>
+        {{ help('classification.index.vosviewer') }}
         <form action="{{ path('app_classification_run', {id: project.id}) }}" method="post" class="d-inline">
             <input type="hidden" name="_token" value="{{ csrf_token('clf_run_' ~ project.id) }}">
             {% if project.classificationMinYear %}
@@ -29,13 +31,14 @@
                 <i class="bi bi-arrow-clockwise me-1"></i> Re-executar
             </button>
         </form>
+        {{ help('classification.results.rerun') }}
     </div>
 </div>
 
 {% if totalDocs is defined and totalDocs > 0 %}
 <div class="mb-2" style="font-size:12px;color:var(--bm-text-muted)">
     <i class="bi bi-file-earmark-text me-1"></i>
-    <strong style="color:var(--bm-text)">{{ totalDocs }}</strong> documentos únicos classificados
+    <strong style="color:var(--bm-text)">{{ totalDocs }}</strong> documentos únicos classificados {{ help('classification.results.total_docs') }}
     {% if project.classificationMinYear %}
         · <i class="bi bi-calendar-minus me-1"></i>Filtro: ano ≥ <strong style="color:var(--bm-warning)">{{ project.classificationMinYear }}</strong>
     {% endif %}
@@ -60,7 +63,8 @@
 {# ── Tab navigation by group ───────────────────────────────────────────────── #}
 <div class="row g-0 mb-0">
     <div class="col-12">
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;align-items:center">
+            {{ help('classification.results.tabs') }}
             {% for group in groups %}
             {% set cnt = counts[group.id] ?? 0 %}
             <a href="{{ path('app_classification_results', {id: project.id, group: group.id}) }}"
@@ -78,6 +82,7 @@
                 <i class="bi bi-question-circle"></i> Sem grupo
                 <span style="background:#6b7280;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">{{ unc_cnt }}</span>
             </a>
+            {{ help('classification.results.no_group') }}
             {% endif %}
         </div>
     </div>
@@ -94,6 +99,8 @@
         </div>
         <div class="ms-auto d-flex gap-2 align-items-center">
             <span class="badge text-bg-{{ activeGroup.typeColor }}">{{ activeGroup.typeLabel }}</span>
+            {% set typeHelp = {validator: 'classification.type.validator', noise: 'classification.type.noise', normal: 'classification.type.normal', unclassified: 'classification.type.unclassified'} %}
+            {% if typeHelp[activeGroup.type] is defined %}{{ help(typeHelp[activeGroup.type]) }}{% endif %}
             <span style="font-size:13px;color:var(--bm-text-muted)">{{ total }} documentos {% if totalPages > 1 %}— página {{ page }}/{{ totalPages }}{% endif %}</span>
         </div>
     </div>
@@ -110,11 +117,23 @@
     <div class="d-flex align-items-center gap-3">
         <i class="bi bi-question-circle" style="font-size:22px;color:#9ca3af"></i>
         <div>
-            <div style="font-weight:700;font-size:15px;color:var(--bm-text)">Sem Classificação</div>
-            <div style="font-size:12.5px;color:var(--bm-text-muted)">Documentos que não se enquadraram em nenhum grupo — revisão manual recomendada.</div>
+            <div style="font-weight:700;font-size:15px;color:var(--bm-text)">Sem grupo {{ help('classification.results.no_group') }}</div>
+            <div style="font-size:12.5px;color:var(--bm-text-muted)">Documentos retirados de seus grupos manualmente — some na próxima execução.</div>
         </div>
         <div class="ms-auto"><span style="font-size:13px;color:var(--bm-text-muted)">{{ total }} documentos {% if totalPages > 1 %}— página {{ page }}/{{ totalPages }}{% endif %}</span></div>
     </div>
+</div>
+{% endif %}
+
+{# ── Legenda dos cartões (uma ajuda por elemento, em vez de repetir em cada cartão) ── #}
+{% if documents|length > 0 %}
+<div class="d-flex flex-wrap align-items-center gap-3 mb-2" style="font-size:11.5px;color:var(--bm-text-muted)">
+    <span><i class="bi bi-lightning-fill text-accent"></i> Termo match {{ help('classification.results.matched_term') }}</span>
+    <span><i class="bi bi-collection"></i> Grupos {{ help('classification.results.multi_groups') }}</span>
+    <span><i class="bi bi-award-fill text-warning"></i> Qualis {{ help('classification.results.qualis_badge') }}</span>
+    <span><i class="bi bi-journal-code"></i> BibTeX / DOI {{ help('classification.results.bibtex') }}</span>
+    <span><i class="bi bi-clipboard"></i> Copiar nome {{ help('classification.results.copy_title') }}</span>
+    <span><i class="bi bi-arrow-right-circle"></i> Mover para {{ help('classification.results.move') }}</span>
 </div>
 {% endif %}
 
@@ -294,7 +313,7 @@
             {# 5. Matched term badge #}
             {% if clf.matchedTerm %}
             <div class="mb-2">
-                <span style="font-size:10.5px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:4px;padding:2px 8px;font-family:monospace;color:var(--bm-accent)">
+                <span class="matched-term" data-term="{{ clf.matchedTerm }}" style="font-size:10.5px;background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);border-radius:4px;padding:2px 8px;font-family:monospace;color:var(--bm-accent)">
                     <i class="bi bi-lightning-fill"></i> Termo match: {{ clf.matchedTerm }}
                 </span>
                 {% if clf.manualOverride %}<span class="badge text-bg-warning ms-1" style="font-size:9px">Manual</span>{% endif %}
@@ -521,14 +540,16 @@ document.querySelectorAll('.move-btn').forEach(btn => {
 document.querySelectorAll('.abstract-details').forEach(details => {
     details.addEventListener('toggle', function() {
         if (!this.open) return;
-        const card     = this.closest('.doc-card');
-        const termBadge = card.querySelector('[style*="bi-lightning-fill"]');
-        if (!termBadge) return;
-        const term = termBadge.textContent.trim().replace('⚡', '').replace('Termo match:', '').trim();
-        if (!term) return;
-        const abs = this.querySelector('.abstract-text');
-        const re  = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-        abs.innerHTML = abs.textContent.replace(re, '<mark style="background:rgba(255,200,0,0.3);color:inherit;border-radius:2px;padding:0 2px">$1</mark>');
+        const card      = this.closest('.doc-card');
+        const termBadge = card.querySelector('.matched-term');
+        const abs       = this.querySelector('.abstract-text');
+        if (!termBadge || !abs || abs.dataset.highlighted) return;
+        const term = (termBadge.dataset.term || '').trim();
+        if (!term || term.startsWith('year<')) return;
+        const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const re  = new RegExp('(' + esc(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        abs.innerHTML = esc(abs.textContent).replace(re, '<mark style="background:rgba(255,200,0,0.3);color:inherit;border-radius:2px;padding:0 2px">$1</mark>');
+        abs.dataset.highlighted = '1';
     });
 });
 </script>
