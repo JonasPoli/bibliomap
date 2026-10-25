@@ -99,11 +99,11 @@ class NetworkService
                 CASE WHEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
                      THEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) 
                      ELSE IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
-                END AS source,
+                END AS src_kw,
                 CASE WHEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
                      THEN IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
                      ELSE IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) 
-                END AS target,
+                END AS tgt_kw,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
             JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
@@ -114,10 +114,14 @@ class NetworkService
               AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) IN ($inList)
               AND IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) IN ($inList)
               AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) != IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
-            GROUP BY source, target
+            GROUP BY src_kw, tgt_kw
             HAVING weight >= ?
             ORDER BY weight DESC
         ", [$projectId, $mappedType, $mappedType, $minWeight]);
+
+        // Aliases src_kw/tgt_kw: com "AS source", o GROUP BY usava a coluna document.source
+        // e agregava as co-ocorrências por base de dados em vez de por par de termos.
+        $rawEdges = array_map(fn($e) => ['source' => $e['src_kw'], 'target' => $e['tgt_kw'], 'weight' => $e['weight']], $rawEdges);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
     }
