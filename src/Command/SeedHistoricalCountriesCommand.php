@@ -36,7 +36,7 @@ class SeedHistoricalCountriesCommand extends Command
                 'officialName' => 'União das Repúblicas Socialistas Soviéticas',
                 'sigla' => 'SU',
                 'isoCode' => 'SUN',
-                'continente' => 'Europa / Ásia',
+                'continente' => 'Europa/Ásia',
                 'nationality' => 'Soviética',
                 'foundationYear' => 1922,
                 'extinctionYear' => 1991,

@@ -31,7 +31,8 @@ class GeographicReportController extends AbstractController
         }
 
         // 1. Continents distribution
-        $continentsQuery = 'SELECT co.continente AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+        // Citações somadas uma vez por (documento, grupo) — ver distinctSum()
+        $continentsQuery = 'SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
              FROM document d
              JOIN documento_paises dp ON dp.document_id = d.id
              JOIN paises co ON co.id = dp.country_id
@@ -41,11 +42,10 @@ class GeographicReportController extends AbstractController
             $continentsQuery .= ' AND co.id = ?';
             $continentsParams[] = $filteredCountry->getId();
         }
-        $continentsQuery .= ' GROUP BY co.continente ORDER BY doc_count DESC';
-        $continents = $conn->fetchAllAssociative($continentsQuery, $continentsParams);
+        $continents = $this->distinctSum($continentsQuery, $continentsParams);
 
         // 2. Brazilian Regions distribution
-        $regionsQuery = 'SELECT r.name AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+        $regionsQuery = 'SELECT DISTINCT d.id, r.name AS label, COALESCE(d.cited_by, 0) AS cit
              FROM document d
              JOIN documento_estados de ON de.document_id = d.id
              JOIN estados s ON s.id = de.state_id
@@ -56,8 +56,7 @@ class GeographicReportController extends AbstractController
             $regionsQuery .= ' AND s.country_id = ?';
             $regionsParams[] = $filteredCountry->getId();
         }
-        $regionsQuery .= ' GROUP BY r.id ORDER BY doc_count DESC';
-        $regions = $conn->fetchAllAssociative($regionsQuery, $regionsParams);
+        $regions = $this->distinctSum($regionsQuery, $regionsParams);
 
         // 3. States distribution (Top 15)
         $statesQuery = 'SELECT s.official_name AS label, s.sigla AS sigla, c.common_name AS country, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
@@ -91,7 +90,7 @@ class GeographicReportController extends AbstractController
         $cities = $conn->fetchAllAssociative($citiesQuery, $citiesParams);
 
         // 5. Institution Nature
-        $natureQuery = 'SELECT i.natureza AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+        $natureQuery = 'SELECT DISTINCT d.id, i.natureza AS label, COALESCE(d.cited_by, 0) AS cit
              FROM document d
              JOIN documento_instituicoes di ON di.document_id = d.id
              JOIN instituicoes_ensino i ON i.id = di.institution_id
@@ -101,11 +100,10 @@ class GeographicReportController extends AbstractController
             $natureQuery .= ' AND i.country_id = ?';
             $natureParams[] = $filteredCountry->getId();
         }
-        $natureQuery .= ' GROUP BY i.natureza ORDER BY doc_count DESC';
-        $nature = $conn->fetchAllAssociative($natureQuery, $natureParams);
+        $nature = $this->distinctSum($natureQuery, $natureParams);
 
         // 6. Institution Type
-        $typesQuery = 'SELECT i.institution_type AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+        $typesQuery = 'SELECT DISTINCT d.id, i.institution_type AS label, COALESCE(d.cited_by, 0) AS cit
              FROM document d
              JOIN documento_instituicoes di ON di.document_id = d.id
              JOIN instituicoes_ensino i ON i.id = di.institution_id
@@ -115,8 +113,7 @@ class GeographicReportController extends AbstractController
             $typesQuery .= ' AND i.country_id = ?';
             $typesParams[] = $filteredCountry->getId();
         }
-        $typesQuery .= ' GROUP BY i.institution_type ORDER BY doc_count DESC';
-        $types = $conn->fetchAllAssociative($typesQuery, $typesParams);
+        $types = $this->distinctSum($typesQuery, $typesParams);
 
         // Count mapped documents vs total
         $totalDocs = (int) $conn->fetchOne(
@@ -205,6 +202,23 @@ class GeographicReportController extends AbstractController
         $response->headers->set('Content-Disposition', 'attachment; filename="cidades_projeto_' . $id . '.csv"');
 
         return $response;
+    }
+
+    /**
+     * Agrega uma consulta "SELECT DISTINCT d.id, <label>, <cit>" por rótulo.
+     * Contar documentos com COUNT(DISTINCT) e somar citações sobre as linhas do JOIN
+     * multiplicaria as citações de artigos com vários países/estados/instituições
+     * no mesmo grupo.
+     */
+    private function distinctSum(string $distinctQuery, array $params): array
+    {
+        return $this->em->getConnection()->fetchAllAssociative(
+            'SELECT label, COUNT(*) AS doc_count, SUM(cit) AS citation_count
+             FROM (' . $distinctQuery . ') t
+             GROUP BY label
+             ORDER BY doc_count DESC',
+            $params
+        );
     }
 
     private function getProject(int $id): BibliometricProject

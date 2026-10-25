@@ -432,12 +432,17 @@ class ReportController extends AbstractController
         $data = $this->reportService->getCountriesReport($project->getId());
         
         $continents = $this->conn->fetchAllAssociative(
-            'SELECT co.continente AS label, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM document d
-             JOIN documento_paises dp ON dp.document_id = d.id
-             JOIN paises co ON co.id = dp.country_id
-             WHERE d.project_id = ? AND co.continente IS NOT NULL
-             GROUP BY co.continente ORDER BY doc_count DESC',
+            // DISTINCT por (documento, continente): um artigo com 3 países europeus
+            // conta 1 documento e suas citações uma única vez para a Europa.
+            'SELECT label, COUNT(*) AS doc_count, SUM(cit) AS citation_count
+             FROM (
+                 SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
+                 FROM document d
+                 JOIN documento_paises dp ON dp.document_id = d.id
+                 JOIN paises co ON co.id = dp.country_id
+                 WHERE d.project_id = ? AND co.continente IS NOT NULL
+             ) t
+             GROUP BY label ORDER BY doc_count DESC',
             [$project->getId()]
         );
 
