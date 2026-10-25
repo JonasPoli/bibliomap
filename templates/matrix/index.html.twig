@@ -22,10 +22,11 @@
     </div>
 </div>
 
+{# Escapado: o nome da matriz (texto do usuário) vai no flash de remoção #}
 {% for label, messages in app.flashes %}
     {% for msg in messages %}
     <div class="alert alert-{{ label == 'success' ? 'success' : 'warning' }} bm-alert mb-3">
-        {{ msg|raw }}
+        {{ msg }}
     </div>
     {% endfor %}
 {% endfor %}

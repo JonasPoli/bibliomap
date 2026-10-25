@@ -120,9 +120,9 @@ network.legend:
 
 thematic_map.page:
   title: "Mapa Temático"
-  what: "Agrupa as palavras-chave em temas (clusters) e posiciona cada tema num gráfico de dois eixos, inspirado em Callon (1991) e Cobo et al. (2011): **centralidade** (quanto o tema se liga aos demais) e **densidade** (quanto ele é coeso internamente). As linhas tracejadas dividem os temas em quatro quadrantes: motores, nicho, básicos e emergentes/em declínio."
+  what: "Agrupa as palavras-chave em temas (clusters) e posiciona cada tema num gráfico de dois eixos, conforme Callon (1991) e Cobo et al. (2011): **centralidade** (quanto o tema se liga aos demais) e **densidade** (quanto ele é coeso internamente). O cálculo segue o thematicMap() do Bibliometrix: ligações pela força de associação, temas pelo algoritmo Louvain. As linhas tracejadas dividem os temas em quatro quadrantes: motores, nicho, básicos e emergentes/em declínio."
   how: "Escolha o tipo de palavra-chave, ajuste a ocorrência mínima e o limite de palavras. Passe o mouse nas bolhas para ver os termos e use a tabela abaixo para ler os números de cada tema."
-  not: "Não mostra a evolução no tempo (use a Evolução Temática). Os valores de centralidade e densidade são próprios do BiblioMap e não são iguais, número a número, aos do Bibliometrix — compare posições relativas, não valores absolutos."
+  not: "Não mostra a evolução no tempo (use a Evolução Temática). Pode diferir do Bibliometrix em detalhes: aqui a ocorrência mínima é um número absoluto de documentos (lá é por mil documentos), o nome do tema é o termo mais frequente (lá combina frequência e PageRank) e os eixos usam os valores, não os postos — as posições relativas e os quadrantes são equivalentes."
   example: "Numa revisão sobre inteligência artificial na agricultura com 10 mil artigos, o tema “machine learning” caiu no quadrante motor e “computer vision” no quadrante de nicho, orientando a escolha do recorte da tese."
 
 thematic_map.kw_type:
@@ -134,10 +134,10 @@ thematic_map.kw_type:
 
 thematic_map.min_occur:
   title: "Ocorrência mínima"
-  what: "Só entram no mapa termos presentes em pelo menos este número de documentos. **Atenção:** o mesmo valor também é exigido para as ligações — dois termos só são considerados ligados se aparecerem juntos em pelo menos esse número de documentos."
-  how: "Em corpus pequenos (até 500 documentos) use 2 ou 3; em corpus grandes use 5 ou mais. Valores altos deixam menos termos e menos ligações, o que gera mais temas de um termo só."
+  what: "Só entram no mapa termos presentes em pelo menos este número de documentos. O limite vale só para os termos: entre os termos escolhidos, basta um documento em comum para existir ligação (como no Bibliometrix)."
+  how: "Em corpus pequenos (até 500 documentos) use 2 ou 3; em corpus grandes use 5 ou mais. Termos sem nenhuma ligação com os demais ficam fora do mapa."
   not: "Não remove termos irrelevantes como “study” ou “analysis”; para isso, normalize as palavras-chave antes."
-  example: "Com 3.000 artigos sobre energia solar, subir de 2 para 5 reduziu o mapa de 40 para 18 temas e eliminou dezenas de temas de uma palavra só."
+  example: "Com 3.000 artigos sobre energia solar, subir de 2 para 5 tirou do mapa dezenas de termos raros e deixou os temas mais estáveis."
 
 thematic_map.max_keywords:
   title: "Limite de palavras"
@@ -164,14 +164,14 @@ thematic_map.q_niche:
   title: "Temas de nicho / isolados (alto-esquerda)"
   what: "Temas coesos internamente (densidade alta), mas pouco ligados ao resto (centralidade baixa): especializados, com vocabulário próprio."
   how: "Bons candidatos a lacunas de pesquisa ou a subáreas técnicas. Verifique os termos do tema na tabela para entender o recorte."
-  not: "Não significa tema irrelevante. Temas de 2 ou 3 termos muito ligados tendem a cair aqui porque a densidade favorece grupos pequenos."
+  not: "Não significa tema irrelevante. Como a força de associação divide pelas frequências, pares de termos menos frequentes que quase sempre aparecem juntos pesam mais e tendem a cair aqui."
   example: "Num corpus sobre IA na saúde, “retinopatia diabética” + “fundo de olho” formou um tema de nicho: muito coeso, mas isolado do restante."
 
 thematic_map.q_emerging:
   title: "Temas emergentes ou em declínio (baixo-esquerda)"
   what: "Temas pouco desenvolvidos e pouco conectados. Podem estar surgindo ou desaparecendo — o mapa sozinho não diz qual."
   how: "Cruze com a Evolução Temática ou com a produção anual dos termos: se os documentos são recentes, é emergente; se antigos, em declínio."
-  not: "Termos sem nenhuma ligação acima do limite formam “temas” de uma palavra só com centralidade e densidade 0, que caem aqui. Não os trate como tendências sem conferir."
+  not: "Não confirma tendência: a posição é relativa aos outros temas do mesmo mapa (abaixo das medianas). Termos sem nenhuma ligação ficam fora do mapa e não aparecem aqui."
   example: "Numa revisão sobre ensino remoto, “COVID-19” apareceu neste quadrante; os documentos eram quase todos de 2020–2021, sugerindo tema em declínio."
 
 thematic_map.q_basic:
@@ -179,18 +179,18 @@ thematic_map.q_basic:
   what: "Temas muito conectados ao resto (centralidade alta), mas pouco coesos internamente (densidade baixa): conceitos transversais que atravessam vários assuntos."
   how: "Use-os para descrever a base conceitual comum da área. Costumam reunir termos amplos e frequentes."
   not: "Não são temas “fracos”: são fundamentais, mas genéricos demais para formar um núcleo coeso."
-  example: "Num corpus de 10 mil artigos sobre IA na agricultura, o tema “artificial intelligence” (32 termos) ficou com centralidade máxima e densidade baixa: um tema básico."
+  example: "Num corpus sobre educação a distância, um tema em torno de “e-learning” e “higher education” ligou-se a quase todos os outros temas, mas seus termos raramente apareciam juntos: um tema básico."
 
 thematic_map.chart:
   title: "Diagrama estratégico"
-  what: "Cada bolha é um tema. **Eixo X = centralidade**: soma das co-ocorrências entre os termos do tema e termos de outros temas, reescalada para o tema mais ligado valer 100. **Eixo Y = densidade**: soma das co-ocorrências entre os termos do próprio tema ÷ (nº de termos)² × 100. **Tamanho da bolha**: soma das ocorrências dos termos do tema."
+  what: "Cada bolha é um tema. As ligações entre termos usam a **força de associação**: documentos com os dois termos ÷ (documentos do termo A × documentos do termo B). **Eixo X = centralidade**: soma das forças de associação entre os termos do tema e termos de outros temas. **Eixo Y = densidade**: 100 × soma das forças de associação entre os termos do próprio tema ÷ nº de termos do tema. **Tamanho da bolha**: soma das ocorrências dos termos do tema."
   how: "Passe o mouse sobre a bolha para ver o tema, os principais termos e os valores. As linhas tracejadas são as medianas e separam os quadrantes."
-  not: "A densidade usa contagens brutas de co-ocorrência, não índices normalizados; por isso pode passar muito de 100 e favorece temas pequenos. Compare posições, não valores com outros softwares."
-  example: "Um tema de 2 termos que aparecem juntos em 117 artigos tem densidade 117 ÷ 4 × 100 = 2.925, bem acima de um tema de 32 termos com densidade 211."
+  not: "Os valores são pequenos (frações) porque a força de associação divide pelas frequências; não têm teto fixo e só fazem sentido comparados dentro do mesmo mapa. Mudar a ocorrência mínima ou o limite de palavras muda todos os valores."
+  example: "Num tema de 2 termos com 53 e 46 documentos que aparecem juntos em 14, a força de associação é 14 ÷ (53 × 46) = 0,0057 e a densidade é 100 × 0,0057 ÷ 2 = 0,29."
 
 thematic_map.clusters_table:
   title: "Detalhamento dos temas"
-  what: "Lista todos os temas calculados, do maior (mais termos) para o menor, com quadrante, números e principais termos. Os temas são formados pelo algoritmo **Label Propagation**, com ligações ponderadas pelo índice de equivalência (co-ocorrências² ÷ (freq. A × freq. B)); o nome do tema é o seu termo mais frequente."
+  what: "Lista todos os temas calculados, do maior (mais ocorrências) para o menor, com quadrante, números e principais termos. Os temas são as comunidades do algoritmo **Louvain** (o padrão do Bibliometrix) sobre a rede de força de associação, escolhendo entre 10 execuções a de maior modularidade; o nome do tema é o seu termo mais frequente."
   how: "Use para citar os temas na dissertação e conferir quais termos formam cada um. Exporte em CSV (botão no topo) para montar tabelas no Excel."
   not: "A divisão em temas é determinística para os mesmos dados e filtros, mas muda ao alterar o tipo de palavra-chave, a ocorrência mínima ou o número de termos; registre os parâmetros usados no texto do método."
   example: "O tema “#3 smart agriculture” trazia “IoT (210)”, “sensors (98)” e “cloud computing (45)”, mostrando que o eixo de agricultura inteligente é, na prática, sobre sensores conectados."
@@ -198,9 +198,9 @@ thematic_map.clusters_table:
 thematic_map.col_size:
   title: "Tamanho (nº de termos)"
   what: "Quantas palavras-chave diferentes foram agrupadas neste tema."
-  how: "Temas com 1 termo geralmente são palavras sem ligação forte com as demais; reduza a ocorrência mínima para que se juntem a outros."
+  how: "Temas com muitos termos costumam ser amplos; temas com 2 ou 3 termos costumam ser recortes bem específicos. Termos sem nenhuma ligação com os demais não entram no mapa."
   not: "Não é o número de documentos do tema."
-  example: "O tema “artificial intelligence” reuniu 32 termos, enquanto “computer vision” reuniu 4."
+  example: "O tema “artificial intelligence” reuniu 36 termos, enquanto “large language models” reuniu 7."
 
 thematic_map.col_occurrences:
   title: "Ocorrências"
@@ -211,17 +211,17 @@ thematic_map.col_occurrences:
 
 thematic_map.col_centrality:
   title: "Centralidade"
-  what: "Mede quanto o tema conversa com os outros temas: soma das co-ocorrências entre seus termos e termos de outros temas, reescalada de 0 a 100 (100 = tema mais ligado do mapa)."
+  what: "Mede quanto o tema conversa com os outros temas (Callon): soma das forças de associação entre os termos do tema e os termos de outros temas. Uma ligação entre dois temas conta para os dois."
   how: "Quanto maior, mais transversal e importante o tema é para a área. Valores à direita da linha tracejada (mediana) são considerados altos."
-  not: "Não é a centralidade de Callon em valor absoluto (lá é somada com índices de equivalência e multiplicada por 10); aqui é uma escala relativa de 0 a 100 dentro do mapa."
-  example: "“machine learning” com centralidade 39,7 está menos conectado que “artificial intelligence” (100), mas muito acima da mediana (4,9)."
+  not: "Não é uma escala de 0 a 100 nem tem teto: compare temas do mesmo mapa, não valores entre mapas ou softwares com parâmetros diferentes. Termos muito frequentes pesam menos, porque a força de associação divide pelas frequências."
+  example: "Com centralidade 0,195, “artificial intelligence” ficou à direita da mediana (0,156); “large language models” (0,048) ficou à esquerda."
 
 thematic_map.col_density:
   title: "Densidade"
-  what: "Mede a coesão interna do tema: soma das co-ocorrências entre os próprios termos do tema ÷ (nº de termos)² × 100."
+  what: "Mede a coesão interna do tema (Callon, como no Bibliometrix): 100 × soma das forças de associação entre os próprios termos do tema ÷ nº de termos do tema."
   how: "Quanto maior, mais os termos do tema aparecem juntos, indicando um tema maduro e bem delimitado. Acima da linha tracejada (mediana) é considerado alto."
-  not: "Não é limitada a 100 e favorece temas pequenos e frequentes. Temas de 1 termo têm densidade 0. Não compare o valor com o Bibliometrix."
-  example: "“computer vision” (4 termos) teve densidade 1.750, contra 211 de “artificial intelligence” (32 termos): o primeiro é um nicho bem coeso."
+  not: "Não é um percentual nem tem teto fixo. Compare só com os outros temas do mesmo mapa."
+  example: "Um tema de 2 termos com força de associação 0,0057 entre eles tem densidade 100 × 0,0057 ÷ 2 = 0,29."
 
 thematic_map.export_csv:
   title: "Exportar CSV do mapa"
@@ -236,9 +236,9 @@ thematic_map.export_csv:
 
 thematic_evo.page:
   title: "Evolução Temática"
-  what: "Divide o corpus em dois períodos pelo ano de corte, forma os temas de cada período separadamente e mostra num diagrama de Sankey como os temas do Período 1 se transformam nos do Período 2. A largura de cada fluxo é o **número de palavras-chave que os dois temas compartilham**."
+  what: "Divide o corpus em dois períodos pelo ano de corte, monta o Mapa Temático de cada período (mesmo método: força de associação e Louvain) e mostra num diagrama de Sankey como os temas do Período 1 se ligam aos do Período 2. A largura de cada fluxo é o **índice de inclusão** dos termos que os dois temas compartilham, como no thematicEvolution() do Bibliometrix."
   how: "Escolha o ano de corte, o tipo de palavra-chave e a ocorrência mínima. Leia o diagrama da esquerda (P1) para a direita (P2) e use a tabela para ver quais termos sustentam cada fluxo."
-  not: "Não usa o índice de inclusão nem o de Jaccard do Bibliometrix: o fluxo é a contagem simples de termos em comum. Documentos sem ano ficam de fora. Só compara dois períodos."
+  not: "Não usa a força de linhagem com PageRank das versões mais novas do Bibliometrix, só o índice de inclusão clássico (Cobo et al., 2011). Documentos sem ano ficam de fora. Só compara dois períodos."
   example: "Numa revisão sobre ensino de matemática (2010–2024) com corte em 2019, o tema “ensino a distância” (P1) alimentou “ensino remoto” e “tecnologias digitais” (P2), mostrando o efeito da pandemia."
 
 thematic_evo.kw_type:
@@ -257,24 +257,24 @@ thematic_evo.cutoff_year:
 
 thematic_evo.min_occur:
   title: "Ocorrência mínima"
-  what: "Só entram termos que aparecem em pelo menos este número de documentos **dentro de cada período**. As ligações entre termos usam outro limite, fixo: pelo menos 2 documentos (ou 1% da frequência do termo mais comum do período, se for maior)."
+  what: "Só entram termos que aparecem em pelo menos este número de documentos **dentro de cada período**. Como no Mapa Temático, o limite vale só para os termos: entre eles, basta um documento em comum para haver ligação."
   how: "Períodos com poucos documentos pedem valores baixos (1 ou 2); períodos grandes aceitam 3 a 5."
-  not: "Não afeta o limite das ligações, que é calculado automaticamente."
+  not: "Não é aplicado ao corpus inteiro: um termo pode entrar num período e ficar fora do outro."
   example: "Com apenas 120 artigos até 2015, usar 5 deixou o Período 1 quase vazio; com 2 os temas apareceram."
 
 thematic_evo.max_keywords:
   title: "Limite de palavras por período"
   what: "Quantidade máxima de termos (os mais frequentes de cada período) usados para formar os temas."
   how: "Comece com 100. Aumente para revelar temas menores, sabendo que o cálculo fica mais lento."
-  not: "Não é o número de temas: o agrupamento tenta formar até 8 temas por período, mas termos sem ligação viram temas de um termo só."
+  not: "Não é o número de temas: o algoritmo Louvain decide quantos temas se formam em cada período."
   example: "Subindo de 100 para 200 termos numa revisão sobre bioeconomia, apareceu o fluxo “biorrefinarias” → “economia circular”."
 
 thematic_evo.sankey:
   title: "Diagrama de Sankey"
-  what: "Esquerda (azul) = temas do Período 1; direita (roxo) = temas do Período 2. Cada tema é formado por **agrupamento hierárquico (ligação média)** sobre a similaridade do cosseno de Salton entre termos (co-ocorrências ÷ √(freq. A × freq. B)), juntando grupos até restarem 8 ou até não haver mais semelhança. O nome do tema é seu termo mais frequente. A largura do fluxo é o número de termos que os dois temas têm em comum."
-  how: "Passe o mouse num fluxo para ver os termos compartilhados; arraste os blocos para melhorar a leitura. Temas sem fluxo são temas que surgiram ou sumiram."
-  not: "A largura não é normalizada pelo tamanho dos temas (não é índice de inclusão): temas grandes tendem a ter fluxos maiores. Não usa o mesmo algoritmo do Mapa Temático, então os temas podem não coincidir."
-  example: "O fluxo “artificial intelligence (P1)” → “artificial intelligence (P2)” com 30 termos em comum indica continuidade; “artificial intelligence (P1)” → “smart agriculture (P2)” com 4 termos sugere uma ramificação."
+  what: "Esquerda (azul) = temas do Período 1; direita (roxo) = temas do Período 2. Os temas de cada período são os mesmos que o Mapa Temático mostraria filtrando os documentos do período (força de associação + Louvain); o nome é o termo mais frequente. A largura do fluxo é o índice de inclusão: termos em comum ÷ nº de termos do menor dos dois temas (0 a 1)."
+  how: "Passe o mouse num fluxo para ver o índice, quantos termos são compartilhados e quais; arraste os blocos para melhorar a leitura. Temas sem fluxo são temas que surgiram ou sumiram. Dois temas com o mesmo nome no mesmo período aparecem numerados (#2)."
+  not: "A altura dos blocos não é o número de documentos do tema: é a soma dos índices de inclusão dos fluxos dele."
+  example: "O fluxo “artificial intelligence (P1)” → “machine learning (P2)” com inclusão 0,67 (16 de 24 termos) indica que boa parte do tema migrou; uma inclusão de 0,07 indica só uma ramificação."
 
 thematic_evo.flows_table:
   title: "Detalhamento dos fluxos"
@@ -284,15 +284,15 @@ thematic_evo.flows_table:
   example: "A linha “agricultura familiar → segurança alimentar (3)” com os termos “PNAE”, “merenda” e “compras públicas” mostra a migração do debate para políticas públicas."
 
 thematic_evo.col_flow:
-  title: "Fluxo"
-  what: "Número de palavras-chave presentes nos dois temas, ou seja, termos do tema do Período 1 que continuam no tema do Período 2."
-  how: "Para obter algo parecido com o índice de inclusão do Bibliometrix, divida o fluxo pelo número de termos do menor dos dois temas."
-  not: "Não é número de documentos nem percentual."
-  example: "Um fluxo de 4 entre um tema de 5 termos e outro de 20 corresponde a uma inclusão de 4 ÷ 5 = 0,8."
+  title: "Inclusão"
+  what: "Índice de inclusão (Cobo et al., 2011; Bibliometrix): nº de palavras-chave presentes nos dois temas ÷ nº de termos do menor dos dois temas. Vai de 0 a 1; 1 significa que o tema menor está inteiro dentro do outro."
+  how: "Passe o mouse na célula para ver quantos termos são compartilhados. Use valores altos para apontar continuidade e valores baixos para ramificações."
+  not: "Não é número de documentos nem de termos: um fluxo de 1 termo entre temas pequenos pode ter inclusão maior que um de 5 termos entre temas grandes."
+  example: "4 termos em comum entre um tema de 5 termos e outro de 20 dão inclusão 4 ÷ 5 = 0,8."
 
 thematic_evo.export_csv:
   title: "Exportar CSV da evolução"
-  what: "Baixa a tabela de fluxos (tema de origem, força do fluxo, tema de destino e termos de conexão) em CSV com ponto e vírgula, pronto para o Excel."
+  what: "Baixa a tabela de fluxos (tema de origem, índice de inclusão, nº de termos em comum, tema de destino e termos de conexão) em CSV com ponto e vírgula, pronto para o Excel."
   how: "Defina o ano de corte e os filtros finais e clique no botão; o nome do arquivo leva o ano de corte."
   not: "Não exporta a imagem do Sankey nem os temas sem fluxo."
   example: "Exporte com corte em 2019 e em 2021 e compare as duas planilhas para mostrar à banca que a conclusão não depende do corte escolhido."
@@ -312,7 +312,7 @@ three_fields.left:
   title: "Coluna esquerda"
   what: "Dimensão exibida à esquerda: países, autores, periódicos ou instituições. Só os N itens mais frequentes entram."
   how: "Coloque aqui quem produz (países, instituições, autores) para ler o gráfico como “quem → sobre o quê → onde”."
-  not: "Países e instituições vêm do texto de afiliação gravado na importação, sem a padronização do cadastro geográfico: variações como “USA” e “MI 48824 USA” aparecem como itens diferentes."
+  not: "Países e instituições vêm do cadastro padronizado vinculado aos documentos (países e instituições sincronizados); documentos cuja afiliação não foi reconhecida no cadastro não entram nessas colunas."
   example: "Com “Países” à esquerda, o gráfico de um corpus sobre energia eólica mostrou China e Estados Unidos dominando os fluxos."
 
 three_fields.middle:
@@ -331,7 +331,7 @@ three_fields.right:
 
 three_fields.limit:
   title: "Limite de itens por coluna"
-  what: "Quantos itens de cada coluna entram no gráfico: os N mais frequentes (autores, palavras e periódicos pelo nº de documentos; países e instituições pelo nº de menções nas afiliações)."
+  what: "Quantos itens de cada coluna entram no gráfico: os N com mais documentos (autores, palavras, periódicos, países e instituições)."
   how: "Use 10–20 para figuras legíveis; até 50 para exploração. Itens sem nenhuma ligação acima da frequência mínima não aparecem."
   not: "Não garante que aparecerão exatamente N itens por coluna, pois itens sem ligação são omitidos."
   example: "Com limite 15, apareceram só 11 periódicos: os outros 4 não compartilhavam documentos com os 15 países mais produtivos."
@@ -413,9 +413,9 @@ matrix.thesaurus:
 matrix.generate:
   title: "Gerar matriz"
   what: "Processa todos os documentos do projeto com as opções escolhidas e mostra o relatório de processamento e a tabela."
-  how: "Clique depois de ajustar as opções. Matrizes de palavras-chave ou autores em projetos grandes podem levar de 10 a 20 segundos."
+  how: "Clique depois de ajustar as opções. Em projetos grandes o cálculo costuma levar menos de um segundo; matrizes muito grandes (centenas de linhas) demoram mais para desenhar na tela."
   not: "Não salva nada no banco; para guardar a configuração use “Salvar Matriz”."
-  example: "Num projeto de 10 mil artigos, a matriz palavras × países de 30 × 30 levou cerca de 14 segundos."
+  example: "Num projeto de 10 mil artigos, a matriz palavras × países de 30 × 30 levou cerca de 0,3 segundo."
 
 matrix.save:
   title: "Salvar matriz"

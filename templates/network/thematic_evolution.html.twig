@@ -189,7 +189,7 @@ input[type="range"] {
             <span style="font-weight:700;display:block;margin-bottom:6px">📌 DIAGRAMA DE SANKEY {{ help('thematic_evo.sankey') }}</span>
             <span style="line-height:1.4;display:block">
                 O fluxo liga os temas do <b>Período 1 (esquerda)</b> aos do <b>Período 2 (direita)</b>.
-                A largura é o número de palavras-chave que os dois temas têm em comum.
+                A largura é o índice de inclusão: termos em comum ÷ nº de termos do menor dos dois temas.
             </span>
         </div>
     </div>
@@ -215,7 +215,7 @@ input[type="range"] {
                 <thead>
                     <tr>
                         <th style="width:250px">Período 1 (Origem)</th>
-                        <th style="width:80px;text-align:center">Fluxo {{ help('thematic_evo.col_flow') }}</th>
+                        <th style="width:80px;text-align:center">Inclusão {{ help('thematic_evo.col_flow') }}</th>
                         <th style="width:250px">Período 2 (Destino)</th>
                         <th>Palavras-Chave de Conexão (Overlap)</th>
                     </tr>
@@ -247,6 +247,7 @@ function updateCutoffLabel(v) {
 function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function fmtInc(v) { return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 }); }
 function updateOccurLabel(v) { document.getElementById('lbl-min-occur').textContent = v; }
 function updateKeywordsLabel(v) { document.getElementById('lbl-max-keywords').textContent = v; }
 
@@ -314,10 +315,10 @@ function renderSankey() {
     // theme has no flow (otherwise ECharts puts unlinked P2 themes in the left column).
     const nodes = evolutionData.nodes.map(n => ({
         name: n.name,
-        depth: n.name.endsWith('(P1)') ? 0 : 1,
+        depth: n.period === 'P1' ? 0 : 1,
         itemStyle: {
-            color: n.name.includes('(P1)') ? '#4f8ef7' : '#a855f7',
-            borderColor: n.name.includes('(P1)') ? '#4f8ef7' : '#a855f7'
+            color: n.period === 'P1' ? '#4f8ef7' : '#a855f7',
+            borderColor: n.period === 'P1' ? '#4f8ef7' : '#a855f7'
         }
     }));
 
@@ -329,13 +330,12 @@ function renderSankey() {
                 if (params.dataType === 'node') {
                     return `<b>${escapeHtml(params.name)}</b>`;
                 }
-                const link = evolutionData.details.find(d => 
-                    (d.p1_label + " (P1)") === params.data.source && 
-                    (d.p2_label + " (P2)") === params.data.target
+                const link = evolutionData.details.find(d =>
+                    d.source === params.data.source && d.target === params.data.target
                 );
                 const keywordsText = link ? escapeHtml(link.keywords.slice(0, 8).join(', ')) : '';
                 return `<b>${escapeHtml(params.data.source)}</b> ➔ <b>${escapeHtml(params.data.target)}</b><br/>` +
-                       `Palavras em comum: ${params.data.value}<br/>` +
+                       `Inclusão: ${fmtInc(params.data.value)}` + (link ? ` (${link.shared} de ${Math.min(link.p1_size, link.p2_size)} termos)` : '') + `<br/>` +
                        `<small style="color:var(--bm-text-muted)">Palavras de conexão: ${keywordsText}</small>`;
             }
         },
@@ -388,9 +388,9 @@ function renderTable() {
     tbody.innerHTML = sorted.map(d => {
         const pills = d.keywords.map(k => `<span class="kw-pill-mini">${escapeHtml(k)}</span>`).join('');
         return `<tr>
-            <td style="font-weight:600;color:#4f8ef7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.p1_label)} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P1)</span></td>
-            <td style="text-align:center;font-weight:700;color:var(--bm-accent)">➔ ${d.value} ➔</td>
-            <td style="font-weight:600;color:#a855f7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.p2_label)} <span style="font-size:9.5px;color:var(--bm-text-muted)">(P2)</span></td>
+            <td style="font-weight:600;color:#4f8ef7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.source)}</td>
+            <td style="text-align:center;font-weight:700;color:var(--bm-accent)" title="${d.shared} termo(s) em comum">➔ ${fmtInc(d.value)} ➔</td>
+            <td style="font-weight:600;color:#a855f7"><i class="bi bi-tag-fill me-1"></i>${escapeHtml(d.target)}</td>
             <td>${pills}</td>
         </tr>`;
     }).join('');
@@ -407,15 +407,16 @@ function exportCSV() {
     let csvContent = "\uFEFF";
     
     // Headers
-    csvContent += "Tema Origem (P1);Palavras em Comum;Tema Destino (P2);Palavras-Chave de Conexao\r\n";
+    csvContent += "Tema Origem (P1);Indice de Inclusao;Palavras em Comum;Tema Destino (P2);Palavras-Chave de Conexao\r\n";
     
     // Rows
     evolutionData.details.forEach(d => {
         const keywordsStr = d.keywords.join(', ');
         const row = [
-            `"${String(d.p1_label).replace(/"/g, '""')}"`,
-            d.value,
-            `"${String(d.p2_label).replace(/"/g, '""')}"`,
+            `"${String(d.source).replace(/"/g, '""')}"`,
+            String(d.value).replace('.', ','),
+            d.shared,
+            `"${String(d.target).replace(/"/g, '""')}"`,
             `"${keywordsStr.replace(/"/g, '""')}"`
         ];
         csvContent += row.join(";") + "\r\n";

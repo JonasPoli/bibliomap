@@ -6,6 +6,20 @@ use Doctrine\DBAL\Connection;
 
 class ThreeFieldsService
 {
+    /** Documento → nome padronizado do país / da instituição. */
+    private const GEO_SQL = [
+        'country' => 'SELECT DISTINCT dp.document_id, p.common_name AS name
+                      FROM documento_paises dp
+                      JOIN paises p ON p.id = dp.country_id
+                      JOIN document d ON d.id = dp.document_id
+                      WHERE d.project_id = ?',
+        'institution' => 'SELECT DISTINCT di.document_id, i.official_name AS name
+                          FROM documento_instituicoes di
+                          JOIN instituicoes_ensino i ON i.id = di.institution_id
+                          JOIN document d ON d.id = di.document_id
+                          WHERE d.project_id = ?',
+    ];
+
     public function __construct(private readonly Connection $conn) {}
 
     /**
@@ -31,9 +45,20 @@ class ThreeFieldsService
 
         // 2. Fetch all document relationships in the project in three targeted queries
         $docs = $this->conn->fetchAllAssociative(
-            'SELECT id, source_title, countries, institutions FROM document WHERE project_id = ?',
+            'SELECT id, source_title FROM document WHERE project_id = ?',
             [$projectId]
         );
+
+        // Países e instituições vêm do cadastro padronizado (documento_paises / documento_instituicoes),
+        // não do texto bruto da afiliação (document.countries traz "IA 50010 USA", "MI 48824 USA"...).
+        $fields = [$leftField, $middleField, $rightField];
+        $geoByDoc = [];
+        foreach (['country', 'institution'] as $geoField) {
+            if (!in_array($geoField, $fields, true)) continue;
+            foreach ($this->conn->fetchAllAssociative(self::GEO_SQL[$geoField], [$projectId]) as $row) {
+                $geoByDoc[$geoField][(int)$row['document_id']][] = $row['name'];
+            }
+        }
 
         $authorsByDoc = [];
         $authorRows = $this->conn->fetchAllAssociative(
@@ -73,14 +98,14 @@ class ThreeFieldsService
             $docId = (int)$doc['id'];
 
             // Extract values for Left, Middle, and Right
-            $leftValues   = $this->extractFieldValues($doc, $docId, $leftField, $authorsByDoc, $kwsByDoc);
-            $middleValues = $this->extractFieldValues($doc, $docId, $middleField, $authorsByDoc, $kwsByDoc);
-            $rightValues  = $this->extractFieldValues($doc, $docId, $rightField, $authorsByDoc, $kwsByDoc);
+            $leftValues   = $this->extractFieldValues($doc, $docId, $leftField, $authorsByDoc, $kwsByDoc, $geoByDoc);
+            $middleValues = $this->extractFieldValues($doc, $docId, $middleField, $authorsByDoc, $kwsByDoc, $geoByDoc);
+            $rightValues  = $this->extractFieldValues($doc, $docId, $rightField, $authorsByDoc, $kwsByDoc, $geoByDoc);
 
-            // Filter to only include Top Items
-            $leftFiltered   = array_intersect($leftValues, $topLeft);
-            $middleFiltered = array_intersect($middleValues, $topMiddle);
-            $rightFiltered  = array_intersect($rightValues, $topRight);
+            // Filter to only include Top Items (cada item conta uma vez por documento)
+            $leftFiltered   = array_unique(array_intersect($leftValues, $topLeft));
+            $middleFiltered = array_unique(array_intersect($middleValues, $topMiddle));
+            $rightFiltered  = array_unique(array_intersect($rightValues, $topRight));
 
             // Left -> Middle links
             foreach ($leftFiltered as $lVal) {
@@ -199,27 +224,14 @@ class ThreeFieldsService
         }
 
         if ($field === 'country' || $field === 'institution') {
-            $column = $field === 'country' ? 'countries' : 'institutions';
-            $rows = $this->conn->fetchFirstColumn(
-                "SELECT $column FROM document WHERE project_id = ? AND $column IS NOT NULL",
+            // Ranking por nº de documentos (não por menções nas afiliações)
+            return $this->conn->fetchFirstColumn(
+                'SELECT name FROM (' . self::GEO_SQL[$field] . ') g
+                 GROUP BY name
+                 ORDER BY COUNT(DISTINCT document_id) DESC, name
+                 LIMIT ' . (int)$limit,
                 [$projectId]
             );
-
-            $counts = [];
-            foreach ($rows as $json) {
-                $arr = json_decode($json, true);
-                if (is_array($arr)) {
-                    foreach ($arr as $item) {
-                        $item = trim($item);
-                        if ($item !== '') {
-                            $counts[$item] = ($counts[$item] ?? 0) + 1;
-                        }
-                    }
-                }
-            }
-
-            arsort($counts);
-            return array_slice(array_keys($counts), 0, $limit);
         }
 
         return [];
@@ -230,7 +242,8 @@ class ThreeFieldsService
         int $docId,
         string $field,
         array $authorsByDoc,
-        array $kwsByDoc
+        array $kwsByDoc,
+        array $geoByDoc
     ): array {
         if ($field === 'author') {
             return $authorsByDoc[$docId] ?? [];
@@ -248,12 +261,8 @@ class ThreeFieldsService
             return $doc['source_title'] ? [$doc['source_title']] : [];
         }
 
-        if ($field === 'country') {
-            return $doc['countries'] ? (json_decode($doc['countries'], true) ?: []) : [];
-        }
-
-        if ($field === 'institution') {
-            return $doc['institutions'] ? (json_decode($doc['institutions'], true) ?: []) : [];
+        if ($field === 'country' || $field === 'institution') {
+            return $geoByDoc[$field][$docId] ?? [];
         }
 
         return [];

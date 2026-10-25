@@ -54,13 +54,19 @@ class MatrixEngineService
 
         // 1. Fetch document metadata for project
         $docs = $conn->fetchAllAssociative(
-            'SELECT d.id, d.title, d.year, d.issn,
-                    q.qualis AS qualis
-             FROM document d
-             LEFT JOIN qualis_journal q ON (q.normalized_issn = d.issn OR q.issn = d.issn)
-             WHERE d.project_id = ?',
+            'SELECT d.id, d.title, d.year, d.issn FROM document d WHERE d.project_id = ?',
             [$projectId]
         );
+
+        // Qualis por ISSN (normalized_issn tem prioridade, depois issn), no máximo um por documento.
+        // O antigo "LEFT JOIN qualis_journal ON (normalized_issn = issn OR issn = issn)" podia
+        // duplicar documentos e fazia um produto documentos × Qualis (~14 s no projeto 13).
+        $qualisByIssn = $this->fetchQualisByIssn($projectId);
+        foreach ($docs as &$doc) {
+            $key = $doc['issn'] !== null ? mb_strtolower($doc['issn']) : '';
+            $doc['qualis'] = $qualisByIssn['normalized'][$key] ?? $qualisByIssn['issn'][$key] ?? null;
+        }
+        unset($doc);
 
         $docIds = array_column($docs, 'id');
         if (empty($docIds)) {
@@ -214,6 +220,31 @@ class MatrixEngineService
         return array_values(array_unique(array_filter(array_map('trim', $vals))));
     }
 
+    /** @return array{normalized: array<string,?string>, issn: array<string,?string>} */
+    private function fetchQualisByIssn(int $projectId): array
+    {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT q.issn, q.normalized_issn, q.qualis
+             FROM qualis_journal q
+             WHERE q.issn IN (SELECT d.issn FROM document d WHERE d.project_id = ?)
+                OR q.normalized_issn IN (SELECT d.issn FROM document d WHERE d.project_id = ?)
+             ORDER BY q.id',
+            [$projectId, $projectId]
+        );
+
+        // Chaves em minúsculas: a comparação no MySQL (collation _ci) ignora maiúsculas
+        $map = ['normalized' => [], 'issn' => []];
+        foreach ($rows as $r) {
+            if ($r['normalized_issn'] !== null) {
+                $map['normalized'][mb_strtolower($r['normalized_issn'])] ??= $r['qualis'];
+            }
+            if ($r['issn'] !== null) {
+                $map['issn'][mb_strtolower($r['issn'])] ??= $r['qualis'];
+            }
+        }
+        return $map;
+    }
+
     private function fetchAuthors(int $projectId, bool $useThesaurus): array
     {
         $conn = $this->em->getConnection();
@@ -238,7 +269,7 @@ class MatrixEngineService
     private function fetchKeywords(int $projectId, bool $useThesaurus): array
     {
         $conn = $this->em->getConnection();
-        $sql = 'SELECT dk.document_id, dk.original_term, k.keyword_display, tc.preferred_label
+        $sql = 'SELECT dk.document_id, dk.original_term, k.keyword_display, k.keyword_type, tc.preferred_label
                 FROM document_keyword dk
                 JOIN document d ON d.id = dk.document_id
                 LEFT JOIN keyword k ON k.id = dk.keyword_id
@@ -250,9 +281,14 @@ class MatrixEngineService
         foreach ($rows as $r) {
             $docId = (int)$r['document_id'];
             $label = ($useThesaurus && !empty($r['preferred_label'])) ? $r['preferred_label'] : ($r['keyword_display'] ?: $r['original_term']);
-            if ($label) {
-                $map[$docId]['author'][] = $label;
-                $map[$docId]['indexed'][] = $label;
+            // Cada termo só entra na dimensão do seu tipo (antes ia para as duas)
+            $type = match ($r['keyword_type']) {
+                'author_keyword'  => 'author',
+                'indexed_keyword' => 'indexed',
+                default           => null,
+            };
+            if ($label && $type) {
+                $map[$docId][$type][] = $label;
             }
         }
         return $map;

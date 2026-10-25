@@ -248,6 +248,8 @@ const PALETTE = ['#3fb950','#a855f7','#f85149','#f0883e'];
 function updateOccurLabel(v) { document.getElementById('lbl-min-occur').textContent = v; }
 function updateKeywordsLabel(v) { document.getElementById('lbl-max-keywords').textContent = v; }
 function numFmt(n) { return Number(n||0).toLocaleString('pt-BR'); }
+// Centralidade/densidade são somas de forças de associação (valores pequenos): 4 algarismos significativos
+function metricFmt(n) { return Number(n||0).toLocaleString('pt-BR', { maximumSignificantDigits: 4 }); }
 function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -432,8 +434,8 @@ function renderMap() {
                             return [
                                 `Tema: ${p.label}`,
                                 `Ocorrências: ${p.docCount} | Termos no cluster: ${p.size}`,
-                                `Centralidade: ${p.x}`,
-                                `Densidade: ${p.y}`,
+                                `Centralidade: ${metricFmt(p.x)}`,
+                                `Densidade: ${metricFmt(p.y)}`,
                                 `Principais palavras: ${p.keywords.join(', ')}`
                             ];
                         }
@@ -488,8 +490,8 @@ function renderTable() {
             <td>${badge}</td>
             <td style="text-align:right;font-weight:500">${c.size}</td>
             <td style="text-align:right;font-weight:600;color:var(--bm-accent)">${numFmt(c.doc_count)}</td>
-            <td style="text-align:right;font-weight:500">${numFmt(c.centrality)}</td>
-            <td style="text-align:right;font-weight:500">${numFmt(c.density)}</td>
+            <td style="text-align:right;font-weight:500">${metricFmt(c.centrality)}</td>
+            <td style="text-align:right;font-weight:500">${metricFmt(c.density)}</td>
             <td>${pills}${c.keywords.length > 12 ? ' <small style="color:var(--bm-text-muted)">+ ' + (c.keywords.length - 12) + '</small>' : ''}</td>
         </tr>`;
     }).join('');
