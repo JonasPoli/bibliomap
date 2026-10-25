@@ -165,7 +165,7 @@ class ReportService
         $sources = $this->conn->fetchAllAssociative(
             'SELECT source_title, 
                     MAX(issn) AS issn,
-                    MAX(qualis) AS qualis,
+                    MIN(qualis) AS qualis, -- melhor estrato (texto: A1 < A2 < ... < C)
                     COUNT(*) AS doc_count,
                     SUM(COALESCE(cited_by, 0)) AS citation_count,
                     ROUND(AVG(COALESCE(cited_by, 0)), 1) AS avg_citations,
@@ -206,20 +206,21 @@ class ReportService
 
         $target = round($totalDocs / 3);
         $zones = ['zone1' => [], 'zone2' => [], 'zone3' => []];
-        $zoneKeys = ['zone1', 'zone2', 'zone3'];
 
+        // Mesmo corte do Bibliometrix (bradford): a zona é definida pela frequência
+        // acumulada INCLUINDO a própria fonte — até 33% → Zona 1, até 67% → Zona 2.
+        // A primeira fonte fica sempre no núcleo, mesmo que sozinha passe de 1/3.
+        $cut1 = round($totalDocs * 0.33);
+        $cut2 = round($totalDocs * 0.67);
         $cumul = 0;
-        $zone = 1;
 
-        foreach ($sourcesSortedByDocDesc as $s) {
-            if ($zone < 3 && $cumul >= ($target * $zone)) {
-                $zone++;
-            }
-            $zones[$zoneKeys[$zone - 1]][] = [
+        foreach ($sourcesSortedByDocDesc as $i => $s) {
+            $cumul += (int) $s['doc_count'];
+            $zone = ($i === 0 || $cumul <= $cut1) ? 'zone1' : ($cumul <= $cut2 ? 'zone2' : 'zone3');
+            $zones[$zone][] = [
                 'source_title' => $s['source_title'],
                 'doc_count'    => (int) $s['doc_count'],
             ];
-            $cumul += (int) $s['doc_count'];
         }
 
         return array_merge($zones, ['target_per_zone' => $target]);
@@ -430,7 +431,7 @@ class ReportService
                     MAX(COALESCE(cited_by, 0)) AS max_citations,
                     MIN(year) AS first_year,
                     MAX(year) AS last_year,
-                    COUNT(DISTINCT source_title) AS total_sources
+                    COUNT(DISTINCT NULLIF(source_title, \'\')) AS total_sources
              FROM document WHERE project_id = ?',
             [$projectId]
         );

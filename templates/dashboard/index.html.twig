@@ -503,15 +503,21 @@ function renderCitations() {
 }
 
 // ── 3. Top authors (ranked list) ─────────────────────────────────────────────
-async function loadAuthors() {
-    const r = await fetch(BASE + '/data/top-authors?limit=15');
-    authorsData = await r.json();
-    renderAuthors('docs');
+// Cada modo busca seu próprio ranking no servidor: "Citações" é o top real por
+// citações, não apenas os mais produtivos reordenados.
+const authorsBySort = {};
+async function loadAuthors(sortBy = 'docs') {
+    if (!authorsBySort[sortBy]) {
+        const r = await fetch(BASE + '/data/top-authors?limit=15&sort=' + (sortBy === 'cit' ? 'citations' : 'docs'));
+        authorsBySort[sortBy] = await r.json();
+    }
+    authorsData = authorsBySort[sortBy];
+    renderAuthors(sortBy);
 }
 function sortAuthors(sortBy, btn) {
     document.querySelectorAll('.seg-btn[data-sort]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderAuthors(sortBy);
+    loadAuthors(sortBy);
 }
 function renderAuthors(sortBy) {
     if (!authorsData.length) return showEmpty('skel-authors');

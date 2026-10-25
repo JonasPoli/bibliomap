@@ -48,8 +48,10 @@ class IndicatorService
 
     // ── Top authors ───────────────────────────────────────────────────────────
 
-    public function topAuthors(int $projectId, int $limit = 20): array
+    public function topAuthors(int $projectId, int $limit = 20, string $sort = 'docs'): array
     {
+        $order = $sort === 'citations' ? 'total_citations DESC, doc_count DESC' : 'doc_count DESC, total_citations DESC';
+
         return $this->conn->fetchAllAssociative(
             'SELECT a.preferred_name AS name, a.normalized_name, t.doc_count, t.total_citations
              FROM (
@@ -59,10 +61,11 @@ class IndicatorService
                  FROM (SELECT DISTINCT author_identity_id, document_id FROM document_author) da
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY da.author_identity_id
-                 ORDER BY doc_count DESC, total_citations DESC
+                 ORDER BY ' . $order . '
                  LIMIT ' . (int)$limit . '
              ) t
-             JOIN author_identity a ON a.id = t.author_identity_id',
+             JOIN author_identity a ON a.id = t.author_identity_id
+             ORDER BY ' . $order,
             [$projectId]
         );
     }
@@ -203,7 +206,7 @@ class IndicatorService
                SUM(cited_by)                 AS total_citations,
                AVG(COALESCE(cited_by, 0))    AS avg_citations,
                MAX(cited_by)                 AS max_citations,
-               COUNT(DISTINCT source_title)  AS total_sources,
+               COUNT(DISTINCT NULLIF(source_title, \'\')) AS total_sources,
                COUNT(DISTINCT year)          AS total_years,
                MIN(year)                     AS min_year,
                MAX(year)                     AS max_year,

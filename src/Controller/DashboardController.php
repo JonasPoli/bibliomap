@@ -53,7 +53,8 @@ class DashboardController extends AbstractController
     {
         $project = $this->getProject($id);
         $limit = min((int)($request->query->get('limit', 20)), 100);
-        return $this->json($this->indicators->topAuthors($project->getId(), $limit));
+        $sort = $request->query->get('sort') === 'citations' ? 'citations' : 'docs';
+        return $this->json($this->indicators->topAuthors($project->getId(), $limit, $sort));
     }
 
     #[Route('/data/top-sources', name: 'app_dashboard_top_sources', methods: ['GET'])]

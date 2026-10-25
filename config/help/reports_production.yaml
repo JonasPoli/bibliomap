@@ -86,8 +86,8 @@ dashboard.citations:
 dashboard.top_authors:
   title: "Top autores"
   what: "Ranking dos 10 autores com mais documentos no projeto, com barra proporcional ao valor."
-  how: "O sistema busca os 15 autores com mais documentos (desempate por citações) e mostra os 10 primeiros. O botão **Citações** reordena esses mesmos autores pelas citações somadas. O CSV exporta os 15."
-  not: "O modo **Citações** não mostra os autores mais citados do corpus inteiro, só reordena os mais produtivos. Para isso, use o relatório **Autores** e ordene a coluna Citações. Cada coautor recebe crédito integral pelo documento (contagem completa)."
+  how: "Em **Documentos**, mostra os 10 autores com mais documentos (desempate por citações). Em **Citações**, busca os autores com mais citações somadas no corpus inteiro. O CSV exporta os 15 primeiros do modo selecionado."
+  not: "Não divide o crédito entre coautores: cada coautor recebe as citações inteiras do documento (contagem completa). Não mede impacto individual normalizado; para h-index e g-index por autor, use o relatório **Autores**."
   example: "Na lista de produtividade, \"Wolfert, S.\" aparece em 9º lugar com 12 documentos; ao clicar em Citações ele sobe para 1º porque seus artigos somam 2.400 citações."
 
 dashboard.top_sources:
@@ -420,8 +420,8 @@ report.sources.chart_top:
 report.sources.bradford:
   title: "Lei de Bradford"
   what: "Divide as fontes em 3 zonas com cerca de 1/3 dos documentos cada. A **Zona 1 (núcleo)** tem poucas revistas muito produtivas; a Zona 3 tem muitas revistas com poucos artigos cada."
-  how: "As fontes são ordenadas pelo número de documentos (desempate por citações) e somadas em sequência. Quando a soma atinge 1/3 do total, começa a Zona 2; ao atingir 2/3, começa a Zona 3. Passe o mouse no gráfico para ver o percentual de cada zona."
-  not: "Não avalia qualidade das revistas, só concentração. A fonte que ultrapassa o limite de 1/3 (ou 2/3) fica na zona anterior, então as zonas podem ter um pouco mais ou menos que 1/3. Fontes com o mesmo número de documentos podem cair em zonas diferentes."
+  how: "As fontes são ordenadas pelo número de documentos (desempate por citações) e somadas em sequência. Enquanto a soma acumulada (incluindo a própria fonte) fica até 33% do total, a fonte é Zona 1; até 67%, Zona 2; acima disso, Zona 3 — o mesmo corte do Bibliometrix. Passe o mouse no gráfico para ver o percentual de cada zona."
+  not: "Não avalia qualidade das revistas, só concentração. As zonas não têm exatamente 1/3 cada, porque uma fonte inteira não se divide entre zonas. A primeira fonte fica sempre na Zona 1, mesmo que sozinha passe de 33%. Fontes com o mesmo número de documentos podem cair em zonas diferentes."
   example: "Num corpus de 1.500 artigos: 12 revistas formam o núcleo (500 artigos), 110 a Zona 2 e 640 a Zona 3, uma proporção próxima de 1 : 9 : 53."
 
 report.sources.zone1:
