@@ -110,8 +110,8 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title"><i class="bi bi-upload me-2 text-accent"></i>Importar Base Bibliográfica</h1>
-    <p class="bm-page-subtitle">Passo 1 de 2 — Selecione o arquivo exportado da base de dados</p>
+    <h1 class="bm-page-title"><i class="bi bi-upload me-2 text-accent"></i>Importar Base Bibliográfica {{ help('import.index.page') }}</h1>
+    <p class="bm-page-subtitle">Passo 1 — Selecione o arquivo exportado da base. Com um único arquivo você confere uma prévia antes de importar.</p>
 </div>
 
 <div class="row">
@@ -122,7 +122,7 @@
             <form method="post" action="{{ path('app_import_upload', {projectId: project.id}) }}"
                   enctype="multipart/form-data" id="upload-form">
 
-                <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 20px">Selecionar arquivo</h3>
+                <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 20px">Selecionar arquivo(s) {{ help('import.index.file') }}</h3>
 
                 {# Drop zone #}
                 <div id="drop-zone"
@@ -133,21 +133,22 @@
                         Arraste os arquivos aqui ou <span style="color:var(--bm-accent)">clique para selecionar</span>
                     </div>
                     <div style="font-size:12px;color:var(--bm-text-muted)">
-                        Selecione um ou múltiplos arquivos: CSV, TXT (Web of Science), RIS, BibTeX, XLSX — até 500&nbsp;MB cada
+                        Um ou vários arquivos: Scopus (.csv) · Web of Science (.txt) · Lens.org (.csv) · PubMed (.nbib ou .csv) — até 500&nbsp;MB cada
                     </div>
                     <div id="file-info" style="display:none;margin-top:16px;padding:12px;background:rgba(79,142,247,0.1);border-radius:8px;border:1px solid rgba(79,142,247,0.2)">
                         <div id="file-name" style="font-size:14px;font-weight:500;color:var(--bm-accent)"></div>
                         <div id="file-size" style="font-size:12px;color:var(--bm-text-muted)"></div>
                     </div>
-                    <input type="file" id="file-input" name="file[]" accept=".csv,.txt,.ris,.bib,.xlsx,.json,.nbib"
+                    <input type="file" id="file-input" name="file[]" accept=".csv,.txt,.nbib"
                            style="position:absolute;inset:0;opacity:0;cursor:pointer" required multiple>
                 </div>
 
-                <div class="d-flex justify-content-end gap-3 mt-4">
+                <div class="d-flex justify-content-end align-items-center gap-3 mt-4">
                     <a href="{{ path('app_projects_show', {id: project.id}) }}" class="btn-bm-secondary">Cancelar</a>
                     <button type="submit" id="upload-btn" class="btn-bm-primary" disabled>
                         <i class="bi bi-arrow-right-circle me-1"></i>Próximo passo
                     </button>
+                    {{ help('import.index.next') }}
                 </div>
             </form>
         </div>
@@ -171,7 +172,7 @@
                     <i class="bi bi-question-circle" style="color:#d29922;font-size:15px"></i>
                 </div>
                 <div>
-                    <div style="font-size:14px;font-weight:700;color:var(--bm-text)">Como exportar o arquivo da minha base de dados?</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--bm-text)">Como exportar o arquivo da minha base de dados? {{ help('import.index.export_guide') }}</div>
                     <div style="font-size:12px;color:var(--bm-text-muted)">Selecione a base e siga o passo a passo</div>
                 </div>
             </div>
@@ -219,7 +220,7 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('scopus', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Scopus (Elsevier)</div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Scopus (Elsevier) {{ help('import.source.scopus') }}</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">scopus.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
                     </div>
                 </div>
@@ -251,7 +252,7 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('wos', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Web of Science (Clarivate)</div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Web of Science (Clarivate) {{ help('import.source.wos') }}</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">webofscience.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-txt">Plain Text (.txt)</span></div>
                     </div>
                 </div>
@@ -300,7 +301,7 @@
                 <div style="margin:20px 0 12px;padding:14px 16px;background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.18);border-radius:12px">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
                         <i class="bi bi-stack" style="color:var(--bm-accent);font-size:15px"></i>
-                        <strong style="font-size:13.5px;color:var(--bm-text)">Como exportar mais de 500 registros (em lotes)</strong>
+                        <strong style="font-size:13.5px;color:var(--bm-text)">Como exportar mais de 500 registros (em lotes)</strong> {{ help('import.index.wos_batches') }}
                     </div>
                     <p style="font-size:13px;color:var(--bm-text-muted);margin:0 0 10px;line-height:1.6">
                         O WoS limita cada exportação a <strong style="color:var(--bm-text)">500 registros por vez</strong>.
@@ -315,15 +316,15 @@
                         <span style="color:var(--bm-text-muted)">3º arquivo → e assim por diante…</span>
                     </div>
                     <p style="font-size:12.5px;color:var(--bm-text-muted);margin:10px 0 0;line-height:1.6">
-                        Importe cada arquivo separadamente no mesmo projeto. O BiblioMap faz a
-                        <strong style="color:var(--bm-text)">deduplicação automática</strong> entre os lotes, eliminando registros duplicados pelo hash título+ano.
+                        Importe todos os arquivos no mesmo projeto (pode selecioná-los juntos). O BiblioMap faz a
+                        <strong style="color:var(--bm-text)">deduplicação automática</strong> entre os lotes: ignora registros com o mesmo DOI ou, sem DOI, com o mesmo título e ano.
                     </p>
                 </div>
 
                 {# File format reference #}
                 <div style="margin-top:16px">
                     <div style="font-size:12px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
-                        Estrutura do arquivo gerado
+                        Estrutura do arquivo gerado {{ help('import.index.wos_structure') }}
                     </div>
                     <div style="font-family:'Fira Mono','Cascadia Code',monospace;font-size:11.5px;background:#060b14;border:1px solid #1e2d45;border-radius:10px;padding:14px 16px;line-height:1.8;overflow-x:auto">
                         <span style="color:#6a9955">FN Clarivate Analytics Web of Science</span><br>
@@ -360,7 +361,7 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('lens', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Lens.org</div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Lens.org {{ help('import.source.lens') }}</div>
                         <div style="font-size:12px;color:var(--bm-text-muted)">lens.org/scholar &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
                     </div>
                 </div>
@@ -383,8 +384,8 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('pubmed', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">PubMed (NCBI/NLM)</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">pubmed.ncbi.nlm.nih.gov &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">NBIB/RIS</span></div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">PubMed (NCBI/NLM) {{ help('import.source.pubmed') }}</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">pubmed.ncbi.nlm.nih.gov &nbsp;·&nbsp; Formatos aceitos: <span class="fmt-badge fmt-ris">PubMed/NBIB</span> <span class="fmt-badge fmt-csv" style="margin-left:4px">CSV</span></div>
                     </div>
                 </div>
                 <div class="step-note step-note-warn" style="margin-bottom:16px">
@@ -412,7 +413,7 @@
                 <div style="margin-top: 24px;">
                     <div style="font-size: 13.5px; font-weight: 700; color: var(--bm-text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                         <i class="bi bi-file-earmark-bar-graph text-accent"></i>
-                        Comparativo de Formatos de Exportação do PubMed
+                        Comparativo de Formatos de Exportação do PubMed {{ help('import.index.pubmed_formats') }}
                     </div>
                     <p style="font-size: 13px; color: var(--bm-text-muted); margin-bottom: 16px; line-height: 1.55;">
                         O PubMed permite exportar dados em diferentes formatos. Veja abaixo o que cada formato contém e escolha a melhor opção para a sua análise:
@@ -534,9 +535,13 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('openalex', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">OpenAlex</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">OpenAlex {{ help('import.source.openalex') }}</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; <span style="color:var(--bm-warning);font-weight:600">Ainda sem leitor no BiblioMap</span></div>
                     </div>
+                </div>
+                <div class="step-note step-note-warn" style="margin-bottom:16px">
+                    <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
+                    <span><strong style="color:#94a3b8">Atenção:</strong> o BiblioMap ainda não lê o CSV do OpenAlex — o arquivo é aceito no envio, mas a importação termina com 0 documentos. Por enquanto, exporte os mesmos registros do <strong>Scopus</strong>, <strong>Web of Science</strong>, <strong>Lens.org</strong> (gratuito) ou <strong>PubMed</strong>. Os passos abaixo ficam como referência.</span>
                 </div>
                 <ol class="step-list">
                     <li><div class="step-num">1</div><div class="step-text"><strong>Pela interface web:</strong> acesse <a href="https://openalex.org/works" target="_blank" style="color:var(--bm-accent)">openalex.org/works</a> e faça sua busca.</div></li>
@@ -562,13 +567,13 @@
                 <div class="src-header">
                     <div class="src-logo-box">{{ source_logo('crossref', 36) }}</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Crossref</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">crossref.org &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span> <span class="fmt-badge fmt-ris" style="margin-left:4px">RIS</span></div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Crossref {{ help('import.source.crossref') }}</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">crossref.org &nbsp;·&nbsp; <span style="color:var(--bm-warning);font-weight:600">Ainda sem leitor no BiblioMap</span></div>
                     </div>
                 </div>
                 <div class="step-note step-note-warn" style="margin-bottom:16px">
                     <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
-                    <span><strong style="color:#94a3b8">Importante:</strong> o Crossref não possui uma interface de busca/export direta para usuários finais. Os dados são acessados principalmente via API REST. Veja as opções abaixo.</span>
+                    <span><strong style="color:#94a3b8">Importante:</strong> o BiblioMap ainda não lê arquivos do Crossref (CSV, JSON ou RIS) — eles resultam em 0 documentos. A forma prática é exportar de Scopus ou WoS, que já trazem o DOI do Crossref (opção 3). As demais opções ficam como referência.</span>
                 </div>
                 <ol class="step-list">
                     <li><div class="step-num">1</div><div class="step-text">
@@ -629,8 +634,8 @@
                 <div class="src-header">
                     <div class="src-logo" style="background:#1e2d45;color:var(--bm-accent)">📄</div>
                     <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Qualquer outra base</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">Formatos universais aceitos: <span class="fmt-badge fmt-ris">RIS</span> <span class="fmt-badge fmt-bib" style="margin-left:4px">BibTeX</span> <span class="fmt-badge fmt-xlsx" style="margin-left:4px">XLSX</span> <span class="fmt-badge fmt-xml" style="margin-left:4px">XML</span></div>
+                        <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Qualquer outra base {{ help('import.source.other') }}</div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)">Formatos universais (<span class="fmt-badge fmt-ris">RIS</span> <span class="fmt-badge fmt-bib" style="margin-left:4px">BibTeX</span> <span class="fmt-badge fmt-xlsx" style="margin-left:4px">XLSX</span> <span class="fmt-badge fmt-xml" style="margin-left:4px">XML</span>) — <span style="color:var(--bm-warning);font-weight:600">ainda sem leitor no BiblioMap</span></div>
                     </div>
                 </div>
 
@@ -671,7 +676,7 @@
 
                 <div class="step-note step-note-tip">
                     <i class="bi bi-lightbulb" style="color:#3fb950;flex-shrink:0;margin-top:2px"></i>
-                    <span><strong style="color:#94a3b8">Não encontrou sua base?</strong> Se a base que você usa exporta em qualquer formato acima (RIS, BibTeX, CSV, XLSX, XML), o BiblioMap consegue importar. Caso tenha dúvidas, entre em contato com o administrador da plataforma informando o nome da base e o formato disponível.</span>
+                    <span><strong style="color:#94a3b8">Não encontrou sua base?</strong> Hoje o BiblioMap lê apenas Scopus (CSV), Web of Science (TXT), Lens.org (CSV) e PubMed (NBIB/CSV). Arquivos RIS, BibTeX, XLSX ou XML são aceitos no envio, mas resultam em 0 documentos. Se possível, refaça a busca numa dessas bases; para pedir um novo leitor, fale com o administrador informando o nome da base e o formato disponível.</span>
                 </div>
             </div>
 
@@ -683,33 +688,26 @@
         {# Quick reference sidebar #}
         <div class="bm-card mb-4">
             <h3 style="font-size:13px;font-weight:700;color:var(--bm-text);margin:0 0 16px;text-transform:uppercase;letter-spacing:.5px">
-                <i class="bi bi-check2-circle text-accent me-2"></i>Formatos suportados
+                <i class="bi bi-check2-circle text-accent me-2"></i>Formatos lidos {{ help('import.index.supported_formats') }}
             </h3>
-            {% for src_key, src in data_sources %}
-                {% if src_key != 'generic' %}
+            {% set readable = [
+                {key: 'scopus', fmt: 'CSV'},
+                {key: 'wos', fmt: 'TXT'},
+                {key: 'lens', fmt: 'CSV'},
+                {key: 'pubmed', fmt: 'NBIB/CSV'},
+            ] %}
+            {% for item in readable %}
                 <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
                     <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
-                        {{ source_logo(src_key, 16) }}
+                        {{ source_logo(item.key, 16) }}
                     </span>
-                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ src.label }}</div>
-                    <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">{{ src.formats|join('/')|upper }}</span>
+                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ data_sources[item.key].label|default(item.key) }}</div>
+                    <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">{{ item.fmt }}</span>
                 </div>
-                {% endif %}
             {% endfor %}
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
-                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📄</span>
-                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">RIS (universal)</div>
-                <span style="font-size:10.5px;font-weight:700;color:#4f8ef7;background:rgba(255,255,255,.04);border:1px solid #4f8ef733;padding:2px 8px;border-radius:5px">RIS</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
-                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📚</span>
-                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">BibTeX</div>
-                <span style="font-size:10.5px;font-weight:700;color:#a855f7;background:rgba(255,255,255,.04);border:1px solid #a855f733;padding:2px 8px;border-radius:5px">BIB</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0">
-                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📊</span>
-                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">Excel</div>
-                <span style="font-size:10.5px;font-weight:700;color:#10b981;background:rgba(255,255,255,.04);border:1px solid #10b98133;padding:2px 8px;border-radius:5px">XLSX</span>
+            <div style="font-size:11px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Ainda sem leitor</div>
+            <div style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6">
+                OpenAlex, Crossref, RIS, BibTeX, XLSX, XML e JSON — o envio é aceito, mas nenhum documento é criado.
             </div>
         </div>
 
@@ -732,7 +730,7 @@
                 </li>
                 <li style="padding:6px 0;display:flex;gap:8px">
                     <i class="bi bi-check-lg" style="color:var(--bm-success);flex-shrink:0;margin-top:2px"></i>
-                    O BiblioMap faz <strong style="color:var(--bm-text)">deduplicação automática</strong> entre datasets
+                    <span>O BiblioMap faz <strong style="color:var(--bm-text)">deduplicação automática</strong> entre arquivos do mesmo projeto {{ help('import.dedup') }}</span>
                 </li>
             </ul>
         </div>

@@ -19,7 +19,7 @@
 {% block body %}
 <div class="bm-page-header d-flex align-items-center justify-content-between">
     <div>
-        <h1 class="bm-page-title"><i class="bi bi-database me-2 text-accent"></i>Bases importadas</h1>
+        <h1 class="bm-page-title"><i class="bi bi-database me-2 text-accent"></i>Bases importadas {{ help('dataset.index.page') }}</h1>
         <p class="bm-page-subtitle">{{ datasets|length }} importação{{ datasets|length != 1 ? 'ões' : '' }} no projeto "{{ project.title }}"</p>
     </div>
 </div>
@@ -29,7 +29,7 @@
         <div style="font-size:64px;margin-bottom:16px">📭</div>
         <h2 style="font-size:20px;font-weight:600;color:var(--bm-text);margin:0 0 8px">Nenhuma base importada ainda</h2>
         <p style="color:var(--bm-text-muted);font-size:14px;margin:0 0 28px;max-width:360px;margin-left:auto;margin-right:auto">
-            Importe um arquivo CSV, RIS ou BibTeX para começar a análise bibliométrica.
+            Importe o arquivo exportado do Scopus (CSV), Web of Science (TXT), Lens.org (CSV) ou PubMed (CSV/NBIB) para começar a análise bibliométrica.
         </p>
         <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-primary" style="display:inline-flex;align-items:center;gap:8px">
             <i class="bi bi-upload"></i>Importar primeira base
@@ -49,19 +49,19 @@
         <div class="col-6 col-md-3">
             <div class="bm-stat-card text-center">
                 <div class="bm-stat-value">{{ datasets|length }}</div>
-                <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Importações</div>
+                <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Importações {{ help('dataset.index.kpi_imports') }}</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="bm-stat-card text-center">
                 <div class="bm-stat-value">{{ totalRecords|number_format }}</div>
-                <div class="bm-stat-label"><i class="bi bi-list-ul me-1"></i>Registros totais</div>
+                <div class="bm-stat-label"><i class="bi bi-list-ul me-1"></i>Registros totais {{ help('dataset.index.kpi_records') }}</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="bm-stat-card text-center">
                 <div class="bm-stat-value text-accent">{{ totalImported|number_format }}</div>
-                <div class="bm-stat-label"><i class="bi bi-check2-circle me-1"></i>Documentos únicos</div>
+                <div class="bm-stat-label"><i class="bi bi-check2-circle me-1"></i>Documentos únicos {{ help('dataset.index.kpi_unique') }}</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
@@ -73,7 +73,7 @@
                     {% endif %}
                 {% endfor %}
                 <div class="bm-stat-value">{{ sources|length }}</div>
-                <div class="bm-stat-label"><i class="bi bi-database me-1"></i>Bases distintas</div>
+                <div class="bm-stat-label"><i class="bi bi-database me-1"></i>Bases distintas {{ help('dataset.index.kpi_sources') }}</div>
             </div>
         </div>
     </div>
@@ -126,7 +126,7 @@
                     {% if dataset.duplicatedCount > 0 %}
                         <div style="text-align:center">
                             <div style="font-size:20px;font-weight:700;color:var(--bm-warning)">{{ dataset.duplicatedCount }}</div>
-                            <div style="font-size:10px;color:var(--bm-text-muted);text-transform:uppercase">Duplic.</div>
+                            <div style="font-size:10px;color:var(--bm-text-muted);text-transform:uppercase">Duplic.{% if loop.first %} {{ help('dataset.show.duplicates') }}{% endif %}</div>
                         </div>
                     {% endif %}
                 </div>
@@ -137,7 +137,7 @@
                         <div style="height:4px;background:var(--bm-border);border-radius:2px;overflow:hidden;margin-bottom:4px">
                             <div style="height:100%;background:var(--bm-success);width:{{ dataset.successRate }}%"></div>
                         </div>
-                        <div style="font-size:11px;color:var(--bm-text-muted);text-align:center">{{ dataset.successRate }}%</div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);text-align:center">{{ dataset.successRate }}%{% if loop.first %} {{ help('dataset.show.success_rate') }}{% endif %}</div>
                     </div>
                 {% endif %}
 
@@ -147,7 +147,7 @@
                        class="btn-bm-secondary" style="font-size:12px;padding:5px 10px" title="Editar">
                         <i class="bi bi-pencil"></i>
                     </a>
-                    <button onclick="confirmDelete({{ dataset.id }}, '{{ dataset.name|e('js') }}')"
+                    <button type="button" onclick="confirmDelete({{ dataset.id }}, '{{ dataset.name|e('js') }}', {{ dataset.importedCount }})"
                             style="background:transparent;border:1px solid rgba(248,81,73,0.4);color:var(--bm-danger);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer" title="Excluir">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -167,8 +167,8 @@
 {% endfor %}
 
 <script>
-function confirmDelete(id, name) {
-    if (confirm('Excluir o dataset "' + name + '"?\n\nTodos os ' + name + ' documentos associados serão removidos permanentemente.')) {
+function confirmDelete(id, name, count) {
+    if (confirm('Excluir a importação "' + name + '"?\n\nOs ' + count.toLocaleString('pt-BR') + ' documentos gravados por ela serão removidos permanentemente. Registros de outros arquivos que foram ignorados como duplicados destes não voltam sozinhos.')) {
         document.getElementById('delete-form-' + id).submit();
     }
 }

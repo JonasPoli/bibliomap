@@ -10,7 +10,7 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title"><i class="bi bi-person-gear me-2 text-accent"></i>Editar Perfil</h1>
+    <h1 class="bm-page-title"><i class="bi bi-person-gear me-2 text-accent"></i>Editar Perfil {{ help('profile.page') }}</h1>
     <p class="bm-page-subtitle">Gerencie suas informações cadastrais e credenciais de acesso</p>
 </div>
 
@@ -32,7 +32,7 @@
             
             <div style="display:flex;flex-direction:column;gap:8px;padding:16px 0;border-top:1px solid var(--bm-border);border-bottom:1px solid var(--bm-border);margin:16px 0">
                 <div class="d-flex justify-content-between font-size-13" style="font-size:13px">
-                    <span style="color:var(--bm-text-muted)">Tipo de Conta:</span>
+                    <span style="color:var(--bm-text-muted)">Tipo de Conta: {{ help('profile.account_type') }}</span>
                     <span style="font-weight:600;color:var(--bm-accent)">
                         {% if is_granted('ROLE_ADMIN') %}
                             Administrador
@@ -76,25 +76,25 @@
                 <div class="row g-3">
                     {# Name #}
                     <div class="col-12 col-md-6">
-                        <label for="inputName" class="form-label">Nome Completo <span style="color:var(--bm-danger)">*</span></label>
+                        <label for="inputName" class="form-label">Nome Completo <span style="color:var(--bm-danger)">*</span></label> {{ help('profile.name') }}
                         <input type="text" id="inputName" name="name" class="form-control" value="{{ user.name }}" required>
                     </div>
 
                     {# Email #}
                     <div class="col-12 col-md-6">
-                        <label for="inputEmail" class="form-label">E-mail de Acesso <span style="color:var(--bm-danger)">*</span></label>
+                        <label for="inputEmail" class="form-label">E-mail de Acesso <span style="color:var(--bm-danger)">*</span></label> {{ help('profile.email') }}
                         <input type="email" id="inputEmail" name="email" class="form-control" value="{{ user.email }}" required>
                     </div>
 
                     {# Institution #}
                     <div class="col-12 col-md-6">
-                        <label for="inputInstitution" class="form-label">Instituição de Vínculo</label>
+                        <label for="inputInstitution" class="form-label">Instituição de Vínculo</label> {{ help('profile.institution') }}
                         <input type="text" id="inputInstitution" name="institution" class="form-control" placeholder="Universidade, Organização..." value="{{ user.institution }}">
                     </div>
 
                     {# Country #}
                     <div class="col-12 col-md-6">
-                        <label for="inputCountry" class="form-label">País</label>
+                        <label for="inputCountry" class="form-label">País</label> {{ help('profile.country') }}
                         <input type="text" id="inputCountry" name="country" class="form-control" placeholder="Brasil, Portugal..." value="{{ user.country }}">
                     </div>
                 </div>
@@ -111,8 +111,8 @@
                 <div class="row g-3">
                     {# New Password #}
                     <div class="col-12 col-md-6">
-                        <label for="inputPassword" class="form-label">Nova Senha</label>
-                        <input type="password" id="inputPassword" name="plainPassword" class="form-control" placeholder="Mínimo de 6 caracteres">
+                        <label for="inputPassword" class="form-label">Nova Senha</label> {{ help('profile.password') }}
+                        <input type="password" id="inputPassword" name="plainPassword" class="form-control" placeholder="Mínimo de 6 caracteres" autocomplete="new-password">
                         <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
                             <i class="bi bi-info-circle me-1"></i> Deixe em branco se não desejar alterar a senha.
                         </div>
@@ -120,8 +120,8 @@
 
                     {# Confirm New Password #}
                     <div class="col-12 col-md-6">
-                        <label for="inputConfirmPassword" class="form-label">Confirmar Nova Senha</label>
-                        <input type="password" id="inputConfirmPassword" name="confirmPassword" class="form-control" placeholder="Repita a nova senha">
+                        <label for="inputConfirmPassword" class="form-label">Confirmar Nova Senha</label> {{ help('profile.password_confirm') }}
+                        <input type="password" id="inputConfirmPassword" name="confirmPassword" class="form-control" placeholder="Repita a nova senha" autocomplete="new-password">
                     </div>
                 </div>
 

@@ -12,7 +12,7 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title">Editar Projeto</h1>
+    <h1 class="bm-page-title">Editar Projeto {{ help('project.form.page_edit') }}</h1>
     <p class="bm-page-subtitle">{{ project.title }}</p>
 </div>
 
@@ -26,16 +26,16 @@
             </h3>
 
             <div class="mb-3">
-                {{ form_label(form.title) }}
+                {{ form_label(form.title) }} {{ help('project.form.title') }}
                 {{ form_widget(form.title, {attr: {class: 'form-control'}}) }}
                 {{ form_errors(form.title) }}
             </div>
             <div class="mb-3">
-                {{ form_label(form.description) }}
+                {{ form_label(form.description) }} {{ help('project.form.description') }}
                 {{ form_widget(form.description, {attr: {class: 'form-control'}}) }}
             </div>
             <div class="mb-4">
-                {{ form_label(form.researchQuestion) }}
+                {{ form_label(form.researchQuestion) }} {{ help('project.form.research_question') }}
                 {{ form_widget(form.researchQuestion, {attr: {class: 'form-control'}}) }}
             </div>
 
@@ -44,12 +44,12 @@
             </h3>
 
             <div class="mb-4">
-                {{ form_label(form.searchString) }}
+                {{ form_label(form.searchString) }} {{ help('project.form.search_string') }}
                 {{ form_widget(form.searchString, {attr: {class: 'form-control', style: 'font-family: JetBrains Mono, monospace; font-size: 13px;'}}) }}
             </div>
 
             <div class="mb-4">
-                <label class="form-label">Bases de dados</label>
+                <label class="form-label">Bases de dados utilizadas</label> {{ help('project.form.database_sources') }}
                 <div style="display:flex;flex-wrap:wrap;gap:10px">
                     {% for child in form.databaseSources %}
                         <div style="display:flex;align-items:center;gap:6px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 14px;cursor:pointer"
@@ -63,17 +63,17 @@
 
             <div class="row mb-4">
                 <div class="col-6">
-                    {{ form_label(form.startYear) }}
+                    {{ form_label(form.startYear) }} {{ help('project.form.start_year') }}
                     {{ form_widget(form.startYear, {attr: {class: 'form-control'}}) }}
                 </div>
                 <div class="col-6">
-                    {{ form_label(form.endYear) }}
+                    {{ form_label(form.endYear) }} {{ help('project.form.end_year') }}
                     {{ form_widget(form.endYear, {attr: {class: 'form-control'}}) }}
                 </div>
             </div>
 
             <h3 style="font-size:14px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--bm-border)">
-                Visibilidade
+                Visibilidade {{ help('project.form.visibility') }}
             </h3>
 
             <div class="mb-4">
@@ -103,8 +103,8 @@
                 <!-- Arquivar -->
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                     <div style="flex:1; min-width:250px">
-                        <h4 style="font-size:14px;font-weight:600;margin:0 0 4px">Arquivar este projeto</h4>
-                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">O projeto será ocultado da listagem principal, mas poderá ser reativado a qualquer momento.</p>
+                        <h4 style="font-size:14px;font-weight:600;margin:0 0 4px">Arquivar este projeto {{ help('project.edit.archive') }}</h4>
+                        <p style="font-size:13px;color:var(--bm-text-muted);margin:0">O projeto sai da lista "Meus Projetos", mas nada é apagado e ele continua acessível pelo link direto.</p>
                     </div>
                     <form method="post" action="{{ path('app_projects_archive', {id: project.id}) }}"
                           onsubmit="return confirm('Tem certeza que deseja arquivar este projeto?')">
@@ -120,7 +120,7 @@
                 <!-- Excluir permanentemente -->
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3" style="padding-top:16px; border-top:1px solid rgba(248,81,73,0.15)">
                     <div style="flex:1; min-width:250px">
-                        <h4 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 4px">Excluir projeto permanentemente</h4>
+                        <h4 style="font-size:14px;font-weight:600;color:var(--bm-danger);margin:0 0 4px">Excluir projeto permanentemente {{ help('project.edit.delete') }}</h4>
                         <p style="font-size:13px;color:var(--bm-text-muted);margin:0">Apaga permanentemente o projeto, todas as bases de dados, documentos importados e dados associados. <strong>Esta ação não pode ser desfeita.</strong></p>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal" style="padding:6px 16px;border-radius:8px;font-size:13px;font-weight:500;">

@@ -54,7 +54,7 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title">Editar metadados da importação</h1>
+    <h1 class="bm-page-title">Editar metadados da importação {{ help('dataset.edit.page') }}</h1>
     <p class="bm-page-subtitle">{{ dataset.originalFilename }} · {{ dataset.sourceLabel }}</p>
 </div>
 
@@ -64,7 +64,7 @@
             <form method="post">
 
                 <div class="mb-4">
-                    <label class="form-label" for="name">Nome da importação</label>
+                    <label class="form-label" for="name">Nome da importação</label> {{ help('dataset.edit.name') }}
                     <input type="text" id="name" name="name" class="form-control"
                            value="{{ dataset.name }}" placeholder="Ex: Scopus — busca inicial 2024" required>
                     <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
@@ -73,13 +73,13 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label" for="description">Descrição</label>
+                    <label class="form-label" for="description">Descrição</label> {{ help('dataset.edit.description') }}
                     <textarea id="description" name="description" class="form-control" rows="4"
                               placeholder="Descreva a string de busca usada, filtros aplicados, data de acesso à base...">{{ dataset.description }}</textarea>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label" for="source-picker">Base de dados de origem</label>
+                    <label class="form-label">Base de dados de origem</label> {{ help('dataset.edit.source') }}
                     <div id="source-picker" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
                         {% for src_key, src in data_sources %}
                             {% if src_key != 'generic' %}
@@ -107,7 +107,7 @@
 
                 <div class="row mb-4">
                     <div class="col-6">
-                        <label class="form-label" for="search_period_start">Período de busca — início</label>
+                        <label class="form-label" for="search_period_start">Período de busca — início</label> {{ help('dataset.edit.search_period') }}
                         <input type="date" id="search_period_start" name="search_period_start" class="form-control"
                                value="{{ dataset.searchPeriodStart ? dataset.searchPeriodStart|date('Y-m-d') : '' }}">
                     </div>
@@ -117,7 +117,7 @@
                                value="{{ dataset.searchPeriodEnd ? dataset.searchPeriodEnd|date('Y-m-d') : '' }}">
                     </div>
                     <div class="col-12 mt-1" style="font-size:11px;color:var(--bm-text-muted)">
-                        Período de cobertura temporal da busca realizada na base de dados.
+                        Período de cobertura temporal da busca realizada na base de dados (apenas documentação; não filtra documentos).
                     </div>
                 </div>
 
@@ -136,7 +136,7 @@
     <div class="col-12 col-lg-5">
         <div class="bm-card" style="position:sticky;top:calc(var(--bm-topbar-height) + 20px)">
             <h3 style="font-size:13px;font-weight:600;color:var(--bm-text);margin:0 0 14px">
-                <i class="bi bi-info-circle text-accent me-2"></i>Informações do arquivo
+                <i class="bi bi-info-circle text-accent me-2"></i>Informações do arquivo {{ help('dataset.edit.file_info') }}
             </h3>
             <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
                 <div style="display:flex;justify-content:space-between">
@@ -152,7 +152,7 @@
                     <span style="color:var(--bm-text)">{{ dataset.fileSizeFormatted }}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between">
-                    <span style="color:var(--bm-text-muted)">Importado em</span>
+                    <span style="color:var(--bm-text-muted)">Enviado em</span>
                     <span style="color:var(--bm-text)">{{ dataset.createdAt|date('d/m/Y H:i') }}</span>
                 </div>
                 <div style="border-top:1px solid var(--bm-border);padding-top:10px;margin-top:4px">
@@ -166,7 +166,7 @@
                     </div>
                     <div style="display:flex;justify-content:space-between">
                         <span style="color:var(--bm-warning)">Duplicados</span>
-                        <strong style="color:var(--bm-warning)">{{ dataset.duplicatedCount }}</strong>
+                        <strong style="color:var(--bm-warning)">{{ dataset.duplicatedCount|number_format }}</strong>
                     </div>
                 </div>
             </div>

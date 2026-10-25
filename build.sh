@@ -244,11 +244,13 @@ fi
 
 # ── 11. Migrations pendentes ──────────────────────────────────────────────────
 step "Verificando migrations pendentes..."
-PENDING=$($BIN doctrine:migrations:status --no-ansi 2>/dev/null | grep -c "New Migrations" || echo "0")
-if echo "$PENDING" | grep -q "^0$"; then
+# Linha "| | New | N |" da tabela de status do Doctrine Migrations 3.x
+PENDING=$($BIN doctrine:migrations:status --no-ansi 2>/dev/null | awk -F'|' '$3 ~ /^ *New *$/ {gsub(/ /, "", $4); print $4}')
+PENDING=${PENDING:-0}
+if [ "$PENDING" = "0" ]; then
     ok "Nenhuma migration pendente"
 else
-    warn "Há migrations pendentes — execute: $PHP bin/console doctrine:migrations:migrate"
+    warn "Há ${PENDING} migration(s) pendente(s) — execute: $PHP bin/console doctrine:migrations:migrate"
 fi
 
 # ── Rodapé ────────────────────────────────────────────────────────────────────

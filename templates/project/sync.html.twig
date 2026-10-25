@@ -15,26 +15,26 @@
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-arrow-repeat text-accent me-2"></i>
-        Sincronização de Dados e Metadados
+        Sincronização de Dados e Metadados {{ help('sync.page') }}
     </h1>
-    <p class="bm-page-subtitle">Reconcilie filiações, países, autores e palavras-chave brutos com os registros cadastrados na plataforma.</p>
+    <p class="bm-page-subtitle">Vincule afiliações, países e revistas (Qualis) dos documentos aos cadastros da plataforma e veja o que ainda não foi reconhecido.</p>
 </div>
 
 <div class="row g-4">
     <!-- Sidebar Control Card -->
     <div class="col-lg-4">
         <div class="bm-card mb-4">
-            <h5 style="font-weight:700" class="mb-3">Ações de Sincronismo</h5>
+            <h5 style="font-weight:700" class="mb-3">Ações de Sincronismo {{ help('sync.actions') }}</h5>
             <p style="font-size:13px;color:var(--bm-text-muted)">
-                Esta ação mapeia automaticamente todos os vínculos de instituições, países, autores e palavras-chave do projeto usando as regras e variações cadastradas.
+                Refaz, para o projeto inteiro, os vínculos com instituições, organizações, países e Qualis usando as variações cadastradas. Rode após cada importação.
             </p>
             <div class="p-3 mb-3 border-bm bg-bm-card rounded-3" style="font-size:12.5px">
                 <div class="d-flex justify-between mb-2">
-                    <span class="text-muted-bm">Documentos no Projeto:</span>
+                    <span class="text-muted-bm">Documentos no Projeto: {{ help('sync.doc_count') }}</span>
                     <strong class="ms-auto">{{ doc_count }}</strong>
                 </div>
                 <div class="d-flex justify-between mb-2">
-                    <span class="text-muted-bm">Último Sincronismo:</span>
+                    <span class="text-muted-bm">Último Sincronismo: {{ help('sync.last_run') }}</span>
                     <strong class="ms-auto text-accent">
                         {% if report %}
                             Concluído ({{ report.execution_time }}s)
@@ -47,9 +47,12 @@
             
             <form action="{{ path('app_project_sync_run', {id: project.id}) }}" method="POST" onsubmit="showLoading()">
                 <input type="hidden" name="_token" value="{{ csrf_token('sync_data_' ~ project.id) }}">
-                <button type="submit" class="btn-bm-primary w-100" id="btn-sync">
-                    <i class="bi bi-play-fill me-1"></i> Executar Sincronismo
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="submit" class="btn-bm-primary w-100" id="btn-sync">
+                        <i class="bi bi-play-fill me-1"></i> Executar Sincronismo
+                    </button>
+                    {{ help('sync.run') }}
+                </div>
             </form>
         </div>
 
@@ -70,37 +73,37 @@
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value text-accent" style="font-size:19px;font-weight:800">{{ report.matched_institutions_count }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">Inst.</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Inst. {{ help('sync.kpi_institutions') }}</div>
                     </div>
                 </div>
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value text-success" style="font-size:19px;font-weight:800">{{ report.matched_countries_count }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">Países</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Países {{ help('sync.kpi_countries') }}</div>
                     </div>
                 </div>
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value text-info" style="font-size:19px;font-weight:800">{{ report.matched_organizations_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">Org.</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Org. {{ help('sync.kpi_organizations') }}</div>
                     </div>
                 </div>
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value text-warning" style="font-size:19px;font-weight:800">{{ report.matched_units_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">Unidades</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Unidades {{ help('sync.kpi_units') }}</div>
                     </div>
                 </div>
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value" style="font-size:19px;font-weight:800;color:var(--bm-text)">{{ report.matched_authors_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">Autores</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">Autorias {{ help('sync.kpi_authors') }}</div>
                     </div>
                 </div>
                 <div class="col-md-2 col-6">
                     <div class="bm-stat-card text-center p-2 border-bm rounded-3" style="background:var(--bm-card-bg)">
                         <div class="bm-stat-value text-danger" style="font-size:19px;font-weight:800">{{ report.matched_keywords_count|default(0) }}</div>
-                        <div class="bm-stat-label text-muted" style="font-size:10px">P. Chave</div>
+                        <div class="bm-stat-label text-muted" style="font-size:10px">P. Chave {{ help('sync.kpi_keywords') }}</div>
                     </div>
                 </div>
             </div>
@@ -145,11 +148,12 @@
                     <div class="tab-pane fade show active" id="unresolved-inst" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
-                                <i class="bi bi-info-circle"></i> Filiações não mapeadas. Vincule novas variações no painel de instituições.
+                                <i class="bi bi-info-circle"></i> Afiliações não reconhecidas (até 100 mais frequentes). Peça ao administrador para cadastrá-las como variação e rode o sincronismo de novo. {{ help('sync.unresolved_institutions') }}
                             </div>
                             <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'institutions'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
+                            {{ help('sync.export_csv') }}
                         </div>
                         <div class="table-responsive" style="max-height:400px;overflow-y:auto">
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
@@ -181,11 +185,12 @@
                     <div class="tab-pane fade" id="unresolved-countries" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
-                                <i class="bi bi-info-circle"></i> Países não mapeados. Vincule variações na tela geográfica dos países.
+                                <i class="bi bi-info-circle"></i> Países não reconhecidos. Peça ao administrador para cadastrar a variação e rode o sincronismo de novo. {{ help('sync.unresolved_countries') }}
                             </div>
                             <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'countries'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
+                            {{ help('sync.export_csv') }}
                         </div>
                         <div class="table-responsive" style="max-height:400px;overflow-y:auto">
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
@@ -217,11 +222,12 @@
                     <div class="tab-pane fade" id="unresolved-authors" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
-                                <i class="bi bi-info-circle"></i> Autores pendentes de normalização. Vincule variações na área de Autores do Admin.
+                                <i class="bi bi-info-circle"></i> Nomes marcados como suspeitos na importação (uma palavra, números ou cara de instituição). Continuam nas análises. {{ help('sync.unresolved_authors') }}
                             </div>
                             <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'authors'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
+                            {{ help('sync.export_csv') }}
                         </div>
                         <div class="table-responsive" style="max-height:400px;overflow-y:auto">
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
@@ -253,11 +259,12 @@
                     <div class="tab-pane fade" id="unresolved-keywords" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
-                                <i class="bi bi-info-circle"></i> Palavras-chave pendentes de mapeamento. Vincule variações na área de Palavras-chave do Admin.
+                                <i class="bi bi-info-circle"></i> Termos marcados como suspeitos na importação (com números ou com cara de nome de pessoa). Continuam nas análises. {{ help('sync.unresolved_keywords') }}
                             </div>
                             <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'keywords'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
+                            {{ help('sync.export_csv') }}
                         </div>
                         <div class="table-responsive" style="max-height:400px;overflow-y:auto">
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
@@ -289,11 +296,12 @@
                     <div class="tab-pane fade" id="unresolved-journals" role="tabpanel">
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <div class="alert bm-alert alert-info py-2 m-0 flex-grow-1" style="font-size:12px">
-                                <i class="bi bi-info-circle"></i> Periódicos/Revistas que não foram encontrados no banco do Qualis CAPES.
+                                <i class="bi bi-info-circle"></i> Periódicos não encontrados no Qualis CAPES (a ligação é feita pelo ISSN). {{ help('sync.unresolved_journals') }}
                             </div>
                             <a href="{{ path('app_project_sync_export_unmatched', {id: project.id, type: 'journals'}) }}" class="btn btn-sm btn-outline-success" style="text-decoration:none">
                                 <i class="bi bi-download me-1"></i> Exportar CSV
                             </a>
+                            {{ help('sync.export_csv') }}
                         </div>
                         <div class="table-responsive" style="max-height:400px;overflow-y:auto">
                             <table class="table table-hover align-middle border-bm mb-0" style="font-size:13px">
@@ -320,6 +328,7 @@
                                                 </td>
                                                 <td style="text-align:right;font-weight:700">{{ count }}</td>
                                                 <td style="text-align:right">
+                                                    {% if is_granted('ROLE_ADMIN') %}
                                                     <a href="{{ path('app_admin_journals_new', {title: title, issn: issn}) }}" 
                                                        class="btn btn-sm btn-bm-primary py-1 px-2" 
                                                        style="font-size:11px; text-decoration:none"
@@ -327,6 +336,9 @@
                                                        title="Cadastrar esta revista com o Qualis correspondente">
                                                         <i class="bi bi-plus-lg me-1"></i> Cadastrar
                                                     </a>
+                                                    {% else %}
+                                                    <span class="text-muted-bm" style="font-size:11px">—</span>
+                                                    {% endif %}
                                                 </td>
                                             </tr>
                                         {% endfor %}
@@ -338,6 +350,9 @@
 
                     <!-- Tab 5: Resolved Stats -->
                     <div class="tab-pane fade" id="resolved" role="tabpanel">
+                        <div class="alert bm-alert alert-info py-2 mb-3" style="font-size:12px">
+                            <i class="bi bi-info-circle"></i> Itens reconhecidos, com o número de artigos de cada um (até 100 por lista). {{ help('sync.resolved') }}
+                        </div>
                         <div class="row g-4">
                             <!-- Institutions -->
                             <div class="col-md-6">
@@ -464,7 +479,7 @@
                 <i class="bi bi-cloud-arrow-up text-accent mb-3" style="font-size:48px"></i>
                 <h4 style="font-weight:700">Nenhum sincronismo executado</h4>
                 <p class="text-muted-bm mx-auto" style="max-width:460px;font-size:13.5px">
-                    Os metadados dos artigos ainda não foram reconciliados com a base de dados oficial. Clique em **Executar Sincronismo** para realizar os mapeamentos.
+                    Os metadados dos artigos ainda não foram reconciliados com a base de dados oficial. Clique em <strong>Executar Sincronismo</strong> para realizar os mapeamentos.
                 </p>
             </div>
         {% endif %}

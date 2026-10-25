@@ -11,7 +11,7 @@
         </div>
 
         <div style="background:var(--bm-card-bg);border:1px solid var(--bm-border);border-radius:16px;padding:32px">
-            <h2 style="font-size:18px;font-weight:600;color:var(--bm-text);margin:0 0 24px">Criar nova conta</h2>
+            <h2 style="font-size:18px;font-weight:600;color:var(--bm-text);margin:0 0 24px">Criar nova conta {{ help('register.page') }}</h2>
 
             {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
 
@@ -25,27 +25,27 @@
                 {% endfor %}
 
                 <div class="mb-3">
-                    {{ form_label(form.name) }}
+                    {{ form_label(form.name) }} {{ help('register.name') }}
                     {{ form_widget(form.name, {attr: {class: 'form-control', autocomplete: 'name'}}) }}
                 </div>
 
                 <div class="mb-3">
-                    {{ form_label(form.email) }}
+                    {{ form_label(form.email) }} {{ help('register.email') }}
                     {{ form_widget(form.email, {attr: {class: 'form-control', autocomplete: 'email'}}) }}
                 </div>
 
                 <div class="mb-3">
-                    {{ form_label(form.institution) }}
+                    {{ form_label(form.institution) }} {{ help('register.institution') }}
                     {{ form_widget(form.institution, {attr: {class: 'form-control'}}) }}
                 </div>
 
                 <div class="mb-3">
-                    {{ form_label(form.plainPassword.first) }}
+                    {{ form_label(form.plainPassword.first) }} {{ help('register.password') }}
                     {{ form_widget(form.plainPassword.first, {attr: {class: 'form-control', autocomplete: 'new-password'}}) }}
                 </div>
 
                 <div class="mb-4">
-                    {{ form_label(form.plainPassword.second) }}
+                    {{ form_label(form.plainPassword.second) }} {{ help('register.password_confirm') }}
                     {{ form_widget(form.plainPassword.second, {attr: {class: 'form-control', autocomplete: 'new-password'}}) }}
                 </div>
 

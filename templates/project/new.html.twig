@@ -10,7 +10,7 @@
 
 {% block body %}
 <div class="bm-page-header">
-    <h1 class="bm-page-title">Novo Projeto Bibliométrico</h1>
+    <h1 class="bm-page-title">Novo Projeto Bibliométrico {{ help('project.form.page_new') }}</h1>
     <p class="bm-page-subtitle">Preencha as informações do seu estudo bibliométrico</p>
 </div>
 
@@ -24,18 +24,18 @@
             </h3>
 
             <div class="mb-3">
-                {{ form_label(form.title) }}
+                {{ form_label(form.title) }} {{ help('project.form.title') }}
                 {{ form_widget(form.title, {attr: {class: 'form-control'}}) }}
                 {{ form_errors(form.title) }}
             </div>
 
             <div class="mb-3">
-                {{ form_label(form.description) }}
+                {{ form_label(form.description) }} {{ help('project.form.description') }}
                 {{ form_widget(form.description, {attr: {class: 'form-control'}}) }}
             </div>
 
             <div class="mb-4">
-                {{ form_label(form.researchQuestion) }}
+                {{ form_label(form.researchQuestion) }} {{ help('project.form.research_question') }}
                 {{ form_widget(form.researchQuestion, {attr: {class: 'form-control'}}) }}
                 <div style="font-size:12px;color:var(--bm-text-muted);margin-top:4px">
                     Ex: "Quais são as tendências de pesquisa em Inteligência Artificial aplicada à saúde nos últimos 10 anos?"
@@ -47,12 +47,12 @@
             </h3>
 
             <div class="mb-4">
-                {{ form_label(form.searchString) }}
+                {{ form_label(form.searchString) }} {{ help('project.form.search_string') }}
                 {{ form_widget(form.searchString, {attr: {class: 'form-control', style: 'font-family: JetBrains Mono, monospace; font-size: 13px;'}}) }}
             </div>
 
             <div class="mb-4">
-                <label class="form-label">Bases de dados</label>
+                <label class="form-label">Bases de dados utilizadas</label> {{ help('project.form.database_sources') }}
                 <div style="display:flex;flex-wrap:wrap;gap:10px">
                     {% for child in form.databaseSources %}
                         <div style="display:flex;align-items:center;gap:6px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:8px 14px;cursor:pointer"
@@ -66,17 +66,17 @@
 
             <div class="row mb-4">
                 <div class="col-6">
-                    {{ form_label(form.startYear) }}
+                    {{ form_label(form.startYear) }} {{ help('project.form.start_year') }}
                     {{ form_widget(form.startYear, {attr: {class: 'form-control'}}) }}
                 </div>
                 <div class="col-6">
-                    {{ form_label(form.endYear) }}
+                    {{ form_label(form.endYear) }} {{ help('project.form.end_year') }}
                     {{ form_widget(form.endYear, {attr: {class: 'form-control'}}) }}
                 </div>
             </div>
 
             <h3 style="font-size:14px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--bm-border)">
-                Visibilidade
+                Visibilidade {{ help('project.form.visibility') }}
             </h3>
 
             <div class="mb-4">
@@ -105,9 +105,9 @@
                 <i class="bi bi-info-circle text-accent me-2"></i>Dicas
             </h3>
             <ul style="font-size:13px;color:var(--bm-text-muted);padding-left:16px;margin:0;line-height:1.8">
-                <li>O título deve identificar claramente o tema da revisão</li>
-                <li>A string de busca pode ser copiada diretamente do banco de dados</li>
-                <li>Selecione todas as bases que você utilizou para importar dados</li>
+                <li>Só o título é obrigatório; o resto pode ser preenchido depois</li>
+                <li>Pergunta, string, bases e anos documentam o protocolo — não filtram os dados</li>
+                <li>Os documentos entram depois, em <strong>Importar dados</strong> (Scopus CSV, WoS TXT, Lens CSV, PubMed CSV/NBIB)</li>
                 <li>Projetos privados ficam visíveis apenas para você</li>
             </ul>
         </div>

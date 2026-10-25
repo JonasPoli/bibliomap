@@ -11,21 +11,25 @@
 {% endblock %}
 
 {% block topbar_actions %}
-<div class="d-inline-flex gap-2">
+<div class="d-inline-flex align-items-center gap-2">
     {% if tab == 'authors' %}
         <a href="{{ path('app_normalize_export_authors', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
             <i class="bi bi-download me-1"></i> Exportar Normatização
         </a>
-        <button class="btn btn-sm btn-bm-primary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importAuthorsModal">
+        {{ help('normalize.export_authors') }}
+        <button type="button" class="btn btn-sm btn-bm-primary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importAuthorsModal">
             <i class="bi bi-upload me-1"></i> Importar Normatização
         </button>
+        {{ help('normalize.import_authors') }}
     {% elseif tab == 'keywords' %}
         <a href="{{ path('app_normalize_export_keywords', {id: project.id}) }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
             <i class="bi bi-download me-1"></i> Exportar Normatização
         </a>
-        <button class="btn btn-sm btn-bm-primary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importKeywordsModal">
+        {{ help('normalize.export_keywords') }}
+        <button type="button" class="btn btn-sm btn-bm-primary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importKeywordsModal">
             <i class="bi bi-upload me-1"></i> Importar Normatização
         </button>
+        {{ help('normalize.import_keywords') }}
     {% endif %}
 </div>
 {% endblock %}
@@ -113,20 +117,11 @@
 {% endblock %}
 
 {% block body %}
-<!-- Flash Messages -->
-{% for type, messages in app.flashes %}
-    {% for msg in messages %}
-        <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }} alert-dismissible fade show mb-3" role="alert">
-            {{ msg }} <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
-        </div>
-    {% endfor %}
-{% endfor %}
-
 <!-- Page Header -->
 <div class="bm-page-header">
     <h1 class="bm-page-title">
         <i class="bi bi-magic me-2" style="color:var(--bm-accent)"></i>
-        Normalizar e Deduplicar
+        Normalizar e Deduplicar {{ help('normalize.page') }}
     </h1>
     <p class="bm-page-subtitle">Otimize a consistência dos seus dados bibliométricos eliminando duplicatas e unificando variações</p>
 </div>
@@ -152,22 +147,24 @@
     <div class="info-card">
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
-            Identificamos autores com nomes muito semelhantes (ex: <b>Silva, J.</b> e <b>Silva, J.A.</b>). 
-            A mesclagem atualizará todos os artigos associados ao autor descartado para o autor mantido e removerá o registro duplicado.
+            Autores com nomes quase iguais e as mesmas iniciais (ex.: <b>WILSON, PN</b> e <b>Wilson, PN</b>).
+            A mesclagem passa os artigos do autor da direita para o da esquerda e remove o cadastro duplicado — sem desfazer.
+            {{ help('normalize.authors.about') }}
         </div>
     </div>
 {% elseif tab == 'keywords' %}
     <div class="info-card" style="margin-bottom:12px">
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
-            Identificamos palavras-chave redundantes, plurais ou com pequenas variações de escrita. 
-            A mesclagem unifica a ocorrência de termos em todos os artigos, melhorando os gráficos de frequência e nuvens.
+            Palavras-chave redundantes, plurais ou com pequenas variações de escrita.
+            A mesclagem unifica as ocorrências em todos os artigos, melhorando rankings, nuvens e redes de coocorrência.
+            {{ help('normalize.keywords.about') }}
         </div>
     </div>
 
     <!-- Keyword Subfilter (Author vs Indexed) -->
     <div style="margin-bottom:20px; display:flex; gap:8px; align-items:center">
-        <span class="text-muted-bm" style="font-size:12.5px; font-weight:600">Origem do Termo:</span>
+        <span class="text-muted-bm" style="font-size:12.5px; font-weight:600">Origem do Termo: {{ help('normalize.keywords.type') }}</span>
         <div class="net-tabs">
             <a href="{{ path('app_normalize_index', {id: project.id, tab: 'keywords', kwType: 'author'}) }}" 
                class="net-tab {% if kwType == 'author' %}active{% endif %}" style="text-decoration:none">Autores</a>
@@ -179,8 +176,9 @@
     <div class="info-card">
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
-            Identificamos documentos com títulos altamente semelhantes publicados no mesmo ano. 
-            Ao mesclar, as informações serão combinadas, priorizando os campos mais completos e o maior número de citações.
+            Documentos do mesmo ano com títulos muito parecidos (até 100 pares por vez).
+            Ao mesclar, os campos vazios do documento mantido são completados com os do outro e fica o maior número de citações.
+            {{ help('normalize.duplicates.about') }}
         </div>
     </div>
 {% endif %}
@@ -190,8 +188,8 @@
     {% if suggestions is empty %}
         <div class="empty-state">
             <div class="empty-icon">🎉</div>
-            <h5 style="color:var(--bm-text)">Nenhum registro duplicado encontrado!</h5>
-            <p class="mb-0" style="font-size:13px">Seus dados nesta categoria estão 100% limpos e consistentes.</p>
+            <h5 style="color:var(--bm-text)">Nenhuma sugestão nesta aba</h5>
+            <p class="mb-0" style="font-size:13px">Nenhum par atingiu o critério de similaridade (85%). Isso não garante ausência de variações — sinônimos ou grafias muito diferentes não são detectados.</p>
         </div>
     {% else %}
         <!-- Batch Actions Bar -->
@@ -201,6 +199,7 @@
                     <span style="background:rgba(79,142,247,0.15);color:var(--bm-accent);padding:2px 10px;border-radius:10px;font-weight:700">
                         {{ suggestions|length }} sugestões
                     </span>
+                    {{ help('normalize.suggestions') }}
                     {% if suggestions|length >= 200 %}
                     <span style="margin-left:6px;color:var(--bm-warning);font-size:11px">
                         ⚠️ Pode haver mais após mesclar
@@ -210,13 +209,16 @@
                 <button type="button" class="btn btn-sm btn-bm-secondary d-flex align-items-center gap-1" onclick="selectCaseOnlyDiffs()">
                     <i class="bi bi-spellcheck"></i> Selecionar Diferenças de Caixa
                 </button>
+                {{ help('normalize.select_case') }}
                 <button type="button" class="btn btn-sm btn-bm-secondary d-flex align-items-center gap-1" onclick="selectPluralSingularDiffs()">
                     <i class="bi bi-intersect"></i> Selecionar Singular/Plural
                 </button>
+                {{ help('normalize.select_plural') }}
                 <button type="button" class="btn btn-sm d-flex align-items-center gap-1" onclick="mergeAllPerfect()"
                     style="font-size:12px;padding:4px 12px;border-radius:6px;border:1px solid rgba(63,185,80,0.4);background:rgba(63,185,80,0.1);color:var(--bm-success);font-weight:600">
                     <i class="bi bi-lightning-charge-fill"></i> Mesclar 100% Similares
                 </button>
+                {{ help('normalize.merge_perfect') }}
                 <button type="button" class="btn btn-sm btn-bm-secondary" onclick="selectAllSuggestions(true)">
                     Marcar Todos
                 </button>
@@ -225,9 +227,12 @@
                 </button>
             </div>
             <div id="batch-action-area" style="display:none">
-                <button type="button" class="btn btn-sm btn-bm-primary d-flex align-items-center gap-1" onclick="runBatchMerge()">
-                    <i class="bi bi-merge"></i> Mesclar Selecionados (<span id="batch-selected-count">0</span>)
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-bm-primary d-flex align-items-center gap-1" onclick="runBatchMerge()">
+                        <i class="bi bi-merge"></i> Mesclar Selecionados (<span id="batch-selected-count">0</span>)
+                    </button>
+                    {{ help('normalize.merge_selected') }}
+                </div>
             </div>
         </div>
 
@@ -248,7 +253,7 @@
                 
                 <!-- Left (Candidate to Keep) -->
                 <div class="entity-side">
-                    <span class="entity-role role-keep">Manter</span>
+                    <span class="d-flex align-items-center gap-1"><span class="entity-role role-keep">Manter</span>{% if loop.first %}{{ help('normalize.pair') }}{% endif %}</span>
                     {% if tab == 'authors' %}
                         <span class="entity-name">{{ sug.keep.name }}</span>
                         <span class="entity-meta"><i class="bi bi-file-earmark-text me-1"></i>{{ sug.keep.doc_count }} artigos</span>
@@ -623,7 +628,7 @@ function checkEmptyState() {
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importAuthorsModalLabel" style="font-weight:700">Importar Normatização de Autores</h5>
+                <h5 class="modal-title" id="importAuthorsModalLabel" style="font-weight:700">Importar Normatização de Autores {{ help('normalize.import_authors') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ path('app_normalize_import_authors', {id: project.id}) }}" method="POST" enctype="multipart/form-data">
@@ -651,7 +656,7 @@ function checkEmptyState() {
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-bm" style="background:var(--bm-card-bg);color:var(--bm-text)">
             <div class="modal-header border-bm">
-                <h5 class="modal-title" id="importKeywordsModalLabel" style="font-weight:700">Importar Normatização de Palavras-Chave</h5>
+                <h5 class="modal-title" id="importKeywordsModalLabel" style="font-weight:700">Importar Normatização de Palavras-Chave {{ help('normalize.import_keywords') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ path('app_normalize_import_keywords', {id: project.id}) }}" method="POST" enctype="multipart/form-data">

@@ -1,0 +1,771 @@
+# Ajuda contextual — importação, normalização/deduplicação e sincronização.
+# Prefixos: import., normalize., sync.
+# Cada entrada: title, what, how, not, example. Aceita **negrito** e quebras de linha.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Importar — passo 1 (envio do arquivo)
+# ─────────────────────────────────────────────────────────────────────────────
+
+import.index.page:
+  title: "Importar base bibliográfica"
+  what: |-
+    Traz para o projeto os registros exportados de uma base científica. Cada arquivo vira uma "importação"; os registros viram documentos, com autores, palavras-chave, periódico, ano, citações e afiliações.
+  how: |-
+    1) Exporte da base no formato indicado (veja o guia abaixo). 2) Arraste o arquivo aqui. 3) Com **um** arquivo, você vê uma prévia e confirma; com **vários**, eles entram direto na fila. O processamento roda em segundo plano.
+  not: |-
+    Não busca dados na internet nem nas bases por você. Formatos lidos hoje: **Scopus CSV**, **Web of Science TXT**, **Lens.org CSV** e **PubMed CSV/NBIB**. RIS, BibTeX, XLSX, JSON, OpenAlex e Crossref ainda não têm leitor e resultam em 0 documentos.
+  example: |-
+    Busca no Scopus com 1.540 resultados: exporte um único CSV com todos os campos, envie aqui, confira a prévia (base detectada: Scopus) e confirme.
+
+import.index.file:
+  title: "Selecionar arquivo(s)"
+  what: |-
+    Área para escolher os arquivos exportados das bases. Aceita um ou vários arquivos de uma vez.
+  how: |-
+    Arraste os arquivos para a área tracejada ou clique nela. Envie o arquivo **como veio da base**, sem abrir e salvar no Excel (isso altera colunas, separadores e acentos).
+  not: |-
+    Não junte exportações de bases diferentes num único arquivo e não renomeie as colunas do CSV: a base é reconhecida pelos nomes das colunas (ex.: "EID" e "Cited by" no Scopus) ou pelo cabeçalho "FN Clarivate" no WoS.
+  example: |-
+    4 arquivos savedrecs.txt do WoS (lotes de 500) podem ser selecionados juntos; cada um vira uma importação separada.
+
+import.index.next:
+  title: "Próximo passo"
+  what: |-
+    Envia os arquivos ao servidor e detecta a base de origem.
+  how: |-
+    **Um arquivo**: abre a prévia com os 10 primeiros registros para você conferir e confirmar. **Vários arquivos**: pula a prévia, cria uma importação por arquivo e as processa em segundo plano; você volta à página do projeto.
+  not: |-
+    No envio múltiplo não há chance de corrigir a base detectada antes de importar. Se tiver dúvida sobre o formato, envie um arquivo por vez.
+  example: |-
+    Primeiro envie o lote 1 do WoS sozinho e confira a prévia; estando certo, envie os lotes 2 a 6 de uma vez.
+
+import.index.export_guide:
+  title: "Como exportar da sua base"
+  what: |-
+    Passo a passo para gerar, em cada base, o arquivo no formato que o BiblioMap consegue ler.
+  how: |-
+    Clique na aba da sua base e siga os passos. Prefira sempre exportar **todos os campos** (resumo, palavras-chave, afiliações e referências), pois cada análise depende de um campo.
+  not: |-
+    Exportações "resumidas" (só título e autores) importam, mas deixam vazios relatórios como países, instituições e coocorrência de palavras-chave.
+  example: |-
+    Sem o campo "Affiliations" no CSV do Scopus, o mapa de países do projeto fica vazio.
+
+import.source.scopus:
+  title: "Scopus (CSV)"
+  what: |-
+    Lê o CSV exportado do Scopus: título, resumo, ano, tipo, DOI, periódico, ISSN, citações ("Cited by"), acesso aberto, autores, palavras-chave do autor e indexadas, afiliações (países e instituições) e referências.
+  how: |-
+    Export › **CSV** › marque todos os grupos de campos. Até 2.000 registros por exportação: divida por ano e importe cada arquivo no mesmo projeto; a deduplicação cuida das sobreposições.
+  not: |-
+    Não lê RIS nem BibTeX do Scopus. Não abra o CSV no Excel antes de enviar.
+  example: |-
+    Busca com 4.300 resultados: exporte 2000–2012, 2013–2018 e 2019–2024 (cada um com menos de 2.000) e importe os três.
+
+import.source.wos:
+  title: "Web of Science (Plain text)"
+  what: |-
+    Lê o arquivo "Plain text file" do WoS (savedrecs.txt): título, resumo, ano, DOI, periódico, citações (TC), autores (nome completo, AF), palavras-chave do autor (DE) e Keywords Plus (ID), endereços (C1) e referências (CR).
+  how: |-
+    Export › **Plain text file** › Record Content: **Full Record and Cited References**. O WoS limita a 500 registros por arquivo: exporte em lotes (1–500, 501–1000...).
+  not: |-
+    Não use "Tab delimited", RIS, BibTeX ou EndNote: só o Plain text é reconhecido.
+  example: |-
+    Busca com 1.873 resultados → 4 arquivos (1–500, 501–1000, 1001–1500, 1501–1873), enviados juntos.
+
+import.index.wos_batches:
+  title: "Exportar mais de 500 registros do WoS"
+  what: |-
+    Como dividir uma busca grande do WoS em vários arquivos e juntar tudo no mesmo projeto.
+  how: |-
+    Repita a exportação mudando o intervalo "Records from" e importe todos os arquivos no mesmo projeto. Registros repetidos entre lotes são ignorados automaticamente (mesmo DOI ou mesmo título + ano).
+  not: |-
+    Não precisa juntar os arquivos num só. Um intervalo pulado (ex.: esquecer 1001–1500) não é detectado pelo sistema.
+  example: |-
+    Confira na lista de importações: a soma dos registros dos lotes deve bater com o total mostrado no WoS (ex.: 1.873).
+
+import.index.wos_structure:
+  title: "Estrutura do arquivo do WoS"
+  what: |-
+    Mostra como é um arquivo Plain text do WoS: cada linha começa com uma etiqueta de 2 letras (TI = título, PY = ano, DI = DOI) e cada registro termina com ER.
+  how: |-
+    Abra o .txt num editor de texto simples para conferir: a primeira linha deve ser "FN Clarivate Analytics Web of Science".
+  not: |-
+    Não edite o arquivo à mão; uma etiqueta quebrada pode juntar dois registros num só.
+  example: |-
+    Se o arquivo começa com "PT	AU	BA..." separado por tabulações, você exportou "Tab delimited": refaça como Plain text.
+
+import.source.lens:
+  title: "Lens.org (CSV)"
+  what: |-
+    Lê o CSV do Lens Scholar: título, resumo, ano, tipo, DOI, PMID, ISSN, periódico, citações ("Citing Works Count"), acesso aberto, autores, palavras-chave e áreas (Fields of Study).
+  how: |-
+    Export › **CSV** › All fields. Baixe o arquivo pelo aviso de "Export complete".
+  not: |-
+    O CSV do Lens não traz afiliações dos autores: relatórios de instituições ficam vazios para esses documentos, e o país gravado é o **país do periódico** (Source Country), não o dos autores.
+  example: |-
+    Para um mapeamento de patentes e artigos sobre bioinsumos, use o Lens para os artigos e confira países no Scopus/WoS.
+
+import.source.pubmed:
+  title: "PubMed (NBIB ou CSV)"
+  what: |-
+    Lê dois formatos do PubMed. **PubMed/MEDLINE (.nbib ou .txt)**: título, resumo, ano, DOI, PMID, periódico, autores completos, palavras-chave (OT), termos MeSH (MH) e afiliações. **CSV**: só título, autores, ano, DOI, PMID e periódico.
+  how: |-
+    Save › Format: **PubMed** › Selection: All results › Create file. Prefira o PubMed/NBIB.
+  not: |-
+    O PubMed não fornece número de citações. O CSV não tem resumo, palavras-chave nem afiliações. O XML não é lido.
+  example: |-
+    Revisão sobre telessaúde com 860 resultados: exporte em formato PubMed (.nbib) para ter os termos MeSH na análise de palavras-chave.
+
+import.index.pubmed_formats:
+  title: "Formatos de exportação do PubMed"
+  what: |-
+    Compara o que cada opção de "Save" do PubMed entrega e se o BiblioMap consegue importar.
+  how: |-
+    Use **PubMed (.nbib)** sempre que possível; CSV só se precisar de algo rápido para coautoria e periódicos.
+  not: |-
+    "PMID" e "Summary/Abstract (text)" não servem para importação.
+  example: |-
+    Arquivo "PubMed_Timeline_Results_by_Year.csv" tem só contagens por ano: não é um export de artigos.
+
+import.source.openalex:
+  title: "OpenAlex"
+  what: |-
+    Guia de exportação do OpenAlex.
+  how: |-
+    Enquanto não houver leitor, use o OpenAlex para conferir dados e importe os registros pelo Scopus, WoS, Lens ou PubMed.
+  not: |-
+    **O BiblioMap ainda não lê o CSV do OpenAlex**: o arquivo é aceito no envio, mas a importação termina com 0 documentos.
+  example: |-
+    Precisa de cobertura aberta? Use o Lens.org (CSV), que é gratuito e já é lido pelo BiblioMap.
+
+import.source.crossref:
+  title: "Crossref"
+  what: |-
+    Orientações sobre como obter metadados do Crossref.
+  how: |-
+    Na prática, exporte do Scopus ou WoS (que já trazem o DOI do Crossref) e importe esses arquivos.
+  not: |-
+    **O BiblioMap ainda não lê CSV, JSON ou RIS do Crossref**: esses arquivos resultam em 0 documentos.
+  example: |-
+    Para completar DOIs faltantes, use a busca do Crossref para consulta, mas importe os registros pela base de onde vieram.
+
+import.source.other:
+  title: "Outras bases e formatos"
+  what: |-
+    Formatos universais (RIS, BibTeX, XLSX, XML) usados por Zotero, Mendeley, Google Scholar, IEEE, SciELO etc.
+  how: |-
+    Se a mesma busca puder ser feita no Scopus, WoS, Lens ou PubMed, exporte de lá. Para pedir um novo leitor, fale com o administrador informando base e formato.
+  not: |-
+    **Ainda não há leitor para RIS, BibTeX, XLSX ou XML**: o envio é aceito, mas nenhum documento é criado.
+  example: |-
+    Uma busca no SciELO exportada em RIS não será lida hoje; a alternativa é buscar os mesmos artigos no Scopus (que indexa grande parte do SciELO).
+
+import.index.supported_formats:
+  title: "Formatos que o BiblioMap lê"
+  what: |-
+    Lista exata das combinações base + formato que viram documentos ao importar.
+  how: |-
+    Confira aqui antes de exportar. Se a sua base não está em "Lidos", exporte de uma base que esteja.
+  not: |-
+    O botão de envio aceita outras extensões (RIS, BIB, XLSX, JSON), mas elas não têm leitor e geram 0 documentos.
+  example: |-
+    Tem um .ris do Mendeley? Não importe; refaça a busca no Scopus e exporte em CSV.
+
+import.dedup:
+  title: "Deduplicação automática"
+  what: |-
+    Ao importar, cada registro é comparado com tudo o que já está no projeto (inclusive registros anteriores do mesmo arquivo). É ignorado se tiver o **mesmo DOI** ou, sem DOI, o **mesmo título e ano** (iguais letra por letra, sem diferenciar maiúsculas).
+  how: |-
+    Importe todas as bases e lotes no **mesmo projeto**. A ordem importa: o registro que fica é o que entrou primeiro; importe primeiro a base com metadados mais completos.
+  not: |-
+    Não mescla dados: o duplicado é descartado inteiro (citações, palavras-chave extras). Não detecta títulos com pequenas diferenças; para isso use **Normalizar e Deduplicar › Documentos duplicados**. Registros sem DOI e sem ano nunca são considerados duplicados.
+  example: |-
+    Importando Scopus (1.200) e depois WoS (900) com 640 em comum, ficam 1.460 documentos; os 640 do WoS aparecem na aba "Duplicados ignorados".
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Importar — passo 2 (prévia e confirmação)
+# ─────────────────────────────────────────────────────────────────────────────
+
+import.preview.page:
+  title: "Prévia da importação"
+  what: |-
+    Mostra como o BiblioMap leu os 10 primeiros registros do arquivo, antes de gravar qualquer coisa no projeto.
+  how: |-
+    Confira se título, autores, ano e periódico aparecem nas colunas certas e se a base detectada está correta. Depois preencha as configurações e confirme.
+  not: |-
+    Nada foi importado ainda. Se você sair desta página sem confirmar, nenhum documento é criado.
+  example: |-
+    Se a coluna Título aparece vazia nas 10 linhas, a base detectada provavelmente está errada (ex.: CSV do Lens lido como Scopus).
+
+import.preview.file:
+  title: "Arquivo enviado"
+  what: |-
+    Nome e tamanho do arquivo que está na prévia.
+  how: |-
+    Confirme que é o arquivo certo antes de importar.
+  not: |-
+    O arquivo fica guardado no servidor só durante esta sessão; se demorar muito para confirmar, pode ser preciso enviá-lo de novo.
+  example: |-
+    "scopus_ia_saude_2015_2024.csv · 12,4 MB".
+
+import.preview.detected_source:
+  title: "Fonte detectada"
+  what: |-
+    Base que o sistema reconheceu pelo conteúdo do arquivo e a confiança dessa detecção.
+  how: |-
+    Scopus, Lens e PubMed CSV são reconhecidos pelos nomes das colunas; WoS pelo cabeçalho "FN Clarivate"; PubMed NBIB pelas linhas "PMID-". Confiança de 100% indica que todas as marcas foram encontradas.
+  not: |-
+    "Não detectada" quase sempre significa formato sem leitor (RIS, BibTeX, XLSX, OpenAlex...): nesse caso a importação vai gerar 0 documentos.
+  example: |-
+    Um CSV do Scopus com as colunas EID, Authors, Cited by e Author Keywords → "Scopus · Confiança 100%".
+
+import.preview.preview_count:
+  title: "Registros na prévia"
+  what: |-
+    Quantos registros foram lidos para montar esta prévia (no máximo 10).
+  how: |-
+    O total real do arquivo é contado durante o processamento e aparece na tela seguinte.
+  not: |-
+    Não é o total do arquivo.
+  example: |-
+    Um arquivo de 1.987 registros mostra "10" aqui; na tela de processamento aparece "Total no arquivo: 1.987".
+
+import.preview.table:
+  title: "Primeiros registros lidos"
+  what: |-
+    Amostra de como cada campo foi interpretado: título, autores, ano, periódico (Fonte), DOI, citações e tipo de documento.
+  how: |-
+    Verifique se os acentos estão corretos e se os campos não estão trocados. Clique no DOI para abrir o artigo.
+  not: |-
+    Não mostra resumo, palavras-chave nem afiliações, embora sejam importados se existirem no arquivo.
+  example: |-
+    Autores aparecendo como "Silva J.; Souza M." e Ano "2023" indicam leitura correta do Scopus.
+
+import.preview.citations:
+  title: "Citações"
+  what: |-
+    Número de citações informado pela base no dia da exportação.
+  how: |-
+    Fica gravado no documento e alimenta indicadores como h-index e documentos mais citados.
+  not: |-
+    Não é atualizado depois, e não é comparável entre bases. PubMed não traz citações (aparece "—").
+  example: |-
+    Um artigo com 152 citações no Scopus em março/2025 continuará com 152 no BiblioMap mesmo que ganhe novas citações.
+
+import.preview.settings:
+  title: "Configurações da importação"
+  what: |-
+    Dados que identificam esta importação no projeto: nome, base de origem, descrição e período de busca.
+  how: |-
+    Ajuste o nome e confira a base. Os demais campos são opcionais e podem ser editados depois.
+  not: |-
+    Nenhum destes campos filtra registros: tudo o que está no arquivo será processado.
+  example: |-
+    Nome "Scopus — busca principal 2015–2024", base Scopus, descrição com a string e a data de acesso.
+
+import.preview.name:
+  title: "Nome desta importação"
+  what: |-
+    Rótulo da importação na lista de bases importadas. Vem preenchido com o nome do arquivo.
+  how: |-
+    Troque por algo descritivo (base + recorte + lote).
+  not: |-
+    Não altera o arquivo nem os documentos.
+  example: |-
+    "WoS — lote 501–1000" em vez de "savedrecs (1).txt".
+
+import.preview.source:
+  title: "Fonte dos dados"
+  what: |-
+    Define qual leitor será usado para os arquivos CSV e registra a base da importação. Vem marcada com a base detectada.
+  how: |-
+    Só troque se a detecção errou. Para CSV, escolher a base errada faz o arquivo ser lido com as colunas erradas (títulos e autores vazios).
+  not: |-
+    Escolher OpenAlex, Crossref ou Outra não cria um leitor para esses formatos: o sistema tenta reconhecer o arquivo sozinho e, se não conseguir, importa 0 documentos.
+  example: |-
+    A prévia detectou Lens.org num CSV do Lens: mantenha. Se você marcar Scopus, os documentos ficarão sem título.
+
+import.preview.description:
+  title: "Descrição (opcional)"
+  what: |-
+    Registro da coleta: string usada nesta base, filtros e data de acesso.
+  how: |-
+    Escreva como no apêndice de método. Pode editar depois.
+  not: |-
+    Não é usada em nenhuma análise.
+  example: |-
+    "TITLE-ABS-KEY(telehealth AND brazil) · Article/Review · acesso 12/03/2025".
+
+import.preview.search_period:
+  title: "Período de busca"
+  what: |-
+    Datas de cobertura da busca nesta base, para documentação.
+  how: |-
+    Informe o mesmo período usado no filtro da base. Pode deixar em branco.
+  not: |-
+    Não filtra os registros por data.
+  example: |-
+    Início 01/01/2015 e fim 31/12/2024 para uma busca com filtro 2015–2024.
+
+import.preview.processing_rules:
+  title: "O que acontece ao confirmar"
+  what: |-
+    Regras aplicadas a toda importação: os duplicados do projeto são ignorados e as palavras-chave do autor e indexadas são sempre importadas.
+  how: |-
+    Depois de confirmar, acompanhe na tela de processamento. Os registros ignorados ficam listados na aba "Duplicados ignorados" da importação.
+  not: |-
+    Não é possível desligar a deduplicação nem importar sem palavras-chave. Nomes de autor ou termos inválidos (só números, muito curtos) são descartados.
+  example: |-
+    Um termo "2020" na lista de palavras-chave é descartado; "COVID-19" é importado, mas marcado para revisão por conter número.
+
+import.preview.confirm:
+  title: "Confirmar e importar"
+  what: |-
+    Cria a importação e inicia o processamento em segundo plano.
+  how: |-
+    Clique uma vez. Você vai para a tela de acompanhamento; pode fechar a aba que o processamento continua.
+  not: |-
+    Não confirme duas vezes o mesmo arquivo: a segunda importação terá todos os registros como duplicados.
+  example: |-
+    Arquivo de 2.000 registros do Scopus: o processamento leva alguns minutos e você pode ir abrindo a página do projeto enquanto isso.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Importar — processamento
+# ─────────────────────────────────────────────────────────────────────────────
+
+import.processing.page:
+  title: "Acompanhar importação"
+  what: |-
+    Mostra em tempo real o andamento do processamento do arquivo, atualizado a cada 3 segundos.
+  how: |-
+    Aguarde o status "Importação concluída" e clique em **Ver documentos importados**. Pode fechar a aba e voltar depois pela lista de importações.
+  not: |-
+    Fechar a página não cancela a importação, e não há botão para cancelar.
+  example: |-
+    Um lote de 500 registros do WoS costuma terminar em menos de um minuto.
+
+import.processing.progress:
+  title: "Progresso"
+  what: |-
+    Percentual de registros do arquivo já processados (importados + duplicados + erros) em relação ao total contado.
+  how: |-
+    Os números são atualizados a cada lote de 200 registros, então a barra avança "aos saltos".
+  not: |-
+    Não é uma estimativa de tempo. Em CSV com resumos multilinha o total pode estar superestimado e a barra não chegar a 100%.
+  example: |-
+    Arquivo de 2.000 registros: a barra pula de 0% para 10%, 20%... a cada 200 registros.
+
+import.processing.total:
+  title: "Total no arquivo"
+  what: |-
+    Quantidade de registros contados no arquivo no início do processamento.
+  how: |-
+    Aparece "contando…" enquanto o arquivo é lido pela primeira vez.
+  not: |-
+    Em CSV é uma contagem de linhas: resumos com quebra de linha podem inflar o número.
+  example: |-
+    WoS lote 1–500 → 500.
+
+import.processing.imported:
+  title: "Importados"
+  what: |-
+    Registros que viraram documentos novos no projeto até agora.
+  how: |-
+    É o número que vai para as análises.
+  not: |-
+    Não inclui os registros que já existiam no projeto.
+  example: |-
+    412 importados de 500: os outros 88 já tinham vindo de outra base.
+
+import.processing.skipped:
+  title: "Duplicados ignorados"
+  what: |-
+    Registros pulados por já existirem no projeto (mesmo DOI ou mesmo título + ano).
+  how: |-
+    Ao final, confira a lista na aba "Duplicados ignorados" da importação.
+  not: |-
+    Não é erro: é o comportamento esperado quando bases ou lotes se sobrepõem.
+  example: |-
+    Reenviar por engano o mesmo arquivo gera 100% de duplicados e nenhum documento novo.
+
+import.processing.errors:
+  title: "Erros"
+  what: |-
+    Registros que falharam ao serem gravados.
+  how: |-
+    Poucos erros podem ser ignorados. Muitos erros indicam arquivo corrompido ou formato errado: reexporte e importe de novo.
+  not: |-
+    Os registros com erro não são listados nem reprocessados.
+  example: |-
+    0 erros é o normal; 4 em 500 costuma ser registro incompleto na própria base.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Normalizar e deduplicar
+# ─────────────────────────────────────────────────────────────────────────────
+
+normalize.page:
+  title: "Normalizar e Deduplicar"
+  what: |-
+    Encontra pares parecidos de autores, palavras-chave e documentos no projeto e permite unificá-los, para que contagens, rankings e redes não fiquem divididos entre variações.
+  how: |-
+    Escolha a aba, revise cada par e clique em **Mesclar**, ou marque vários e use **Mesclar selecionados**. Faça isso **antes** de gerar relatórios e redes.
+  not: |-
+    **Mesclar não tem desfazer.** Autores e palavras-chave são cadastros compartilhados entre projetos: mesclar aqui também unifica esses itens nos outros projetos que os usam.
+  example: |-
+    Depois de importar Scopus e WoS, a aba Palavras-chave sugere unir "machine-learning" a "machine learning"; com isso, o termo sobe de 3º para 1º no ranking.
+
+normalize.authors.about:
+  title: "Autores similares"
+  what: |-
+    Sugere pares de autores do projeto com nomes quase iguais. Só compara nomes com as **mesmas iniciais** e mesma **letra inicial do sobrenome**; a semelhança mínima é 85%.
+  how: |-
+    O lado **Manter** é o que tem mais artigos. Ao mesclar, os artigos do autor da direita passam para o da esquerda, o nome descartado vira variação e o cadastro duplicado é apagado.
+  not: |-
+    Pega sobretudo diferenças de maiúsculas, acentos e pequenos erros de digitação. **Não** compara "Silva, J" com "Silva, JA" (iniciais diferentes) e não distingue homônimos. Afeta o mesmo autor em outros projetos.
+  example: |-
+    "GONÇALVES, MA" (12 artigos) e "Goncalves, MA" (3 artigos) aparecem com 86% → mesclando, o autor passa a ter 15 artigos no ranking.
+
+normalize.keywords.about:
+  title: "Palavras-chave similares"
+  what: |-
+    Sugere pares de palavras-chave do mesmo tipo com grafia parecida (semelhança mínima de 85%) ou que diferem só por "s"/"es" no final. Compara apenas termos que começam com as mesmas 4 letras.
+  how: |-
+    O lado **Manter** é o termo com mais ocorrências. Ao mesclar, todos os documentos passam a usar o termo mantido e o outro vira variação.
+  not: |-
+    Não une sinônimos com grafias diferentes ("AI" x "artificial intelligence") nem termos já ligados ao tesauro. Afeta o mesmo termo em outros projetos.
+  example: |-
+    "smart farming" (41) e "smart-farming" (7) aparecem como 92% similares; mesclar soma 48 ocorrências em "smart farming".
+
+normalize.keywords.type:
+  title: "Origem do termo"
+  what: |-
+    Escolhe qual tipo de palavra-chave revisar. **Autores**: as escolhidas pelos autores (Scopus "Author Keywords", WoS DE, Lens Keywords, PubMed OT). **Indexadas**: atribuídas pela base (Scopus "Index Keywords", WoS Keywords Plus, Lens Fields of Study, MeSH).
+  how: |-
+    Revise primeiro as de autor, que costumam ter mais variação de grafia.
+  not: |-
+    Não compara uma palavra de autor com uma indexada; os dois tipos são tratados separadamente.
+  example: |-
+    "Deep learning" de autor e "Deep Learning" indexada continuam separadas aqui, cada uma no seu tipo.
+
+normalize.duplicates.about:
+  title: "Documentos duplicados"
+  what: |-
+    Sugere pares de documentos do **mesmo ano** com títulos pelo menos 85% parecidos — duplicatas que a importação não pegou (pontuação, acentos, subtítulo). Mostra até 100 pares.
+  how: |-
+    Fica com o documento que tem DOI e mais citações. Ao mesclar, campos vazios do mantido são completados com os do outro, as citações ficam com o maior valor e autores e palavras-chave são somados; o outro é apagado.
+  not: |-
+    Não compara documentos de anos diferentes (ex.: preprint 2023 e artigo 2024) nem sem título/ano. Títulos genéricos ("Editorial", "Introduction") podem gerar falsos pares: confira antes.
+  example: |-
+    "Deep learning for crop yield prediction: a review" (Scopus) e "Deep learning for crop yield prediction - A review" (WoS), ambos 2021 → 96% similares.
+
+normalize.suggestions:
+  title: "Sugestões e similaridade"
+  what: |-
+    Quantidade de pares sugeridos na aba atual. O percentual de cada par vem da distância de edição entre os textos (quantas letras precisam mudar): 100% = iguais ignorando maiúsculas; 98% = iguais ignorando pontuação.
+  how: |-
+    Comece pelos pares de maior percentual (a lista já vem ordenada). Depois de mesclar, recarregue: novos pares podem aparecer.
+  not: |-
+    Similaridade alta não garante que é o mesmo item. Para palavras-chave, pares singular/plural aparecem como 100% mesmo sem serem idênticos.
+  example: |-
+    "Silva, J.A." x "Silva, JA" → 98%; "Sousa, JA" x "Souza, JA" → 89% (pode ser outra pessoa: confira).
+
+normalize.pair:
+  title: "Par Manter ← Mesclar & Apagar"
+  what: |-
+    Cada cartão mostra o item que será **mantido** (verde) e o que será **incorporado e apagado** (vermelho), com a contagem de artigos ou ocorrências de cada um.
+  how: |-
+    Se concordar, clique em **Mesclar** no próprio cartão ou marque a caixa à esquerda para mesclar em lote.
+  not: |-
+    Não há como inverter o lado mantido nesta tela; o sistema escolhe o de maior contagem.
+  example: |-
+    Manter "Universidade" (25 ocorrências) ← apagar "Universidades" (4).
+
+normalize.select_case:
+  title: "Selecionar diferenças de caixa"
+  what: |-
+    Marca automaticamente os pares que só diferem em maiúsculas/minúsculas.
+  how: |-
+    Clique, revise as marcações e use **Mesclar selecionados**. Desmarca os demais pares.
+  not: |-
+    Não mescla sozinho e não considera acentos ou hífens.
+  example: |-
+    Marca "COVID-19" × "Covid-19" e "WILSON, PN" × "Wilson, PN".
+
+normalize.select_plural:
+  title: "Selecionar singular/plural"
+  what: |-
+    Marca pares em que um termo é o plural do outro (regras do inglês e do português: s, es, ies, ção/ções, al/ais...).
+  how: |-
+    Clique, revise e use **Mesclar selecionados**. Soma-se às marcações já feitas.
+  not: |-
+    Regras simples podem errar em palavras irregulares; confira antes de mesclar.
+  example: |-
+    Marca "smart city" × "smart cities" (y → ies) e "política" × "políticas". Não marca "política pública" × "políticas públicas", porque o plural muda no meio do termo.
+
+normalize.merge_perfect:
+  title: "Mesclar 100% similares"
+  what: |-
+    Seleciona todos os pares com similaridade de 100% e, após confirmação, mescla todos de uma vez.
+  how: |-
+    Use como primeira limpeza rápida. Aparece uma confirmação com a quantidade de pares antes de executar.
+  not: |-
+    **Não tem desfazer.** Em palavras-chave, 100% inclui pares singular/plural, não só grafias idênticas.
+  example: |-
+    Após importar 3 bases, 214 pares 100% (maiúsculas e plurais) são resolvidos em um clique.
+
+normalize.merge_selected:
+  title: "Mesclar selecionados"
+  what: |-
+    Mescla de uma vez todos os pares marcados.
+  how: |-
+    Marque os pares (manualmente ou pelos botões de seleção) e clique. A página recarrega ao final para mostrar novas sugestões.
+  not: |-
+    Não tem desfazer. Funciona para autores e palavras-chave; documentos duplicados devem ser mesclados um a um.
+  example: |-
+    Marcar 37 pares de diferença de caixa e mesclar todos em uma operação.
+
+normalize.export_authors:
+  title: "Exportar normatização de autores"
+  what: |-
+    Baixa um CSV com as variações de nome registradas para os autores do projeto (colunas preferred_name, variant_name, source, created_at).
+  how: |-
+    Guarde como backup ou para reaplicar em outro projeto via Importar normatização.
+  not: |-
+    Não exporta a lista de autores nem os documentos.
+  example: |-
+    Levar as 120 unificações feitas no projeto "Scopus" para o projeto "WoS" da mesma tese.
+
+normalize.import_authors:
+  title: "Importar normatização de autores"
+  what: |-
+    Aplica em lote uma lista de unificações de autores a partir de um CSV com as colunas **preferred_name** (nome mantido) e **variant_name** (nome a unir).
+  how: |-
+    Use o CSV exportado de outro projeto ou monte o seu na planilha (salve como CSV UTF-8 separado por vírgulas). Se o nome variante existir no projeto, os autores são mesclados; senão, a variação fica registrada.
+  not: |-
+    Não tem desfazer e afeta os autores em todos os projetos que os usam. Nomes que não existirem são criados como novos cadastros.
+  example: |-
+    Linha "Gonçalves, Maria A.","Goncalves, M.A." (separada por vírgula, nomes entre aspas) une as duas grafias da mesma pesquisadora.
+
+normalize.export_keywords:
+  title: "Exportar normatização de palavras-chave"
+  what: |-
+    Baixa um CSV com as variações registradas para as palavras-chave do projeto (preferred_keyword, variant_keyword, keyword_type, status).
+  how: |-
+    Use como backup ou para reaplicar as mesmas unificações em outro projeto.
+  not: |-
+    Não exporta a lista de palavras-chave nem as frequências.
+  example: |-
+    Reaproveitar as 80 unificações de termos da revisão de 2024 na atualização de 2025.
+
+normalize.import_keywords:
+  title: "Importar normatização de palavras-chave"
+  what: |-
+    Aplica em lote unificações de palavras-chave a partir de um CSV com **preferred_keyword**, **variant_keyword** e, opcionalmente, **keyword_type** (author_keyword ou indexed_keyword).
+  how: |-
+    Monte a planilha com uma unificação por linha e salve como CSV UTF-8 separado por vírgulas. Termos que existirem no projeto são mesclados; os demais ficam registrados como variação.
+  not: |-
+    Não tem desfazer e vale para todos os projetos que usam esses termos.
+  example: |-
+    A linha artificial intelligence,AI,author_keyword (separada por vírgula) passa a contar "AI" como "artificial intelligence".
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sincronização de dados e metadados
+# ─────────────────────────────────────────────────────────────────────────────
+
+sync.page:
+  title: "Sincronização de dados e metadados"
+  what: |-
+    Liga os textos brutos dos documentos aos cadastros oficiais da plataforma: afiliações → instituições, organizações e unidades; países → países (com estado e cidade quando houver); ISSN → Qualis CAPES. Também lista o que não foi reconhecido.
+  how: |-
+    Clique em **Executar sincronismo** depois de cada importação e depois que um administrador cadastrar novas variações. Os relatórios de países e instituições usam esses vínculos.
+  not: |-
+    Não altera títulos, autores nem palavras-chave dos documentos. Não cadastra instituições novas: o que não for reconhecido precisa ser cadastrado por um administrador.
+  example: |-
+    Após importar 1.460 documentos, o sincronismo vincula 3.900 afiliações a instituições e lista "Univ Fed Vicosa" como pendente até ser cadastrada como variação da UFV.
+
+sync.actions:
+  title: "Ações de sincronismo"
+  what: |-
+    Painel para rodar a reconciliação do projeto inteiro e ver quando ela foi feita.
+  how: |-
+    Cada execução apaga os vínculos geográficos e institucionais anteriores do projeto e refaz tudo com as regras atuais.
+  not: |-
+    Não é incremental nem tem desfazer; mas como refaz do zero, rodar de novo é seguro.
+  example: |-
+    O administrador cadastrou 40 variações de universidades brasileiras: rode de novo para que os novos vínculos apareçam no relatório de instituições.
+
+sync.doc_count:
+  title: "Documentos no projeto"
+  what: |-
+    Quantos documentos serão processados pelo sincronismo.
+  how: |-
+    Projetos grandes demoram mais; a tela fica aguardando até terminar.
+  not: |-
+    Não é o número de documentos já sincronizados.
+  example: |-
+    5.000 documentos podem levar mais de um minuto.
+
+sync.last_run:
+  title: "Último sincronismo"
+  what: |-
+    Indica se o sincronismo já foi executado neste projeto e quanto tempo levou.
+  how: |-
+    Se diz "Nunca executado", rode antes de abrir os relatórios de países e instituições.
+  not: |-
+    Não mostra a data da execução nem avisa se novas importações foram feitas depois dela.
+  example: |-
+    "Concluído (12,4s)" — resultado da última execução guardado para consulta.
+
+sync.run:
+  title: "Executar sincronismo"
+  what: |-
+    Roda a reconciliação completa: instituições, organizações, unidades, países/estados/cidades, Qualis por ISSN e ligação de palavras-chave ao tesauro.
+  how: |-
+    Clique uma vez e aguarde na página. Ao final aparece o resumo e as listas de pendências.
+  not: |-
+    Não muda os dados brutos dos documentos e não consulta as bases (Scopus/WoS).
+  example: |-
+    Rodar após importar o 2º lote do WoS para que os novos documentos entrem no mapa de países.
+
+sync.kpi_institutions:
+  title: "Instituições vinculadas"
+  what: |-
+    Número de afiliações (menções em documentos) ligadas a uma instituição de ensino cadastrada.
+  how: |-
+    Veja quais na aba **Resolvidos**. Afiliações não reconhecidas aparecem na aba Inst.
+  not: |-
+    Não é o número de instituições distintas: uma universidade citada em 200 artigos conta 200.
+  example: |-
+    "Inst. 3.912" com 1.460 documentos: em média 2,7 afiliações reconhecidas por documento.
+
+sync.kpi_countries:
+  title: "Países vinculados"
+  what: |-
+    Número de vínculos documento–país criados, a partir do país citado na afiliação ou do país da instituição reconhecida.
+  how: |-
+    A lista por país está em **Resolvidos**; os não reconhecidos, na aba Países.
+  not: |-
+    Não é o número de países distintos. Para documentos do Lens, o país vem do periódico, não dos autores.
+  example: |-
+    Um artigo com autores do Brasil e de Portugal gera 2 vínculos.
+
+sync.kpi_organizations:
+  title: "Organizações vinculadas"
+  what: |-
+    Afiliações reconhecidas como organizações que não são instituições de ensino (empresas, institutos, órgãos públicos, hospitais).
+  how: |-
+    Conta menções em documentos.
+  not: |-
+    Não inclui universidades (essas contam em Inst.).
+  example: |-
+    "Embrapa" citada em 85 artigos soma 85.
+
+sync.kpi_units:
+  title: "Unidades vinculadas"
+  what: |-
+    Afiliações reconhecidas como unidades internas (faculdade, departamento, programa). Quando a unidade tem instituição-mãe, o documento também é ligado a ela.
+  how: |-
+    Conta menções em documentos.
+  not: |-
+    Não é o número de unidades distintas.
+  example: |-
+    "Escola Superior de Agricultura Luiz de Queiroz" é ligada também à USP.
+
+sync.kpi_authors:
+  title: "Autorias validadas"
+  what: |-
+    Número de autorias (autor × documento) cujo nome passou na validação automática feita na importação.
+  how: |-
+    Os nomes suspeitos aparecem na aba Autores para revisão.
+  not: |-
+    Não é o número de autores distintos e não significa que o autor foi identificado num cadastro externo (ORCID etc.).
+  example: |-
+    15.230 autorias validadas em 1.460 documentos (≈10 autores por artigo).
+
+sync.kpi_keywords:
+  title: "Ocorrências de palavras-chave válidas"
+  what: |-
+    Número de ocorrências (palavra-chave × documento) de termos que passaram na validação automática.
+  how: |-
+    Os termos suspeitos aparecem na aba P. Chaves.
+  not: |-
+    Não é o número de palavras-chave distintas.
+  example: |-
+    9.840 ocorrências de termos válidos no projeto.
+
+sync.unresolved_institutions:
+  title: "Instituições não reconhecidas"
+  what: |-
+    Textos de afiliação que não bateram com nenhuma instituição, organização ou unidade cadastrada, com o número de ocorrências (até 100 mais frequentes na tela).
+  how: |-
+    Exporte o CSV completo e envie ao administrador para cadastrar como variação; depois rode o sincronismo de novo.
+  not: |-
+    Estas afiliações ficam fora dos relatórios de instituições até serem cadastradas.
+  example: |-
+    "Univ Fed Rio Grande Sul" (48) → cadastrada como variação da UFRGS, os 48 artigos passam a contar para a UFRGS.
+
+sync.unresolved_countries:
+  title: "Países não reconhecidos"
+  what: |-
+    Nomes de país extraídos das afiliações que não bateram com o cadastro de países.
+  how: |-
+    Exporte o CSV e peça ao administrador para cadastrar a variação (ex.: grafia antiga ou abreviada).
+  not: |-
+    Esses documentos ficam sem país nos mapas e redes até a correção.
+  example: |-
+    "Peoples R China" ou "England" precisam estar cadastrados como variações de China e Reino Unido.
+
+sync.unresolved_authors:
+  title: "Autores para revisar"
+  what: |-
+    Nomes de autor marcados como suspeitos na importação: uma só palavra, com números ou com cara de instituição.
+  how: |-
+    Exporte o CSV para conferir. Grupos de pesquisa e consórcios ("COVID-19 Study Group") costumam aparecer aqui.
+  not: |-
+    Não são erros de importação; os autores continuam nas análises.
+  example: |-
+    "Brazilian Network for Agroecology" aparece como autor suspeito por parecer instituição.
+
+sync.unresolved_keywords:
+  title: "Palavras-chave para revisar"
+  what: |-
+    Termos marcados como suspeitos na importação: contêm números ou parecem nome de pessoa.
+  how: |-
+    Exporte o CSV e confira; muitos são válidos (ex.: "COVID-19", "Industry 4.0").
+  not: |-
+    Os termos continuam nas análises; esta lista é só um alerta.
+  example: |-
+    "ODS 2" aparece aqui por conter número, mas é um termo legítimo.
+
+sync.unresolved_journals:
+  title: "Revistas sem Qualis"
+  what: |-
+    Periódicos dos documentos que não foram ligados a uma revista do Qualis CAPES (a ligação é feita pelo ISSN).
+  how: |-
+    Exporte o CSV. Administradores podem clicar em **Cadastrar** para incluir a revista com o Qualis correspondente; depois, rode o sincronismo de novo.
+  not: |-
+    Revistas estrangeiras sem avaliação na CAPES ou documentos sem ISSN (livros, anais) vão aparecer aqui normalmente.
+  example: |-
+    "Revista Brasileira de Extensão Universitária [2358-0399]" sem Qualis → depois de cadastrada, os artigos passam a contar no relatório por estrato.
+
+sync.export_csv:
+  title: "Exportar CSV de pendências"
+  what: |-
+    Baixa a lista completa de itens não reconhecidos desta aba, com o número de ocorrências.
+  how: |-
+    Abra no Excel ou envie ao administrador para cadastrar as variações.
+  not: |-
+    Não corrige nada sozinho. As listas de instituições e países vêm da última execução do sincronismo; rode-o antes para ter a lista atualizada.
+  example: |-
+    "instituicoes_nao_encontradas_projeto_13.csv" com 312 afiliações, da mais frequente para a menos.
+
+sync.resolved:
+  title: "Itens reconhecidos"
+  what: |-
+    Lista as instituições, países, autores e palavras-chave reconhecidos, com o número de artigos de cada um (até 100 por lista).
+  how: |-
+    Confira se as instituições mais frequentes fazem sentido para o tema; um nome estranho no topo pode indicar variação cadastrada errada.
+  not: |-
+    Não é o ranking oficial do relatório; para isso use os relatórios de instituições e países.
+  example: |-
+    "Universidade de São Paulo (USP) — 132 artigos" no topo de uma revisão sobre agricultura tropical.

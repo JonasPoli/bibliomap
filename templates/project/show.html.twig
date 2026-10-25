@@ -38,6 +38,7 @@
                 <span class="badge text-bg-{{ project.statusColor }}" style="font-size:11px;padding:4px 10px;border-radius:20px">
                     {{ project.statusLabel }}
                 </span>
+                {{ help('project.status') }}
                 {% if project.isPublic %}
                     <span class="badge text-bg-secondary" style="font-size:11px;padding:4px 10px;border-radius:20px">
                         <i class="bi bi-globe2 me-1"></i>Público
@@ -46,7 +47,7 @@
             </div>
 
             <h1 style="font-size:20px;font-weight:700;color:var(--bm-text);margin:0 0 8px">
-                {{ project.title }}
+                {{ project.title }} {{ help('project.show.page') }}
             </h1>
 
             {% if project.description %}
@@ -57,14 +58,14 @@
 
             {% if project.researchQuestion %}
                 <div style="background:rgba(79,142,247,0.08);border-left:3px solid var(--bm-accent);padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">
-                    <div style="font-size:11px;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pergunta de pesquisa</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--bm-accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Pergunta de pesquisa {{ help('project.show.research_question') }}</div>
                     <div style="font-size:13.5px;color:var(--bm-text);line-height:1.5">{{ project.researchQuestion }}</div>
                 </div>
             {% endif %}
 
             {% if project.searchString %}
                 <div style="margin-bottom:8px">
-                    <div style="font-size:11px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">String de busca</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">String de busca {{ help('project.show.search_string') }}</div>
                     <code style="display:block;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:8px;padding:10px 14px;font-size:12px;color:#79c0ff;white-space:pre-wrap;word-break:break-all">{{ project.searchString }}</code>
                 </div>
             {% endif %}
@@ -73,7 +74,7 @@
 
     <div class="col-12 col-lg-4">
         <div class="bm-card h-100">
-            <h3 style="font-size:13px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px">Detalhes</h3>
+            <h3 style="font-size:13px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px">Detalhes {{ help('project.show.details') }}</h3>
 
             <div style="display:flex;flex-direction:column;gap:12px">
                 {% if project.databaseSources %}
@@ -91,7 +92,7 @@
 
                 {% if project.startYear or project.endYear %}
                     <div>
-                        <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">Período analisado</div>
+                        <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">Período analisado (declarado)</div>
                         <div style="font-size:14px;font-weight:500;color:var(--bm-text)">
                             {{ project.startYear ?? '?' }} – {{ project.endYear ?? '?' }}
                         </div>
@@ -116,8 +117,8 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="bm-stat-card text-center">
-            <div class="bm-stat-value">{{ project.datasets|length }}</div>
-            <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Arquivos</div>
+            <a href="{{ path('app_datasets_index', {projectId: project.id}) }}" class="bm-stat-value d-block" style="color:inherit;text-decoration:none" title="Ver importações">{{ project.datasets|length }}</a>
+            <div class="bm-stat-label"><i class="bi bi-file-earmark me-1"></i>Arquivos {{ help('project.show.kpi_files') }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -129,7 +130,7 @@
                     0
                 {% endif %}
             </div>
-            <div class="bm-stat-label"><i class="bi bi-file-text me-1"></i>Documentos</div>
+            <div class="bm-stat-label"><i class="bi bi-file-text me-1"></i>Documentos {{ help('project.show.kpi_docs') }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -141,7 +142,7 @@
                     0
                 {% endif %}
             </div>
-            <div class="bm-stat-label"><i class="bi bi-people me-1"></i>Autores</div>
+            <div class="bm-stat-label"><i class="bi bi-people me-1"></i>Autores {{ help('project.show.kpi_authors') }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -153,20 +154,20 @@
                     0
                 {% endif %}
             </div>
-            <div class="bm-stat-label"><i class="bi bi-tags me-1"></i>Palavras-chave</div>
+            <div class="bm-stat-label"><i class="bi bi-tags me-1"></i>Palavras-chave {{ help('project.show.kpi_keywords') }}</div>
         </div>
     </div>
 </div>
 
 {# Próximas etapas #}
 <div class="bm-card">
-    <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 16px">Próximas etapas</h3>
+    <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 16px">Próximas etapas {{ help('project.show.next_steps') }}</h3>
     <div style="display:flex;flex-direction:column;gap:10px">
         {% set steps = [
-            {icon: 'upload', label: 'Importar base bibliográfica', desc: 'Faça upload de arquivos CSV, RIS, BibTeX ou TXT exportados das bases de dados', done: project.datasets|length > 0, link: '#'},
-            {icon: 'arrow-repeat', label: 'Normalizar e deduplicar', desc: 'Padronizar autores, palavras-chave e remover registros duplicados', done: false, link: '#'},
-            {icon: 'grid-1x2', label: 'Gerar dashboard de indicadores', desc: 'Produção anual, top autores, fontes e palavras-chave', done: false, link: '#'},
-            {icon: 'diagram-3', label: 'Construir redes bibliométricas', desc: 'Coautoria, coocorrência de palavras-chave, colaboração entre países', done: false, link: '#'},
+            {icon: 'upload', label: 'Importar base bibliográfica', desc: 'Envie os arquivos exportados: Scopus (CSV), Web of Science (TXT), Lens.org (CSV) ou PubMed (CSV/NBIB)', done: project.datasets|length > 0, link: path('app_import_index', {projectId: project.id})},
+            {icon: 'arrow-repeat', label: 'Normalizar e deduplicar', desc: 'Unificar variações de autores e palavras-chave e mesclar documentos duplicados', done: false, link: path('app_normalize_index', {id: project.id})},
+            {icon: 'grid-1x2', label: 'Gerar dashboard de indicadores', desc: 'Produção anual, top autores, fontes e palavras-chave', done: false, link: path('app_dashboard_index', {id: project.id})},
+            {icon: 'diagram-3', label: 'Construir redes bibliométricas', desc: 'Coautoria, coocorrência de palavras-chave, colaboração entre países', done: false, link: path('app_networks_index', {id: project.id})},
         ] %}
         {% for i, step in steps %}
             <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bm-bg);border:1px solid var(--bm-border);border-radius:10px;opacity:{{ step.done ? '0.6' : '1' }}">
@@ -178,7 +179,7 @@
                     <div style="font-size:12px;color:var(--bm-text-muted)">{{ step.desc }}</div>
                 </div>
                 {% if not step.done %}
-                    <a href="{{ step.link }}" style="font-size:12px;color:var(--bm-accent);text-decoration:none;white-space:nowrap;font-weight:500" title="Em breve">
+                    <a href="{{ step.link }}" style="font-size:12px;color:var(--bm-accent);text-decoration:none;white-space:nowrap;font-weight:500">
                         Iniciar <i class="bi bi-arrow-right-short"></i>
                     </a>
                 {% else %}

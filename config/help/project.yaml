@@ -1,0 +1,743 @@
+# Ajuda contextual — projetos, bases importadas (datasets), perfil e cadastro.
+# Prefixos: project., dataset., profile., register.
+# Cada entrada: title, what, how, not, example. Aceita **negrito** e quebras de linha.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Meus Projetos (lista)
+# ─────────────────────────────────────────────────────────────────────────────
+
+project.index.page:
+  title: "Meus Projetos"
+  what: |-
+    Lista todos os seus projetos bibliométricos ativos, do mais recentemente atualizado para o mais antigo. Cada projeto é um "estudo" separado: tem seus próprios arquivos importados, documentos, autores, palavras-chave e relatórios.
+  how: |-
+    Clique em um cartão para abrir o projeto. Use **Novo Projeto** (canto superior) para começar um estudo novo. O cartão mostra status, data da última alteração, nº de bases marcadas, documentos, período e arquivos importados.
+  not: |-
+    Projetos **arquivados** não aparecem aqui. Projetos de outros usuários também não, mesmo que sejam públicos (você só os acessa pelo link).
+  example: |-
+    Uma doutoranda mantém dois projetos: "Extensão universitária — Scopus/WoS 2000–2024" para a tese e "Teste — string ampliada" para experimentar outra busca, sem misturar os documentos dos dois.
+
+project.status:
+  title: "Status do projeto"
+  what: |-
+    Indica em que etapa o projeto está. Os mais comuns: **Rascunho** (criado, sem documentos), **Importando** (há arquivo sendo processado), **Pronto para análise** (há documentos no banco) e **Arquivado**.
+  how: |-
+    O status muda sozinho: vira "Importando" ao enviar um arquivo e "Pronto para análise" quando a importação termina com documentos. Se você excluir todas as importações, volta a "Rascunho".
+  not: |-
+    Não indica a qualidade nem se a normalização foi feita. "Pronto para análise" só quer dizer que existem documentos importados.
+  example: |-
+    Depois de enviar 4 arquivos do WoS, o cartão mostra "Importando"; quando o último termina, passa a "Pronto para análise" e os relatórios já podem ser abertos.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Formulário do projeto (novo / editar)
+# ─────────────────────────────────────────────────────────────────────────────
+
+project.form.page_new:
+  title: "Novo projeto bibliométrico"
+  what: |-
+    Cria o "contêiner" do seu estudo. Aqui você registra o protocolo da busca (pergunta, string, bases, período) para documentar a metodologia. Os dados bibliográficos entram depois, na etapa **Importar dados**.
+  how: |-
+    Só o **título** é obrigatório. Preencha o resto agora ou depois (tudo pode ser editado). Ao salvar, você vai para a página do projeto, onde aparece o botão Importar dados.
+  not: |-
+    Estes campos **não filtram nem buscam** documentos: o BiblioMap não consulta as bases por você. O que será analisado é exatamente o que estiver nos arquivos que você importar.
+  example: |-
+    Para uma revisão sobre "inteligência artificial na agricultura familiar", crie o projeto, cole a string usada no Scopus e no WoS, marque as duas bases e informe 2010–2024. Em seguida importe os arquivos exportados.
+
+project.form.page_edit:
+  title: "Editar projeto"
+  what: |-
+    Altera os dados descritivos do projeto (título, pergunta, string, bases, período, visibilidade) e dá acesso às ações de arquivar e excluir.
+  how: |-
+    Mude os campos e clique em **Salvar alterações**. As mudanças valem na hora para a página do projeto e para a lista de projetos.
+  not: |-
+    Editar estes campos não reprocessa nem refiltra os documentos já importados. Para mudar o conjunto de documentos, exclua ou adicione importações.
+  example: |-
+    Após a banca de qualificação pedir para ampliar o período até 2025, atualize "Ano final" para 2025 aqui e importe um novo arquivo com os artigos de 2025.
+
+project.form.title:
+  title: "Título do projeto"
+  what: |-
+    Nome que identifica o estudo na lista de projetos, no topo das páginas e nos relatórios.
+  how: |-
+    Use um nome curto e específico: tema + base/recorte. É obrigatório. Ao excluir o projeto, você precisará digitar este título exatamente igual para confirmar.
+  not: |-
+    Não é usado como termo de busca nem influencia nenhuma análise.
+  example: |-
+    "Extensão universitária no Brasil — Scopus e WoS (2000–2024)" é melhor que "Projeto 1".
+
+project.form.description:
+  title: "Descrição"
+  what: |-
+    Texto livre para registrar o objetivo geral, o contexto (dissertação, artigo, disciplina) e observações sobre o estudo.
+  how: |-
+    Escreva 2 ou 3 frases. Os primeiros 100 caracteres aparecem no cartão do projeto na lista.
+  not: |-
+    Não é processado por nenhuma análise; serve só para você (e quem tiver o link, se o projeto for público) entender o projeto.
+  example: |-
+    "Mapeamento da produção científica sobre extensão rural para o capítulo 2 da dissertação de mestrado em Desenvolvimento Rural (UFRGS)."
+
+project.form.research_question:
+  title: "Pergunta de pesquisa"
+  what: |-
+    Registra a pergunta central que o estudo bibliométrico pretende responder. Aparece em destaque na página do projeto.
+  how: |-
+    Formule uma pergunta que os indicadores possam responder (quem, onde, quando, quais temas). Campo opcional.
+  not: |-
+    O sistema não usa a pergunta para selecionar ou classificar documentos.
+  example: |-
+    "Quais países, instituições e temas lideram a pesquisa sobre inteligência artificial em saúde entre 2015 e 2024?"
+
+project.form.search_string:
+  title: "String de busca"
+  what: |-
+    Guarda a expressão de busca exatamente como foi usada nas bases, para documentar e permitir a reprodução da coleta (requisito comum em revisões e no método PRISMA).
+  how: |-
+    Cole a string copiada da base (com aspas, AND/OR, campos como TITLE-ABS-KEY). Se usou strings diferentes por base, registre cada uma em linha separada ou na descrição de cada importação.
+  not: |-
+    O BiblioMap **não executa** esta busca e não filtra os arquivos importados por ela.
+  example: |-
+    TITLE-ABS-KEY("university extension" OR "extensão universitária") AND PUBYEAR > 1999 — copiada do Scopus em 12/03/2025.
+
+project.form.database_sources:
+  title: "Bases de dados utilizadas"
+  what: |-
+    Registra de quais bases você pretende coletar (ou coletou) os dados. Aparece nos detalhes do projeto e como contagem no cartão da lista.
+  how: |-
+    Marque todas as bases usadas. É apenas informativo: a base real de cada arquivo é definida no momento da importação.
+  not: |-
+    Marcar uma base aqui **não** habilita nem bloqueia a importação de arquivos dela. Também não garante que o BiblioMap leia aquele formato: hoje são lidos Scopus (CSV), Web of Science (TXT), Lens.org (CSV) e PubMed (CSV ou NBIB).
+  example: |-
+    Uma revisão em saúde coletou no PubMed e no Scopus: marque as duas para que o protocolo fique documentado na página do projeto.
+
+project.form.start_year:
+  title: "Ano inicial"
+  what: |-
+    Primeiro ano do recorte temporal declarado do estudo. Aparece como "Período analisado" na página do projeto.
+  how: |-
+    Informe o mesmo ano usado no filtro da busca nas bases (ex.: PUBYEAR > 1999 → 2000). Pode ficar em branco.
+  not: |-
+    É só documentação: **não filtra** os documentos importados. Se o arquivo trouxer artigos de 1998, eles entram nas análises.
+  example: |-
+    Busca no WoS com "Publication Years: 2010–2024" → Ano inicial 2010.
+
+project.form.end_year:
+  title: "Ano final"
+  what: |-
+    Último ano do recorte temporal declarado do estudo.
+  how: |-
+    Informe o ano final usado no filtro da busca. Se a coleta incluiu o ano corrente (incompleto), registre isso na descrição.
+  not: |-
+    Não exclui documentos mais recentes que vierem no arquivo; para isso, refaça a exportação com o filtro de ano na própria base.
+  example: |-
+    Coleta feita em março de 2025 com filtro até 2024 → Ano final 2024, evitando o ano de 2025 ainda incompleto distorcer o gráfico de produção anual.
+
+project.form.visibility:
+  title: "Visibilidade"
+  what: |-
+    Define quem pode **visualizar** a página do projeto. **Privado**: só você. **Público**: qualquer usuário logado no BiblioMap que tenha o link.
+  how: |-
+    Escolha Público apenas se quiser mostrar o projeto a colegas ou ao orientador que também têm conta. Pode mudar a qualquer momento.
+  not: |-
+    Público não permite que outros editem, importem ou excluam nada, e não publica o projeto na internet aberta (é preciso estar logado). Também não o lista para outros usuários.
+  example: |-
+    Para o orientador conferir o andamento, deixe Público e envie a ele o link da página do projeto.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editar projeto — zona de perigo
+# ─────────────────────────────────────────────────────────────────────────────
+
+project.edit.archive:
+  title: "Arquivar projeto"
+  what: |-
+    Tira o projeto da lista "Meus Projetos" sem apagar nada. Documentos, importações e relatórios continuam no banco.
+  how: |-
+    Clique em **Arquivar projeto** e confirme. O projeto continua acessível pelo link direto (guarde-o).
+  not: |-
+    Hoje não há botão para desarquivar pela interface; para reativar, peça ao administrador. Também não libera espaço nem reduz limites.
+  example: |-
+    Terminado o artigo de 2023, arquive o projeto "Teste — string ampliada" para deixar a lista só com os projetos da tese.
+
+project.edit.delete:
+  title: "Excluir projeto permanentemente"
+  what: |-
+    Apaga o projeto e tudo o que pertence a ele: importações, documentos, vínculos com autores e palavras-chave, registros de duplicados e os arquivos enviados ao servidor.
+  how: |-
+    Clique em **Excluir projeto**, digite o título exato do projeto na janela e confirme. O botão só é liberado quando o texto confere.
+  not: |-
+    **Não tem como desfazer.** Não apaga os cadastros globais de autores e palavras-chave (eles podem ser usados por outros projetos). Se quiser só esconder o projeto, use Arquivar.
+  example: |-
+    Você importou por engano 3 arquivos de outra pesquisa e prefere recomeçar do zero: exporte antes o que precisar e então exclua o projeto.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Página do projeto
+# ─────────────────────────────────────────────────────────────────────────────
+
+project.show.page:
+  title: "Visão geral do projeto"
+  what: |-
+    Painel inicial do projeto: mostra o protocolo (pergunta e string), detalhes, números básicos e o caminho das próximas etapas.
+  how: |-
+    Use **Importar dados** para enviar arquivos, **Editar** para alterar o protocolo e o menu lateral para chegar a relatórios, redes, normalização e sincronização.
+  not: |-
+    Não é o relatório bibliométrico: os indicadores completos (produção anual, h-index, redes) ficam nas páginas de relatórios e dashboard.
+  example: |-
+    Ao abrir o projeto "IA na saúde", você confere que há 3 arquivos e 4.812 documentos e segue para o Dashboard.
+
+project.show.research_question:
+  title: "Pergunta de pesquisa"
+  what: |-
+    Exibe a pergunta registrada no protocolo do projeto, para manter as análises alinhadas ao objetivo.
+  how: |-
+    Para alterar, clique em **Editar** no topo da página.
+  not: |-
+    Não é usada para filtrar ou classificar os documentos.
+  example: |-
+    Antes de escolher quais redes gerar, releia a pergunta: se ela fala de "colaboração internacional", priorize a rede de países.
+
+project.show.search_string:
+  title: "String de busca registrada"
+  what: |-
+    Mostra a expressão de busca registrada no protocolo, para referência e reprodução da coleta.
+  how: |-
+    Copie daqui ao escrever a seção de método do trabalho. Edite em **Editar** se a busca mudar.
+  not: |-
+    Não é executada pelo BiblioMap e não garante que os arquivos importados correspondam a ela.
+  example: |-
+    Na seção 3.1 da dissertação, cite: "a busca foi realizada com a string ... em 12/03/2025", copiando o texto exibido aqui.
+
+project.show.details:
+  title: "Detalhes do projeto"
+  what: |-
+    Resume o protocolo declarado: bases marcadas, período informado, data de criação e da última atualização.
+  how: |-
+    Confira se o período e as bases batem com o que foi realmente exportado. Ajuste em **Editar**.
+  not: |-
+    "Bases de dados" e "Período analisado" vêm do que você declarou no formulário, não dos documentos importados. O período real dos documentos aparece nos relatórios.
+  example: |-
+    O projeto declara 2010–2024, mas o relatório de produção anual mostra artigos de 2025: sinal de que a exportação não aplicou o filtro de ano.
+
+project.show.kpi_files:
+  title: "Arquivos importados"
+  what: |-
+    Quantidade de importações (arquivos enviados) neste projeto, incluindo as que deram erro ou ainda estão em processamento.
+  how: |-
+    Clique no número para abrir a lista de importações e ver o resultado de cada arquivo (importados, duplicados, erros).
+  not: |-
+    Não é a quantidade de documentos: um arquivo do Scopus pode ter até 2.000 registros.
+  example: |-
+    5 arquivos = 1 CSV do Scopus + 4 TXT do WoS (lotes 1–500, 501–1000, 1001–1500, 1501–1873).
+
+project.show.kpi_docs:
+  title: "Documentos"
+  what: |-
+    Total de documentos únicos guardados no projeto, depois da deduplicação automática feita na importação.
+  how: |-
+    Compare com a soma de registros dos arquivos: a diferença são os duplicados ignorados (mesmo DOI ou mesmo título + ano) e eventuais erros.
+  not: |-
+    Não inclui os registros pulados como duplicados nem os que deram erro. Também não considera duplicatas "parecidas" que só a tela **Normalizar e Deduplicar** encontra.
+  example: |-
+    Scopus (1.200) + WoS (900) = 2.100 registros; como 640 estavam nas duas bases, o projeto fica com 1.460 documentos.
+
+project.show.kpi_authors:
+  title: "Autores"
+  what: |-
+    Número de autores distintos ligados aos documentos do projeto, contando cada cadastro de autor uma vez.
+  how: |-
+    Variações de grafia do mesmo pesquisador contam separado até serem mescladas em **Normalizar e Deduplicar**. Depois de mesclar, o número cai.
+  not: |-
+    Não é o número de autorias (um autor com 10 artigos conta 1). Homônimos com o mesmo nome abreviado podem estar contados como um só.
+  example: |-
+    "Silva, JA" e "SILVA, JA" aparecem como 2 autores até você mesclá-los; depois, o total cai 1.
+
+project.show.kpi_keywords:
+  title: "Palavras-chave"
+  what: |-
+    Número de palavras-chave distintas do projeto (do autor e indexadas), contando como uma só os termos já unificados por tesauro ou conceito.
+  how: |-
+    Use como termômetro da limpeza: depois de mesclar plurais e variações em **Normalizar**, o número diminui.
+  not: |-
+    Não é o total de ocorrências e não separa palavras-chave de autor das indexadas pela base.
+  example: |-
+    "Machine learning" e "machine-learning" contam 2 até serem unificadas; depois de normalizar, o total cai de 6.120 para 5.480.
+
+project.show.next_steps:
+  title: "Próximas etapas"
+  what: |-
+    Roteiro sugerido para um estudo bibliométrico no BiblioMap: importar, normalizar, ver indicadores e construir redes.
+  how: |-
+    Clique em **Iniciar** em cada etapa para ir direto à tela correspondente. A etapa de importação aparece como concluída quando há ao menos um arquivo.
+  not: |-
+    Só a importação é marcada automaticamente como feita; as demais ficam sempre disponíveis e não registram se você já as concluiu.
+  example: |-
+    Depois de importar Scopus e WoS, vá a Normalizar e Deduplicar, mescle os autores repetidos e só então gere a rede de coautoria.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bases importadas (lista de datasets)
+# ─────────────────────────────────────────────────────────────────────────────
+
+dataset.index.page:
+  title: "Bases importadas"
+  what: |-
+    Lista cada arquivo importado no projeto (cada um vira uma "importação" ou dataset), com base de origem, status e números de registros importados e duplicados.
+  how: |-
+    Clique numa importação para ver os documentos e os duplicados ignorados. Use o lápis para editar nome, descrição e período, e a lixeira para excluir a importação e os documentos dela.
+  not: |-
+    Não mostra os registros que deram erro um a um (só a contagem). Para importar mais arquivos, use **Nova importação**.
+  example: |-
+    Um projeto com 4 lotes do WoS mostra 4 linhas; o lote 2 indica 500 registros, 470 importados e 30 duplicados (já vindos do lote 1).
+
+dataset.index.kpi_imports:
+  title: "Importações"
+  what: |-
+    Quantidade de arquivos importados neste projeto.
+  how: |-
+    Cada envio de arquivo cria uma importação. Vários arquivos enviados juntos criam várias importações.
+  not: |-
+    Não é o número de documentos nem de bases distintas.
+  example: |-
+    3 arquivos CSV do Scopus (2010–2014, 2015–2019, 2020–2024) = 3 importações.
+
+dataset.index.kpi_records:
+  title: "Registros totais"
+  what: |-
+    Soma dos registros contados nos arquivos, antes da deduplicação.
+  how: |-
+    Compare com "Documentos únicos": a diferença é o que foi pulado como duplicado ou deu erro.
+  not: |-
+    Em arquivos CSV a contagem é feita por linhas do arquivo; resumos com quebra de linha podem inflar este número. Use "Documentos únicos" como número oficial.
+  example: |-
+    Dois arquivos com 1.000 e 800 registros somam 1.800 registros totais.
+
+dataset.index.kpi_unique:
+  title: "Documentos únicos"
+  what: |-
+    Soma dos documentos efetivamente gravados por cada importação, já sem os duplicados.
+  how: |-
+    É o número que vai para as análises. Ele deve bater com o total de documentos do projeto.
+  not: |-
+    Não remove duplicatas "parecidas" (título com pequena diferença, ano diferente). Essas aparecem em **Normalizar e Deduplicar › Documentos duplicados**.
+  example: |-
+    Scopus 1.200 + WoS 900, com 640 em comum → 1.460 documentos únicos.
+
+dataset.index.kpi_sources:
+  title: "Bases distintas"
+  what: |-
+    Quantas bases diferentes (Scopus, WoS, Lens, PubMed...) aparecem entre as importações.
+  how: |-
+    A base de cada importação é a escolhida (ou detectada) na prévia; pode ser corrigida em Editar.
+  not: |-
+    Não indica de qual base veio cada documento após a deduplicação: o documento fica com os dados do primeiro arquivo em que apareceu.
+  example: |-
+    4 lotes do WoS + 1 CSV do Scopus = 2 bases distintas.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Detalhe de uma importação
+# ─────────────────────────────────────────────────────────────────────────────
+
+dataset.show.page:
+  title: "Detalhe da importação"
+  what: |-
+    Mostra o resultado do processamento de um arquivo: dados do arquivo, contagens, a lista de documentos gravados e a lista de registros ignorados por duplicidade.
+  how: |-
+    Use as abas **Documentos importados** e **Duplicados ignorados**. Para corrigir nome, descrição, base ou período, clique em **Editar metadados**.
+  not: |-
+    Não permite editar documentos individualmente nem reimportar o mesmo arquivo.
+  example: |-
+    Para justificar no fluxograma PRISMA quantos registros foram removidos por duplicidade, abra cada importação e anote o número da aba Duplicados.
+
+dataset.show.file:
+  title: "Arquivo original"
+  what: |-
+    Nome do arquivo enviado, tamanho e formato (extensão). O arquivo fica guardado no servidor enquanto a importação existir.
+  how: |-
+    Use para confirmar que o arquivo certo foi importado. "N/A" no tamanho indica que o arquivo não está mais no servidor.
+  not: |-
+    Não há botão para baixar o arquivo original de volta; guarde sua cópia.
+  example: |-
+    "savedrecs (3).txt · 4,2 MB · TXT" — renomeie antes de enviar (ex.: wos_1001_1500.txt) para saber qual lote é qual.
+
+dataset.show.search_period:
+  title: "Período de busca"
+  what: |-
+    Datas que você informou como cobertura da busca nesta base. Serve para documentar a coleta.
+  how: |-
+    Informe na prévia da importação ou depois, em Editar metadados.
+  not: |-
+    Não filtra os documentos: tudo que veio no arquivo foi importado, independentemente da data.
+  example: |-
+    Scopus, de 01/01/2010 a 31/12/2024, coletado em 12/03/2025.
+
+dataset.show.processed_at:
+  title: "Processado em"
+  what: |-
+    Data e hora em que o processamento em segundo plano terminou com sucesso.
+  how: |-
+    Se a data não aparece, a importação ainda está em andamento ou terminou com erro (veja o status ao lado do nome).
+  not: |-
+    Não é a data da coleta na base; registre essa data na descrição.
+  example: |-
+    Enviado às 14:02 e processado às 14:05: um arquivo de 2.000 registros do Scopus levou cerca de 3 minutos.
+
+dataset.show.result:
+  title: "Resultado da importação"
+  what: |-
+    Resume o que aconteceu com os registros do arquivo: quantos havia, quantos viraram documentos, quantos foram ignorados por já existirem no projeto e quantos falharam.
+  how: |-
+    Em regra, Importados + Duplicados + Erros ≈ Total no arquivo. Se houver muitos duplicados, abra a aba Duplicados ignorados para conferir.
+  not: |-
+    Não indica a qualidade dos metadados (ex.: falta de resumo ou de palavras-chave).
+  example: |-
+    Total 500 · Importados 412 · Duplicados 88 · Erros 0 → 88 artigos deste lote do WoS já tinham vindo do Scopus.
+
+dataset.show.records_total:
+  title: "Total no arquivo"
+  what: |-
+    Quantidade de registros contados no arquivo antes da importação.
+  how: |-
+    WoS: conta os marcadores de fim de registro (ER). CSV: conta as linhas menos o cabeçalho.
+  not: |-
+    Em CSV com resumos que têm quebras de linha, o número pode ficar maior que o real. Não é o número de documentos gravados.
+  example: |-
+    Um lote do WoS de 1 a 500 deve mostrar 500.
+
+dataset.show.imported:
+  title: "Importados"
+  what: |-
+    Registros deste arquivo que foram gravados como documentos novos no projeto.
+  how: |-
+    São os que aparecem na aba Documentos importados e entram em todas as análises.
+  not: |-
+    Não inclui registros que já existiam no projeto (vindos de outro arquivo), que contam como duplicados.
+  example: |-
+    O segundo arquivo do Scopus tinha 2.000 registros, 1.950 importados: os outros 50 já estavam no primeiro arquivo.
+
+dataset.show.duplicates:
+  title: "Duplicados ignorados"
+  what: |-
+    Registros pulados porque o projeto já tinha um documento com o **mesmo DOI** ou, sem DOI, com o **mesmo título e ano** (comparação exata, sem diferenciar maiúsculas).
+  how: |-
+    Veja a lista na aba Duplicados ignorados: cada linha mostra o motivo e o documento que já existia. O documento que fica é sempre o importado primeiro.
+  not: |-
+    O registro pulado **não é mesclado**: os dados dele (ex.: citações do WoS, palavras-chave extras) são descartados. Títulos com pequena diferença de pontuação não são pegos aqui.
+  example: |-
+    Importou o Scopus e depois o WoS: 640 artigos com o mesmo DOI foram ignorados no WoS e ficaram só com os dados do Scopus.
+
+dataset.show.errors:
+  title: "Erros"
+  what: |-
+    Registros que falharam ao serem gravados (dado inválido ou falha de banco durante a importação).
+  how: |-
+    Se houver muitos erros, verifique se o arquivo é o formato certo e reenvie. A mensagem técnica, quando existir, aparece abaixo das contagens.
+  not: |-
+    Os registros com erro não ficam listados individualmente e não são reprocessados automaticamente.
+  example: |-
+    4 erros num arquivo de 500 do WoS: provavelmente registros incompletos; os outros 496 foram importados normalmente.
+
+dataset.show.success_rate:
+  title: "Aproveitamento"
+  what: |-
+    Percentual de registros do arquivo que viraram documentos: Importados ÷ Total no arquivo × 100.
+  how: |-
+    Aproveitamento baixo costuma ser normal em arquivos que se sobrepõem a outros (muitos duplicados). Confira a aba Duplicados antes de se preocupar.
+  not: |-
+    Não é uma nota de qualidade. Um lote com 0% pode estar correto se todos os registros já estavam no projeto.
+  example: |-
+    WoS com 900 registros e 640 duplicados do Scopus → 260 importados → 28,9% de aproveitamento.
+
+dataset.show.tab_imported:
+  title: "Documentos importados"
+  what: |-
+    Lista, 50 por página, os documentos gravados por esta importação, com título, autores, ano, periódico, DOI, citações e tipo.
+  how: |-
+    Use para conferir por amostragem se os campos foram lidos corretamente (ex.: ano e periódico preenchidos).
+  not: |-
+    Não lista documentos de outras importações nem permite editar ou excluir um documento isolado.
+  example: |-
+    Se a coluna Ano aparece vazia em muitos documentos, a exportação provavelmente veio sem o campo de ano.
+
+dataset.show.citations:
+  title: "Citações (Cit.)"
+  what: |-
+    Número de citações informado pela base no momento da exportação (Scopus "Cited by", WoS "TC", Lens "Citing Works Count").
+  how: |-
+    Use para ordenar e comparar documentos dentro da mesma base.
+  not: |-
+    Não é atualizado depois da importação e não é comparável entre bases (o Scopus costuma contar mais que o WoS). O PubMed não informa citações.
+  example: |-
+    Um artigo com 152 citações no Scopus pode ter 98 no WoS: os números refletem a cobertura de cada base.
+
+dataset.show.tab_duplicates:
+  title: "Duplicados ignorados"
+  what: |-
+    Lista os registros deste arquivo que não foram gravados porque já existiam no projeto, com o motivo e o documento existente.
+  how: |-
+    Use para auditar a deduplicação e para relatar a remoção de duplicatas na metodologia (ex.: PRISMA).
+  not: |-
+    Não há como "forçar" a importação de um registro daqui. Se a importação que tinha o documento original for excluída, estes registros não voltam sozinhos.
+  example: |-
+    O fluxograma PRISMA da revisão informa "312 duplicatas removidas" — a soma desta aba em todas as importações.
+
+dataset.show.skip_reason:
+  title: "Motivo da duplicidade"
+  what: |-
+    Por que o registro foi considerado duplicado. **DOI conflitante**: mesmo DOI de um documento existente. **Título + Ano**: mesma "impressão digital" (DOI em minúsculas ou, sem DOI, título + ano iguais). **Restrição banco**: o banco recusou por já existir.
+  how: |-
+    Confira os casos "Título + Ano" sem DOI: são os mais sujeitos a coincidência.
+  not: |-
+    Não indica qual versão tem metadados melhores; sempre fica a que foi importada primeiro.
+  example: |-
+    "Editorial" de 2020 sem DOI aparece em dois periódicos diferentes: por ter o mesmo título e ano, o segundo foi ignorado — caso raro de falso duplicado.
+
+dataset.show.skip_matched:
+  title: "Documento existente colidente"
+  what: |-
+    O documento que já estava no projeto e fez este registro ser ignorado.
+  how: |-
+    Compare título, ano e DOI das duas colunas para confirmar que é o mesmo trabalho.
+  not: |-
+    Se aparecer "ID de link indisponível", o documento original foi removido depois (ex.: a importação dele foi excluída).
+  example: |-
+    O registro do WoS "Deep learning for crop yield..." colidiu com o mesmo artigo vindo do Scopus, com o mesmo DOI.
+
+dataset.show.delete:
+  title: "Excluir importação"
+  what: |-
+    Apaga esta importação e todos os documentos que ela gravou (com seus vínculos de autores e palavras-chave).
+  how: |-
+    Clique em excluir e confirme. O status do projeto é recalculado (volta a Rascunho se não sobrar documento).
+  not: |-
+    **Irreversível.** Registros de outros arquivos que tinham sido ignorados por duplicarem estes documentos **não** são reimportados: reenvie esses arquivos se precisar deles.
+  example: |-
+    Você importou por engano uma exportação sem resumos: exclua a importação, exporte de novo com todos os campos e importe outra vez.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editar metadados da importação
+# ─────────────────────────────────────────────────────────────────────────────
+
+dataset.edit.page:
+  title: "Editar metadados da importação"
+  what: |-
+    Corrige as informações descritivas de uma importação: nome, descrição, base de origem e período de busca.
+  how: |-
+    Altere e clique em **Salvar metadados**.
+  not: |-
+    Não reprocessa o arquivo nem altera os documentos já gravados.
+  example: |-
+    Renomeie "savedrecs (2).txt" para "WoS — lote 501–1000" para a lista de importações ficar legível.
+
+dataset.edit.name:
+  title: "Nome da importação"
+  what: |-
+    Rótulo que identifica esta importação nas listas do projeto.
+  how: |-
+    Inclua base, recorte e lote. Obrigatório.
+  not: |-
+    Não altera o nome do arquivo original guardado.
+  example: |-
+    "Scopus — busca principal 2010–2024 (1/2)".
+
+dataset.edit.description:
+  title: "Descrição da importação"
+  what: |-
+    Registro livre da coleta: string usada nesta base, filtros aplicados e data de acesso.
+  how: |-
+    Escreva como faria no apêndice metodológico. Os primeiros 120 caracteres aparecem na lista de importações.
+  not: |-
+    Não é usada em nenhuma análise.
+  example: |-
+    "TS=(extension AND universit*) · Document types: Article, Review · Acesso em 12/03/2025 via CAFe."
+
+dataset.edit.source:
+  title: "Base de dados de origem"
+  what: |-
+    Indica de qual base o arquivo veio. Aparece no logotipo e no rótulo da importação.
+  how: |-
+    Corrija se a detecção automática errou.
+  not: |-
+    Mudar aqui depois da importação **não** relê o arquivo nem muda a origem dos documentos já gravados. Se a base estava errada na hora de importar, exclua e importe de novo.
+  example: |-
+    Um CSV do Lens apareceu como "Outra": ajuste para Lens.org para a lista ficar correta.
+
+dataset.edit.search_period:
+  title: "Período de busca"
+  what: |-
+    Datas de cobertura temporal da busca feita nesta base, para documentação.
+  how: |-
+    Informe início e fim. Pode deixar em branco.
+  not: |-
+    Não filtra documentos por data.
+  example: |-
+    Início 01/01/2015, fim 31/12/2024 — igual ao filtro "2015–2024" aplicado no Scopus.
+
+dataset.edit.file_info:
+  title: "Informações do arquivo"
+  what: |-
+    Dados fixos do arquivo enviado e o resultado da importação (total, importados, duplicados).
+  how: |-
+    Apenas consulta; esses valores não podem ser editados.
+  not: |-
+    Não mostra os documentos; para isso volte ao detalhe da importação.
+  example: |-
+    Arquivo "scopus_2020_2024.csv", 1.987 registros, 1.902 importados, 85 duplicados.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Perfil
+# ─────────────────────────────────────────────────────────────────────────────
+
+profile.page:
+  title: "Editar perfil"
+  what: |-
+    Atualiza seus dados de cadastro (nome, e-mail, instituição, país) e permite trocar a senha.
+  how: |-
+    Altere os campos e clique em **Salvar alterações**. Deixe os campos de senha vazios se não quiser trocá-la.
+  not: |-
+    Não altera seu tipo de conta (Pesquisador/Administrador) nem dados dos projetos.
+  example: |-
+    Mudou de universidade no doutorado: atualize "Instituição de vínculo" para o novo programa.
+
+profile.account_type:
+  title: "Tipo de conta"
+  what: |-
+    **Pesquisador**: cria e analisa os próprios projetos. **Administrador**: além disso, mantém os cadastros globais (autores, instituições, revistas, palavras-chave).
+  how: |-
+    Informativo. Para mudar o tipo, fale com um administrador.
+  not: |-
+    Não define limites de projetos ou de documentos.
+  example: |-
+    Para cadastrar uma revista que faltou no Qualis, um pesquisador pede a um administrador.
+
+profile.name:
+  title: "Nome completo"
+  what: |-
+    Seu nome como aparece no sistema (menu do usuário e cabeçalho do perfil).
+  how: |-
+    Obrigatório.
+  not: |-
+    Não é vinculado ao seu cadastro de autor nos documentos importados.
+  example: |-
+    "Maria Aparecida dos Santos".
+
+profile.email:
+  title: "E-mail de acesso"
+  what: |-
+    E-mail usado para entrar no BiblioMap. Precisa ser único.
+  how: |-
+    Se mudar, use o novo e-mail no próximo login.
+  not: |-
+    Não pode ser um e-mail já usado por outra conta.
+  example: |-
+    Trocar o e-mail pessoal pelo institucional (@ufsc.br) ao ingressar no doutorado.
+
+profile.institution:
+  title: "Instituição de vínculo"
+  what: |-
+    Universidade ou organização à qual você está vinculado. Aparece no seu perfil.
+  how: |-
+    Opcional. Use o nome por extenso ou a sigla.
+  not: |-
+    Não filtra nem influencia as análises dos seus projetos.
+  example: |-
+    "Universidade Federal de Viçosa (UFV)".
+
+profile.country:
+  title: "País"
+  what: |-
+    País em que você atua. Aparece no seu perfil.
+  how: |-
+    Opcional, texto livre.
+  not: |-
+    Não altera idioma, fuso nem análises.
+  example: |-
+    "Brasil".
+
+profile.password:
+  title: "Nova senha"
+  what: |-
+    Troca a senha de acesso. Mínimo de 6 caracteres nesta tela.
+  how: |-
+    Preencha só se quiser trocar e repita no campo de confirmação. Em branco, a senha atual é mantida.
+  not: |-
+    Não pede a senha atual; por isso, não deixe sua sessão aberta em computadores compartilhados.
+  example: |-
+    Após usar o laboratório de informática, troque a senha por uma frase longa como "mapa-tese-2025-cerrado".
+
+profile.password_confirm:
+  title: "Confirmar nova senha"
+  what: |-
+    Repetição da nova senha, para evitar erro de digitação.
+  how: |-
+    Digite exatamente a mesma senha. Se forem diferentes, nada é salvo e aparece um aviso.
+  not: |-
+    Não é necessário se você não estiver trocando a senha.
+  example: |-
+    Senha e confirmação diferentes → mensagem "As senhas informadas não coincidem".
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cadastro
+# ─────────────────────────────────────────────────────────────────────────────
+
+register.page:
+  title: "Criar conta"
+  what: |-
+    Solicita uma conta no BiblioMap. A conta nasce **pendente** e só pode ser usada depois da aprovação de um administrador.
+  how: |-
+    Preencha nome, e-mail e senha (instituição é opcional) e clique em Criar minha conta. Depois, aguarde a aprovação para conseguir entrar.
+  not: |-
+    Não dá acesso imediato. Não crie várias contas com o mesmo e-mail: o e-mail deve ser único.
+  example: |-
+    Uma mestranda cria a conta na segunda; o administrador aprova e ela entra para criar o primeiro projeto.
+
+register.name:
+  title: "Nome completo"
+  what: |-
+    Seu nome, usado para o administrador identificar o pedido e exibido no sistema.
+  how: |-
+    Informe nome e sobrenome.
+  not: |-
+    Não precisa ser igual à forma como você aparece nos artigos.
+  example: |-
+    "João Pedro Almeida".
+
+register.email:
+  title: "E-mail"
+  what: |-
+    Será seu login. Precisa ser único no sistema.
+  how: |-
+    Prefira o e-mail institucional, que facilita a aprovação.
+  not: |-
+    Não pode ser usado por outra conta.
+  example: |-
+    joao.almeida@ufpr.br
+
+register.institution:
+  title: "Instituição"
+  what: |-
+    Universidade ou organização de vínculo (opcional). Ajuda o administrador a validar o pedido.
+  how: |-
+    Informe sigla e nome.
+  not: |-
+    Não limita o que você pode importar ou analisar.
+  example: |-
+    "UFPR — Programa de Pós-Graduação em Gestão da Informação".
+
+register.password:
+  title: "Senha"
+  what: |-
+    Senha de acesso, com no mínimo 8 caracteres.
+  how: |-
+    Use uma frase longa, fácil de lembrar e difícil de adivinhar.
+  not: |-
+    Não reutilize a senha do e-mail ou de outros sistemas.
+  example: |-
+    "bibliometria-cafe-2025!"
+
+register.password_confirm:
+  title: "Confirmar senha"
+  what: |-
+    Repetição da senha, para evitar erro de digitação.
+  how: |-
+    Digite a mesma senha do campo anterior.
+  not: |-
+    Se não coincidir, a conta não é criada e aparece um aviso.
+  example: |-
+    Senha "bibliometria-cafe-2025!" digitada igual nos dois campos.
