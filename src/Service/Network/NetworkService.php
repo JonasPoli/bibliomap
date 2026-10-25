@@ -25,7 +25,7 @@ class NetworkService
                 COUNT(da.document_id) AS doc_count,
                 SUM(COALESCE(d.cited_by, 0)) AS total_citations
             FROM author_identity a
-            JOIN document_author da ON a.id = da.author_identity_id
+            JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
             GROUP BY a.id, a.preferred_name
@@ -45,7 +45,7 @@ class NetworkService
             SELECT 
                 da1.author_identity_id AS source, 
                 da2.author_identity_id AS target, 
-                COUNT(da1.document_id) AS weight
+                COUNT(DISTINCT da1.document_id) AS weight
             FROM document_author da1
             JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.author_identity_id < da2.author_identity_id
             JOIN document d ON da1.document_id = d.id
@@ -148,7 +148,7 @@ class NetworkService
 
         foreach ($docCountries as $docId => $countries) {
             $countries = array_map('trim', $countries);
-            $countries = array_unique(array_filter($countries));
+            $countries = array_values(array_unique(array_filter($countries)));
 
             // Count frequencies
             foreach ($countries as $c) {
@@ -325,12 +325,14 @@ class NetworkService
             $adj[$tgt][] = ['node' => $src, 'weight' => $ei];
         }
 
+        // Semente fixa: mesmos dados => mesmas comunidades a cada carregamento
+        $randomizer = new \Random\Randomizer(new \Random\Engine\Mt19937(42));
+
         // LPA iterations — 10 gives stable results even on dense graphs
         $iterations = 10;
         for ($it = 0; $it < $iterations; $it++) {
             // Shuffle to prevent order bias
-            $shuffledIds = array_keys($labels);
-            shuffle($shuffledIds);
+            $shuffledIds = $randomizer->shuffleArray(array_keys($labels));
 
             $changed = false;
 

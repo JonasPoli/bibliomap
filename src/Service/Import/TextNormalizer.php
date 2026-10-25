@@ -22,14 +22,61 @@ final class TextNormalizer
         // 4. Trim normal
         $value = trim($value);
 
-        // 5. Remove sujeira repetida nas bordas (sem remover pontuação interna)
-        $value = preg_replace('/^[\s\'"“”‘’`´\.,;:_\*\+\-\–\—\(\)\[\]\{\}\/\\\\]+/u', '', $value);
-        $value = preg_replace('/[\s\'"“”‘’`´\.,;:_\*\+\-\–\—\(\)\[\]\{\}\/\\\\]+$/u', '', $value);
+        // 5. Remove sujeira repetida nas bordas (sem remover pontuação interna).
+        //    Parênteses/colchetes só saem se estiverem desbalanceados ou envolverem
+        //    o termo inteiro: "Artificial Intelligence (AI)" mantém o ")".
+        do {
+            $before = $value;
+            $value = preg_replace('/^[\s\'"“”‘’`´\.,;:_\*\+\-\–\—\/\\\\]+/u', '', $value);
+            $value = preg_replace('/[\s\'"“”‘’`´\.,;:_\*\+\-\–\—\/\\\\]+$/u', '', $value);
+            $value = $this->trimUnbalancedBrackets($value);
+        } while ($value !== $before);
 
         // 6. Remove espaços duplicados novamente
         $value = preg_replace('/\s+/u', ' ', $value);
 
         return trim($value);
+    }
+
+    private function trimUnbalancedBrackets(string $value): string
+    {
+        foreach (['(' => ')', '[' => ']', '{' => '}'] as $open => $close) {
+            if ($value === '') {
+                break;
+            }
+            $first = $value[0];
+            $last  = $value[strlen($value) - 1];
+            $opens  = substr_count($value, $open);
+            $closes = substr_count($value, $close);
+
+            if ($first === $close || ($first === $open && $opens > $closes)) {
+                return substr($value, 1);
+            }
+            if ($last === $open || ($last === $close && $closes > $opens)) {
+                return substr($value, 0, -1);
+            }
+            if ($first === $open && $last === $close && $this->closesAtEnd($value, $open, $close)) {
+                return substr($value, 1, -1);
+            }
+        }
+
+        return $value;
+    }
+
+    /** O parêntese aberto na posição 0 só fecha no último caractere? (termo inteiro envolvido) */
+    private function closesAtEnd(string $value, string $open, string $close): bool
+    {
+        $depth = 0;
+        $len = strlen($value);
+        for ($i = 0; $i < $len; $i++) {
+            if ($value[$i] === $open) {
+                $depth++;
+            } elseif ($value[$i] === $close && --$depth === 0) {
+                return $i === $len - 1;
+            }
+        }
+
+        return false;
     }
 
     public function normalizeForComparison(?string $value): string

@@ -81,14 +81,14 @@ class ThematicMapService
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
-            WHERE d.project_id = ?
+            WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
               AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) < COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id)
               AND COALESCE(k1.thesaurus_concept_id, k1.keyword_concept_id, k1.id) IN ($nodeIdPlaceholders)
               AND COALESCE(k2.thesaurus_concept_id, k2.keyword_concept_id, k2.id) IN ($nodeIdPlaceholders)
             GROUP BY source, target
             HAVING weight >= ?
             ORDER BY weight DESC
-        ", [$projectId, $minOccur]);
+        ", [$projectId, $mappedType, $mappedType, $minOccur]);
 
         // ── 3. Build adjacency index ──────────────────────────────────────────
         $adjacency  = [];
@@ -253,10 +253,12 @@ class ThematicMapService
             $adj[$tgt][] = ['node' => $src, 'weight' => $ei];
         }
 
+        // Semente fixa: mesmos dados => mesmos clusters a cada carregamento
+        $randomizer = new \Random\Randomizer(new \Random\Engine\Mt19937(42));
+
         // Propagate labels
         for ($it = 0; $it < $iterations; $it++) {
-            $shuffledIds = array_keys($labels);
-            shuffle($shuffledIds);
+            $shuffledIds = $randomizer->shuffleArray(array_keys($labels));
 
             $changed = false;
 
