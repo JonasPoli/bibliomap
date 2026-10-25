@@ -7,6 +7,7 @@ use App\Entity\KeywordVariation;
 use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -91,7 +92,7 @@ class AdminKeywordController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, ['term', 'type', 'status', 'variations'], ';');
+            fputcsv($handle, ['term', 'type', 'status', 'variations'], ';', '"', '\\');
 
             // Load variations
             $vars = $conn->fetchAllAssociative('
@@ -119,7 +120,7 @@ class AdminKeywordController extends AbstractController
                     $kw['keyword_type'],
                     $kw['status'] ? '1' : '0',
                     implode(';', $varNames)
-                ], ';');
+                ], ';', '"', '\\');
             }
             fclose($handle);
         });
@@ -148,8 +149,8 @@ class AdminKeywordController extends AbstractController
             set_time_limit(1200);
             $conn = $this->em->getConnection();
 
-            $csv = \League\Csv\Reader::createFromPath($file->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
+            // Separador detectado (; , ou tab): o CSV exportado (;) reimporta sem conversão
+            $csv = ThesaurusFileService::createCsvReader($file->getRealPath());
 
             $imported = 0;
             $updated = 0;
@@ -292,22 +293,40 @@ class AdminKeywordController extends AbstractController
         }
         $variationsText = implode("\n", $variationNames);
 
-        $otherKeywords = $this->em->createQueryBuilder()
-            ->select('k')
-            ->from(Keyword::class, 'k')
-            ->where('k.id != :id AND k.keywordType = :type')
-            ->setParameter('id', $keyword->getId())
-            ->setParameter('type', $keyword->getKeywordType())
-            ->orderBy('k.keywordOriginal', 'ASC')
-            ->setMaxResults(500)
-            ->getQuery()
-            ->getResult();
-
+        // O destino da mesclagem é escolhido por busca (app_admin_keywords_search): a lista fixa
+        // trazia só os 500 primeiros termos em ordem alfabética.
         return $this->render('admin/keywords/edit.html.twig', [
             'keyword' => $keyword,
             'variationsText' => $variationsText,
-            'other_keywords' => $otherKeywords,
         ]);
+    }
+
+    #[Route('/search', name: 'app_admin_keywords_search', methods: ['GET'])]
+    public function search(Request $request): JsonResponse
+    {
+        $q = trim($request->query->getString('q', ''));
+        $exclude = $request->query->getInt('exclude');
+        $type = $request->query->getString('type', '');
+        if (mb_strlen($q) < 2 && !ctype_digit($q)) {
+            return $this->json([]);
+        }
+
+        $id = ctype_digit($q) ? (int) $q : 0;
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT k.id, COALESCE(k.keyword_display, k.keyword_original) AS term,
+                    (SELECT COUNT(DISTINCT dk.document_id) FROM document_keyword dk WHERE dk.keyword_id = k.id) AS docs
+             FROM keyword k
+             WHERE k.id <> ? AND (? = \'\' OR k.keyword_type = ?)
+               AND (k.id = ? OR k.keyword_original LIKE ? OR k.keyword_normalized LIKE ?)
+             ORDER BY (k.id = ?) DESC, k.keyword_original ASC
+             LIMIT 30',
+            [$exclude, $type, $type, $id, '%' . $q . '%', '%' . StringNormalizer::normalizeString($q, true) . '%', $id]
+        );
+
+        return $this->json(array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'label' => sprintf('%s (#%d, %d doc.)', $r['term'], $r['id'], $r['docs']),
+        ], $rows));
     }
 
     #[Route('/{id}/delete', name: 'app_admin_keywords_delete', methods: ['POST'])]
@@ -396,25 +415,8 @@ class AdminKeywordController extends AbstractController
             return $this->redirectToRoute('app_admin_keywords_edit', ['id' => $keyword->getId()]);
         }
 
-        $conn = $this->em->getConnection();
-
-        // Remap document_keyword records
-        $conn->executeStatement(
-            'DELETE dk1 FROM document_keyword dk1
-             JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
-             WHERE dk1.keyword_id = ? AND dk2.keyword_id = ?',
-            [$keyword->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?',
-            [$target->getId(), $keyword->getId()]
-        );
-
-        // Remap concept_id in keyword table
-        $conn->executeStatement(
-            'UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ?',
-            [$target->getId(), $keyword->getId()]
-        );
+        // Ocorrências nos documentos, termos agrupados (conceito), matches e log de tratamento vão para o destino
+        $this->mergeService->remapKeywordLinks($keyword->getId(), $target->getId());
 
         // Move existing variations
         foreach ($keyword->getVariations() as $v) {
@@ -538,6 +540,7 @@ class AdminKeywordController extends AbstractController
 
             $addedVars = 0;
             $newKeywords = 0;
+            $created = [];
 
             foreach ($entries as $entry) {
                 $headerName = trim($entry['header'] ?? '');
@@ -550,10 +553,13 @@ class AdminKeywordController extends AbstractController
                     $keyword = new Keyword();
                     $keyword->setKeywordOriginal($headerName);
                     $keyword->setKeywordDisplay($headerName);
+                    // Sem keyword_normalized a importação de documentos (que busca por normalizado+tipo) nunca casaria
+                    $keyword->setKeywordNormalized($normHeader);
                     $keyword->setKeywordType(Keyword::TYPE_AUTHOR);
                     $keyword->setStatus(1);
                     $this->em->persist($keyword);
                     $keywordsMap[$normHeader] = $keyword;
+                    $created[] = $keyword;
                     $newKeywords++;
                 }
 
@@ -582,6 +588,13 @@ class AdminKeywordController extends AbstractController
             }
 
             $this->em->flush();
+
+            // Conceito inicial = o próprio termo (como em new() e na importação de documentos)
+            foreach ($created as $keyword) {
+                $keyword->setKeywordConcept($keyword);
+            }
+            $this->em->flush();
+
             $this->addFlash('success', "Importação de Tesauro concluída! Novas Palavras-Chave: {$newKeywords}, Novas Variações: {$addedVars}.");
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());

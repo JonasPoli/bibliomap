@@ -10,7 +10,6 @@ use App\Service\Import\StringNormalizer;
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\ORM\EntityManagerInterface;
-use League\Csv\Reader;
 use League\Csv\Writer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -289,7 +288,7 @@ class AdminJournalController extends AbstractController
         $response = new StreamedResponse(function() use ($conn) {
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['issn', 'title', 'qualis'], ';');
+            fputcsv($handle, ['issn', 'title', 'qualis'], ';', '"', '\\');
 
             $stmt = $conn->executeQuery('SELECT issn, title, qualis FROM qualis_journal ORDER BY title ASC');
 
@@ -298,7 +297,7 @@ class AdminJournalController extends AbstractController
                     $row['issn'],
                     $row['title'],
                     $row['qualis'] ?? ''
-                ], ';');
+                ], ';', '"', '\\');
             }
             fclose($handle);
         });
@@ -342,12 +341,18 @@ class AdminJournalController extends AbstractController
             $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
 
             $journalsMap = [];
+            $issnMap = [];
             foreach ($this->em->getRepository(QualisJournal::class)->findAll() as $j) {
                 $journalsMap[DocumentEnrichmentService::normalize($j->getTitle())] = $j;
+                $issnMap[$j->getNormalizedIssn()] = $j;
+                foreach ($j->getVariations() as $v) {
+                    $journalsMap[$v->getNormalizedName()] ??= $j;
+                }
             }
 
             $addedVars = 0;
             $newJournals = 0;
+            $skippedNoIssn = 0;
 
             foreach ($entries as $entry) {
                 $headerName = trim($entry['header'] ?? '');
@@ -356,14 +361,30 @@ class AdminJournalController extends AbstractController
                 $normHeader = DocumentEnrichmentService::normalize($headerName);
                 $journal = $journalsMap[$normHeader] ?? null;
 
+                // Documentos só se ligam a revistas pelo ISSN: sem ISSN no cabeçalho ou nas grafias,
+                // a revista criada nunca casaria (antes recebia um normalized_issn "custom_…").
+                $issn = null;
+                if (!$journal) {
+                    foreach (array_merge([$headerName], $entry['variations']) as $text) {
+                        if ($issn = ThesaurusFileService::extractIssn($text)) break;
+                    }
+                    if ($issn === null) {
+                        $skippedNoIssn++;
+                        continue;
+                    }
+                    $journal = $issnMap[EntityMergeService::normalizeIssn($issn)] ?? null;
+                }
+
                 if (!$journal) {
                     $journal = new QualisJournal();
                     $journal->setTitle(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
-                    $journal->setNormalizedIssn('custom_' . substr(md5($normHeader), 0, 10));
+                    $journal->setIssn($issn);
+                    $journal->setNormalizedIssn(EntityMergeService::normalizeIssn($issn));
                     $this->em->persist($journal);
-                    $journalsMap[$normHeader] = $journal;
+                    $issnMap[$journal->getNormalizedIssn()] = $journal;
                     $newJournals++;
                 }
+                $journalsMap[$normHeader] ??= $journal;
 
                 $existingVars = [];
                 foreach ($journal->getVariations() as $v) {
@@ -391,6 +412,9 @@ class AdminJournalController extends AbstractController
 
             $this->em->flush();
             $this->addFlash('success', "Importação de Tesauro concluída! Novos Periódicos: {$newJournals}, Novas Variações: {$addedVars}.");
+            if ($skippedNoIssn > 0) {
+                $this->addFlash('warning', "{$skippedNoIssn} cabeçalho(s) ignorado(s): revista não cadastrada e sem ISSN no arquivo (os documentos só se ligam a revistas pelo ISSN). Cadastre-as com ISSN ou inclua o ISSN como grafia.");
+            }
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
         }
@@ -416,15 +440,8 @@ class AdminJournalController extends AbstractController
             set_time_limit(600);
             $conn = $this->em->getConnection();
 
-            $csv = Reader::createFromPath($file->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
-            $delimiter = ';';
-            $firstHeader = $csv->getHeader()[0] ?? '';
-            if (str_contains($firstHeader, ',')) {
-                $delimiter = ',';
-                $csv = Reader::createFromPath($file->getRealPath(), 'r');
-                $csv->setHeaderOffset(0);
-            }
+            // Separador detectado (; , ou tab): antes o ';' era "detectado" mas nunca aplicado
+            $csv = ThesaurusFileService::createCsvReader($file->getRealPath());
 
             $imported = 0;
             $updated = 0;

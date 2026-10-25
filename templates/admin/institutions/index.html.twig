@@ -266,7 +266,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_institutions') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Use o mesmo layout do <b>Exportar CSV</b> (separado por vírgula, coluna obrigatória <code>official_name</code>). Instituições com o mesmo nome oficial são atualizadas em vez de duplicadas.
+                        Use o mesmo layout do <b>Exportar CSV</b> (ponto e vírgula, vírgula ou tabulação, detectado automaticamente; coluna obrigatória <code>official_name</code>). Instituições com o mesmo nome oficial são atualizadas em vez de duplicadas.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>

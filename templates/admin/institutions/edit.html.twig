@@ -261,7 +261,7 @@
                             <span class="font-monospace text-accent">{{ v.variationName }}</span>
                             <form action="{{ path('app_admin_institutions_variation_separate', {id: v.id}) }}" method="POST" style="display:inline">
                                 <input type="hidden" name="_token" value="{{ csrf_token('separate_var_' ~ v.id) }}">
-                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em uma nova instituição independente?');">
+                                <button type="submit" class="btn btn-xs btn-outline-warning px-2 py-0" style="font-size:11px" onclick="return confirm('Deseja transformar esta variação em uma nova instituição independente? Os documentos já vinculados só passam para o novo registro na próxima Sincronização do projeto.');">
                                     Desmembrar
                                 </button>
                             </form>

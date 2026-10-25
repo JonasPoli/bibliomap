@@ -288,6 +288,9 @@ class AdminInstitutionController extends AbstractController
         $institutions = $this->em->getRepository(Institution::class)->findBy([], ['officialName' => 'ASC']);
 
         $csv = \League\Csv\Writer::createFromString('');
+        // ';' + BOM UTF-8: abre direto no Excel pt-BR (a importação detecta o separador)
+        $csv->setDelimiter(';');
+        $csv->setOutputBOM(\League\Csv\Bom::Utf8);
         $csv->insertOne([
             'official_name', 'short_name', 'sigla', 'razao_social', 'cnpj', 'codigo_ies', 'codigo_mantenedora',
             'institution_type', 'natureza', 'organizacao_academica', 'categoria_administrativa', 'igc', 'ano_igc', 'ci', 'ano_ci',
@@ -399,8 +402,8 @@ class AdminInstitutionController extends AbstractController
                 $instMap[DocumentEnrichmentService::normalize($inst->getOfficialName())] = $inst;
             }
 
-            $csv = \League\Csv\Reader::createFromPath($file->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
+            // Separador detectado (; , ou tab): o CSV exportado (;) reimporta sem conversão
+            $csv = ThesaurusFileService::createCsvReader($file->getRealPath());
 
             $imported = 0;
             $updatedCount = 0;
@@ -506,17 +509,8 @@ class AdminInstitutionController extends AbstractController
             return $this->redirectToRoute('app_admin_institutions_edit', ['id' => $institution->getId()]);
         }
 
-        $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'DELETE di1 FROM documento_instituicoes di1
-             JOIN documento_instituicoes di2 ON di1.document_id = di2.document_id
-             WHERE di1.institution_id = ? AND di2.institution_id = ?',
-            [$institution->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE documento_instituicoes SET institution_id = ? WHERE institution_id = ?',
-            [$target->getId(), $institution->getId()]
-        );
+        // Documentos e unidades vinculadas vão para o destino
+        $this->mergeService->remapInstitutionLinks($institution->getId(), $target->getId());
 
         foreach ($institution->getVariations() as $v) {
             $exists = false;

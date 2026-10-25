@@ -8,6 +8,7 @@ use App\Entity\AuthorExternalIdentifier;
 use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -86,7 +87,7 @@ class AdminAuthorController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, ['name', 'orcid', 'status', 'variations'], ';');
+            fputcsv($handle, ['name', 'orcid', 'status', 'variations'], ';', '"', '\\');
 
             // Load variations
             $vars = $conn->fetchAllAssociative('
@@ -126,7 +127,7 @@ class AdminAuthorController extends AbstractController
                     $orcid,
                     $auth['status'] ? '1' : '0',
                     implode(';', $varNames)
-                ], ';');
+                ], ';', '"', '\\');
             }
             fclose($handle);
         });
@@ -155,8 +156,8 @@ class AdminAuthorController extends AbstractController
             set_time_limit(1200);
             $conn = $this->em->getConnection();
 
-            $csv = \League\Csv\Reader::createFromPath($file->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
+            // Separador detectado (; , ou tab): o CSV exportado (;) reimporta sem conversão
+            $csv = ThesaurusFileService::createCsvReader($file->getRealPath());
 
             $imported = 0;
             $updated = 0;
@@ -185,6 +186,11 @@ class AdminAuthorController extends AbstractController
                 }
                 if (!$id) {
                     $id = $conn->fetchOne('SELECT id FROM author_identity WHERE normalized_name = ?', [$normName]);
+                }
+                if (!$id) {
+                    // Cadastros antigos têm normalized_name em outro formato (com pontuação); o nome exportado
+                    // é o preferred_name, então a reimportação do próprio CSV casa por ele em vez de duplicar.
+                    $id = $conn->fetchOne('SELECT id FROM author_identity WHERE preferred_name IN (?, ?) LIMIT 1', [$name, $displayName]);
                 }
 
                 if ($id) {
@@ -280,6 +286,8 @@ class AdminAuthorController extends AbstractController
 
             $author->setPreferredName($displayName);
             $author->setNormalizedName($normName);
+            // Checkbox desmarcado não é enviado: ausente = inativo
+            $author->setStatus($request->request->getBoolean('status'));
             $author->setUpdatedAt(new \DateTimeImmutable());
 
             $this->em->persist($author);
@@ -322,6 +330,8 @@ class AdminAuthorController extends AbstractController
 
             $author->setPreferredName($displayName);
             $author->setNormalizedName($normName);
+            // Checkbox desmarcado não é enviado: ausente = inativo
+            $author->setStatus($request->request->getBoolean('status'));
             $author->setUpdatedAt(new \DateTimeImmutable());
 
             // Update ORCID
@@ -363,22 +373,39 @@ class AdminAuthorController extends AbstractController
             }
         }
 
-        $otherAuthors = $this->em->createQueryBuilder()
-            ->select('a')
-            ->from(AuthorIdentity::class, 'a')
-            ->where('a.id != :id')
-            ->setParameter('id', $author->getId())
-            ->orderBy('a.preferredName', 'ASC')
-            ->setMaxResults(500)
-            ->getQuery()
-            ->getResult();
-
+        // O destino da mesclagem é escolhido por busca (app_admin_authors_search): a lista fixa
+        // trazia só os 500 primeiros em ordem alfabética de ~150 mil autores.
         return $this->render('admin/authors/edit.html.twig', [
             'author' => $author,
             'orcid' => $orcid,
             'variationsText' => $variationsText,
-            'other_authors' => $otherAuthors,
         ]);
+    }
+
+    #[Route('/search', name: 'app_admin_authors_search', methods: ['GET'])]
+    public function search(Request $request): JsonResponse
+    {
+        $q = trim($request->query->getString('q', ''));
+        $exclude = $request->query->getInt('exclude');
+        if (mb_strlen($q) < 2 && !ctype_digit($q)) {
+            return $this->json([]);
+        }
+
+        $conn = $this->em->getConnection();
+        $rows = $conn->fetchAllAssociative(
+            'SELECT a.id, a.preferred_name,
+                    (SELECT COUNT(DISTINCT da.document_id) FROM document_author da WHERE da.author_identity_id = a.id) AS docs
+             FROM author_identity a
+             WHERE a.id <> ? AND (a.id = ? OR a.preferred_name LIKE ? OR a.normalized_name LIKE ?)
+             ORDER BY (a.id = ?) DESC, a.preferred_name ASC
+             LIMIT 30',
+            [$exclude, ctype_digit($q) ? (int) $q : 0, '%' . $q . '%', '%' . StringNormalizer::normalizeString($q, true) . '%', ctype_digit($q) ? (int) $q : 0]
+        );
+
+        return $this->json(array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'label' => sprintf('%s (#%d, %d doc.)', $r['preferred_name'], $r['id'], $r['docs']),
+        ], $rows));
     }
 
     #[Route('/{id}/delete', name: 'app_admin_authors_delete', methods: ['POST'])]
@@ -465,19 +492,8 @@ class AdminAuthorController extends AbstractController
             return $this->redirectToRoute('app_admin_authors_edit', ['id' => $author->getId()]);
         }
 
-        $conn = $this->em->getConnection();
-
-        // Remap document_author records
-        $conn->executeStatement(
-            'DELETE da1 FROM document_author da1
-             JOIN document_author da2 ON da1.document_id = da2.document_id
-             WHERE da1.author_identity_id = ? AND da2.author_identity_id = ?',
-            [$author->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ?',
-            [$target->getId(), $author->getId()]
-        );
+        // Remap document_author records (vínculo duplicado no mesmo documento é descartado)
+        $this->mergeService->remapAuthorLinks($author->getId(), $target->getId());
 
         // Move existing variations
         foreach ($author->getVariations() as $v) {

@@ -45,7 +45,7 @@ class AdminGeographyController extends AbstractController
             ->leftJoin('c.variations', 'v');
 
         if ($search !== '') {
-            $countryQb->andWhere('c.officialName LIKE :search OR c.commonName LIKE :search OR c.sigla LIKE :search OR c.isoAlpha2 LIKE :search OR c.isoAlpha3 LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+            $countryQb->andWhere('c.officialName LIKE :search OR c.commonName LIKE :search OR c.sigla LIKE :search OR c.isoCode LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
                 ->setParameter('search', '%' . $search . '%')
                 ->setParameter('normSearch', '%' . $normSearch . '%');
         }
@@ -413,6 +413,9 @@ class AdminGeographyController extends AbstractController
     public function export(string $type): Response
     {
         $csv = \League\Csv\Writer::createFromString('');
+        // ';' + BOM UTF-8: abre direto no Excel pt-BR (a importação detecta o separador)
+        $csv->setDelimiter(';');
+        $csv->setOutputBOM(\League\Csv\Bom::Utf8);
         $filename = 'export.csv';
 
         if ($type === 'countries') {
@@ -568,8 +571,8 @@ class AdminGeographyController extends AbstractController
                 $cityMap[$coId . '_' . $stId . '_' . $ctv->getNormalizedName()] = $city;
             }
 
-            $csv = \League\Csv\Reader::createFromPath($file->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
+            // Separador detectado (; , ou tab): o CSV exportado (;) reimporta sem conversão
+            $csv = ThesaurusFileService::createCsvReader($file->getRealPath());
 
             $imported = 0;
             $updatedCount = 0;
@@ -742,17 +745,8 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'DELETE dp1 FROM documento_paises dp1
-             JOIN documento_paises dp2 ON dp1.document_id = dp2.document_id
-             WHERE dp1.country_id = ? AND dp2.country_id = ?',
-            [$country->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE documento_paises SET country_id = ? WHERE country_id = ?',
-            [$target->getId(), $country->getId()]
-        );
+        // Documentos, regiões, estados, cidades e instituições vão para o destino antes de excluir (FK em cascata)
+        $this->mergeService->remapCountryLinks($country->getId(), $target->getId());
 
         foreach ($country->getVariations() as $v) {
             $exists = false;
@@ -813,17 +807,8 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'DELETE de1 FROM documento_estados de1
-             JOIN documento_estados de2 ON de1.document_id = de2.document_id
-             WHERE de1.state_id = ? AND de2.state_id = ?',
-            [$state->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE documento_estados SET state_id = ? WHERE state_id = ?',
-            [$target->getId(), $state->getId()]
-        );
+        // Documentos, cidades e instituições vão para o destino (senão ficariam sem estado)
+        $this->mergeService->remapStateLinks($state->getId(), $target->getId());
 
         foreach ($state->getVariations() as $v) {
             $exists = false;
@@ -884,17 +869,8 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'DELETE dc1 FROM documento_cidades dc1
-             JOIN documento_cidades dc2 ON dc1.document_id = dc2.document_id
-             WHERE dc1.city_id = ? AND dc2.city_id = ?',
-            [$city->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE documento_cidades SET city_id = ? WHERE city_id = ?',
-            [$target->getId(), $city->getId()]
-        );
+        // Documentos e instituições vão para o destino (senão ficariam sem cidade)
+        $this->mergeService->remapCityLinks($city->getId(), $target->getId());
 
         foreach ($city->getVariations() as $v) {
             $exists = false;

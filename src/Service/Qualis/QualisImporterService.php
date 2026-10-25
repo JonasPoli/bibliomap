@@ -55,15 +55,24 @@ class QualisImporterService
 
         $startTime = microtime(true);
 
-        // Delete existing data to do a clean reload (TRUNCATE is blocked by foreign key constraints)
-        $this->conn->executeStatement('DELETE FROM qualis_journal');
-
+        // Upsert por ISSN normalizado. Antes era DELETE FROM qualis_journal + INSERT: o FK SET NULL
+        // tirava a revista/Qualis de todos os documentos e o CASCADE apagava variações e bases.
+        // Revistas fora do PDF (cadastro manual, Crossref) são mantidas.
         $this->conn->beginTransaction();
         try {
             $batch = [];
             $imported = 0;
+            $inserted = 0;
+            $updated = 0;
+            $seen = [];
 
             foreach ($journals as $journal) {
+                // Mesmo ISSN repetido no PDF (outra área): vale a 1ª ocorrência, como no INSERT IGNORE anterior
+                if (isset($seen[$journal['normalized_issn']])) {
+                    continue;
+                }
+                $seen[$journal['normalized_issn']] = true;
+
                 $batch[] = [
                     'issn' => $journal['issn'],
                     'normalized_issn' => $journal['normalized_issn'],
@@ -72,14 +81,18 @@ class QualisImporterService
                 ];
 
                 if (count($batch) >= self::BULK_SIZE) {
-                    $this->insertBatch($batch);
+                    [$ins, $upd] = $this->upsertBatch($batch);
+                    $inserted += $ins;
+                    $updated += $upd;
                     $imported += count($batch);
                     $batch = [];
                 }
             }
 
             if (!empty($batch)) {
-                $this->insertBatch($batch);
+                [$ins, $upd] = $this->upsertBatch($batch);
+                $inserted += $ins;
+                $updated += $upd;
                 $imported += count($batch);
             }
 
@@ -91,6 +104,8 @@ class QualisImporterService
             return [
                 'total_extracted' => $totalJournals,
                 'total_imported' => $imported,
+                'inserted' => $inserted,
+                'updated' => $updated,
                 'time_seconds' => $elapsed
             ];
 
@@ -107,11 +122,19 @@ class QualisImporterService
     }
 
     /**
-     * Performs a batch insert of journals.
+     * Insere revistas novas e atualiza as existentes (mesmo normalized_issn) mantendo o id,
+     * para não desfazer vínculos de documentos, variações e bases.
+     *
+     * @return array{0: int, 1: int} [inseridas, atualizadas]
      */
-    private function insertBatch(array $batch): void
+    private function upsertBatch(array $batch): array
     {
-        $sql = 'INSERT IGNORE INTO qualis_journal (issn, normalized_issn, title, qualis) VALUES ';
+        $existing = (int) $this->conn->fetchOne(
+            'SELECT COUNT(*) FROM qualis_journal WHERE normalized_issn IN (' . implode(',', array_fill(0, count($batch), '?')) . ')',
+            array_column($batch, 'normalized_issn')
+        );
+
+        $sql = 'INSERT INTO qualis_journal (issn, normalized_issn, title, qualis) VALUES ';
         $placeholders = [];
         $values = [];
 
@@ -123,7 +146,10 @@ class QualisImporterService
             $values[] = $row['qualis'];
         }
 
-        $sql .= implode(', ', $placeholders);
+        $sql .= implode(', ', $placeholders)
+            . ' ON DUPLICATE KEY UPDATE issn = VALUES(issn), title = VALUES(title), qualis = VALUES(qualis)';
         $this->conn->executeStatement($sql, $values);
+
+        return [count($batch) - $existing, $existing];
     }
 }

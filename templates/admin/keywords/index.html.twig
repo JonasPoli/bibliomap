@@ -209,7 +209,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_keywords') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        CSV separado por <b>vírgula</b>, com cabeçalho <code>term</code>, <code>type</code> (author, indexed ou mesh), <code>status</code> (1 ou 0) e <code>variations</code> (grafias separadas por ponto e vírgula dentro da célula).
+                        CSV separado por <b>ponto e vírgula</b>, vírgula ou tabulação (detectado automaticamente; o arquivo do Exportar CSV reimporta como está), com cabeçalho <code>term</code>, <code>type</code> (author, indexed ou mesh), <code>status</code> (1 ou 0) e <code>variations</code> (grafias separadas por ponto e vírgula dentro da célula).
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>

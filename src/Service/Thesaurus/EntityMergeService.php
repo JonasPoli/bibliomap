@@ -2,6 +2,7 @@
 
 namespace App\Service\Thesaurus;
 
+use App\Entity\AuthorExternalIdentifier;
 use App\Entity\AuthorIdentity;
 use App\Entity\AuthorNameVariant;
 use App\Entity\City;
@@ -148,12 +149,8 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        // Remove source institutions
-        foreach ($sources as $source) {
-            $this->em->remove($source);
-        }
-
-        $this->em->flush();
+        // Remove source institutions (vínculos remapeados antes, senão o ON DELETE CASCADE apaga)
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapInstitutionLinks($sourceId, $masterId));
         return $master;
     }
 
@@ -206,6 +203,7 @@ class EntityMergeService
                     $newIdent->setProvider($ident->getProvider());
                     $newIdent->setIdentifier($ident->getIdentifier());
                     $newIdent->setUrl($ident->getUrl());
+                    $master->addIdentifier($newIdent);
                     $this->em->persist($newIdent);
                 }
             }
@@ -234,11 +232,7 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        foreach ($sources as $source) {
-            $this->em->remove($source);
-        }
-
-        $this->em->flush();
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapAuthorLinks($sourceId, $masterId));
         return $master;
     }
 
@@ -271,8 +265,16 @@ class EntityMergeService
         }
 
         if (isset($selectedFields['title'])) $master->setTitle($selectedFields['title']);
-        if (isset($selectedFields['issn'])) $master->setIssn($selectedFields['issn'] ?: null);
         if (isset($selectedFields['qualis'])) $master->setQualis($selectedFields['qualis'] ?: null);
+
+        // Bases acadêmicas dos secundários passam para o master
+        foreach ($sources as $source) {
+            foreach ($source->getAcademicDatabases() as $db) {
+                if (!$master->getAcademicDatabases()->contains($db)) {
+                    $master->addAcademicDatabase($db);
+                }
+            }
+        }
 
         $existingVariations = [];
         foreach ($master->getVariations() as $var) {
@@ -297,11 +299,25 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        foreach ($sources as $source) {
-            $this->em->remove($source);
-        }
-
-        $this->em->flush();
+        // O ISSN escolhido só é aplicado depois de excluir os secundários (normalized_issn é UNIQUE).
+        // ISSN vazio não apaga o do master: é a chave de casamento com os documentos.
+        $selectedIssn = trim((string) ($selectedFields['issn'] ?? ''));
+        $this->removeSourcesAfterRemap(
+            $sources,
+            fn(int $sourceId) => $this->remapJournalLinks($sourceId, $masterId),
+            function () use ($master, $selectedIssn) {
+                if ($selectedIssn !== '') {
+                    $master->setIssn($selectedIssn);
+                    $master->setNormalizedIssn(self::normalizeIssn($selectedIssn));
+                }
+                $this->em->flush();
+                // Documentos herdam o Qualis do master (como no enriquecimento por ISSN)
+                $this->em->getConnection()->executeStatement(
+                    'UPDATE document SET qualis = ? WHERE qualis_journal_id = ?',
+                    [$master->getQualis(), $master->getId()]
+                );
+            }
+        );
         return $master;
     }
 
@@ -334,7 +350,10 @@ class EntityMergeService
             }
         }
 
-        if (isset($selectedFields['keywordOriginal'])) $master->setKeywordOriginal($selectedFields['keywordOriginal']);
+        if (isset($selectedFields['keywordOriginal'])) {
+            $master->setKeywordOriginal($selectedFields['keywordOriginal']);
+            $master->setKeywordNormalized(StringNormalizer::normalizeString($selectedFields['keywordOriginal'], true));
+        }
         if (isset($selectedFields['keywordDisplay'])) $master->setKeywordDisplay($selectedFields['keywordDisplay'] ?: null);
         if (isset($selectedFields['keywordType'])) $master->setKeywordType($selectedFields['keywordType'] ?: Keyword::TYPE_AUTHOR);
 
@@ -361,11 +380,12 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        foreach ($sources as $source) {
-            $this->em->remove($source);
+        // Se o master apontava para um secundário como conceito, passa a ser o próprio conceito
+        if ($master->getKeywordConcept() !== null && isset($sources[$master->getKeywordConcept()->getId()])) {
+            $master->setKeywordConcept($master);
         }
 
-        $this->em->flush();
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapKeywordLinks($sourceId, $masterId));
         return $master;
     }
 
@@ -400,8 +420,6 @@ class EntityMergeService
 
         if (isset($selectedFields['commonName'])) $master->setCommonName($selectedFields['commonName']);
         if (isset($selectedFields['officialName'])) $master->setOfficialName($selectedFields['officialName'] ?: null);
-        if (isset($selectedFields['isoAlpha2'])) $master->setIsoAlpha2($selectedFields['isoAlpha2'] ?: null);
-        if (isset($selectedFields['isoAlpha3'])) $master->setIsoAlpha3($selectedFields['isoAlpha3'] ?: null);
         if (isset($selectedFields['foundationYear'])) $master->setFoundationYear($selectedFields['foundationYear'] !== '' ? (int)$selectedFields['foundationYear'] : null);
         if (isset($selectedFields['extinctionYear'])) $master->setExtinctionYear($selectedFields['extinctionYear'] !== '' ? (int)$selectedFields['extinctionYear'] : null);
 
@@ -428,11 +446,132 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        foreach ($sources as $source) {
-            $this->em->remove($source);
-        }
-
-        $this->em->flush();
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapCountryLinks($sourceId, $masterId));
         return $master;
+    }
+
+    public static function normalizeIssn(string $issn): string
+    {
+        return strtolower(str_replace(['-', ' '], '', trim($issn)));
+    }
+
+    /**
+     * Remapeia os vínculos e só então exclui os secundários, tudo numa transação.
+     * Sem o remapeamento, os FKs ON DELETE CASCADE/SET NULL apagariam os vínculos dos documentos.
+     */
+    private function removeSourcesAfterRemap(array $sources, callable $remap, ?callable $afterRemove = null): void
+    {
+        $conn = $this->em->getConnection();
+        $conn->beginTransaction();
+        try {
+            foreach ($sources as $source) {
+                $remap((int) $source->getId());
+                $this->em->remove($source);
+            }
+            $this->em->flush();
+            if ($afterRemove !== null) {
+                $afterRemove();
+            }
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Move as linhas de uma tabela de vínculo documento×entidade do secundário para o master,
+     * descartando as que duplicariam um vínculo que o documento já tem com o master.
+     */
+    private function remapDocumentLinks(string $table, string $column, int $sourceId, int $masterId): void
+    {
+        $conn = $this->em->getConnection();
+        $conn->executeStatement(
+            "DELETE l1 FROM {$table} l1
+             JOIN {$table} l2 ON l1.document_id = l2.document_id
+             WHERE l1.{$column} = ? AND l2.{$column} = ?",
+            [$sourceId, $masterId]
+        );
+        $conn->executeStatement("UPDATE {$table} SET {$column} = ? WHERE {$column} = ?", [$masterId, $sourceId]);
+    }
+
+    public function remapAuthorLinks(int $sourceId, int $masterId): void
+    {
+        $this->remapDocumentLinks('document_author', 'author_identity_id', $sourceId, $masterId);
+    }
+
+    public function remapKeywordLinks(int $sourceId, int $masterId): void
+    {
+        $conn = $this->em->getConnection();
+        $this->remapDocumentLinks('document_keyword', 'keyword_id', $sourceId, $masterId);
+        // Termos agrupados sob o secundário passam para o conceito do master
+        $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ? AND id <> ?', [$masterId, $sourceId, $sourceId]);
+        $conn->executeStatement('UPDATE thesaurus_match SET keyword_id = ? WHERE keyword_id = ?', [$masterId, $sourceId]);
+        $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [$masterId, $sourceId]);
+    }
+
+    public function remapInstitutionLinks(int $sourceId, int $masterId): void
+    {
+        $this->remapDocumentLinks('documento_instituicoes', 'institution_id', $sourceId, $masterId);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE instituicao_unidades SET parent_institution_id = ? WHERE parent_institution_id = ?',
+            [$masterId, $sourceId]
+        );
+    }
+
+    public function remapJournalLinks(int $sourceId, int $masterId): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE document SET qualis_journal_id = ? WHERE qualis_journal_id = ?',
+            [$masterId, $sourceId]
+        );
+    }
+
+    /**
+     * País: documentos, regiões, estados, cidades e instituições passam para o master
+     * (estados/regiões/cidades têm FK ON DELETE CASCADE para o país).
+     */
+    public function remapCountryLinks(int $sourceId, int $masterId): void
+    {
+        $conn = $this->em->getConnection();
+        $this->remapDocumentLinks('documento_paises', 'country_id', $sourceId, $masterId);
+
+        // Região de mesmo nome já existente no master: reaproveita e descarta a do secundário
+        $conn->executeStatement(
+            'UPDATE estados e
+             JOIN regioes rs ON rs.id = e.region_id AND rs.country_id = ?
+             JOIN regioes rm ON rm.country_id = ? AND rm.name = rs.name
+             SET e.region_id = rm.id',
+            [$sourceId, $masterId]
+        );
+        $conn->executeStatement(
+            'DELETE rs FROM regioes rs
+             JOIN regioes rm ON rm.country_id = ? AND rm.name = rs.name
+             WHERE rs.country_id = ?',
+            [$masterId, $sourceId]
+        );
+        $conn->executeStatement('UPDATE regioes SET country_id = ? WHERE country_id = ?', [$masterId, $sourceId]);
+        $conn->executeStatement('UPDATE estados SET country_id = ? WHERE country_id = ?', [$masterId, $sourceId]);
+        $conn->executeStatement('UPDATE cidades SET country_id = ? WHERE country_id = ?', [$masterId, $sourceId]);
+        $conn->executeStatement('UPDATE instituicoes_ensino SET country_id = ? WHERE country_id = ?', [$masterId, $sourceId]);
+    }
+
+    /** Estado: documentos, cidades e instituições passam para o master (FK SET NULL os deixaria sem estado). */
+    public function remapStateLinks(int $sourceId, int $masterId): void
+    {
+        $conn = $this->em->getConnection();
+        $this->remapDocumentLinks('documento_estados', 'state_id', $sourceId, $masterId);
+        $conn->executeStatement('UPDATE cidades SET state_id = ? WHERE state_id = ?', [$masterId, $sourceId]);
+        $conn->executeStatement('UPDATE instituicoes_ensino SET state_id = ? WHERE state_id = ?', [$masterId, $sourceId]);
+    }
+
+    /** Cidade: documentos e instituições passam para o master. */
+    public function remapCityLinks(int $sourceId, int $masterId): void
+    {
+        $this->remapDocumentLinks('documento_cidades', 'city_id', $sourceId, $masterId);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE instituicoes_ensino SET city_id = ? WHERE city_id = ?',
+            [$masterId, $sourceId]
+        );
     }
 }

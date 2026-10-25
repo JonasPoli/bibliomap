@@ -95,12 +95,10 @@
             <form action="{{ path('app_admin_authors_merge', {id: author.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir este autor? A ação não poderá ser desfeita.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ author.id) }}">
                 <div class="mb-3">
-                    <label class="form-label" style="font-size:12px">Autor de Destino</label>
-                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
-                        <option value="">Selecione...</option>
-                        {% for other in other_authors %}
-                            <option value="{{ other.id }}">{{ other.name }}</option>
-                        {% endfor %}
+                    <label class="form-label" style="font-size:12px" for="authorMergeSearch">Autor de Destino</label>
+                    <input type="search" id="authorMergeSearch" class="form-control mb-2" style="font-size:12.5px" placeholder="Buscar por nome, grafia normalizada ou ID" autocomplete="off">
+                    <select name="targetId" id="authorMergeTarget" class="form-select" style="font-size:12.5px" size="6" required>
+                        <option value="" disabled>Digite ao menos 2 letras (ou o ID) para buscar...</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
@@ -108,4 +106,32 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const input = document.getElementById('authorMergeSearch');
+    const select = document.getElementById('authorMergeTarget');
+    let timer = null;
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(async function () {
+            const q = input.value.trim();
+            select.innerHTML = '';
+            if (q.length < 2 && !/^\d+$/.test(q)) {
+                select.add(new Option('Digite ao menos 2 letras (ou o ID) para buscar...', '', false, false));
+                select.options[0].disabled = true;
+                return;
+            }
+            const res = await fetch({{ path('app_admin_authors_search', {exclude: author.id})|json_encode|raw }} + '&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+            const items = res.ok ? await res.json() : [];
+            if (!items.length) {
+                select.add(new Option('Nenhum resultado para "' + q + '"', '', false, false));
+                select.options[0].disabled = true;
+                return;
+            }
+            items.forEach(function (it) { select.add(new Option(it.label, it.id)); });
+        }, 250);
+    });
+})();
+</script>
 {% endblock %}

@@ -75,10 +75,66 @@ class ThesaurusFileService
         return $this->parseTheContent($content);
     }
 
+    /**
+     * Detecta o separador do CSV pela linha de cabeçalho: ';' (Excel pt-BR e nossas exportações),
+     * ',' ou tabulação. Conta só fora de aspas; empate ou nenhum separador → ','.
+     */
+    public static function detectCsvDelimiter(string $headerLine): string
+    {
+        $headerLine = preg_replace('/^\xEF\xBB\xBF/', '', $headerLine);
+        $counts = [';' => 0, ',' => 0, "\t" => 0];
+        $inQuotes = false;
+        $len = strlen($headerLine);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $headerLine[$i];
+            if ($ch === '"') {
+                $inQuotes = !$inQuotes;
+            } elseif (!$inQuotes && isset($counts[$ch])) {
+                $counts[$ch]++;
+            }
+        }
+        $best = ',';
+        foreach ($counts as $delimiter => $n) {
+            if ($n > $counts[$best]) {
+                $best = $delimiter;
+            }
+        }
+        return $best;
+    }
+
+    /** Primeiro ISSN (NNNN-NNNX, com ou sem hífen) encontrado no texto, formatado com hífen. */
+    public static function extractIssn(string $text): ?string
+    {
+        if (preg_match('/(?<![\dXx])(\d{4})-?(\d{3}[\dXx])(?![\dXx])/', $text, $m)) {
+            return $m[1] . '-' . strtoupper($m[2]);
+        }
+        return null;
+    }
+
+    /** Leitor CSV com cabeçalho na 1ª linha e separador detectado automaticamente. */
+    public static function createCsvReader(string $filePath): Reader
+    {
+        $firstLine = '';
+        $fh = fopen($filePath, 'r');
+        if ($fh !== false) {
+            while (($line = fgets($fh)) !== false) {
+                if (trim($line) !== '' && trim($line) !== "\xEF\xBB\xBF") {
+                    $firstLine = $line;
+                    break;
+                }
+            }
+            fclose($fh);
+        }
+
+        $csv = Reader::from($filePath, 'r');
+        $csv->setDelimiter(self::detectCsvDelimiter($firstLine));
+        $csv->setHeaderOffset(0);
+        return $csv;
+    }
+
     private function parseCsv(string $filePath): array
     {
-        $csv = Reader::createFromPath($filePath, 'r');
-        $csv->setHeaderOffset(0);
+        $csv = self::createCsvReader($filePath);
 
         $grouped = [];
         foreach ($csv->getRecords() as $record) {

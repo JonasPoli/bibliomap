@@ -38,20 +38,20 @@ admin.authors.export_thesaurus:
 admin.authors.import_thesaurus:
   title: "Importar tesauro de autores"
   what: "Lê um arquivo .the (VantagePoint) ou .csv e acrescenta grafias às identidades. Cada termo preferido é procurado pelo nome normalizado; se não existir, um novo autor ativo é criado."
-  how: "No .the, linhas que começam com ** são o nome preferido e as seguintes são as grafias. No CSV use vírgula como separador e colunas preferred_name e variant_name (uma linha por grafia). Depois rode a Sincronização dos projetos."
-  not: "Não apaga grafias nem autores e não mexe em ORCID. O CSV gerado por “Exportar tesauro” sai com ponto e vírgula: para reimportá-lo, salve-o antes como CSV separado por vírgula."
+  how: "No .the, linhas que começam com ** são o nome preferido e as seguintes são as grafias. No CSV, colunas preferred_name e variant_name (uma linha por grafia); o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Depois rode a Sincronização dos projetos."
+  not: "Não apaga grafias nem autores e não mexe em ORCID. O CSV gerado por “Exportar tesauro” pode ser reimportado sem conversão."
   example: "Um colega do grupo de pesquisa já tem um tesauro de 3.000 autores de enfermagem feito no VantagePoint. Importe o .the e as grafias dele passam a valer para todos os projetos da plataforma."
 
 admin.authors.export_csv:
   title: "Exportar autores (CSV)"
   what: "Baixa um CSV com uma linha por autor: name, orcid, status e variations (as grafias dentro da célula, separadas por ponto e vírgula)."
   how: "Clique e abra o arquivo no Excel ou LibreOffice escolhendo **ponto e vírgula** como separador e codificação UTF-8."
-  not: "Não inclui os documentos nem métricas do autor. Para reimportar, converta o arquivo para separador vírgula (a importação lê vírgula)."
+  not: "Não inclui os documentos nem métricas do autor. O arquivo pode ser reimportado como está (a importação detecta o separador)."
   example: "Para revisar no Excel os 500 autores mais frequentes do seu corpus antes da qualificação, exporte, filtre e corrija os ORCIDs faltantes."
 
 admin.authors.import_csv:
   title: "Importar autores (CSV)"
-  what: "Cria ou atualiza autores em massa a partir de um CSV separado por **vírgula** com as colunas name, orcid, status e variations."
+  what: "Cria ou atualiza autores em massa a partir de um CSV com as colunas name, orcid, status e variations. O separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente."
   how: "Cada linha procura o autor primeiro pelo ORCID e, se não achar, pelo nome normalizado. Encontrado: o nome preferido e o status são atualizados e, se a linha trouxer ORCID, ele substitui o anterior. Não encontrado: um autor novo é criado. As grafias da coluna variations (separadas por ponto e vírgula) são acrescentadas."
   not: "Não remove grafias existentes nem apaga autores. Linhas sem name são ignoradas. Colunas como surname ou initials não são lidas."
   example: "Linha: name = “Jonas Poli”, orcid = “0000-0002-1825-0097”, status = 1, variations = “Poli J;Poli, Jonas”. Se o ORCID já existir, o registro é atualizado em vez de duplicado."
@@ -60,7 +60,7 @@ admin.authors.merge_selected:
   title: "Mesclar autores selecionados"
   what: "Abre a tela de comparação para unir de 2 a 5 autores duplicados num só registro."
   how: "Marque as caixas da primeira coluna (o botão só habilita com 2 a 5 marcadas) e clique em **Mesclar**. Na tela seguinte você escolhe o registro principal e o nome final."
-  not: "Atenção: nesta fusão em lote os documentos ligados aos registros secundários **perdem o vínculo** com o autor (o vínculo não é transferido). Para autores com documentos, prefira **Mesclar Autor** na tela de edição, que transfere os documentos."
+  not: "Os documentos dos registros secundários passam para o Master (se o artigo tinha os dois, fica um vínculo só). Não pode ser desfeito: confira se são mesmo a mesma pessoa."
   example: "Ao encontrar “Fernandes, Ana Lúcia” e “Fernandes, A. L.” como duas linhas sem documentos importados ainda, marque ambas e mescle para deixar o tesauro limpo antes da próxima importação."
 
 admin.authors.col_preferred:
@@ -109,7 +109,7 @@ admin.authors.form.status:
   title: "Status do autor"
   what: "Ativo (1) = identidade conferida. Pendente/Bruto (0) = criada pela importação com sinal de alerta (nome de uma palavra só, com números ou com cara de instituição) e listada em **Admin › Revisão e Deduplicação**."
   how: "Para aprovar autores pendentes, use a tela Revisão e Deduplicação ou a coluna status da importação CSV."
-  not: "Nesta versão, o interruptor dos formulários de autor não é gravado ao salvar. O status também não impede o vínculo com documentos."
+  not: "O status não impede o vínculo com documentos: autores pendentes continuam aparecendo nos relatórios."
   example: "“Grupo de Estudos 2” entra como Pendente; na fila de revisão você o move para Instituições ou o descarta."
 
 admin.authors.form.variations:
@@ -129,22 +129,22 @@ admin.authors.edit.variations_list:
 admin.authors.edit.merge:
   title: "Mesclar este autor em outro"
   what: "Une este registro ao autor escolhido: documentos, grafias, nome preferido (como variação) e ORCID passam para o destino e este registro é excluído."
-  how: "Escolha o destino e clique em **Mesclar e Excluir**. Se os dois autores estavam no mesmo artigo, o vínculo duplicado é removido para não contar o artigo duas vezes."
-  not: "Não pode ser desfeito. A lista de destino mostra apenas os 500 primeiros autores em ordem alfabética: se o destino não aparecer, abra a edição dele e mescle no sentido inverso, ou peça ao suporte."
+  how: "Digite parte do nome (ou o #id) do destino, escolha-o na lista de resultados e clique em **Mesclar e Excluir**. Se os dois autores estavam no mesmo artigo, o vínculo duplicado é removido para não contar o artigo duas vezes."
+  not: "Não pode ser desfeito. A busca mostra até 30 resultados: refine o texto se o destino não aparecer."
   example: "“Freire, P.” (12 artigos) mesclado em “Paulo Freire” (40 artigos): o destino passa a ter 52 artigos e “Freire, P.” vira uma de suas grafias."
 
 admin.authors.merge.page:
   title: "Mesclar autores em lote"
   what: "Compara de 2 a 5 autores lado a lado para consolidá-los num registro principal (Master)."
   how: "1) Escolha o Master. 2) Escolha o nome preferido final. 3) Confira as grafias que serão reunidas. 4) Confirme."
-  not: "Os documentos ligados aos registros secundários **não são transferidos**: esses vínculos são apagados junto com os registros. Use esta tela para duplicatas sem documentos; para as demais, use “Mesclar Autor” na edição."
+  not: "Os documentos dos registros secundários são transferidos para o Master antes da exclusão; se um artigo tinha os dois autores, fica um vínculo só. Não pode ser desfeito."
   example: "Três cadastros de “Saviani, D.” criados por importações antigas e sem documentos: mescle aqui e mantenha “Dermeval Saviani” como nome."
 
 admin.authors.merge.master:
   title: "Registro principal (Master)"
   what: "O registro que continua existindo, com o mesmo número (#id). Os outros são excluídos."
   how: "Marque o registro mais completo. Ao trocar o Master, os valores da coluna dele são pré-selecionados na tabela abaixo."
-  not: "Escolher o Master não traz automaticamente os documentos dos outros registros."
+  not: "Os documentos dos outros registros passam para ele; o nome deles vira grafia do Master."
   example: "Entre #120 (com ORCID) e #985 (sem ORCID), escolha #120 como Master."
 
 admin.authors.merge.fields:
@@ -172,7 +172,7 @@ admin.authors.merge.confirm:
   title: "Confirmar fusão"
   what: "Executa a fusão: atualiza o Master, copia grafias e ORCIDs e exclui os demais registros."
   how: "Clique e confirme na janela do navegador. Ao final, volte à listagem e confira o Master."
-  not: "Não pode ser desfeita e não transfere os documentos dos registros secundários."
+  not: "Não pode ser desfeita. Os documentos dos registros secundários passam para o Master."
   example: "Após mesclar 3 cadastros duplicados de “Saviani, D.”, a listagem passa a mostrar só “Dermeval Saviani” com 5 variações."
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -203,21 +203,21 @@ admin.institutions.export_thesaurus:
 admin.institutions.import_thesaurus:
   title: "Importar tesauro de instituições"
   what: "Lê um .the ou .csv e acrescenta grafias às instituições. O termo preferido é procurado pelo nome oficial ou pela sigla (normalizados); se não existir, é criada uma instituição nova, ativa, com o nome em “Título Próprio”."
-  how: "No CSV, use vírgula como separador e colunas preferred_name e variant_name. Depois sincronize os projetos para refazer os vínculos."
-  not: "Não apaga nem altera grafias existentes, não preenche país/estado/cidade das instituições novas e não lê dados do e-MEC. O CSV do “Exportar tesauro” usa ponto e vírgula: converta para vírgula antes de reimportar."
+  how: "No CSV, colunas preferred_name e variant_name; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Depois sincronize os projetos para refazer os vínculos."
+  not: "Não apaga nem altera grafias existentes, não preenche país/estado/cidade das instituições novas e não lê dados do e-MEC. O CSV do “Exportar tesauro” pode ser reimportado sem conversão."
   example: "Importe o tesauro de afiliações de um projeto antigo do VantagePoint com 800 entradas para reaproveitar o trabalho de limpeza já feito."
 
 admin.institutions.export_csv:
   title: "Exportar instituições (CSV)"
-  what: "Baixa um CSV (separado por vírgula) com os dados cadastrais e e-MEC de todas as instituições, localização e variações."
-  how: "Abra no Excel ou LibreOffice com separador vírgula e UTF-8. A coluna variations lista as grafias separadas por ponto e vírgula."
+  what: "Baixa um CSV (separado por ponto e vírgula, UTF-8) com os dados cadastrais e e-MEC de todas as instituições, localização e variações."
+  how: "Abre direto no Excel em português. A coluna variations lista as grafias separadas por ponto e vírgula dentro da célula."
   not: "Não traz contagem de documentos nem dados de produção."
   example: "Exporte para conferir quais universidades federais ainda estão sem cidade ou coordenadas antes de gerar o mapa de colaboração."
 
 admin.institutions.import_csv:
   title: "Importar instituições (CSV)"
   what: "Cria ou atualiza instituições em massa usando o mesmo layout do Exportar CSV. A instituição é reconhecida pelo nome oficial (normalizado)."
-  how: "Colunas lidas: official_name (obrigatória), short_name, sigla, razao_social, cnpj, codigo_ies, institution_type, natureza, country_name, state_sigla, city_name, official_website, institutional_email, status, notes e variations. País, UF e cidade precisam existir no cadastro de Geografia."
+  how: "Colunas lidas: official_name (obrigatória), short_name, sigla, razao_social, cnpj, codigo_ies, institution_type, natureza, country_name, state_sigla, city_name, official_website, institutional_email, status, notes e variations. O separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. País, UF e cidade precisam existir no cadastro de Geografia."
   not: "As demais colunas do arquivo exportado (IGC, CI, coordenadas, reitor etc.) são ignoradas. Variações que não estiverem na coluna variations são removidas da instituição atualizada."
   example: "Linha com official_name = “Universidade Federal de Santa Catarina”, sigla = “UFSC”, country_name = “Brasil”, state_sigla = “SC”, city_name = “Florianópolis”."
 
@@ -225,7 +225,7 @@ admin.institutions.merge_selected:
   title: "Mesclar instituições selecionadas"
   what: "Abre a tela de comparação para unir de 2 a 5 instituições duplicadas num registro principal."
   how: "Marque as caixas da primeira coluna e clique em **Mesclar** (o botão só habilita com 2 a 5 marcadas)."
-  not: "Nesta fusão em lote os vínculos de documentos dos registros secundários são apagados, não transferidos: depois dela, rode a **Sincronização** dos projetos para religá-los pelo tesauro. Para fundir uma instituição com documentos sem esse passo, use “Mesclar Instituição” na edição."
+  not: "Os vínculos de documentos e as unidades dos registros secundários passam para o Master antes da exclusão (documento ligado a mais de um fica com um vínculo só). Não pode ser desfeito."
   example: "“UNB”, “Universidade de Brasília” e “Univ Brasilia” cadastradas separadamente: mescle as três e mantenha a que tem código IES."
 
 admin.institutions.col_emec:
@@ -449,12 +449,12 @@ admin.institutions.edit.variations_list:
   title: "Variações cadastradas e desmembrar"
   what: "Lista as grafias alternativas e as razões sociais desta instituição. **Desmembrar** cria uma instituição nova e ativa com essa grafia como nome, copiando país, estado, cidade, tipo e natureza."
   how: "Clique em Desmembrar e confirme; você vai para a edição da nova instituição. Depois sincronize o projeto para que as afiliações com essa grafia passem para a nova instituição."
-  not: "O desmembramento não move os vínculos de documentos já existentes: eles só mudam na próxima Sincronização."
+  not: "O desmembramento não move os vínculos de documentos já existentes (o vínculo não guarda a grafia de origem): eles só passam para a nova instituição na próxima Sincronização."
   example: "“Hospital Universitário Polydoro Ernani de São Thiago” estava como grafia da UFSC; desmembre para que o hospital apareça separado no ranking."
 
 admin.institutions.edit.merge:
   title: "Mesclar esta instituição em outra"
-  what: "Transfere os vínculos de documentos e as variações desta instituição para a escolhida, cria variações com o nome oficial, nome curto, sigla e razão social deste registro e o exclui."
+  what: "Transfere os vínculos de documentos, as unidades e as variações desta instituição para a escolhida, cria variações com o nome oficial, nome curto, sigla e razão social deste registro e o exclui."
   how: "Escolha a instituição de destino e clique em Mesclar e Excluir. Se um documento estava ligado às duas, fica um vínculo só."
   not: "Não pode ser desfeito e não copia dados e-MEC ou localização deste registro para o destino."
   example: "“Univ Brasilia” (criada pelo tesauro, 340 documentos) mesclada em “Universidade de Brasília”: o destino ganha os 340 documentos e a grafia."
@@ -462,15 +462,15 @@ admin.institutions.edit.merge:
 admin.institutions.merge.page:
   title: "Mesclar instituições em lote"
   what: "Compara de 2 a 5 instituições e consolida tudo num registro principal (Master), escolhendo campo a campo os dados que ficam."
-  how: "1) Escolha o Master. 2) Ajuste os valores por linha. 3) Confira as grafias reunidas. 4) Confirme. Depois rode a Sincronização dos projetos."
-  not: "Os vínculos de documentos dos registros secundários são apagados junto com eles; só voltam (para o Master) na próxima Sincronização, graças às variações copiadas."
+  how: "1) Escolha o Master. 2) Ajuste os valores por linha. 3) Confira as grafias reunidas. 4) Confirme."
+  not: "Não pode ser desfeito. Os vínculos de documentos dos registros secundários são transferidos para o Master; dados e-MEC não escolhidos são descartados."
   example: "Três cadastros da Unicamp vindos de tesauros diferentes: mescle mantendo o que tem código IES e coordenadas, e sincronize os projetos."
 
 admin.institutions.merge.master:
   title: "Instituição principal (Master)"
   what: "Registro que continua existindo, com o mesmo #id; os demais são excluídos."
   how: "Escolha o cadastro mais completo (com código IES e localização). Ao trocar o Master, a tabela abaixo pré-seleciona os valores dele."
-  not: "Não transfere sozinho os documentos dos outros registros."
+  not: "Os documentos dos outros registros passam para ele; os nomes deles viram grafias do Master."
   example: "Entre “Universidade Estadual de Campinas” (#45, com IES) e “UNICAMP” (#9120), escolha #45."
 
 admin.institutions.merge.fields:
@@ -497,9 +497,9 @@ admin.institutions.merge.variations:
 admin.institutions.merge.confirm:
   title: "Confirmar fusão de instituições"
   what: "Atualiza o Master com os valores escolhidos, copia as grafias e exclui os demais registros."
-  how: "Confirme e, em seguida, rode a Sincronização dos projetos afetados para religar os documentos."
+  how: "Confirme na janela do navegador. Os documentos dos registros secundários passam para o Master na hora."
   not: "Não pode ser desfeita."
-  example: "Após a fusão, sincronize o projeto de revisão sistemática para que os 120 artigos da Unicamp voltem a aparecer no ranking."
+  example: "Após a fusão, os 120 artigos dos três cadastros da Unicamp passam a contar para o Master no ranking, sem precisar sincronizar."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GEOGRAFIA (países, estados, cidades)
@@ -529,15 +529,15 @@ admin.geography.export_thesaurus:
 admin.geography.import_thesaurus:
   title: "Importar tesauro de países"
   what: "Lê um .the ou .csv e acrescenta grafias aos **países**. O termo preferido é procurado pelo nome comum, oficial ou sigla; se não existir, um país novo é criado."
-  how: "No CSV, use vírgula como separador e colunas preferred_name e variant_name. Depois sincronize os projetos."
-  not: "Não cria estados nem cidades. Países novos recebem sigla e código ISO provisórios (as primeiras letras do nome): corrija-os na edição. O CSV do “Exportar tesauro” usa ponto e vírgula; converta para vírgula antes de reimportar."
+  how: "No CSV, colunas preferred_name e variant_name; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Depois sincronize os projetos."
+  not: "Não cria estados nem cidades. Países novos recebem sigla e código ISO provisórios (as primeiras letras do nome): corrija-os na edição. O CSV do “Exportar tesauro” pode ser reimportado sem conversão."
   example: "Importar o termo “Cabo Verde” com a variação “Cape Verde” cria o país, se ele ainda não existir, já reconhecendo a grafia em inglês."
 
 admin.geography.merge_selected:
   title: "Mesclar países selecionados"
   what: "Abre a comparação para unir de 2 a 5 **países** duplicados. Só a aba Países tem seleção em lote."
   how: "Marque as caixas na aba Países e clique em Mesclar."
-  not: "Atenção: os registros secundários são excluídos com tudo o que depende deles: **estados e cidades** cadastrados nesses países também são apagados e os vínculos de documentos se perdem até a próxima Sincronização. Para estados e cidades, use “Mesclar” na tela de edição."
+  not: "Documentos, regiões, estados, cidades e instituições dos países secundários passam para o Master antes da exclusão (região de mesmo nome é reaproveitada). Estados repetidos que resultarem disso podem ser unidos depois com “Mesclar” na edição do estado."
   example: "Dois cadastros, “Brasil” e “Brazil”, sem estados no segundo: mescle mantendo “Brasil” como Master."
 
 admin.geography.countries_tab:
@@ -550,7 +550,7 @@ admin.geography.countries_tab:
 admin.geography.countries_csv:
   title: "Exportar/importar países (CSV)"
   what: "Exporta ou importa países com as colunas official_name, common_name, sigla, iso_code, continente, nationality, status e variations (grafias separadas por ponto e vírgula)."
-  how: "O arquivo usa vírgula como separador. Na importação, o país é reconhecido pelo nome oficial ou comum (e por variações já cadastradas); existentes são atualizados, os demais criados."
+  how: "O arquivo exportado usa ponto e vírgula e UTF-8 (abre direto no Excel); na importação o separador é detectado. O país é reconhecido pelo nome oficial ou comum (e por variações já cadastradas); existentes são atualizados, os demais criados."
   not: "Anos de fundação e extinção não entram no CSV. Grafias que não estiverem na coluna variations são removidas do país atualizado."
   example: "Exporte, corrija no Excel o continente de 30 países africanos e reimporte o mesmo arquivo."
 
@@ -564,7 +564,7 @@ admin.geography.states_tab:
 admin.geography.states_csv:
   title: "Exportar/importar estados (CSV)"
   what: "CSV com official_name, sigla, country_name, region_name, official_code, status e variations."
-  how: "Separador vírgula. O país precisa existir (pelo nome); linhas de países desconhecidos são ignoradas. Regiões que não existirem são criadas. O estado é reconhecido pelo nome ou sigla dentro do país."
+  how: "Separador ponto e vírgula na exportação; na importação é detectado. O país precisa existir (pelo nome); linhas de países desconhecidos são ignoradas. Regiões que não existirem são criadas. O estado é reconhecido pelo nome ou sigla dentro do país."
   not: "Não importa cidades. Grafias fora da coluna variations são removidas do estado atualizado."
   example: "Importe as 27 UFs do Brasil com region_name “Sul”, “Sudeste” etc. e o código IBGE de cada uma."
 
@@ -578,7 +578,7 @@ admin.geography.cities_tab:
 admin.geography.cities_csv:
   title: "Exportar/importar cidades (CSV)"
   what: "CSV com official_name, state_sigla, country_name, official_code, status e variations."
-  how: "Separador vírgula. País (pelo nome) e estado (pela sigla, dentro do país) precisam existir. A cidade é reconhecida pelo nome dentro do mesmo país e estado."
+  how: "Separador ponto e vírgula na exportação; na importação é detectado. País (pelo nome) e estado (pela sigla, dentro do país) precisam existir. A cidade é reconhecida pelo nome dentro do mesmo país e estado."
   not: "Linhas com país desconhecido são ignoradas. Grafias fora da coluna variations são removidas da cidade atualizada."
   example: "Importe os municípios de Santa Catarina com o código IBGE de 7 dígitos (ex.: 4205407 para Florianópolis)."
 
@@ -663,14 +663,14 @@ admin.geography.country.variations_list:
   title: "Variações cadastradas e desmembrar"
   what: "Lista as grafias alternativas do país. **Desmembrar** cria um país novo e ativo com essa grafia como nome e a retira deste país."
   how: "Clique em Desmembrar; você vai para a edição do novo país para completar sigla e ISO. Sincronize o projeto em seguida."
-  not: "Não move vínculos de documentos imediatamente: eles mudam na próxima Sincronização."
+  not: "Não move vínculos de documentos imediatamente (o vínculo não guarda a grafia de origem): eles mudam na próxima Sincronização."
   example: "“Ireland” estava como grafia do Reino Unido por engano: desmembre para criar a Irlanda."
 
 admin.geography.country.merge:
   title: "Mesclar este país em outro"
-  what: "Move os vínculos de documentos e as grafias deste país para o destino, cria grafias com o nome oficial, comum e sigla deste país e o exclui."
+  what: "Move os vínculos de documentos, as grafias, as regiões, os estados, as cidades e as instituições deste país para o destino, cria grafias com o nome oficial, comum e sigla deste país e o exclui."
   how: "Escolha o país de destino e confirme."
-  not: "Não pode ser desfeito. **Estados, regiões e cidades deste país são excluídos junto** e instituições ligadas a ele ficam sem país. Mova-os para o destino antes de mesclar."
+  not: "Não pode ser desfeito. Região de mesmo nome no destino é reaproveitada; estados repetidos podem ser unidos depois com “Mesclar” na edição do estado."
   example: "“Brazil” (cadastro duplicado, sem estados) mesclado em “Brasil”: os documentos passam para “Brasil”."
 
 admin.geography.state.form_page:
@@ -726,14 +726,14 @@ admin.geography.state.variations_list:
   title: "Variações cadastradas e desmembrar"
   what: "Lista as grafias alternativas do estado. **Desmembrar** cria um estado novo com essa grafia como nome, no mesmo país e região, com sigla provisória (2 primeiras letras)."
   how: "Desmembre e ajuste a sigla na tela do novo estado. Sincronize os projetos depois."
-  not: "Os vínculos de documentos só mudam na próxima Sincronização."
+  not: "Os vínculos de documentos só mudam na próxima Sincronização (o vínculo não guarda a grafia de origem)."
   example: "“Mato Grosso do Sul” cadastrado como grafia de Mato Grosso: desmembre e corrija a sigla para MS."
 
 admin.geography.state.merge:
   title: "Mesclar este estado em outro"
-  what: "Move os vínculos de documentos e as grafias deste estado para o destino, acrescenta nome e sigla como grafias do destino e exclui este estado."
+  what: "Move os vínculos de documentos, as grafias, as cidades e as instituições deste estado para o destino, acrescenta nome e sigla como grafias do destino e exclui este estado."
   how: "Escolha o estado de destino e confirme."
-  not: "Não pode ser desfeito. Cidades e instituições ligadas a este estado ficam **sem estado**: ajuste-as depois."
+  not: "Não pode ser desfeito. As cidades movidas mantêm o país que tinham: confira se o destino é do mesmo país."
   example: "“Sta Catarina” (criado por importação) mesclado em “Santa Catarina”."
 
 admin.geography.city.form_page:
@@ -782,28 +782,28 @@ admin.geography.city.variations_list:
   title: "Variações cadastradas e desmembrar"
   what: "Lista as grafias alternativas da cidade. **Desmembrar** cria uma cidade nova com essa grafia, no mesmo país e estado."
   how: "Desmembre e complete os dados na tela da nova cidade; sincronize os projetos depois."
-  not: "Os vínculos de documentos só mudam na próxima Sincronização."
+  not: "Os vínculos de documentos só mudam na próxima Sincronização (o vínculo não guarda a grafia de origem)."
   example: "“Santo André” estava como grafia de São Bernardo do Campo: desmembre."
 
 admin.geography.city.merge:
   title: "Mesclar esta cidade em outra"
-  what: "Move os vínculos de documentos e as grafias desta cidade para o destino, acrescenta o nome como grafia e exclui esta cidade."
+  what: "Move os vínculos de documentos, as grafias e as instituições desta cidade para o destino, acrescenta o nome como grafia e exclui esta cidade."
   how: "Escolha a cidade de destino e confirme."
-  not: "Não pode ser desfeito. Instituições ligadas a esta cidade ficam sem cidade: ajuste-as depois."
+  not: "Não pode ser desfeito."
   example: "“Florianopolis” (sem acento, duplicada) mesclada em “Florianópolis”."
 
 admin.geography.merge.page:
   title: "Mesclar países em lote"
   what: "Compara de 2 a 5 países e consolida tudo num país principal (Master)."
   how: "1) Escolha o Master. 2) Escolha nomes e ano de fundação. 3) Confira as grafias. 4) Confirme e sincronize os projetos."
-  not: "Os países secundários são excluídos com seus **estados, regiões e cidades**, e os vínculos de documentos deles se perdem até a próxima Sincronização. Use só para duplicatas sem estados e cidades."
+  not: "Documentos, regiões, estados, cidades e instituições dos países secundários passam para o Master antes da exclusão. Não pode ser desfeito."
   example: "“EUA” e “United States” cadastrados em separado, o segundo sem estados: mescle com “Estados Unidos” como Master."
 
 admin.geography.merge.master:
   title: "País principal (Master)"
   what: "O país que continua existindo; os demais são excluídos."
   how: "Escolha o que tem estados e cidades cadastrados. Ao trocar o Master, a tabela pré-seleciona os valores dele."
-  not: "Estados e cidades dos outros países não são transferidos."
+  not: "Estados, regiões e cidades dos outros países passam para ele; região de mesmo nome é reaproveitada."
   example: "Escolha “Brasil” (27 estados) em vez de “Brazil” (nenhum estado)."
 
 admin.geography.merge.fields:
@@ -836,7 +836,7 @@ admin.geography.merge.variations:
 
 admin.geography.merge.confirm:
   title: "Confirmar fusão de países"
-  what: "Atualiza o Master, copia as grafias e exclui os outros países, com seus estados e cidades."
+  what: "Atualiza o Master, copia as grafias, transfere documentos, regiões, estados, cidades e instituições e exclui os outros países."
   how: "Confirme e rode a Sincronização dos projetos afetados."
   not: "Não pode ser desfeita."
   example: "Depois de mesclar “Brazil” em “Brasil”, sincronize o projeto para que os 900 artigos brasileiros voltem ao mapa."
@@ -882,30 +882,30 @@ admin.journals.export_thesaurus:
 
 admin.journals.import_thesaurus:
   title: "Importar tesauro de revistas"
-  what: "Acrescenta variações de título às revistas a partir de um .the ou .csv. O termo preferido é procurado pelo título; se não existir, é criada uma revista nova **sem ISSN**."
-  how: "No CSV, use vírgula e colunas preferred_name e variant_name."
-  not: "Revistas criadas sem ISSN nunca se ligam a documentos (o vínculo é por ISSN). O CSV do Exportar tesauro usa ponto e vírgula: converta para vírgula antes de reimportar."
+  what: "Acrescenta variações de título às revistas a partir de um .the ou .csv. O termo preferido é procurado pelo título ou por uma variação já cadastrada; se não existir, só é criada uma revista nova quando o cabeçalho ou uma grafia traz um ISSN."
+  how: "No CSV, colunas preferred_name e variant_name; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Para cadastrar revista nova, inclua o ISSN (ex.: 1234-5678) no cabeçalho ou como grafia."
+  not: "Cabeçalhos sem revista correspondente e sem ISSN são ignorados (e contados no aviso): revista sem ISSN nunca se liga a documentos."
   example: "Importe um tesauro de abreviaturas de títulos de enfermagem para facilitar a busca nesta tela."
 
 admin.journals.export_csv:
   title: "Exportar revistas (CSV)"
   what: "Baixa todas as revistas com issn, title e qualis, separados por ponto e vírgula."
   how: "Abra no Excel ou LibreOffice com separador ponto e vírgula e UTF-8."
-  not: "Não inclui variações nem bases de dados. Para reimportar, converta para separador vírgula."
+  not: "Não inclui variações nem bases de dados. O arquivo pode ser reimportado como está."
   example: "Exporte para cruzar no Excel a lista de revistas do seu corpus com os estratos e montar a tabela de periódicos da dissertação."
 
 admin.journals.import_csv:
   title: "Importar revistas (CSV)"
   what: "Cria ou atualiza revistas em massa. A revista é reconhecida pelo ISSN (sem hífen e espaços)."
-  how: "CSV separado por **vírgula** com cabeçalho issn, title, qualis. Linhas sem ISSN ou sem título são ignoradas. Existentes têm título, ISSN e Qualis substituídos."
-  not: "Uma célula de qualis vazia **apaga** o estrato da revista existente. Não altera variações nem bases. Arquivos separados por ponto e vírgula não são lidos."
+  how: "CSV com cabeçalho issn, title, qualis; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Linhas sem ISSN ou sem título são ignoradas. Existentes têm título, ISSN e Qualis substituídos."
+  not: "Uma célula de qualis vazia **apaga** o estrato da revista existente. Não altera variações nem bases."
   example: "Para atualizar o estrato de 50 revistas após a divulgação de um novo Qualis, monte um CSV com issn, title e qualis só dessas 50 e importe."
 
 admin.journals.merge_selected:
   title: "Mesclar revistas selecionadas"
   what: "Abre a comparação para unir de 2 a 5 cadastros da mesma revista."
   how: "Marque as caixas e clique em Mesclar (habilita com 2 a 5 marcadas)."
-  not: "Cuidado com ISSN impresso e eletrônico da mesma revista: cada registro guarda um só ISSN, e os documentos com o ISSN do registro excluído deixam de ter Qualis; na próxima Sincronização esse ISSN é recadastrado sem estrato. Mescle só duplicatas de mesmo ISSN ou cadastros sem ISSN."
+  not: "Os documentos dos registros excluídos passam para o Master, mas cada registro guarda um só ISSN e a Sincronização liga por ISSN: na próxima Sincronização, documentos com o ISSN de um registro excluído voltam a ficar sem esse vínculo e o ISSN é recadastrado sem estrato. Mescle só duplicatas de mesmo ISSN ou cadastros sem ISSN."
   example: "Dois cadastros “Educação & Sociedade” com o mesmo ISSN 0101-7330, um com título abreviado: mescle e mantenha o título completo."
 
 admin.journals.form_page:
@@ -954,14 +954,14 @@ admin.journals.merge.page:
   title: "Mesclar revistas em lote"
   what: "Compara de 2 a 5 revistas e consolida tudo num registro principal (Master)."
   how: "1) Escolha o Master. 2) Escolha título, ISSN e Qualis. 3) Confira os títulos que viram variações. 4) Confirme."
-  not: "Os documentos dos registros excluídos perdem o vínculo com a revista. Bases de dados marcadas nos registros excluídos não passam para o Master."
+  not: "Os documentos e as bases de dados dos registros excluídos passam para o Master; os documentos recebem o Qualis do Master. ISSNs descartados se perdem (veja o aviso sobre a Sincronização em Mesclar selecionadas)."
   example: "Três cadastros sem ISSN criados por importação de tesauro, todos para “Educação em Revista”: mescle num só."
 
 admin.journals.merge.master:
   title: "Revista principal (Master)"
   what: "Registro que continua existindo; os demais são excluídos."
   how: "Escolha o cadastro cujo ISSN é o usado nos documentos do seu corpus. Ao trocar o Master, a tabela pré-seleciona os valores dele."
-  not: "O ISSN interno de comparação do Master não muda, mesmo que você escolha o ISSN de outra coluna."
+  not: "Se você escolher o ISSN de outra coluna, ele passa a ser o ISSN de comparação do Master."
   example: "Escolha #812 (ISSN 0101-7330, com 300 documentos ligados) como Master."
 
 admin.journals.merge.fields:
@@ -975,7 +975,7 @@ admin.journals.merge.issn:
   title: "ISSN na fusão"
   what: "Escolhe o ISSN exibido no Master."
   how: "Prefira manter o ISSN do próprio Master."
-  not: "Escolher o ISSN de outra coluna muda só o texto exibido: a ligação com os documentos continua usando o ISSN original do Master."
+  not: "O ISSN escolhido passa a ser a chave de ligação do Master com os documentos na Sincronização. Escolher um ISSN vazio mantém o do Master."
   example: "Se o Master tem 0101-7330, mantenha 0101-7330 nesta linha."
 
 admin.journals.merge.variations:
@@ -988,7 +988,7 @@ admin.journals.merge.variations:
 admin.journals.merge.confirm:
   title: "Confirmar fusão de revistas"
   what: "Atualiza o Master e exclui os outros registros."
-  how: "Confirme e rode a Sincronização dos projetos para recalcular o Qualis dos documentos."
+  how: "Confirme. Os documentos dos registros excluídos passam para o Master e recebem o Qualis dele."
   not: "Não pode ser desfeita."
   example: "Após a fusão, sincronize o projeto e confira na listagem de documentos se o Qualis continua preenchido."
 
@@ -1082,21 +1082,21 @@ admin.keywords.export_thesaurus:
 
 admin.keywords.import_thesaurus:
   title: "Importar tesauro de palavras-chave"
-  what: "Acrescenta variações aos termos a partir de um .the ou .csv. O termo preferido é procurado pelo termo original normalizado, de qualquer tipo; se não existir, é criado como palavra do autor, ativa."
-  how: "No CSV, use vírgula e colunas preferred_name e variant_name. Depois sincronize os projetos."
-  not: "Não apaga variações. O CSV do “Exportar tesauro” usa ponto e vírgula: converta para vírgula antes de reimportar."
+  what: "Acrescenta variações aos termos a partir de um .the ou .csv. O termo preferido é procurado pelo termo original normalizado, de qualquer tipo; se não existir, é criado como palavra do autor, ativa, com forma normalizada e conceito próprios (casa com os documentos na próxima importação ou Sincronização)."
+  how: "No CSV, colunas preferred_name e variant_name; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Depois sincronize os projetos."
+  not: "Não apaga variações. O CSV do “Exportar tesauro” pode ser reimportado sem conversão."
   example: "Importe um tesauro de 1.200 sinônimos de enfermagem feito pelo grupo no VantagePoint."
 
 admin.keywords.export_csv:
   title: "Exportar palavras-chave (CSV)"
   what: "Baixa um CSV com term, type, status e variations, separado por ponto e vírgula."
   how: "Abra no Excel com separador ponto e vírgula e UTF-8. As variações vêm na mesma célula, separadas por ponto e vírgula."
-  not: "Não traz a frequência dos termos. Para reimportar, converta o separador para vírgula."
+  not: "Não traz a frequência dos termos. O arquivo pode ser reimportado como está."
   example: "Exporte para revisar com o orientador quais termos devem ser agrupados antes da análise de co-palavras."
 
 admin.keywords.import_csv:
   title: "Importar palavras-chave (CSV)"
-  what: "Cria ou atualiza termos em massa a partir de um CSV separado por **vírgula** com term, type, status e variations."
+  what: "Cria ou atualiza termos em massa a partir de um CSV com term, type, status e variations. O separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente."
   how: "Cada linha procura o termo pelo texto normalizado e pelo tipo (author, indexed ou mesh; também aceita author_keyword e indexed_keyword). Existentes têm exibição e status atualizados; os demais são criados. As variações da célula são acrescentadas."
   not: "Não remove variações existentes. Tipos desconhecidos viram palavra do autor."
   example: "Linha: term = “Educação a distância”, type = author, status = 1, variations = “EaD;educacao a distancia;distance education”."
@@ -1105,7 +1105,7 @@ admin.keywords.merge_selected:
   title: "Mesclar palavras-chave selecionadas"
   what: "Abre a comparação para unir de 2 a 5 termos num registro principal."
   how: "Marque as caixas e clique em Mesclar (habilita com 2 a 5 marcadas)."
-  not: "Nesta fusão em lote, as ocorrências nos documentos dos termos excluídos são **apagadas**, não transferidas. Para termos que já aparecem em documentos, use “Mesclar Palavra-chave” na tela de edição, que transfere as ocorrências."
+  not: "As ocorrências nos documentos dos termos excluídos passam para o Master (documento com os dois termos fica com um só), assim como os termos agrupados sob eles. Não pode ser desfeito."
   example: "Use o lote para limpar termos duplicados criados por importação de tesauro e que ainda não têm documentos."
 
 admin.keywords.form_page:
@@ -1139,22 +1139,22 @@ admin.keywords.edit.variations_list:
 admin.keywords.edit.merge:
   title: "Mesclar este termo em outro"
   what: "Transfere as ocorrências nos documentos e as variações deste termo para o destino, acrescenta este termo como variação do destino e o exclui."
-  how: "Escolha o destino (a lista mostra até 500 termos do mesmo tipo, em ordem alfabética) e confirme. Se um documento tinha os dois termos, fica um só."
-  not: "Não pode ser desfeito. A lista de destino não mostra termos de outro tipo."
+  how: "Digite parte do termo (ou o #id) do destino, escolha-o nos resultados (só termos do mesmo tipo) e confirme. Se um documento tinha os dois termos, fica um só."
+  not: "Não pode ser desfeito. A busca mostra até 30 resultados do mesmo tipo: refine o texto se o destino não aparecer."
   example: "“elearning” (45 ocorrências) mesclado em “E-learning” (210): o destino passa a 255, menos os documentos que tinham os dois."
 
 admin.keywords.merge.page:
   title: "Mesclar palavras-chave em lote"
   what: "Compara de 2 a 5 termos e consolida tudo num termo principal (Master)."
   how: "1) Escolha o Master. 2) Escolha termo original, exibição e tipo. 3) Confira as variações. 4) Confirme."
-  not: "As ocorrências nos documentos dos termos excluídos são apagadas e não voltam com a Sincronização. Use só para termos sem documentos."
+  not: "As ocorrências nos documentos dos termos excluídos são transferidas para o Master. Não pode ser desfeito."
   example: "Três termos “Big data”, “Big-Data” e “BIG DATA” criados por tesauros antigos, sem documentos: mescle num só."
 
 admin.keywords.merge.master:
   title: "Termo principal (Master)"
   what: "O termo que continua existindo; os demais são excluídos."
   how: "Escolha o termo com mais ocorrências. Ao trocar o Master, a tabela pré-seleciona os valores dele."
-  not: "Não transfere as ocorrências dos outros termos."
+  not: "As ocorrências dos outros termos passam para ele."
   example: "Escolha “E-learning” (#120) como Master."
 
 admin.keywords.merge.fields:
@@ -1168,7 +1168,7 @@ admin.keywords.merge.term:
   title: "Termo original na fusão"
   what: "Texto do termo que o Master terá depois da fusão."
   how: "Escolha a forma correta."
-  not: "A versão normalizada usada nas comparações continua sendo a do Master original; se o texto escolhido for bem diferente, edite o Master depois e salve para atualizá-la."
+  not: "A versão normalizada usada nas comparações é recalculada a partir do texto escolhido."
   example: "Escolha “Big data” em vez de “BIG DATA”."
 
 admin.keywords.merge.variations:
@@ -1182,7 +1182,7 @@ admin.keywords.merge.confirm:
   title: "Confirmar fusão de palavras-chave"
   what: "Atualiza o Master, copia as variações e exclui os outros termos."
   how: "Confirme e sincronize os projetos para reagrupar as palavras dos documentos."
-  not: "Não pode ser desfeita e não transfere ocorrências dos termos excluídos."
+  not: "Não pode ser desfeita. As ocorrências dos termos excluídos passam para o Master."
   example: "Depois da fusão, a listagem passa a mostrar só “Big data” com as demais formas como variações."
 
 # ─────────────────────────────────────────────────────────────────────────────

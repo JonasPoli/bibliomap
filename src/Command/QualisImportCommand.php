@@ -13,7 +13,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 
 #[AsCommand(
     name: 'app:qualis:import',
-    description: 'Imports the Qualis CAPES journal database from a PDF file.'
+    description: 'Imports the Qualis CAPES journal database from a PDF file (upsert by ISSN; keeps document links).'
 )]
 class QualisImportCommand extends Command
 {
@@ -58,6 +58,8 @@ class QualisImportCommand extends Command
                 'Qualis CAPES database successfully loaded!',
                 "Total Journals Extracted: {$stats['total_extracted']}",
                 "Total Journals Imported:  {$stats['total_imported']}",
+                "  New:                    {$stats['inserted']}",
+                "  Updated (same ISSN):    {$stats['updated']}",
                 "Elapsed Time:            {$stats['time_seconds']} seconds"
             ]);
 

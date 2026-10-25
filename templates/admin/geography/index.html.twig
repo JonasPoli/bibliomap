@@ -333,7 +333,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_countries') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Mesmo layout do <b>Exportar Países</b> (separado por vírgula): <code>official_name</code>, <code>common_name</code>, <code>sigla</code>, <code>iso_code</code>, <code>continente</code>, <code>nationality</code>, <code>status</code>, <code>variations</code>. Países com o mesmo nome são atualizados.
+                        Mesmo layout do <b>Exportar Países</b> (separador detectado: ponto e vírgula, vírgula ou tabulação): <code>official_name</code>, <code>common_name</code>, <code>sigla</code>, <code>iso_code</code>, <code>continente</code>, <code>nationality</code>, <code>status</code>, <code>variations</code>. Países com o mesmo nome são atualizados.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -361,7 +361,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_states') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Mesmo layout do <b>Exportar Estados</b> (separado por vírgula): <code>official_name</code>, <code>sigla</code>, <code>country_name</code>, <code>region_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
+                        Mesmo layout do <b>Exportar Estados</b> (separador detectado: ponto e vírgula, vírgula ou tabulação): <code>official_name</code>, <code>sigla</code>, <code>country_name</code>, <code>region_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -389,7 +389,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_geography_cities') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Mesmo layout do <b>Exportar Cidades</b> (separado por vírgula): <code>official_name</code>, <code>state_sigla</code>, <code>country_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
+                        Mesmo layout do <b>Exportar Cidades</b> (separador detectado: ponto e vírgula, vírgula ou tabulação): <code>official_name</code>, <code>state_sigla</code>, <code>country_name</code>, <code>official_code</code>, <code>status</code>, <code>variations</code>.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
