@@ -7,6 +7,8 @@ use App\Entity\AuthorNameVariant;
 use App\Entity\AuthorExternalIdentifier;
 use App\Entity\Keyword;
 use App\Entity\KeywordVariation;
+use App\Service\Import\TextNormalizer;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,31 +38,69 @@ class AdminReviewController extends AbstractController
             LIMIT 100
         ');
 
+        // Variações e sugestões em lote (antes: 2 consultas por item, sem índice em normalized_name)
+        $authorIds = array_map(fn($r) => (int)$r['id'], $unresolvedAuthorsRaw);
+        $origNamesById = [];
+        if ($authorIds) {
+            $variantRows = $conn->fetchAllAssociative(
+                'SELECT author_identity_id, original_name FROM author_name_variant WHERE author_identity_id IN (?)',
+                [$authorIds],
+                [ArrayParameterType::INTEGER]
+            );
+            foreach ($variantRows as $v) {
+                $origNamesById[(int)$v['author_identity_id']][] = $v['original_name'];
+            }
+        }
+
+        // Sugestão: autor aceito com a mesma forma normalizada. O normalized_name dos registros
+        // antigos guarda outro formato ("silva j."), então compara também a forma atual
+        // (normalizeForComparison) do nome preferido.
+        $normalizer = new TextNormalizer();
+        $keysById = [];
+        foreach ($unresolvedAuthorsRaw as $row) {
+            $keysById[(int)$row['id']] = array_values(array_unique(array_filter([
+                $row['normalized_name'],
+                $normalizer->normalizeForComparison($row['preferred_name']),
+            ], fn($k) => $k !== '')));
+        }
+        $suggestionByKey = [];
+        $allKeys = array_values(array_unique(array_merge([], ...array_values($keysById))));
+        if ($allKeys) {
+            $sugRows = $conn->fetchAllAssociative(
+                'SELECT MIN(id) AS id, normalized_name FROM author_identity WHERE status = 1 AND normalized_name IN (?) GROUP BY normalized_name',
+                [$allKeys],
+                [ArrayParameterType::STRING]
+            );
+            $sugIds = array_map(fn($r) => (int)$r['id'], $sugRows);
+            $namesById = $sugIds ? $conn->fetchAllKeyValue(
+                'SELECT id, preferred_name FROM author_identity WHERE id IN (?)',
+                [$sugIds],
+                [ArrayParameterType::INTEGER]
+            ) : [];
+            foreach ($sugRows as $r) {
+                $suggestionByKey[$r['normalized_name']] = ['id' => (int)$r['id'], 'preferred_name' => $namesById[$r['id']] ?? ''];
+            }
+        }
+
         $unresolvedAuthors = [];
         foreach ($unresolvedAuthorsRaw as $row) {
             $id = (int)$row['id'];
-            
-            // Get variations original names
-            $origNames = $conn->fetchFirstColumn(
-                'SELECT original_name FROM author_name_variant WHERE author_identity_id = ?',
-                [$id]
-            );
 
-            // Find suggestions with status = 1 and same normalized name
-            $suggestion = $conn->fetchAssociative('
-                SELECT id, preferred_name 
-                FROM author_identity 
-                WHERE status = 1 AND normalized_name = ?
-                LIMIT 1
-            ', [$row['normalized_name']]);
+            $suggestion = null;
+            foreach ($keysById[$id] as $key) {
+                if (isset($suggestionByKey[$key]) && $suggestionByKey[$key]['id'] !== $id) {
+                    $suggestion = $suggestionByKey[$key];
+                    break;
+                }
+            }
 
             $unresolvedAuthors[] = [
                 'id' => $id,
                 'preferred_name' => $row['preferred_name'],
                 'normalized_name' => $row['normalized_name'],
-                'original_names' => $origNames,
+                'original_names' => $origNamesById[$id] ?? [],
                 'review_reasons' => $row['review_reasons'],
-                'suggestion' => $suggestion ? $suggestion : null,
+                'suggestion' => $suggestion,
             ];
         }
 
@@ -78,20 +118,28 @@ class AdminReviewController extends AbstractController
             // status column doesn't exist yet — skip keyword review
         }
 
+        // Sugestões em lote: termo aceito do mesmo tipo com a mesma forma normalizada
+        $kwSuggestionByKey = [];
+        $kwNorms = array_values(array_unique(array_column($unresolvedKeywordsRaw, 'keyword_normalized')));
+        if ($kwNorms) {
+            try {
+                $sugRows = $conn->fetchAllAssociative(
+                    'SELECT k.id, k.keyword_display, k.keyword_type, k.keyword_normalized
+                     FROM keyword k
+                     JOIN (SELECT MIN(id) AS id FROM keyword WHERE status = 1 AND keyword_normalized IN (?) GROUP BY keyword_normalized, keyword_type) m ON m.id = k.id',
+                    [$kwNorms],
+                    [ArrayParameterType::STRING]
+                );
+                foreach ($sugRows as $r) {
+                    $kwSuggestionByKey[$r['keyword_normalized'] . '||' . $r['keyword_type']] = $r;
+                }
+            } catch (\Throwable $e) {}
+        }
+
         $unresolvedKeywords = [];
         foreach ($unresolvedKeywordsRaw as $row) {
             $id = (int)$row['id'];
-
-            // Find suggestions with status = 1 and same normalized term
-            $suggestion = null;
-            try {
-                $suggestion = $conn->fetchAssociative('
-                    SELECT id, keyword_display, keyword_type 
-                    FROM keyword 
-                    WHERE status = 1 AND keyword_normalized = ? AND keyword_type = ?
-                    LIMIT 1
-                ', [$row['keyword_normalized'], $row['keyword_type']]);
-            } catch (\Throwable $e) {}
+            $suggestion = $kwSuggestionByKey[$row['keyword_normalized'] . '||' . $row['keyword_type']] ?? null;
 
             $unresolvedKeywords[] = [
                 'id' => $id,
@@ -100,7 +148,7 @@ class AdminReviewController extends AbstractController
                 'keyword_normalized' => $row['keyword_normalized'],
                 'keyword_type' => $row['keyword_type'],
                 'review_reasons' => $row['review_reasons'],
-                'suggestion' => $suggestion ? $suggestion : null,
+                'suggestion' => $suggestion,
             ];
         }
 
@@ -182,7 +230,8 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $targetId = (int)$request->request->get('target_id');
+        // O campo "Buscar outro por ID" tem prioridade sobre a sugestão selecionada
+        $targetId = (int)($request->request->get('target_id_manual') ?: $request->request->get('target_id'));
         $target = $this->em->getRepository(AuthorIdentity::class)->find($targetId);
 
         if (!$target || $target->getId() === $author->getId()) {
@@ -474,7 +523,8 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $targetId = (int)$request->request->get('target_id');
+        // O campo "Buscar outro por ID" tem prioridade sobre a sugestão selecionada
+        $targetId = (int)($request->request->get('target_id_manual') ?: $request->request->get('target_id'));
         $target = $this->em->getRepository(Keyword::class)->find($targetId);
 
         if (!$target || $target->getId() === $keyword->getId()) {

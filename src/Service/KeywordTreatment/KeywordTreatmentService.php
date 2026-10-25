@@ -17,6 +17,9 @@ class KeywordTreatmentService
 {
     private TextNormalizer $normalizer;
 
+    /** @var KeywordTreatmentLog[] logs persistidos no lote atual (ainda sem flush) */
+    private array $batchLogs = [];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly KeywordFuzzyMatcherService $fuzzyMatcher,
@@ -53,7 +56,7 @@ class KeywordTreatmentService
             if (!$normRes['valid']) {
                 $invalidCount++;
             }
-            if (isset($normRes['suspicious']) && $normRes['suspicious']) {
+            if (!empty($normRes['needs_review'])) {
                 $suspiciousCount++;
             }
         }
@@ -150,23 +153,33 @@ class KeywordTreatmentService
             $createdConceptCount = 0;
             $skippedCount = 0;
             $errorCount = 0;
+            // Vínculos do termo fundido (movidos para o existente): contados antes da fusão
+            $mergedDkCount = 0;
+            $mergedDocIds = [];
 
-            // Process in batches
-            $offset = 0;
+            // Paginação por chave (id > último): no modo Real a fusão apaga linhas,
+            // e um OFFSET pularia termos ainda não processados.
+            $lastId = 0;
             $batchSize = $options->batchSize;
             $totalProcessed = 0;
             $limit = ($options->limit && $options->limit > 0) ? $options->limit : PHP_INT_MAX;
 
-            while ($offset < $limit) {
-                $batchLimit = min($batchSize, $limit - $offset);
-                $keywords = $this->em->getRepository(Keyword::class)->findBy(
-                    [], ['id' => 'ASC'], $batchLimit, $offset
-                );
+            while ($totalProcessed < $limit) {
+                $batchLimit = min($batchSize, $limit - $totalProcessed);
+                $keywords = $this->em->getRepository(Keyword::class)->createQueryBuilder('k')
+                    ->where('k.id > :lastId')
+                    ->setParameter('lastId', $lastId)
+                    ->orderBy('k.id', 'ASC')
+                    ->setMaxResults($batchLimit)
+                    ->getQuery()
+                    ->getResult();
 
                 if (empty($keywords)) break;
+                $lastId = end($keywords)->getId();
 
                 $assignedInBatch = [];
                 $deletedInBatch = [];
+                $this->batchLogs = [];
 
                 // === Pass 1: Cleaning & Invalid marking ===
                 if ($options->processInvalids) {
@@ -187,71 +200,118 @@ class KeywordTreatmentService
                             continue;
                         }
 
-                        // Check suspicious
-                        if (isset($normRes['suspicious']) && $normRes['suspicious']) {
-                            $suspiciousCount++;
-                            $this->logAction($job, $kw, 'suspicious', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, $normRes['reason'] ?? 'suspicious_term', $options->dryRun, 'normalizer');
-                        }
+                        // Termo que sobrevive ao passo (muda se for fundido em outro)
+                        $survivor = $kw;
 
                         // If dirty
                         if ($normRes['display'] !== $oldDisplay || $normRes['normalized'] !== $oldNorm) {
                             $cleanedCount++;
-                            if (!$options->dryRun) {
-                                $targetNorm = $normRes['normalized'];
-                                $targetType = $kw->getKeywordType();
-                                $mapKey = $targetNorm . '||' . $targetType;
+                            $targetNorm = $normRes['normalized'];
+                            $targetType = $kw->getKeywordType();
+                            $mapKey = $targetNorm . '||' . $targetType;
 
-                                // Check if this normalized term and type already exists in the database
-                                $existingId = $conn->fetchOne(
-                                    'SELECT id FROM keyword WHERE keyword_normalized = ? AND keyword_type = ? AND id != ?',
-                                    [$targetNorm, $targetType, $kw->getId()]
-                                );
+                            // Check if this normalized term and type already exists in the database
+                            $existingId = $conn->fetchOne(
+                                'SELECT id FROM keyword WHERE keyword_normalized = ? AND keyword_type = ? AND id != ?',
+                                [$targetNorm, $targetType, $kw->getId()]
+                            );
 
-                                // Or if it was already assigned to another keyword in the current batch in memory
-                                if (!$existingId && isset($assignedInBatch[$mapKey])) {
-                                    $existingId = $assignedInBatch[$mapKey];
+                            // Or if it was already assigned to another keyword in the current batch in memory
+                            if (!$existingId && isset($assignedInBatch[$mapKey])) {
+                                $existingId = $assignedInBatch[$mapKey];
+                            }
+
+                            if ($existingId) {
+                                $kwId = $kw->getId();
+                                $canonical = $this->em->getReference(Keyword::class, (int)$existingId);
+
+                                $kwDocIds = $conn->fetchFirstColumn('SELECT document_id FROM document_keyword WHERE keyword_id = ?', [$kwId]);
+                                $mergedDkCount += count($kwDocIds);
+                                foreach ($kwDocIds as $docId) {
+                                    $mergedDocIds[(int)$docId] = true;
                                 }
 
-                                if ($existingId) {
+                                if (!$options->dryRun) {
                                     // Duplicate collision! Merge via raw SQL and detach from Doctrine.
-                                    
+
                                     // 1. Delete matching pairs in document_keyword to avoid unique key constraint violation
                                     $dupDkIds = $conn->fetchFirstColumn('
                                         SELECT dk1.id
                                         FROM document_keyword dk1
                                         JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk2.keyword_id = ?
                                         WHERE dk1.keyword_id = ?
-                                    ', [(int)$existingId, $kw->getId()]);
+                                    ', [(int)$existingId, $kwId]);
 
                                     if (!empty($dupDkIds)) {
                                         $conn->executeStatement('DELETE FROM document_keyword WHERE id IN (' . implode(',', $dupDkIds) . ')');
                                     }
 
                                     // 2. Re-point remaining document_keyword rows to the canonical keyword
-                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
 
-                                    // 3. Re-point keyword variations
-                                    $conn->executeStatement('UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+                                    // 3. Re-point keyword variations e guarda a grafia original do termo apagado como variação
+                                    $conn->executeStatement('UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
+                                    $conn->executeStatement('
+                                        INSERT INTO palavra_chave_variacoes_nome (keyword_id, variation_name, normalized_name, variation_type, status)
+                                        SELECT ?, ?, ?, \'alternative\', 1 FROM DUAL
+                                        WHERE NOT EXISTS (SELECT 1 FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND variation_name = BINARY ?)
+                                          AND NOT EXISTS (SELECT 1 FROM keyword WHERE id = ? AND keyword_original = BINARY ?)
+                                    ', [(int)$existingId, $original, $targetNorm, (int)$existingId, $original, (int)$existingId, $original]);
 
                                     // 4. Re-point keyword treatment logs to preserve logs history
-                                    $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kw->getId()]);
+                                    $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
+                                    $conn->executeStatement('UPDATE thesaurus_match SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
 
-                                    // 5. Delete the duplicate keyword via raw SQL and detach from Doctrine
-                                    $kwId = $kw->getId();
+                                    // 5. Agrupamentos legados e conceito do tesauro não se perdem com a exclusão
+                                    $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ? AND id != ?', [(int)$existingId, $kwId, (int)$existingId]);
+                                    if ($kw->getThesaurusConcept() !== null) {
+                                        $conn->executeStatement(
+                                            'UPDATE keyword SET thesaurus_concept_id = COALESCE(thesaurus_concept_id, ?) WHERE id = ?',
+                                            [$kw->getThesaurusConcept()->getId(), (int)$existingId]
+                                        );
+                                    }
+                                    // Objetos em memória que apontam para o termo apagado (senão o flush falha)
+                                    foreach ($keywords as $other) {
+                                        if ($other !== $kw && $other->getKeywordConcept() === $kw) {
+                                            $other->setKeywordConcept($canonical);
+                                        }
+                                    }
+                                    foreach ($this->batchLogs as $pendingLog) {
+                                        if ($pendingLog->getKeyword() === $kw) {
+                                            $pendingLog->setKeyword($canonical);
+                                        }
+                                        if ($pendingLog->getNewConcept() === $kw) {
+                                            $pendingLog->setNewConcept($canonical);
+                                        }
+                                    }
+
+                                    // 6. Delete the duplicate keyword via raw SQL and detach from Doctrine
                                     $deletedInBatch[$kwId] = true;
                                     $this->em->detach($kw);
                                     $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$kwId]);
-                                } else {
+                                }
+
+                                // Registrado no termo que sobrevive; o motivo guarda o ID apagado
+                                $survivor = $canonical;
+                                $this->logAction($job, $canonical, 'merged', $oldDisplay, $normRes['display'], $oldNorm, $targetNorm, null, null, null, sprintf('merged_duplicate: #%d "%s" → #%d', $kwId, $original, (int)$existingId), $options->dryRun, 'normalizer');
+                            } else {
+                                if (!$options->dryRun) {
                                     // Safely update display name and normalized name
                                     $kw->setKeywordDisplay($normRes['display']);
                                     $kw->setKeywordNormalized($targetNorm);
-                                    
-                                    // Register in our batch tracking map
-                                    $assignedInBatch[$mapKey] = $kw->getId();
-
-                                    $this->logAction($job, $kw, 'cleaned', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, 'string_cleanup', $options->dryRun, 'normalizer');
                                 }
+
+                                // Register in our batch tracking map
+                                $assignedInBatch[$mapKey] = $kw->getId();
+
+                                $this->logAction($job, $kw, 'cleaned', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, 'string_cleanup', $options->dryRun, 'normalizer');
                             }
+                        }
+
+                        // Suspeito: o TextNormalizer devolve 'needs_review' + 'review_reasons'
+                        if (!empty($normRes['needs_review'])) {
+                            $suspiciousCount++;
+                            $this->logAction($job, $survivor, 'suspicious', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, implode(',', $normRes['review_reasons'] ?? []) ?: 'suspicious_term', $options->dryRun, 'normalizer');
                         }
                     }
                 }
@@ -306,12 +366,15 @@ class KeywordTreatmentService
                                 }
                                 $this->logAction($job, $member, 'exact_label_matched', $member->getKeywordDisplay(), $member->getKeywordDisplay(), $member->getKeywordNormalized(), $member->getKeywordNormalized(), null, $tc, 100.0, 'exact_normalized_match', $options->dryRun, 'exact_label');
                             } else {
+                                // Já agrupado neste termo por um processamento anterior: não conta de novo
+                                if ($member->getKeywordConcept()?->getId() === $canonical->getId()) continue;
+
                                 // Legacy: link via keywordConcept
                                 $exactMatchedCount++;
                                 if (!$options->dryRun && $canonical instanceof Keyword) {
                                     $member->setKeywordConcept($canonical);
                                 }
-                                $this->logAction($job, $member, 'exact_concept_matched', $member->getKeywordDisplay(), $member->getKeywordDisplay(), $member->getKeywordNormalized(), $member->getKeywordNormalized(), null, null, 100.0, 'exact_normalized_group_legacy', $options->dryRun, 'exact_concept');
+                                $this->logAction($job, $member, 'exact_concept_matched', $member->getKeywordDisplay(), $member->getKeywordDisplay(), $member->getKeywordNormalized(), $member->getKeywordNormalized(), null, null, 100.0, 'exact_normalized_group_legacy', $options->dryRun, 'exact_concept', $canonical);
                             }
                         }
                     }
@@ -329,13 +392,11 @@ class KeywordTreatmentService
 
                         if ($result['method'] === 'exact_label' || $result['method'] === 'exact_concept') {
                             $thesaurusMatchedCount++;
-                            $concept = null;
-                            if (!$options->dryRun) {
-                                $concept = $this->thesaurusMatcher->getConceptEntity($result['conceptId']);
-                                if ($concept) {
-                                    $kw->setThesaurusConcept($concept);
-                                    $this->thesaurusMatcher->recordMatch($kw, $concept, $result['method'], 100.0, 'automatic');
-                                }
+                            // Carregado também na simulação, para o relatório mostrar o conceito
+                            $concept = $this->thesaurusMatcher->getConceptEntity($result['conceptId']);
+                            if (!$options->dryRun && $concept) {
+                                $kw->setThesaurusConcept($concept);
+                                $this->thesaurusMatcher->recordMatch($kw, $concept, $result['method'], 100.0, 'automatic');
                             }
                             $this->logAction($job, $kw, 'exact_label_matched', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, 100.0, $result['method'] . ': ' . $result['conceptLabel'], $options->dryRun, $result['method']);
                         }
@@ -351,30 +412,28 @@ class KeywordTreatmentService
                         $result = $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore);
 
                         if ($result['conceptId'] === null || $result['score'] < $options->minReviewScore) continue;
+                        // Match exato é da etapa 3 (na simulação o termo não fica ligado e voltava aqui como "revisão 100%")
+                        if ($result['method'] === 'exact_label' || $result['method'] === 'exact_concept') continue;
+
+                        $concept =$this->thesaurusMatcher->getConceptEntity($result['conceptId']);
 
                         if ($result['method'] === 'fuzzy_auto' && !$result['ambiguous']) {
                             $fuzzyAutoMatchedCount++;
-                            $concept = null;
-                            if (!$options->dryRun) {
-                                $concept = $this->thesaurusMatcher->getConceptEntity($result['conceptId']);
-                                if ($concept) {
-                                    $kw->setThesaurusConcept($concept);
-                                    $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'automatic');
-                                }
+                            if (!$options->dryRun && $concept) {
+                                $kw->setThesaurusConcept($concept);
+                                $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'automatic');
                             }
                             $this->logAction($job, $kw, 'fuzzy_auto_matched', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, $result['score'], 'fuzzy_score: ' . round($result['score'], 1) . '% → ' . $result['conceptLabel'], $options->dryRun, 'fuzzy');
                         } elseif ($result['score'] >= $options->minReviewScore) {
                             $fuzzyReviewCount++;
-                            if (!$options->dryRun) {
-                                $concept = $this->thesaurusMatcher->getConceptEntity($result['conceptId']);
-                                if ($concept) {
-                                    $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'pending');
-                                }
+                            if (!$options->dryRun && $concept) {
+                                $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'pending');
                             }
                             $reason = $result['ambiguous']
-                                ? 'ambiguous_fuzzy: ' . round($result['score'], 1) . '%'
+                                ? 'ambiguous_fuzzy: ' . round($result['score'], 1) . '% → ' . $result['conceptLabel']
                                 : 'fuzzy_review: ' . round($result['score'], 1) . '% → ' . $result['conceptLabel'];
-                            $this->logAction($job, $kw, 'fuzzy_review_required', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, null, $result['score'], $reason, $options->dryRun, 'fuzzy');
+                            // O conceito sugerido fica no log: é dele que a tela de revisão aprova a ligação
+                            $this->logAction($job, $kw, 'fuzzy_review_required', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, $result['score'], $reason, $options->dryRun, 'fuzzy');
                         }
                     }
                 }
@@ -383,27 +442,29 @@ class KeywordTreatmentService
                 $this->em->flush();
 
                 $totalProcessed += count($keywords);
-                $offset += $batchSize;
 
                 // Always clear entity manager and free memory after each batch
                 $jobId = $job->getId();
                 unset($keywords, $assignedInBatch, $deletedInBatch);
+                $this->batchLogs = [];
                 $this->em->clear();
                 gc_collect_cycles();
                 $job = $this->em->getRepository(KeywordTreatmentJob::class)->find($jobId);
             }
 
-            // Count affected documents
-            $affectedDkCount = 0;
-            $affectedDocCount = 0;
-            if (!$options->dryRun) {
-                $affectedDkCount = (int)$conn->fetchOne(
-                    'SELECT COUNT(*) FROM document_keyword dk JOIN keyword k ON dk.keyword_id = k.id WHERE k.thesaurus_concept_id IS NOT NULL'
-                );
-                $affectedDocCount = (int)$conn->fetchOne(
-                    'SELECT COUNT(DISTINCT dk.document_id) FROM document_keyword dk JOIN keyword k ON dk.keyword_id = k.id WHERE k.thesaurus_concept_id IS NOT NULL'
-                );
-            }
+            // Vínculos e documentos cujas palavras-chave este job alterou (ou alteraria, na simulação).
+            // Fusões entram pelos vínculos do termo apagado, medidos antes de movê-los.
+            $affectedDocIds = $conn->fetchFirstColumn(
+                "SELECT dk.document_id
+                 FROM document_keyword dk
+                 WHERE dk.keyword_id IN (
+                     SELECT DISTINCT l.keyword_id FROM keyword_treatment_log l
+                     WHERE l.job_id = ? AND l.action NOT IN ('suspicious', 'fuzzy_review_required', 'merged')
+                 )",
+                [$job->getId()]
+            );
+            $affectedDkCount = count($affectedDocIds) + $mergedDkCount;
+            $affectedDocCount = count(array_flip($affectedDocIds) + $mergedDocIds);
 
             // Fill job counts
             $job->setTotalKeywords($totalProcessed);
@@ -454,7 +515,8 @@ class KeywordTreatmentService
         ?float $score,
         ?string $reason,
         bool $dryRun,
-        ?string $matchMethod = null
+        ?string $matchMethod = null,
+        ?Keyword $newKeywordConcept = null
     ): void {
         $log = new KeywordTreatmentLog();
         $log->setJob($job);
@@ -466,11 +528,19 @@ class KeywordTreatmentService
         $log->setNewNormalized($newNorm);
         $log->setOldThesaurusConcept($oldThesaurusConcept);
         $log->setNewThesaurusConcept($newThesaurusConcept);
+        $log->setNewConcept($newKeywordConcept);
         $log->setScore($score);
         $log->setReason($reason);
         $log->setMatchMethod($matchMethod);
-        $log->setStatus($dryRun ? 'pending' : 'applied');
+        // Simulação não gera pendência: 'pending' é reservado às sugestões reais da fila de revisão
+        if ($dryRun) {
+            $status = 'simulated';
+        } else {
+            $status = $action === 'fuzzy_review_required' ? 'pending' : 'applied';
+        }
+        $log->setStatus($status);
 
         $this->em->persist($log);
+        $this->batchLogs[] = $log;
     }
 }

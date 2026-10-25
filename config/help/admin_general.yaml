@@ -95,7 +95,7 @@ admin.users.col_last_login:
   title: "Último acesso"
   what: "Data e hora do último login registrado da conta. “Nunca” significa que não há login registrado."
   how: "Use para identificar contas sem uso antes de desativá-las."
-  not: "Não mostra atividade dentro da plataforma (importações, relatórios), apenas o login. Se todas as contas mostram “Nunca”, o registro de login não está ativo nesta instalação."
+  not: "Não mostra atividade dentro da plataforma (importações, relatórios), apenas o login (formulário ou “lembrar-me”); entrar como outro usuário (impersonar) não conta. O registro começou em 25/10/2026: logins anteriores não foram gravados e aparecem como “Nunca”."
   example: "Antes de desativar contas de uma turma antiga, confira quem não tem acesso registrado."
 
 admin.users.actions:
@@ -281,10 +281,10 @@ admin.review.author_reason:
 
 admin.review.author_suggestion:
   title: "Sugestão de agrupamento"
-  what: "Autor já aceito com a mesma forma normalizada, candidato a receber a fusão. Quando existe, já vem selecionado na janela Mesclar."
+  what: "Autor já aceito com a mesma forma normalizada (minúsculas, sem acentos e sem pontuação) do nome preferido, candidato a receber a fusão. Quando existe, já vem selecionado na janela Mesclar."
   how: "Se a sugestão for a mesma pessoa, clique em **Mesclar** e confirme."
   not: "Não detecta grafias diferentes (ex.: “Silva, J.” × “Silva, João”); nesses casos informe o ID do destino manualmente."
-  example: "Sugestão “Oliveira, M. A.” para o pendente “OLIVEIRA M A”: mesma pessoa, pode mesclar."
+  example: "Sugestão “Zhang, W.” para o pendente “Zhang W.”: confira se é a mesma pessoa antes de mesclar (iniciais iguais não garantem isso)."
 
 admin.review.accept:
   title: "Aceitar"
@@ -452,7 +452,7 @@ admin.kwtreat.history:
 admin.kwtreat.run:
   title: "Executar novo processamento"
   what: "Percorre as palavras-chave por ordem de ID, em lotes de 500, em quatro etapas: (1) limpeza e invalidação, (2) agrupamento de grafias iguais dentro do lote, (3) ligação exata ao tesauro, (4) ligação por similaridade."
-  how: "Escolha o modo, o score mínimo e o limite e clique em **Iniciar processo**. A página espera o fim do processamento e abre o relatório."
+  how: "Escolha o modo, o score mínimo, o limite e as etapas (todas marcadas por padrão) e clique em **Iniciar processo**. A página espera o fim do processamento e abre o relatório."
   not: "Não cria conceitos novos no tesauro. Com o tesauro de palavras-chave vazio, as etapas 3 e 4 não ligam nada."
   example: "Simulação com limite 5.000: em 1 minuto você vê quantos termos seriam limpos e invalidados, sem mudar nada."
 
@@ -460,13 +460,13 @@ admin.kwtreat.mode:
   title: "Modo de operação"
   what: "**Simulação**: calcula e registra o relatório sem alterar palavras-chave. **Real**: grava as mudanças na base."
   how: "Sempre rode uma simulação antes. No modo Real, termos que após a limpeza ficam idênticos a outro do mesmo tipo são **fundidos**: os documentos passam ao termo existente e o duplicado é apagado."
-  not: "O modo Real **não tem desfazer**: fusões apagam registros e a grafia original do termo apagado se perde."
+  not: "O modo Real **não tem desfazer**: fusões apagam registros. A grafia original do termo apagado fica guardada como variação do termo existente e a fusão aparece no relatório (ação “merged”)."
   example: "A simulação mostra 1.200 termos a limpar; após conferir o CSV, rode em Real."
 
 admin.kwtreat.min_score:
   title: "Score mínimo fuzzy (%)"
   what: "Limiar de similaridade de grafia para ligar um termo a um conceito do tesauro **automaticamente**. Entre 75% e esse valor, a ligação vira sugestão para revisão manual."
-  how: "Score = o menor entre dois índices de semelhança (distância de Levenshtein e similar_text), de 0 a 100. Só compara termos com 4+ letras e com a mesma letra inicial; se os dois melhores candidatos diferem menos de 3 pontos, vai para revisão. Use 95 ou mais para segurança."
+  how: "Score = o menor entre dois índices de semelhança (distância de Levenshtein e similar_text, contados por caractere), de 0 a 100. Só compara termos com 4+ letras e com a mesma letra inicial, e nunca siglas de até 4 letras maiúsculas (ex.: “UFMG”); se os dois melhores **conceitos** diferem menos de 3 pontos, vai para revisão. Use 95 ou mais para segurança."
   not: "Não entende significado: “education” e “educational” podem ter score alto sem serem sinônimos. Valores abaixo de 75 têm o mesmo efeito que 75."
   example: "Com 95, “behaviour” × “behavior” (score ~89) vai para revisão; com 85, seria ligado automaticamente."
 
@@ -495,7 +495,7 @@ admin.kwtreat.export_csv:
   title: "Exportar relatório CSV"
   what: "Baixa uma linha por ação registrada: ID e termo original, ação, exibição antiga e nova, conceito, score, motivo e situação."
   how: "Abra no Excel ou LibreOffice (separador ponto e vírgula, UTF-8) e filtre pela coluna Action."
-  not: "Termos fundidos e apagados na limpeza não têm linha própria. Na simulação, os termos que seriam limpos não são listados."
+  not: "Termos fundidos e apagados na limpeza aparecem com Action = merged na linha do termo que sobreviveu (o ID apagado está no motivo). Na simulação a coluna Status mostra “simulated”: nada foi aplicado."
   example: "Filtre Action = invalid para conferir os 85 termos invalidados antes de descartá-los na Fila de Revisão."
 
 admin.kwtreat.report_total:
@@ -516,7 +516,7 @@ admin.kwtreat.report_exact:
   title: "Match exato"
   what: "Termos agrupados por terem a mesma forma normalizada de outro termo do mesmo lote (ligados ao conceito do tesauro do termo principal ou, sem tesauro, ao termo mais frequente)."
   how: "Esses agrupamentos aparecem nos relatórios dos projetos com um único rótulo."
-  not: "Só compara termos dentro do mesmo lote de 500; duplicatas em lotes diferentes não são agrupadas aqui."
+  not: "Só compara termos dentro do mesmo lote de 500; duplicatas em lotes diferentes não são agrupadas aqui. Termos já agrupados por um processamento anterior não são contados de novo."
   example: "“Covid 19” e “COVID-19” passam a ser contados juntos."
 
 admin.kwtreat.report_thesaurus:
@@ -535,23 +535,23 @@ admin.kwtreat.report_fuzzy_auto:
 
 admin.kwtreat.report_suspicious:
   title: "Suspeitos"
-  what: "Termos que a limpeza marcou como suspeitos, mas não inválidos."
-  how: "Confira no CSV pela ação “suspicious”."
-  not: "Os alertas brandos da importação (contém números, parece autor) não entram aqui; eles aparecem na Fila de Revisão."
-  example: "0 suspeitos é o resultado comum."
+  what: "Termos válidos que a limpeza marcou como suspeitos pelas mesmas regras brandas da importação: contém números (contains_number) ou tem formato de nome de autor (looks_like_author)."
+  how: "Confira no CSV pela ação “suspicious”; o motivo traz o código da regra."
+  not: "Suspeito não é inválido: o processamento não altera nem tira o termo da base; é só um alerta."
+  example: "“COVID-19” e “Indústria 4.0” entram como suspeitos (contains_number) e são legítimos."
 
 admin.kwtreat.report_affected:
-  title: "Vínculos e documentos com conceito"
-  what: "Total de vínculos documento-palavra-chave, e de documentos, cuja palavra-chave está ligada a algum conceito do tesauro, contado ao fim do processamento Real."
-  how: "Use para ver o alcance do tesauro na base."
-  not: "É um total acumulado da base inteira, não só do que este processamento mudou."
-  example: "8.400 vínculos em 2.950 documentos já usam conceitos do tesauro."
+  title: "Vínculos e documentos afetados"
+  what: "Vínculos documento-palavra-chave, e documentos distintos, cujas palavras-chave este processamento alterou: limpeza, fusão, invalidação ou ligação a conceito/agrupamento. Na simulação, os que **seriam** afetados."
+  how: "Use para medir o alcance do processamento antes de rodar em modo Real."
+  not: "Não inclui termos apenas suspeitos nem sugestões que aguardam revisão. Nas fusões contam os vínculos do termo apagado (os que são movidos para o termo existente)."
+  example: "Simulação: 1.300 vínculos em 820 documentos seriam afetados."
 
 admin.kwtreat.report_groupings:
   title: "Principais agrupamentos"
-  what: "Termos que este processamento ligou automaticamente por similaridade (fuzzy), reunidos pelo conceito de destino (até 50 conceitos)."
-  how: "Leia cada linha: à esquerda o conceito, à direita os termos que passaram a ser contados como ele."
-  not: "Não lista os agrupamentos por correspondência exata; para esses, use o CSV."
+  what: "Termos que este processamento ligou a um conceito do tesauro (exato ou por similaridade automática) ou agrupou em outro termo de mesma forma normalizada, reunidos pelo destino (até 50 destinos)."
+  how: "Leia cada linha: à esquerda o conceito ou termo de destino, à direita os termos que passaram a ser contados como ele."
+  not: "Não inclui sugestões que aguardam revisão nem fusões da limpeza (ação merged); para essas, use o CSV."
   example: "Conceito “Organizational learning” ← “organisational learning”, “organizational-learning”."
 
 admin.kwtreat.report_invalid:
@@ -579,7 +579,7 @@ admin.kwtreat.review_target:
   title: "Conceito alvo sugerido"
   what: "Conceito ao qual o termo seria ligado. Quando não há conceito registrado, aparece o motivo calculado (score e rótulo)."
   how: "Confira se o conceito tem o mesmo significado do termo, não só grafia parecida."
-  not: "“ambiguous_fuzzy” indica empate entre dois conceitos; nesse caso nenhum foi escolhido."
+  not: "“ambiguous_fuzzy” indica empate (menos de 3 pontos) entre dois conceitos; o exibido é o de maior score, confira com mais atenção."
   example: "“fuzzy_review: 82.4% → Higher education”."
 
 admin.kwtreat.review_score:
@@ -593,7 +593,7 @@ admin.kwtreat.review_actions:
   title: "Aprovar, recusar ou editar"
   what: "**Aprovar**: associa o termo ao conceito sugerido e marca a sugestão como aplicada. **Recusar**: marca como recusada sem mudar o termo. **Editar termo**: troca a exibição do termo e encerra a sugestão."
   how: "Clique na ação da linha; a decisão é gravada na hora, sem confirmação."
-  not: "Se a sugestão não tiver conceito registrado, Aprovar não altera nada e a linha continua pendente. Editar não remove acentos nem pontuação da forma normalizada (só converte para minúsculas)."
+  not: "Sugestões antigas sem conceito registrado não podem ser aprovadas (aparece um aviso): recuse ou edite. Editar recalcula a forma normalizada como na importação (minúsculas, sem acentos e pontuação), mas não liga o termo a nenhum conceito."
   example: "Recuse “education” → “Educational technology”: grafia parecida, conceitos diferentes."
 
 # ─── Tesauro / vocabulário controlado ────────────────────────────────────────

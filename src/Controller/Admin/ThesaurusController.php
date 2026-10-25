@@ -65,6 +65,11 @@ class ThesaurusController extends AbstractController
             throw $this->createNotFoundException('Esquema não encontrado.');
         }
 
+        if (!$this->isCsrfTokenValid('thesaurus_concept_new_' . $schemeId, (string)$request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $schemeId]);
+        }
+
         $preferredLabel = trim($request->request->get('preferredLabel', ''));
         if ($preferredLabel === '') {
             $this->addFlash('danger', 'O rótulo preferido não pode ser vazio.');
@@ -161,6 +166,11 @@ class ThesaurusController extends AbstractController
         }
 
         if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('thesaurus_concept_edit_' . $id, (string)$request->request->get('_token'))) {
+                $this->addFlash('danger', 'Token CSRF inválido.');
+                return $this->redirectToRoute('app_admin_thesaurus_concept_edit', ['id' => $id]);
+            }
+
             $preferredLabel = trim($request->request->get('preferredLabel', ''));
             if ($preferredLabel === '') {
                 $this->addFlash('danger', 'O rótulo preferido não pode ser vazio.');
@@ -270,7 +280,7 @@ class ThesaurusController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
             
-            fputcsv($handle, ['Scheme', 'Concept', 'Label', 'Type', 'Language'], ';');
+            fputcsv($handle, ['Scheme', 'Concept', 'Label', 'Type', 'Language'], ';', '"', '');
 
             $labels = $this->em->getRepository(ThesaurusLabel::class)->findAll();
             foreach ($labels as $lbl) {
@@ -280,7 +290,7 @@ class ThesaurusController extends AbstractController
                     $lbl->getLabel(),
                     $lbl->getType(),
                     $lbl->getLanguage()
-                ], ';');
+                ], ';', '"', '');
             }
 
             fclose($handle);
@@ -303,14 +313,14 @@ class ThesaurusController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF");
             
-            fputcsv($handle, ['Scheme', 'Concept', 'Label', 'Type', 'Language'], ';');
-            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'Artificial Intelligence', 'preferred', 'en'], ';');
-            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'AI', 'alternative', 'en'], ';');
-            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'Inteligência Artificial', 'alternative', 'pt'], ';');
-            fputcsv($handle, ['institution', 'University of São Paulo', 'University of São Paulo', 'preferred', 'en'], ';');
-            fputcsv($handle, ['institution', 'University of São Paulo', 'USP', 'alternative', 'pt'], ';');
-            fputcsv($handle, ['place', 'Brazil', 'Brazil', 'preferred', 'en'], ';');
-            fputcsv($handle, ['place', 'Brazil', 'Brasil', 'alternative', 'pt'], ';');
+            fputcsv($handle, ['Scheme', 'Concept', 'Label', 'Type', 'Language'], ';', '"', '');
+            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'Artificial Intelligence', 'preferred', 'en'], ';', '"', '');
+            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'AI', 'alternative', 'en'], ';', '"', '');
+            fputcsv($handle, ['keyword', 'Artificial Intelligence', 'Inteligência Artificial', 'alternative', 'pt'], ';', '"', '');
+            fputcsv($handle, ['institution', 'University of São Paulo', 'University of São Paulo', 'preferred', 'en'], ';', '"', '');
+            fputcsv($handle, ['institution', 'University of São Paulo', 'USP', 'alternative', 'pt'], ';', '"', '');
+            fputcsv($handle, ['place', 'Brazil', 'Brazil', 'preferred', 'en'], ';', '"', '');
+            fputcsv($handle, ['place', 'Brazil', 'Brasil', 'alternative', 'pt'], ';', '"', '');
 
             fclose($handle);
         });
@@ -328,6 +338,11 @@ class ThesaurusController extends AbstractController
     #[Route('/import', name: 'app_admin_thesaurus_import', methods: ['POST'])]
     public function import(Request $request): Response
     {
+        if (!$this->isCsrfTokenValid('thesaurus_import', (string)$request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_thesaurus_index');
+        }
+
         $file = $request->files->get('csv_file');
         if (!$file) {
             $this->addFlash('danger', 'Nenhum arquivo enviado.');
@@ -344,7 +359,7 @@ class ThesaurusController extends AbstractController
             }
 
             // Headers
-            $headers = fgetcsv($handle, 1000, ';');
+            $headers = fgetcsv($handle, 1000, ';', '"', '');
             if (!$headers || count($headers) < 3) {
                 $this->addFlash('danger', 'Formato de CSV inválido (verifique o separador ponto e vírgula).');
                 fclose($handle);
@@ -366,7 +381,7 @@ class ThesaurusController extends AbstractController
                 $schemeCache[$s->getSlug()] = $s;
             }
 
-            while (($data = fgetcsv($handle, 1000, ';')) !== false) {
+            while (($data = fgetcsv($handle, 1000, ';', '"', '')) !== false) {
                 $lineNum++;
                 if (count($data) < 3) {
                     $errors++;
@@ -475,18 +490,24 @@ class ThesaurusController extends AbstractController
         
         if ($conceptId !== null) {
             // Reset keywords that were matched to this concept but are no longer in the thesaurus_label
+            // (ou que nunca deveriam estar ligados: conceito fora do esquema 'keyword')
             $conn->executeStatement("
                 UPDATE keyword k
+                JOIN thesaurus_concept tc ON tc.id = :conceptId
+                JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id
                 LEFT JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label AND tl.concept_id = :conceptId
                 SET k.thesaurus_concept_id = NULL
-                WHERE k.thesaurus_concept_id = :conceptId AND tl.id IS NULL
+                WHERE k.thesaurus_concept_id = :conceptId AND (tl.id IS NULL OR ts.slug <> 'keyword')
             ", ['conceptId' => $conceptId]);
         }
 
         // Apply mappings to all keywords where thesaurus_concept_id is NULL
+        // Só rótulos do esquema de palavras-chave (lugar/instituição não podem capturar termos)
         $conn->executeStatement("
             UPDATE keyword k
             JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            JOIN thesaurus_concept tc ON tc.id = tl.concept_id
+            JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id AND ts.slug = 'keyword'
             SET k.thesaurus_concept_id = tl.concept_id
             WHERE k.thesaurus_concept_id IS NULL
         ");

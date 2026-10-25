@@ -75,6 +75,7 @@
 
             <h6 class="text-white mb-3">Carregar Novo Arquivo</h6>
             <form action="{{ path('app_admin_thesaurus_import') }}" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="_token" value="{{ csrf_token('thesaurus_import') }}">
                 <div class="mb-3">
                     <label class="form-label">Arquivo CSV (Separador: Ponto e Vírgula) {{ help('admin.thesaurus.import_file') }}</label>
                     <input type="file" name="csv_file" class="form-control" accept=".csv" required>

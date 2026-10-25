@@ -5,6 +5,8 @@ namespace App\Controller\Admin;
 use App\Entity\Keyword;
 use App\Entity\KeywordTreatmentJob;
 use App\Entity\KeywordTreatmentLog;
+use App\Entity\ThesaurusMatch;
+use App\Service\Import\TextNormalizer;
 use App\Service\KeywordTreatment\KeywordTreatmentService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -48,6 +50,11 @@ class SuperAdminKeywordTreatmentController extends AbstractController
     #[Route('/run', name: 'app_super_admin_keyword_treatment_run', methods: ['POST'])]
     public function run(Request $request): Response
     {
+        if (!$this->isCsrfTokenValid('kw_treatment_run', (string)$request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_super_admin_keyword_treatment_index');
+        }
+
         $options = \App\Service\KeywordTreatment\KeywordTreatmentOptions::fromRequest($request->request->all());
 
         try {
@@ -84,8 +91,11 @@ class SuperAdminKeywordTreatmentController extends AbstractController
         $fuzzySuggestions = [];
 
         foreach ($logs as $log) {
-            if ($log->getAction() === 'exact_grouped' || $log->getAction() === 'fuzzy_auto_matched') {
-                $conceptName = $log->getNewConcept() ? $log->getNewConcept()->getKeywordDisplay() : 'N/A';
+            // Ações de ligação gravadas pelo serviço (exact_grouped nunca é gravada)
+            if (in_array($log->getAction(), ['exact_label_matched', 'exact_concept_matched', 'fuzzy_auto_matched'], true)) {
+                $conceptName = $log->getNewThesaurusConcept()?->getPreferredLabel()
+                    ?? $log->getNewConcept()?->getKeywordDisplay()
+                    ?? 'N/A';
                 $topGroupings[$conceptName][] = $log->getKeyword()->getKeywordOriginal();
             }
             if ($log->getAction() === 'invalid') {
@@ -120,7 +130,7 @@ class SuperAdminKeywordTreatmentController extends AbstractController
             $handle = fopen('php://output', 'w+');
             fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
             
-            fputcsv($handle, ['Keyword ID', 'Original Term', 'Action', 'Old Display', 'New Display', 'Old Concept', 'New Concept', 'Score', 'Reason', 'Status'], ';');
+            fputcsv($handle, ['Keyword ID', 'Original Term', 'Action', 'Old Display', 'New Display', 'Old Concept', 'New Concept', 'Score', 'Reason', 'Status'], ';', '"', '');
 
             $logs = $this->em->getRepository(KeywordTreatmentLog::class)->findBy(['job' => $job]);
             foreach ($logs as $log) {
@@ -130,12 +140,12 @@ class SuperAdminKeywordTreatmentController extends AbstractController
                     $log->getAction(),
                     $log->getOldDisplay(),
                     $log->getNewDisplay(),
-                    $log->getOldConcept() ? $log->getOldConcept()->getKeywordDisplay() : '',
-                    $log->getNewConcept() ? $log->getNewConcept()->getKeywordDisplay() : '',
+                    $log->getOldThesaurusConcept()?->getPreferredLabel() ?? $log->getOldConcept()?->getKeywordDisplay() ?? '',
+                    $log->getNewThesaurusConcept()?->getPreferredLabel() ?? $log->getNewConcept()?->getKeywordDisplay() ?? '',
                     $log->getScore(),
                     $log->getReason(),
                     $log->getStatus()
-                ], ';');
+                ], ';', '"', '');
             }
 
             fclose($handle);
@@ -167,6 +177,11 @@ class SuperAdminKeywordTreatmentController extends AbstractController
     #[Route('/review/action', name: 'app_super_admin_keyword_treatment_review_action', methods: ['POST'])]
     public function reviewAction(Request $request): Response
     {
+        if (!$this->isCsrfTokenValid('kw_treatment_review', (string)$request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_super_admin_keyword_treatment_review');
+        }
+
         $logId = (int)$request->request->get('log_id');
         $decision = $request->request->get('decision'); // approve, reject, edit
 
@@ -174,28 +189,46 @@ class SuperAdminKeywordTreatmentController extends AbstractController
         if (!$log) {
             throw $this->createNotFoundException('Log de sugestão não encontrado.');
         }
+        if ($log->getStatus() !== 'pending' || $log->getAction() !== 'fuzzy_review_required') {
+            $this->addFlash('info', 'Esta sugestão já foi resolvida.');
+            return $this->redirectToRoute('app_super_admin_keyword_treatment_review');
+        }
 
         $kw = $log->getKeyword();
 
         if ($decision === 'approve') {
-            $concept = $log->getNewConcept();
+            // O serviço grava o conceito sugerido em newThesaurusConcept; newConcept é legado
+            $concept = $log->getNewThesaurusConcept();
+            $legacyConcept = $log->getNewConcept();
             if ($concept) {
-                $kw->setKeywordConcept($concept);
+                $kw->setThesaurusConcept($concept);
+                $this->closePendingMatches($kw->getId(), $concept->getId(), 'accepted');
+            } elseif ($legacyConcept) {
+                $kw->setKeywordConcept($legacyConcept);
+            }
+            if ($concept || $legacyConcept) {
                 $log->setStatus('applied');
                 $log->setAction('manual_approved');
                 $this->addFlash('success', 'Associação aprovada e aplicada.');
+            } else {
+                $this->addFlash('warning', 'Sugestão sem conceito registrado: nada foi aplicado. Recuse-a ou edite o termo.');
             }
         } elseif ($decision === 'reject') {
+            if ($log->getNewThesaurusConcept()) {
+                $this->closePendingMatches($kw->getId(), $log->getNewThesaurusConcept()->getId(), 'rejected');
+            }
             $log->setStatus('rejected');
             $log->setAction('manual_rejected');
             $this->addFlash('warning', 'Sugestão de associação rejeitada.');
         } elseif ($decision === 'edit') {
             $newDisplay = trim($request->request->get('new_display', ''));
             if ($newDisplay !== '') {
+                // Mesma forma de comparação usada na importação (sem acentos e pontuação)
+                $newNorm = (new TextNormalizer())->normalizeForComparison($newDisplay);
                 $kw->setKeywordDisplay($newDisplay);
-                $kw->setKeywordNormalized(strtolower($newDisplay));
+                $kw->setKeywordNormalized($newNorm);
                 $log->setNewDisplay($newDisplay);
-                $log->setNewNormalized(strtolower($newDisplay));
+                $log->setNewNormalized($newNorm);
                 $log->setStatus('applied');
                 $log->setAction('cleaned');
                 $this->addFlash('success', 'Palavra-chave editada e salva.');
@@ -205,5 +238,18 @@ class SuperAdminKeywordTreatmentController extends AbstractController
         $this->em->flush();
 
         return $this->redirectToRoute('app_super_admin_keyword_treatment_review');
+    }
+
+    /** Fecha a sugestão pendente correspondente em thesaurus_match (auditoria). */
+    private function closePendingMatches(int $keywordId, int $conceptId, string $status): void
+    {
+        $matches = $this->em->getRepository(ThesaurusMatch::class)->findBy([
+            'keyword' => $keywordId,
+            'concept' => $conceptId,
+            'status' => 'pending',
+        ]);
+        foreach ($matches as $match) {
+            $match->setStatus($status);
+        }
     }
 }

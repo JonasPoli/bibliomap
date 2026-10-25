@@ -68,18 +68,18 @@
         </div>
     </div>
 </div>
-{% if job.affectedDocumentCount > 0 %}
+{% if job.affectedDocumentKeywordCount > 0 %}
 <div class="row g-4 mb-4">
     <div class="col-6">
         <div class="bm-card text-center">
             <div class="bm-stat-value text-white">{{ job.affectedDocumentKeywordCount }}</div>
-            <div class="bm-stat-label">Vínculos documento–palavra com conceito {{ help('admin.kwtreat.report_affected') }}</div>
+            <div class="bm-stat-label">Vínculos documento–palavra {{ job.mode == 'execute' ? 'afetados' : 'que seriam afetados' }} {{ help('admin.kwtreat.report_affected') }}</div>
         </div>
     </div>
     <div class="col-6">
         <div class="bm-card text-center">
             <div class="bm-stat-value text-white">{{ job.affectedDocumentCount }}</div>
-            <div class="bm-stat-label">Documentos com conceito {{ help('admin.kwtreat.report_affected') }}</div>
+            <div class="bm-stat-label">Documentos {{ job.mode == 'execute' ? 'afetados' : 'que seriam afetados' }} {{ help('admin.kwtreat.report_affected') }}</div>
         </div>
     </div>
 </div>

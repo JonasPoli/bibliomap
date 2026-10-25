@@ -25,6 +25,7 @@
 <div class="bm-card mb-4">
     <h5 class="mb-3 text-white"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Conceito {{ help('admin.thesaurus.new_concept') }}</h5>
     <form action="{{ path('app_admin_thesaurus_concept_new', {schemeId: scheme.id}) }}" method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('thesaurus_concept_new_' ~ scheme.id) }}">
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label text-muted-bm small fw-bold">Conceito Principal (rótulo preferido) {{ help('admin.thesaurus.preferred_label') }}</label>

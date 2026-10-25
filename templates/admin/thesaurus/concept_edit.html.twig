@@ -29,6 +29,7 @@
             <h5 class="mb-4 text-white"><i class="bi bi-tag-fill text-accent me-2"></i>Conceito: {{ concept.preferredLabel }}</h5>
             
             <form action="{{ path('app_admin_thesaurus_concept_edit', {id: concept.id}) }}" method="post">
+                <input type="hidden" name="_token" value="{{ csrf_token('thesaurus_concept_edit_' ~ concept.id) }}">
                 <div class="mb-4">
                     <label class="form-label text-muted-bm small fw-bold">Rótulo Preferencial (Nome Oficial) {{ help('admin.thesaurus.edit_preferred') }}</label>
                     <input type="text" name="preferredLabel" class="form-control form-control-lg" value="{{ concept.preferredLabel }}" required style="background:rgba(255,255,255,0.05);border-color:var(--bm-border);color:var(--bm-text)">

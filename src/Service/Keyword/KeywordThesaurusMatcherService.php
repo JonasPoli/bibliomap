@@ -27,6 +27,9 @@ class KeywordThesaurusMatcherService
     /** @var array<int, array{id: int, preferred_label: string, normalized_label: string}> */
     private array $conceptById = [];
 
+    /** @var array<string, string> normalizedLabel → grafia original (para detectar siglas no fuzzy) */
+    private array $displayByNorm = [];
+
     private bool $mapsLoaded = false;
 
     public function __construct(
@@ -43,6 +46,7 @@ class KeywordThesaurusMatcherService
         $this->labelMap = [];
         $this->conceptMap = [];
         $this->conceptById = [];
+        $this->displayByNorm = [];
 
         $conn = $this->em->getConnection();
 
@@ -61,17 +65,19 @@ class KeywordThesaurusMatcherService
             $id = (int)$row['id'];
             $this->conceptById[$id] = $row;
             $this->conceptMap[$row['normalized_label']] = $id;
+            $this->displayByNorm[$row['normalized_label']] ??= $row['preferred_label'];
         }
 
         // Load labels
         $labelRows = $conn->fetchAllAssociative(
-            'SELECT tl.normalized_label, tl.concept_id FROM thesaurus_label tl
+            'SELECT tl.normalized_label, tl.label, tl.concept_id FROM thesaurus_label tl
              JOIN thesaurus_concept tc ON tl.concept_id = tc.id
              WHERE tc.scheme_id = ?',
             [$schemeId]
         );
         foreach ($labelRows as $row) {
             $this->labelMap[$row['normalized_label']] = (int)$row['concept_id'];
+            $this->displayByNorm[$row['normalized_label']] ??= $row['label'];
         }
 
         $this->mapsLoaded = true;
@@ -118,9 +124,8 @@ class KeywordThesaurusMatcherService
         }
 
         // 3. Fuzzy matching against all labels and concept labels
-        $bestScore = 0.0;
-        $bestConceptId = null;
-        $secondBestScore = 0.0;
+        // Melhor score por conceito: dois rótulos do MESMO conceito não configuram empate
+        $scoreByConcept = [];
 
         $allCandidates = array_unique(array_merge(
             array_keys($this->labelMap),
@@ -134,15 +139,22 @@ class KeywordThesaurusMatcherService
                 continue;
             }
 
-            $score = $this->fuzzyMatcher->getSimilarityScore($normalized, $candidateNorm);
-            if ($score > $bestScore) {
-                $secondBestScore = $bestScore;
-                $bestScore = $score;
-                $bestConceptId = $this->labelMap[$candidateNorm] ?? $this->conceptMap[$candidateNorm] ?? null;
-            } elseif ($score > $secondBestScore) {
-                $secondBestScore = $score;
+            $score = $this->fuzzyMatcher->getSimilarityScore(
+                $normalized,
+                $candidateNorm,
+                $keyword->getKeywordDisplay() ?? $keyword->getKeywordOriginal(),
+                $this->displayByNorm[$candidateNorm] ?? null
+            );
+            $cid = $this->labelMap[$candidateNorm] ?? $this->conceptMap[$candidateNorm] ?? null;
+            if ($cid !== null && $score > ($scoreByConcept[$cid] ?? 0.0)) {
+                $scoreByConcept[$cid] = $score;
             }
         }
+
+        arsort($scoreByConcept);
+        $bestConceptId = array_key_first($scoreByConcept);
+        $bestScore = $bestConceptId !== null ? $scoreByConcept[$bestConceptId] : 0.0;
+        $secondBestScore = (float)(array_values($scoreByConcept)[1] ?? 0.0);
 
         if ($bestConceptId === null || $bestScore < $minReviewScore) {
             return ['conceptId' => null, 'conceptLabel' => null, 'method' => 'no_match', 'score' => $bestScore, 'ambiguous' => false];

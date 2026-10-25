@@ -188,7 +188,7 @@
                                                             </p>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Autor Oficial de Destino (Deduplicação)</label>
-                                                                <select name="target_id" class="form-select" required>
+                                                                <select name="target_id" class="form-select">
                                                                     <option value="">-- Selecione o autor oficial --</option>
                                                                     {% if item.suggestion %}
                                                                         <option value="{{ item.suggestion.id }}" selected>★ Sugestão: {{ item.suggestion.preferred_name }}</option>
@@ -357,7 +357,7 @@
                                                             </p>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Palavra-chave Oficial de Destino</label>
-                                                                <select name="target_id" class="form-select" required>
+                                                                <select name="target_id" class="form-select">
                                                                     <option value="">-- Selecione o termo de destino --</option>
                                                                     {% if item.suggestion %}
                                                                         <option value="{{ item.suggestion.id }}" selected>★ Sugestão: {{ item.suggestion.keyword_display }}</option>
