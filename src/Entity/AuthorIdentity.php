@@ -9,6 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: AuthorIdentityRepository::class)]
 #[ORM\Table(name: 'author_identity')]
+#[ORM\Index(name: 'IDX_author_identity_normalized', columns: ['normalized_name'])]
+#[ORM\Index(name: 'IDX_author_identity_preferred', columns: ['preferred_name'])]
+#[ORM\Index(name: 'IDX_author_identity_status_normalized', columns: ['status', 'normalized_name'])]
 class AuthorIdentity
 {
     #[ORM\Id]
