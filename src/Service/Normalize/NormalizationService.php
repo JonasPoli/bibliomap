@@ -1012,7 +1012,7 @@ class NormalizationService
             JOIN palavra_chave_variacoes_nome kv ON k.id = kv.keyword_id
             JOIN document_keyword dk ON k.id = dk.keyword_id
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND kv.variation_name != k.keyword_display
+            WHERE d.project_id = ? AND kv.variation_name COLLATE utf8mb4_unicode_ci != k.keyword_display COLLATE utf8mb4_unicode_ci
             ORDER BY k.keyword_display ASC, kv.variation_name ASC
         ', [$projectId]);
     }
