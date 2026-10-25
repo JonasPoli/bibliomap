@@ -205,6 +205,25 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 3px; }
+
+        /* Ajuda contextual (?) — ver App\Twig\HelpExtension */
+        .bm-help {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0 2px; margin-left: 4px;
+            color: var(--bm-text-muted); font-size: 0.9em; line-height: 1;
+            cursor: help; vertical-align: baseline; opacity: .75;
+            text-transform: none; letter-spacing: normal; font-weight: 400;
+        }
+        .bm-help:hover, .bm-help:focus-visible, .bm-help[aria-describedby] { color: var(--bm-accent); opacity: 1; outline: none; }
+        .bm-help-missing { color: var(--bm-danger) !important; }
+        .bm-help-popover { --bs-popover-max-width: 400px; --bs-popover-bg: var(--bm-card-bg); --bs-popover-border-color: var(--bm-border); --bs-popover-header-bg: var(--bm-sidebar-bg); --bs-popover-header-color: var(--bm-text); --bs-popover-body-color: var(--bm-text); font-family: 'Inter', system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.35); z-index: 2000; }
+        .bm-help-popover .popover-header { font-size: 13.5px; font-weight: 700; }
+        .bm-help-popover .popover-body { font-size: 12.5px; line-height: 1.5; max-height: 60vh; overflow-y: auto; padding: 10px 14px; }
+        .bm-help-sec + .bm-help-sec { margin-top: 8px; }
+        .bm-help-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--bm-accent); margin-bottom: 2px; }
+        .bm-help-not .bm-help-lbl { color: var(--bm-danger); }
+        .bm-help-example { background: rgba(79,142,247,.08); border-left: 3px solid var(--bm-accent); border-radius: 0 6px 6px 0; padding: 6px 8px; }
+        .bm-help-example .bm-help-lbl { color: var(--bm-warning); }
     </style>
     {% block stylesheets %}{% endblock %}
 </head>
@@ -523,6 +542,35 @@
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Ajuda contextual (?): delegação de eventos, funciona também para ícones inseridos via JS.
+    (function () {
+        let openHelp = null;
+        const close = () => { if (openHelp) { bootstrap.Popover.getInstance(openHelp)?.hide(); openHelp = null; } };
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-bm-help]');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (openHelp === btn) { close(); return; }
+                close();
+                bootstrap.Popover.getOrCreateInstance(btn, {
+                    html: true, trigger: 'manual', container: 'body',
+                    customClass: 'bm-help-popover',
+                    fallbackPlacements: ['bottom', 'top', 'right', 'left'],
+                }).show();
+                openHelp = btn;
+                return;
+            }
+            if (openHelp && !e.target.closest('.bm-help-popover')) close();
+        }, true);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') close();
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-bm-help]')) { e.preventDefault(); e.target.click(); }
+        });
+    })();
+</script>
 <script>
     function toggleGlobalTheme() {
         const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'dark';

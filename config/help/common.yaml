@@ -1,0 +1,18 @@
+# Ajuda contextual (ícone "?") — elementos compartilhados entre telas.
+# Formato de cada entrada: title, what (para que serve), how (como usar),
+# not (para que não serve), example (exemplo real). Aceita **negrito** e quebras de linha.
+# Uso no Twig: {{ help('common.print') }}
+
+common.print:
+  title: "Imprimir / Exportar PDF"
+  what: "Gera uma versão para impressão desta página, sem menu lateral e barra superior, pronta para salvar em PDF."
+  how: "Clique no botão e, na janela de impressão do navegador, escolha **Salvar como PDF** no destino. Ative \"Gráficos de plano de fundo\" para manter as cores dos gráficos."
+  not: "Não exporta os dados brutos para planilha. Para trabalhar com os números em Excel, use os botões de exportação CSV/XLSX quando disponíveis."
+  example: "Para anexar o relatório ao capítulo de método da dissertação, abra o Relatório Geral, clique em Imprimir e salve como \"relatorio-bibliometrico-2026.pdf\"."
+
+common.theme_toggle:
+  title: "Tema claro/escuro"
+  what: "Alterna as cores da interface entre tema escuro e claro. A escolha fica salva neste navegador."
+  how: "Clique uma vez para trocar. Gráficos e redes abertos são redesenhados automaticamente com as novas cores."
+  not: "Não altera as cores dos arquivos exportados nem o que outros usuários veem."
+  example: "Antes de capturar a tela de um mapa temático para um slide de fundo branco, mude para o tema claro para o gráfico combinar com a apresentação."
