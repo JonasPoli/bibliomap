@@ -272,15 +272,7 @@ class DocumentImportService
         $res = $normalizer->normalizeAuthor($name);
 
         if (!$res['valid']) {
-            try {
-                $this->conn()->insert('import_error', [
-                    'project_id'     => $projectId,
-                    'entity_type'    => 'author',
-                    'original_value' => $name,
-                    'reason'         => $res['reason'],
-                    'created_at'     => $now,
-                ]);
-            } catch (\Throwable) {}
+            // Termo inválido (vazio, só números etc.) é descartado; a tabela import_error foi removida.
             return null;
         }
 
@@ -349,15 +341,7 @@ class DocumentImportService
         $res = $normalizer->normalizeKeyword($term);
 
         if (!$res['valid']) {
-            try {
-                $this->conn()->insert('import_error', [
-                    'project_id'     => $projectId,
-                    'entity_type'    => 'keyword',
-                    'original_value' => $term,
-                    'reason'         => $res['reason'],
-                    'created_at'     => $now,
-                ]);
-            } catch (\Throwable) {}
+            // Termo inválido (vazio, só números etc.) é descartado; a tabela import_error foi removida.
             return null;
         }
 

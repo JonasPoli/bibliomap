@@ -304,6 +304,7 @@
                         <input type="hidden" name="discardId" value="{{ sug.discard.id }}">
                         <input type="hidden" name="tab" value="{{ tab }}">
                         <input type="hidden" name="kwType" value="{{ kwType }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('normalize_merge') }}">
                         
                         <button type="submit" class="btn-bm-primary btn-sm d-flex align-items-center gap-1" style="font-size:12.5px;padding:6px 14px">
                             <i class="bi bi-merge"></i> Mesclar
@@ -561,7 +562,7 @@ async function runBatchMerge() {
                 'Content-Type': 'application/json',
                 'Accept':       'application/json',
             },
-            body: JSON.stringify({ type: mergeType, pairs }),
+            body: JSON.stringify({ type: mergeType, pairs, _token: '{{ csrf_token('normalize_merge') }}' }),
         });
 
         const data = await response.json();

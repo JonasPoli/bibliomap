@@ -70,6 +70,11 @@ class NormalizeController extends AbstractController
         $isAjax    = $request->isXmlHttpRequest() || $request->headers->get('Accept') === 'application/json';
 
         try {
+            if (!$this->isCsrfTokenValid('normalize_merge', $request->request->get('_token'))) {
+                throw new \InvalidArgumentException('Token CSRF inválido. Recarregue a página.');
+            }
+            $this->assertBelongsToProject((string) $type, [$keepId, $discardId], $project->getId());
+
             if ($type === 'author') {
                 $this->normalizationService->mergeAuthors($keepId, $discardId);
             } elseif ($type === 'keyword') {
@@ -108,7 +113,7 @@ class NormalizeController extends AbstractController
     #[Route('/merge-batch', name: 'app_normalize_merge_batch', methods: ['POST'])]
     public function mergeBatch(int $id, Request $request): Response
     {
-        $this->getProject($id);
+        $project = $this->getProject($id);
 
         $data = json_decode($request->getContent(), true);
         if (!is_array($data)) {
@@ -123,6 +128,16 @@ class NormalizeController extends AbstractController
         }
 
         try {
+            if (!$this->isCsrfTokenValid('normalize_merge', $data['_token'] ?? null)) {
+                throw new \InvalidArgumentException('Token CSRF inválido. Recarregue a página.');
+            }
+            $ids = [];
+            foreach ($pairs as $pair) {
+                $ids[] = (int) ($pair['keepId'] ?? 0);
+                $ids[] = (int) ($pair['discardId'] ?? 0);
+            }
+            $this->assertBelongsToProject((string) $type, $ids, $project->getId());
+
             $merged = match ($type) {
                 'keyword' => $this->normalizationService->mergeKeywordsBatch($pairs),
                 'author'  => $this->normalizationService->mergeAuthorsBatch($pairs),
@@ -254,6 +269,40 @@ class NormalizeController extends AbstractController
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
+
+    /**
+     * Impede mesclar (e apagar) registros de outros projetos enviando IDs arbitrários:
+     * documentos precisam ser do projeto; autores e palavras-chave precisam estar
+     * vinculados a algum documento do projeto.
+     */
+    private function assertBelongsToProject(string $type, array $ids, int $projectId): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!$ids || in_array(0, $ids, true)) {
+            throw new \InvalidArgumentException('IDs inválidos para mesclagem.');
+        }
+
+        $sql = match ($type) {
+            'document' => 'SELECT COUNT(*) FROM document WHERE project_id = ? AND id IN (?)',
+            'author'   => 'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
+                           JOIN document d ON d.id = da.document_id AND d.project_id = ?
+                           WHERE da.author_identity_id IN (?)',
+            'keyword'  => 'SELECT COUNT(DISTINCT dk.keyword_id) FROM document_keyword dk
+                           JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                           WHERE dk.keyword_id IN (?)',
+            default    => throw new \InvalidArgumentException('Tipo de mesclagem inválido.'),
+        };
+
+        $found = (int) $this->em->getConnection()->fetchOne(
+            $sql,
+            [$projectId, $ids],
+            [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
+        );
+
+        if ($found !== count($ids)) {
+            throw $this->createAccessDeniedException('Registro fora deste projeto.');
+        }
+    }
 
     private function getProject(int $id): BibliometricProject
     {
