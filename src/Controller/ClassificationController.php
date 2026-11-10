@@ -40,10 +40,11 @@ class ClassificationController extends AbstractController
         $hasResult = $this->classRepo->hasResults($project->getId());
 
         return $this->render('classification/index.html.twig', [
-            'project'   => $project,
-            'groups'    => $groups,
-            'counts'    => $counts,
-            'hasResult' => $hasResult,
+            'project'         => $project,
+            'groups'          => $groups,
+            'counts'          => $counts,
+            'hasResult'       => $hasResult,
+            'expansionNotice' => $this->expansionNotice($project, $groups, $hasResult),
         ]);
     }
 
@@ -257,7 +258,40 @@ class ClassificationController extends AbstractController
             'limit'         => $limit,
             'totalDocs'     => $totalDocs,
             'docGroupNames' => $docGroupNames,
+            'expansionNotice' => $this->expansionNotice($project, $groups, $hasResult),
         ]);
+    }
+
+    /**
+     * Aviso de resultado calculado com uma expansão pelo tesauro anterior à atual: o projeto tem resultados,
+     * a versão gravada é NULL ou menor que ClassificationEngine::EXPANSION_VERSION e há grupo (validador,
+     * ruído ou temático) com o tesauro ligado. Traz quantos documentos movidos à mão a reexecução apagaria.
+     *
+     * @param ClassificationGroup[] $groups
+     * @return array{manual: int}|null
+     */
+    private function expansionNotice(BibliometricProject $project, array $groups, bool $hasResult): ?array
+    {
+        if (!$hasResult || ($project->getClassificationExpansionVersion() ?? 0) >= ClassificationEngine::EXPANSION_VERSION) {
+            return null;
+        }
+        $usesThesaurus = false;
+        foreach ($groups as $g) {
+            if ($g->getType() !== ClassificationGroup::TYPE_UNCLASSIFIED && $g->isUseThesaurus()) {
+                $usesThesaurus = true;
+                break;
+            }
+        }
+        if (!$usesThesaurus) {
+            return null;
+        }
+
+        $manual = (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(DISTINCT document_id) FROM document_classification WHERE project_id = ? AND manual_override = 1',
+            [$project->getId()]
+        );
+
+        return ['manual' => $manual];
     }
 
     // ─── Move Document ────────────────────────────────────────────────────────

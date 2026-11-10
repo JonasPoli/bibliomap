@@ -51,6 +51,8 @@
     {% endfor %}
 {% endfor %}
 
+{{ include('classification/_expansion_notice.html.twig') }}
+
 {% if not hasResult %}
 <div class="bm-card text-center py-5">
     <div style="font-size:48px;margin-bottom:12px">📊</div>

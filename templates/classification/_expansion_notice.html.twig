@@ -1,0 +1,14 @@
+{# Resultado calculado com a expansão anterior (sem as variações das palavras-chave). Variável: expansionNotice = {manual: int} ou null #}
+{% if expansionNotice %}
+<div class="alert alert-warning bm-alert mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <strong>Resultados calculados sem as variações das palavras-chave.</strong> {{ help('classification.index.expansion_notice') }}
+    A expansão pelo tesauro passou a incluir as variações gravadas das palavras-chave, e este projeto tem grupo com o tesauro ligado:
+    a próxima execução pode mudar os grupos.
+    {% if expansionNotice.manual > 0 %}
+        Executar de novo apaga <strong>{{ expansionNotice.manual }}</strong> {{ expansionNotice.manual == 1 ? 'movimentação manual' : 'movimentações manuais' }}; exporte os resultados antes, se quiser guardá-las.
+    {% else %}
+        Não há movimentações manuais a perder.
+    {% endif %}
+</div>
+{% endif %}

@@ -21,6 +21,14 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 class ClassificationEngine
 {
+    /**
+     * Versão da expansão pelo tesauro gravada no projeto a cada execução
+     * (bibliometric_project.classification_expansion_version). NULL = antes da 2.
+     * 2: rótulos do tesauro + variações ativas da palavra-chave do termo.
+     * Subir o número faz o aviso de "resultado calculado com a expansão anterior" voltar.
+     */
+    public const EXPANSION_VERSION = 2;
+
     public const UNCLASSIFIED_NAME = 'Sem Classificação';
 
     public function __construct(
@@ -69,6 +77,8 @@ class ClassificationEngine
         }
 
         // Os INSERT são SQL direto: nada a limpar no EntityManager (um clear() soltaria o projeto)
+        $project->setClassificationExpansionVersion(self::EXPANSION_VERSION);
+        $this->em->flush();
 
         return $result['stats'];
     }

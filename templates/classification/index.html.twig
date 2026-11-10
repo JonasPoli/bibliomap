@@ -47,6 +47,8 @@
     {% endfor %}
 {% endfor %}
 
+{{ include('classification/_expansion_notice.html.twig') }}
+
 {# ── STATS BAR ─────────────────────────────────────────────────────────────── #}
 {% if groups|length > 0 %}
 <div class="row g-3 mb-4">

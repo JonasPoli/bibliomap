@@ -108,8 +108,15 @@ classification.index.run:
   title: "Executar Classificação"
   what: "Apaga todos os resultados anteriores do projeto e classifica de novo todos os documentos com os grupos e termos atuais."
   how: "Execute depois de criar ou editar grupos. Ao terminar, você é levado à tela de Resultados com o resumo: classificados, ruído, sem grupo e quantos ficaram em vários grupos."
-  not: "Não preserva ajustes manuais: documentos que você moveu em Resultados voltam ao enquadramento automático."
+  not: "Não preserva ajustes manuais: documentos que você moveu em Resultados voltam ao enquadramento automático. Se a expansão pelo Tesauro falhar (erro no banco), a execução para antes de apagar qualquer coisa: aparece “Erro ao executar classificação:” e os resultados e as movimentações anteriores ficam como estavam."
   example: "Com 10 mil documentos e o Tesauro ligado, a execução pode levar alguns segundos. Não feche a página enquanto o botão mostra “Processando…”."
+
+classification.index.expansion_notice:
+  title: "Resultado calculado com a expansão anterior"
+  what: "Aviso de que os resultados deste projeto foram calculados antes de a expansão pelo Tesauro passar a incluir as variações gravadas das palavras-chave, e de que o projeto tem grupo com o Tesauro ligado."
+  how: "Os resultados atuais continuam válidos para a regra antiga e nada muda sozinho. Para usar a regra nova, exporte os resultados (se quiser guardar as movimentações manuais) e clique em **Executar Classificação**. O aviso some depois da execução."
+  not: "Não quer dizer que algo esteja errado nem que os grupos vão mudar com certeza: só os termos que coincidem com uma palavra-chave que tem variações ganham formas novas. Executar de novo apaga as movimentações manuais, cujo número o aviso mostra."
+  example: "Projeto classificado em setembro, com o grupo “Sensoriamento” usando o Tesauro e 3 documentos movidos à mão: o aviso diz que executar de novo apaga as 3 movimentações."
 
 classification.index.distribution:
   title: "Distribuição"
@@ -171,10 +178,10 @@ classification.form.match_fields:
 
 classification.form.thesaurus:
   title: "Expandir com o Tesauro"
-  what: "Quando ligado, cada termo é ampliado com os sinônimos do mesmo conceito no Tesauro e com as variações gravadas para a palavra-chave correspondente."
-  how: "A expansão só acontece quando o termo é **idêntico** a um rótulo do Tesauro ou a uma palavra-chave normalizada. Deixe ligado depois de normalizar as palavras-chave do projeto."
-  not: "Não cria sinônimos por conta própria nem traduz. Termo que não existe no Tesauro é procurado só como foi digitado."
-  example: "Se o Tesauro liga “remote sensing” a “remote-sensing” e “sensoriamento remoto”, o termo “remote sensing” passa a encontrar as três formas."
+  what: "Quando ligado, cada termo é ampliado com os sinônimos do mesmo conceito no Tesauro e com as variações gravadas (ativas) da palavra-chave correspondente."
+  how: "Sinônimos: o termo tem de ser **idêntico** (sem diferenciar maiúsculas) a um rótulo do Tesauro. Variações: vale a palavra-chave **ativa** cuja forma normalizada (minúsculas, sem acentos e sem pontuação) é igual à do termo, e entram só as variações **ativas**, como foram gravadas. Deixe ligado depois de normalizar as palavras-chave do projeto."
+  not: "Não cria sinônimos por conta própria nem traduz. Termo que não existe no Tesauro nem como palavra-chave é procurado só como foi digitado. O cadastro de variações é **global**: cadastrar, corrigir ou desativar uma variação muda a próxima execução de todos os projetos com grupo cujo termo coincida com aquela palavra-chave."
+  example: "Se o Tesauro liga “remote sensing” a “sensoriamento remoto” e a palavra-chave “Remote sensing” tem a variação ativa “remote-sensing”, o termo “remote sensing” passa a encontrar as três formas. “e-learning” também acha as variações da palavra-chave “e learning”."
 
 classification.form.filters:
   title: "Filtros de restrição"
@@ -273,7 +280,7 @@ classification.results.rerun:
   title: "Re-executar"
   what: "Roda o motor de novo com os grupos atuais e o mesmo ano mínimo salvo no projeto."
   how: "Use depois de editar termos ou filtros. O resultado substitui completamente o anterior."
-  not: "Apaga os ajustes feitos com **Mover para**. Se você corrigiu documentos à mão, exporte o CSV antes."
+  not: "Apaga os ajustes feitos com **Mover para**. Se você corrigiu documentos à mão, exporte o CSV antes. Se a expansão pelo Tesauro falhar, nada é apagado: a tela mostra “Erro ao executar classificação:” e o resultado anterior fica."
   example: "Depois de acrescentar “canopy cover” ao grupo “Monitoramento da lavoura”, clique em Re-executar para ver o novo total do grupo."
 
 classification.results.tabs:
@@ -294,7 +301,7 @@ classification.results.matched_term:
   title: "Termo que casou"
   what: "O primeiro termo do grupo encontrado no documento, que justificou a entrada dele no grupo. No Ruído por ano aparece “year<2000”."
   how: "Abra o resumo do cartão: o termo é destacado em amarelo onde aparece. Termos que trazem muitos falsos positivos devem ser trocados por expressões mais longas."
-  not: "Não lista todos os termos presentes, só o primeiro encontrado. Se veio de um sinônimo do Tesauro, pode ser diferente do termo cadastrado."
+  not: "Não lista todos os termos presentes, só o primeiro encontrado. Se veio de um sinônimo do Tesauro ou de uma variação gravada da palavra-chave, pode ser diferente do termo cadastrado."
   example: "Um artigo de fisiologia vegetal entrou em “Monitoramento da lavoura” pelo termo “canopy”; trocar por “canopy monitoring” e “canopy cover” resolveu."
 
 classification.results.multi_groups:
