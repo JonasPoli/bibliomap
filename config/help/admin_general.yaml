@@ -395,17 +395,17 @@ admin.review.kw_discard:
 
 admin.kwtreat.page:
   title: "Tratamento de palavras-chave"
-  what: "Ferramenta em lote que limpa grafias, invalida lixo, agrupa duplicatas e liga palavras-chave a conceitos do tesauro, para **todas** as palavras-chave da plataforma. Além do uso pela tela, uma **rotina noturna** do servidor roda o tratamento em modo **Real**, sobre todas as palavras-chave, às 00:45 do servidor (UTC, 21:45 em Brasília), logo depois do backup do banco das 00:30."
+  what: "Ferramenta em lote que limpa grafias, invalida lixo, agrupa duplicatas e liga palavras-chave a conceitos do tesauro, para **todas** as palavras-chave da plataforma. Além do uso pela tela, uma **rotina noturna** do servidor roda o tratamento em modo **Real**, sobre todas as palavras-chave, às 04:30 de Brasília (07:30 UTC, o horário do servidor), logo depois do backup do banco das 04:15."
   how: "Pela tela, rode primeiro em **Simulação**, leia o relatório e só então rode em modo **Real**. A rotina noturna só roda se houver backup do banco feito no mesmo dia; sem ele, a noite é pulada e nada muda (veja o cartão **Backup do banco**)."
   not: "Não atua em um projeto só: a tela e a rotina noturna afetam **todos os projetos**, cujos números de palavras-chave podem mudar de um dia para o outro. Não tem botão de desfazer: a volta é pelo backup."
   example: "Depois de várias importações do Scopus e da WoS, “Higher Education”, “higher-education” e “HIGHER EDUCATION” aparecem separados; o tratamento unifica as grafias."
 
 admin.kwtreat.backup:
   title: "Backup do banco"
-  what: "Data, hora (do servidor, UTC) e tamanho do último backup completo do banco, feito pela rotina noturna das 00:30 (app:database:backup) ou à mão. Avisa quando não há backup com a data de hoje."
-  how: "Sem backup do dia, a rotina noturna do tratamento (00:45) não roda e não altera nada. Para liberar a noite, rode o backup à mão no servidor ou confira o log da rotina de backup."
+  what: "Data, hora (do servidor, UTC) e tamanho do último backup completo do banco, feito pela rotina da madrugada às 04:15 de Brasília (07:15 UTC; app:database:backup) ou à mão. Avisa quando não há backup com a data de hoje."
+  how: "Sem backup do dia, a rotina do tratamento das 04:30 de Brasília (07:30 UTC) não roda e não altera nada. O dia vale em UTC, o fuso do servidor. Para liberar a noite, rode o backup à mão no servidor ou confira o log da rotina de backup."
   not: "Não faz nem restaura backup pela tela; só lê o nome, a data e o tamanho dos arquivos. O tratamento pela tela não exige o backup: quem decide é o super administrador."
-  example: "Último backup completo: 11/11/2026 00:31 (118,4 MB). Há backup de hoje: o tratamento da noite pode rodar."
+  example: "Último backup completo: 11/11/2026 07:15 (99,8 MB). Há backup de hoje: o tratamento da noite pode rodar."
 
 admin.kwtreat.diagnosis:
   title: "Diagnóstico da base"

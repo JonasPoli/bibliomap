@@ -470,7 +470,7 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
   * `--auto-create-concepts`: **não implementada**; aceita por compatibilidade, sem efeito (não cria conceitos).
 * **Repetível:** rodar de novo não repete sugestões pendentes ou recusadas, não invalida de novo um termo com o mesmo motivo já gravado (nem o que um administrador aceitou) e registra cada alerta de suspeito uma vez só.
 * **Um por vez:** se outro tratamento estiver rodando, escreve "Outro tratamento de palavras-chave está em andamento." e termina sem gravar (código 0). No modo Real, também não começa com um dataset em importação ("Importação em andamento: tratamento adiado.").
-* **Rotina noturna (produção):** às 00:45 do servidor (UTC; 21:45 em Brasília), `--execute --require-backup --env=prod`, depois do backup das 00:30. Saída da última noite em `var/log/cron_keywords_treat.log`.
+* **Rotina noturna (produção):** às 07:30 UTC (04:30 em Brasília), `--execute --require-backup --env=prod`, depois do backup das 07:15 UTC. O "dia" do backup exigido é o dia em UTC, o fuso do servidor. Saída da última noite em `var/log/cron_keywords_treat.log`.
 * **Exemplos:**
   * `php bin/console app:keywords:treat --dry-run --limit=1000`
   * `php bin/console app:keywords:treat --execute --require-backup`
@@ -520,7 +520,7 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 #### `app:qualis:resolve-missing`
 * **Descrição:** Liga os documentos de **todos os projetos** às revistas já cadastradas em `qualis_journal` pelo ISSN e, para os ISSN que ainda não têm revista, consulta o título no Crossref e o estrato na Sucupira e cadastra a revista (mesmo sem estrato). Muda o relatório por estrato e a lista "Revistas sem Qualis" de todos os projetos. Um ISSN que o Crossref não conhece é consultado de novo na execução seguinte.
-* **Rotina noturna (produção):** às 00:00 do servidor (UTC; 21:00 em Brasília), com `--env=prod`. Saída da última noite em `var/log/cron_qualis_resolve_missing.log`.
+* **Rotina noturna (produção):** às 06:00 UTC (03:00 em Brasília), com `--env=prod`, antes do backup e do tratamento de palavras-chave. Saída da última noite em `var/log/cron_qualis_resolve_missing.log`.
 * **Exemplo:** `php bin/console app:qualis:resolve-missing`
 
 ---
@@ -532,7 +532,7 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 * **Pasta:** variável `DATABASE_BACKUP_DIR`, declarada vazia no `.env` e definida **só no `.env.local`** do servidor: caminho absoluto fora do projeto e da pasta pública, com permissão `700`. O comando recusa a variável vazia, uma pasta dentro do projeto, uma pasta com acesso de grupo ou de outros e menos de 2 GB livres na partição.
 * **Arquivos:** permissão `600` (o backup tem dados pessoais dos usuários; nunca vai para o git). Usuário e senha do banco vão num arquivo de opções temporário (`600`) na própria pasta, apagado no fim, e nunca aparecem na linha do cron, na saída nem na lista de processos.
 * **Retenção:** depois de um backup bem-sucedido, apaga os backups com mais de 7 dias, exceto os feitos num domingo, que ficam até 28 dias (a idade vem da data no nome). Um backup que falha não apaga nada. Dumps com outros nomes (feitos à mão antes de um deploy) não são tocados.
-* **Rotina noturna (produção):** às 00:30 do servidor (UTC; 21:30 em Brasília), com `--env=prod`, antes do tratamento de palavras-chave, que exige o backup do dia (`--require-backup`). Saída da última noite em `var/log/cron_db_backup.log`. A página `/admin/super/keywords/treatment` mostra o último backup e avisa quando falta o de hoje.
+* **Rotina noturna (produção):** às 07:15 UTC (04:15 em Brasília), com `--env=prod`, antes do tratamento de palavras-chave, que exige o backup do dia (`--require-backup`). Saída da última noite em `var/log/cron_db_backup.log`. A página `/admin/super/keywords/treatment` mostra o último backup e avisa quando falta o de hoje.
 * **Restauração** (num banco vazio, de preferência temporário, para conferir antes de substituir o original):
   ```bash
   mysql -e "CREATE DATABASE bibliomap_restaurado"

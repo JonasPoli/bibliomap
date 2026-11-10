@@ -39,6 +39,9 @@ context: |
     app:keywords:treat --execute --auto-create-concepts. Os dois chamam /bin/bash antes do binário do PHP e
     falham ("cannot execute binary file"): hoje nenhum roda.
   - var/log/dev.log (689 MB) é do tempo em que o app rodava em dev; parado desde 21/10/2026.
+  - A classificação temática carrega todos os documentos do projeto na memória (título, resumo e palavras-chave).
+    O projeto 9 (49.992 documentos) estoura o memory_limit de 256 MB do PHP de linha de comando (10/11/2026).
+    Pendência: antes de classificar o projeto 9, uma mudança para ler os documentos aos poucos (a tela pode bater no mesmo limite).
 
   Deploy
   - Local: commits pequenos por tema, direto na main, e git push origin main.

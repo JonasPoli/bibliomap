@@ -13,7 +13,7 @@ Cada tarefa do cron do BiblioMap SHALL rodar como o usuário runcloud e chamar d
 - **AND** nenhuma delas contém `/bin/bash`
 
 ### Requirement: Resolução noturna do Qualis
-O servidor SHALL executar todo dia às 00:00 `app:qualis:resolve-missing --env=prod`, que liga os documentos de todos os projetos às revistas já cadastradas pelo ISSN e cadastra pelo Crossref as revistas que faltam. A saída da última execução SHALL ficar em `var/log/cron_qualis_resolve_missing.log`, substituindo a da noite anterior.
+O servidor SHALL executar todo dia às 06:00 UTC (03:00 em Brasília) `app:qualis:resolve-missing --env=prod`, que liga os documentos de todos os projetos às revistas já cadastradas pelo ISSN e cadastra pelo Crossref as revistas que faltam. A saída da última execução SHALL ficar em `var/log/cron_qualis_resolve_missing.log`, substituindo a da noite anterior.
 
 #### Scenario: ISSN novo resolvido à noite
 - **WHEN** um projeto importou um documento cujo ISSN não tem revista no cadastro e o Crossref conhece esse ISSN
@@ -24,10 +24,10 @@ O servidor SHALL executar todo dia às 00:00 `app:qualis:resolve-missing --env=p
 - **THEN** o log da noite traz "All documents already have their journals resolved! Nothing to do."
 
 ### Requirement: Backup diário do banco
-O servidor SHALL executar todo dia às 00:30, antes do tratamento noturno, `app:database:backup --env=prod`, que grava um backup completo e comprimido do banco do BiblioMap numa pasta fora do webapp e da pasta pública, acessível só ao usuário runcloud. Um arquivo SHALL contar como backup só depois de o dump terminar sem erro e de o arquivo comprimido ser conferido. A saída da última execução SHALL ficar em `var/log/cron_db_backup.log`, substituindo a da noite anterior.
+O servidor SHALL executar todo dia às 07:15 UTC (04:15 em Brasília), antes do tratamento noturno, `app:database:backup --env=prod`, que grava um backup completo e comprimido do banco do BiblioMap numa pasta fora do webapp e da pasta pública, acessível só ao usuário runcloud. Um arquivo SHALL contar como backup só depois de o dump terminar sem erro e de o arquivo comprimido ser conferido. A saída da última execução SHALL ficar em `var/log/cron_db_backup.log`, substituindo a da noite anterior.
 
 #### Scenario: Backup da noite
-- **WHEN** chega 00:30 e há espaço livre no disco
+- **WHEN** chega 07:15 UTC e há espaço livre no disco
 - **THEN** a pasta de backups ganha um arquivo comprimido com a data do dia, legível só pelo dono
 - **AND** o log da última execução traz o nome, o tamanho e a duração do backup
 
@@ -56,7 +56,7 @@ O usuário e a senha do banco MUST NOT aparecer na linha do cron, no log nem na 
 O tratamento noturno de palavras-chave SHALL rodar só se existir um backup completo do banco feito no mesmo dia. Sem esse backup, o tratamento MUST NOT criar processamento nem alterar palavras-chave, e SHALL registrar o motivo no log da última execução. A página do tratamento SHALL mostrar o último backup completo e avisar quando não houver backup do dia.
 
 #### Scenario: Backup ausente
-- **WHEN** às 00:45 não há na pasta de backups um backup completo com a data do dia
+- **WHEN** às 07:30 UTC não há na pasta de backups um backup completo com a data do dia (UTC)
 - **THEN** o tratamento daquela noite não cria processamento nem altera nenhuma palavra-chave
 - **AND** o log registra "Backup do banco de hoje não encontrado: tratamento adiado."
 
@@ -65,14 +65,14 @@ O tratamento noturno de palavras-chave SHALL rodar só se existir um backup comp
 - **THEN** a página mostra a data do último backup completo e avisa que o tratamento da noite não vai rodar
 
 ### Requirement: Tratamento noturno de palavras-chave
-O servidor SHALL executar todo dia às 00:45 `app:keywords:treat --execute --require-backup --env=prod`, sem limite e sem `--auto-create-concepts`, sobre todas as palavras-chave da plataforma. O processamento SHALL aparecer no histórico do tratamento com origem `cli`, e a saída da última execução SHALL ficar em `var/log/cron_keywords_treat.log`, substituindo a da noite anterior.
+O servidor SHALL executar todo dia às 07:30 UTC (04:30 em Brasília) `app:keywords:treat --execute --require-backup --env=prod`, sem limite e sem `--auto-create-concepts`, sobre todas as palavras-chave da plataforma. O processamento SHALL aparecer no histórico do tratamento com origem `cli`, e a saída da última execução SHALL ficar em `var/log/cron_keywords_treat.log`, substituindo a da noite anterior.
 
 #### Scenario: Execução da noite
-- **WHEN** chega 00:45, existe o backup do dia e não há outro tratamento nem importação em andamento
+- **WHEN** chega 07:30 UTC, existe o backup do dia e não há outro tratamento nem importação em andamento
 - **THEN** um processamento Real com origem `cli` aparece no histórico de `/admin/super/keywords/treatment`
 - **AND** o log da última execução traz a tabela de contagens do processamento
 
 #### Scenario: Importação em andamento à noite
-- **WHEN** às 00:45 um dataset está com status `importing`
+- **WHEN** às 07:30 UTC um dataset está com status `importing`
 - **THEN** o tratamento daquela noite não altera nenhuma palavra-chave
 - **AND** o log registra "Importação em andamento: tratamento adiado."

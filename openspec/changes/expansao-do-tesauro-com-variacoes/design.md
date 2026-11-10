@@ -69,9 +69,9 @@ Ainda não medido: o banco local não tem variações e o acesso à produção f
 |---|---|---|---|---|---|
 | Projeto 9, grupo #1 (validador, 19 termos) | — | — | 0 | 0 | nenhuma: 19 termos viram 29 com os rótulos do tesauro, e as variações não acrescentam nenhum termo |
 
-Leitura de 10/11/2026 (só SELECT): nenhum projeto de produção tem resultados de classificação gravados; o projeto 9 é o único com termos em grupo com o tesauro ligado (os 2 grupos do projeto 1 não têm termos); a base tem 22 variações, todas ativas e de palavras-chave ativas. Como as listas de termos dos dois modos são iguais, a classificação do projeto 9 dá o mesmo resultado nas duas expansões. As contagens de documentos por grupo ficam pendentes: o comando de comparação estourou o `memory_limit` de 256 MB do PHP de linha de comando ao ler os 49.992 documentos do projeto (nada foi gravado).
+Leitura de 10/11/2026 (só SELECT): nenhum projeto de produção tem resultados de classificação gravados; o projeto 9 é o único com termos em grupo com o tesauro ligado (os 2 grupos do projeto 1 não têm termos); a base tem 22 variações, todas ativas e de palavras-chave ativas. Como as listas de termos dos dois modos são iguais, a classificação do projeto 9 dá o mesmo resultado nas duas expansões. A comparação completa estourou o `memory_limit` de 256 MB do PHP de linha de comando ao ler os 49.992 documentos do projeto, sem gravar nada. O Jonas aceitou a leitura leve em 10/11/2026: efeito nulo, sem amostra a conferir porque nenhum documento entra nem sai.
 
-Mais a precisão estimada numa amostra de até 30 documentos que entraram, por grupo, conferida pelo Jonas.
+Mais a precisão estimada numa amostra de até 30 documentos que entraram, por grupo, conferida pelo Jonas (não se aplica em 10/11/2026: nenhum documento entra).
 
 ## Risks / Trade-offs
 
@@ -93,4 +93,5 @@ Mais a precisão estimada numa amostra de até 30 documentos que entraram, por g
 ## Open Questions
 
 - O Jonas vai avisar por e-mail os donos dos projetos afetados (a lista sai da tarefa 4.4)? Isso não muda o código nem as specs.
+- Pendência (10/11/2026, Jonas aceitou a leitura leve no lugar da comparação completa): o cálculo da classificação carrega todos os documentos do projeto na memória (título, resumo e palavras-chave). No projeto 9 (49.992 documentos), a comparação estourou o `memory_limit` de 256 MB do PHP de linha de comando. Se o projeto 9 for classificado, abrir antes uma mudança para ler os documentos aos poucos, porque a classificação pela tela pode bater no mesmo limite.
 - Se a amostra mostrar que variações curtas derrubam a precisão, vale abrir uma mudança própria para um tamanho mínimo de variação na expansão. Depende do resultado da tarefa 4.5.
