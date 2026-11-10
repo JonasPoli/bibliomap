@@ -500,6 +500,18 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 ---
 
+### 🧭 Classificação Temática
+
+#### `app:classification:compare-expansion`
+* **Descrição:** Calcula a classificação de um projeto duas vezes, sem gravar nada no banco: com a expansão anterior pelo tesauro (só os rótulos dos conceitos) e com a atual (rótulos mais as variações ativas da palavra-chave de cada termo, em `palavra_chave_variacoes_nome`). Mostra, por grupo, os documentos antes, depois, que entram e que saem; o resumo de cada modo (ruído, sem grupo, multiclassificados); e, por grupo, as variações que entraram na expansão com quantos documentos cada uma trouxe (as de até 3 caracteres vêm destacadas). Serve para medir o efeito da correção num projeto real antes de reexecutar a classificação, que apaga as movimentações manuais.
+* **Argumentos:**
+  * `projectId` (Obrigatório): ID do projeto. Um ID que não existe termina com "Projeto #ID não encontrado." e código 1.
+* **Opções:**
+  * `--csv=<arquivo>`: grava os documentos que mudaram (ID, ano, título, grupo, entrou/saiu, termo) para sortear uma amostra de precisão. O arquivo tem dados do corpus: o comando recusa um caminho dentro do projeto; apague-o depois da análise.
+* **Exemplo:** `php bin/console app:classification:compare-expansion 12 --csv=/tmp/comparacao-expansao-12.csv`
+
+---
+
 ### 🎓 Banco Qualis CAPES e Periódicos
 
 #### `app:qualis:import`

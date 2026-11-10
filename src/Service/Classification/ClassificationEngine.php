@@ -4,7 +4,6 @@ namespace App\Service\Classification;
 
 use App\Entity\BibliometricProject;
 use App\Entity\ClassificationGroup;
-use App\Entity\DocumentClassification;
 use App\Repository\ClassificationGroupRepository;
 use App\Repository\DocumentClassificationRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,35 +21,92 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 class ClassificationEngine
 {
+    public const UNCLASSIFIED_NAME = 'Sem Classificação';
+
     public function __construct(
         private readonly EntityManagerInterface              $em,
         private readonly ClassificationGroupRepository      $groupRepo,
         private readonly DocumentClassificationRepository   $classificationRepo,
+        private readonly ClassificationTermExpander         $expander,
     ) {}
 
     /**
      * Run full classification for all documents in a project.
-     * Clears previous results before inserting new ones.
+     * Monta os termos e calcula tudo antes de apagar os resultados anteriores:
+     * uma falha na expansão para a execução com os resultados e as movimentações manuais intactos.
      *
-     * @return array{total: int, by_group: array<string, int>, unclassified: int, noise: int, multi: int}
+     * @return array{total: int, by_group: array<string, int>, unclassified: int, noise: int, multi: int, rejected_unassigned: int}
      */
     public function run(BibliometricProject $project): array
     {
-        // 1. Wipe previous results
+        // 1. Cálculo completo, sem gravar nada (a expansão usa sempre o modo atual)
+        $result = $this->calculate($project, ClassificationTermExpander::MODE_WITH_VARIATIONS);
+
+        // 2. Wipe previous results
         $this->classificationRepo->deleteByProject($project->getId());
 
-        // 2. Load groups ordered by processing priority
+        $uncGroup = $this->findOrCreateUnclassified($project, $result['groups']);
+        $conn     = $this->em->getConnection();
+        $now      = new \DateTimeImmutable();
+
+        // 3. Insert results — one row per assigned group
+        foreach ($result['assignments'] as $docId => $assignedGroups) {
+            foreach ($assignedGroups as $assignment) {
+                $group = $assignment['unclassified'] ? $uncGroup : $assignment['group'];
+                $conn->executeStatement(
+                    'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override)
+                     VALUES (?, ?, ?, ?, ?, 0)
+                     ON DUPLICATE KEY UPDATE matched_term = VALUES(matched_term), run_at = VALUES(run_at), manual_override = 0',
+                    [
+                        $docId,
+                        $group?->getId(),
+                        $project->getId(),
+                        $assignment['term'],
+                        $now->format('Y-m-d H:i:s'),
+                    ]
+                );
+            }
+        }
+
+        // Os INSERT são SQL direto: nada a limpar no EntityManager (um clear() soltaria o projeto)
+
+        return $result['stats'];
+    }
+
+    /**
+     * Cálculo puro da classificação: sem INSERT, sem DELETE e sem criar o grupo "Sem Classificação"
+     * (quando ele ainda não existe, a atribuição vem com group = null e unclassified = true).
+     * O modo "só tesauro" existe apenas para a comparação (app:classification:compare-expansion).
+     *
+     * @return array{
+     *     groups: ClassificationGroup[],
+     *     termMap: array<int, string[]>,
+     *     assignments: array<int, list<array{group: ?ClassificationGroup, term: ?string, unclassified: bool}>>,
+     *     documents: array<int, array{year: ?int, title: ?string}>,
+     *     stats: array{total: int, by_group: array<string, int>, unclassified: int, noise: int, multi: int, rejected_unassigned: int}
+     * }
+     */
+    public function calculate(BibliometricProject $project, int $expansionMode = ClassificationTermExpander::MODE_WITH_VARIATIONS): array
+    {
+        // Load groups ordered by processing priority
         $allGroups = $this->groupRepo->findByProjectOrdered($project->getId());
 
         $validators    = array_filter($allGroups, fn($g) => $g->getType() === ClassificationGroup::TYPE_VALIDATOR);
         $noiseGroups   = array_filter($allGroups, fn($g) => $g->getType() === ClassificationGroup::TYPE_NOISE);
         $normalGroups  = array_filter($allGroups, fn($g) => $g->getType() === ClassificationGroup::TYPE_NORMAL);
-        $uncGroup      = $this->findOrCreateUnclassified($project, $allGroups);
+        $uncGroup      = null;
+        foreach ($allGroups as $g) {
+            if ($g->getType() === ClassificationGroup::TYPE_UNCLASSIFIED) {
+                $uncGroup = $g;
+                break;
+            }
+        }
+        $uncName = $uncGroup?->getName() ?? self::UNCLASSIFIED_NAME;
 
-        // Build term lists indexed by group, expanding with Thesaurus if enabled
-        $validatorTerms = $this->buildTermMap($validators);
-        $noiseTermMap   = $this->buildTermMap($noiseGroups);
-        $normalTermMap  = $this->buildTermMap($normalGroups);
+        // Build term lists indexed by group, expanding with Thesaurus if enabled (antes de ler os documentos)
+        $validatorTerms = $this->buildTermMap($validators, $expansionMode);
+        $noiseTermMap   = $this->buildTermMap($noiseGroups, $expansionMode);
+        $normalTermMap  = $this->buildTermMap($normalGroups, $expansionMode);
 
         // Pre-fetch document metadata for institutional and geographic filtering
         $conn = $this->em->getConnection();
@@ -106,11 +162,9 @@ class ClassificationEngine
 
         // rejected_unassigned: reprovados (ano mínimo/validador) que foram para "Sem Classificação"
         // porque o projeto não tem grupo Ruído — contam como sem grupo, não como ruído.
-        $stats      = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0, 'multi' => 0, 'rejected_unassigned' => 0];
-        $batchSize  = 100;
-        $count      = 0;
-
-        $now = new \DateTimeImmutable();
+        $stats       = ['total' => 0, 'by_group' => [], 'unclassified' => 0, 'noise' => 0, 'multi' => 0, 'rejected_unassigned' => 0];
+        $assignments = [];
+        $documents   = [];
 
         foreach ($docs as $row) {
             $docId   = (int)$row['id'];
@@ -254,7 +308,10 @@ class ClassificationEngine
 
             // Step E: Unclassified if no match
             if (empty($assignedGroups)) {
-                $assignedGroups[] = ['group' => $uncGroup, 'term' => null];
+                $assignedGroups[] = ['group' => $uncGroup, 'term' => null, 'unclassified' => true];
+            }
+            foreach ($assignedGroups as $i => $a) {
+                $assignedGroups[$i]['unclassified'] = $a['unclassified'] ?? ($a['group']?->getType() === ClassificationGroup::TYPE_UNCLASSIFIED);
             }
 
             // Track multi-classification
@@ -262,34 +319,20 @@ class ClassificationEngine
                 $stats['multi']++;
             }
 
-            // Insert results — one row per assigned group
+            // Resultado do documento — one row per assigned group (gravado só por run())
+            $assignments[$docId] = $assignedGroups;
+            $documents[$docId]   = ['year' => $docYear, 'title' => $row['title'] ?? null];
+
             foreach ($assignedGroups as $assignment) {
-                $group = $assignment['group'];
-                $matchedTerm = $assignment['term'];
-
-                $this->em->getConnection()->executeStatement(
-                    'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override)
-                     VALUES (?, ?, ?, ?, ?, 0)
-                     ON DUPLICATE KEY UPDATE matched_term = VALUES(matched_term), run_at = VALUES(run_at), manual_override = 0',
-                    [
-                        $row['id'],
-                        $group?->getId(),
-                        $project->getId(),
-                        $matchedTerm,
-                        $now->format('Y-m-d H:i:s'),
-                    ]
-                );
-
-                // Update stats
-                if ($group) {
-                    $gName = $group->getName();
+                $gName = $assignment['unclassified'] ? $uncName : $assignment['group']?->getName();
+                if ($gName !== null) {
                     $stats['by_group'][$gName] = ($stats['by_group'][$gName] ?? 0) + 1;
                 }
             }
 
             // Count noise and unclassified at document level (pelo grupo onde o documento ficou)
             $stats['total']++;
-            $onlyUnclassified = count($assignedGroups) === 1 && $assignedGroups[0]['group']?->getType() === ClassificationGroup::TYPE_UNCLASSIFIED;
+            $onlyUnclassified = count($assignedGroups) === 1 && $assignedGroups[0]['unclassified'];
             if ($isNoise && !$onlyUnclassified) {
                 $stats['noise']++;
             } elseif ($onlyUnclassified) {
@@ -298,14 +341,15 @@ class ClassificationEngine
                     $stats['rejected_unassigned']++;
                 }
             }
-
-            $count++;
-            if ($count % $batchSize === 0) {
-                $this->em->clear(DocumentClassification::class);
-            }
         }
 
-        return $stats;
+        return [
+            'groups'      => $allGroups,
+            'termMap'     => $validatorTerms + $noiseTermMap + $normalTermMap,
+            'assignments' => $assignments,
+            'documents'   => $documents,
+            'stats'       => $stats,
+        ];
     }
 
     /**
@@ -332,84 +376,19 @@ class ClassificationEngine
     }
 
     /** @param ClassificationGroup[] $groups */
-    private function buildTermMap(array $groups): array
+    private function buildTermMap(array $groups, int $expansionMode): array
     {
         $map = [];
         foreach ($groups as $g) {
             $terms = $g->getTerms();
             if ($g->isUseThesaurus()) {
-                $terms = $this->expandTermsWithThesaurus($terms);
+                // Sem try/catch: uma falha sobe antes de qualquer resultado ser apagado
+                $terms = $this->expander->expand($terms, $expansionMode);
             }
             // O texto do documento é comparado em minúsculas (mb_*: "Água" → "água")
             $map[$g->getId()] = array_values(array_unique(array_map(fn($t) => mb_strtolower(trim($t)), $terms)));
         }
         return $map;
-    }
-
-    /**
-     * Expands rule terms using Thesaurus concepts & labels and keyword variations.
-     * @param string[] $terms
-     * @return string[]
-     */
-    private function expandTermsWithThesaurus(array $terms): array
-    {
-        $conn = $this->em->getConnection();
-        $expanded = [];
-
-        foreach ($terms as $term) {
-            $tNorm = mb_strtolower(trim($term));
-            if ($tNorm === '') continue;
-
-            $expanded[] = $tNorm;
-
-            try {
-                // Find concepts linked in thesaurus_label or thesaurus_concept
-                $conceptIds = $conn->fetchFirstColumn(
-                    'SELECT concept_id FROM thesaurus_label WHERE LOWER(label) = ? OR LOWER(normalized_label) = ?',
-                    [$tNorm, $tNorm]
-                );
-
-                if (empty($conceptIds)) {
-                    $conceptIds = $conn->fetchFirstColumn(
-                        'SELECT id FROM thesaurus_concept WHERE LOWER(preferred_label) = ? OR LOWER(normalized_label) = ?',
-                        [$tNorm, $tNorm]
-                    );
-                }
-
-                if (!empty($conceptIds)) {
-                    $synonyms = $conn->fetchFirstColumn(
-                        'SELECT label FROM thesaurus_label WHERE concept_id IN (?)',
-                        [$conceptIds],
-                        [\Doctrine\DBAL\ArrayParameterType::INTEGER]
-                    );
-                    foreach ($synonyms as $syn) {
-                        $sNorm = mb_strtolower(trim($syn));
-                        if ($sNorm !== '') $expanded[] = $sNorm;
-                    }
-                }
-
-                // Check keyword variations
-                $kwIds = $conn->fetchFirstColumn(
-                    'SELECT id FROM keyword WHERE LOWER(keyword_display) = ? OR LOWER(keyword_normalized) = ?',
-                    [$tNorm, $tNorm]
-                );
-                if (!empty($kwIds)) {
-                    $vars = $conn->fetchFirstColumn(
-                        'SELECT raw_variation FROM keyword_variation WHERE keyword_id IN (?)',
-                        [$kwIds],
-                        [\Doctrine\DBAL\ArrayParameterType::INTEGER]
-                    );
-                    foreach ($vars as $v) {
-                        $vNorm = mb_strtolower(trim($v));
-                        if ($vNorm !== '') $expanded[] = $vNorm;
-                    }
-                }
-            } catch (\Throwable) {
-                // Keep original term if query fails
-            }
-        }
-
-        return array_values(array_unique($expanded));
     }
 
     /**
@@ -455,7 +434,7 @@ class ClassificationEngine
 
         $unc = new ClassificationGroup();
         $unc->setProject($project)
-            ->setName('Sem Classificação')
+            ->setName(self::UNCLASSIFIED_NAME)
             ->setDescription('Documentos que não se enquadraram em nenhum grupo.')
             ->setType(ClassificationGroup::TYPE_UNCLASSIFIED)
             ->setColor('#6b7280')
