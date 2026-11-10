@@ -19,7 +19,7 @@ No modo `execute`, o tratamento de palavras-chave SHALL ligar a palavra ao conce
 A opção `--auto-create-concepts` (parâmetro `auto_create_concepts` do formulário, que a tela não exibe) SHALL ser aceita sem efeito e descrita como não implementada na ajuda do comando: o tratamento MUST NOT criar conceitos no tesauro.
 
 #### Scenario: Comando do cron
-- **WHEN** a rotina noturna roda `app:keywords:treat --execute`, sem a opção, ou alguém roda `app:keywords:treat --execute --auto-create-concepts`
+- **WHEN** a rotina noturna roda `app:keywords:treat --execute --require-backup`, sem a opção, ou alguém roda `app:keywords:treat --execute --auto-create-concepts`
 - **THEN** nenhuma linha nova aparece em `thesaurus_concept`
 
 #### Scenario: Ajuda do comando
