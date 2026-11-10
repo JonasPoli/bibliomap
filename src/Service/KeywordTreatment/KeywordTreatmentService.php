@@ -2,6 +2,7 @@
 
 namespace App\Service\KeywordTreatment;
 
+use App\Entity\Dataset;
 use App\Entity\Keyword;
 use App\Entity\KeywordTreatmentJob;
 use App\Entity\KeywordTreatmentLog;
@@ -121,7 +122,37 @@ class KeywordTreatmentService
     /**
      * Executes the keyword treatment pipeline.
      */
+    public const LOCK_NAME = 'bibliomap_keywords_treat';
+
+    /**
+     * Um tratamento por vez (tela e comando) e, no modo Real, nunca durante uma importação.
+     *
+     * @throws KeywordTreatmentBlockedException quando não pode começar (nada é gravado)
+     */
     public function executeJob(KeywordTreatmentOptions $options, string $startedBy = 'system'): KeywordTreatmentJob
+    {
+        $conn = $this->em->getConnection();
+        if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 0)', [self::LOCK_NAME]) !== 1) {
+            throw KeywordTreatmentBlockedException::anotherRunning();
+        }
+
+        try {
+            // A importação guarda os IDs das palavras-chave em memória: uma fusão no meio
+            // faria o vínculo novo falhar. A simulação não altera palavras-chave e pode rodar.
+            if (!$options->dryRun
+                && (int) $conn->fetchOne('SELECT COUNT(*) FROM dataset WHERE status = ?', [Dataset::STATUS_IMPORTING]) > 0) {
+                throw KeywordTreatmentBlockedException::importRunning();
+            }
+
+            return $this->runJob($options, $startedBy);
+        } finally {
+            try {
+                $conn->fetchOne('SELECT RELEASE_LOCK(?)', [self::LOCK_NAME]);
+            } catch (\Throwable) {}
+        }
+    }
+
+    private function runJob(KeywordTreatmentOptions $options, string $startedBy): KeywordTreatmentJob
     {
         $job = new KeywordTreatmentJob();
         $job->setMode($options->dryRun ? 'dry_run' : 'execute');
@@ -135,6 +166,9 @@ class KeywordTreatmentService
 
             // Pre-load thesaurus maps
             $this->thesaurusMatcher->loadMaps();
+
+            // Sugestões pendentes ou recusadas e alertas de suspeito já registrados
+            $memory = KeywordTreatmentMemory::load($conn);
 
             // Load document frequencies for canonical tie-breakers
             $freqs = $conn->fetchAllAssociative('SELECT keyword_id, COUNT(document_id) AS cnt FROM document_keyword GROUP BY keyword_id');
@@ -166,13 +200,7 @@ class KeywordTreatmentService
 
             while ($totalProcessed < $limit) {
                 $batchLimit = min($batchSize, $limit - $totalProcessed);
-                $keywords = $this->em->getRepository(Keyword::class)->createQueryBuilder('k')
-                    ->where('k.id > :lastId')
-                    ->setParameter('lastId', $lastId)
-                    ->orderBy('k.id', 'ASC')
-                    ->setMaxResults($batchLimit)
-                    ->getQuery()
-                    ->getResult();
+                $keywords = $this->fetchBatch($lastId, $batchLimit);
 
                 if (empty($keywords)) break;
                 $lastId = end($keywords)->getId();
@@ -191,6 +219,11 @@ class KeywordTreatmentService
                         $oldNorm = $kw->getKeywordNormalized();
 
                         if (!$normRes['valid']) {
+                            // Mesmo motivo já gravado: invalidado antes (pendente) ou aceito depois
+                            // por um administrador (ativo). Fica como está, sem log nem contagem.
+                            if ($kw->getReviewReasons() === $normRes['reason']) {
+                                continue;
+                            }
                             $invalidCount++;
                             if (!$options->dryRun) {
                                 $kw->setStatus(false);
@@ -224,6 +257,9 @@ class KeywordTreatmentService
                             if ($existingId) {
                                 $kwId = $kw->getId();
                                 $canonical = $this->em->getReference(Keyword::class, (int)$existingId);
+
+                                // Os logs do termo apagado passam ao que fica (passo 4 abaixo)
+                                $memory->moveKeyword($kwId, (int)$existingId);
 
                                 $kwDocIds = $conn->fetchFirstColumn('SELECT document_id FROM document_keyword WHERE keyword_id = ?', [$kwId]);
                                 $mergedDkCount += count($kwDocIds);
@@ -309,9 +345,14 @@ class KeywordTreatmentService
                         }
 
                         // Suspeito: o TextNormalizer devolve 'needs_review' + 'review_reasons'
+                        // Registrado uma vez só: o alerta já aplicado com o mesmo motivo não se repete
                         if (!empty($normRes['needs_review'])) {
-                            $suspiciousCount++;
-                            $this->logAction($job, $survivor, 'suspicious', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, implode(',', $normRes['review_reasons'] ?? []) ?: 'suspicious_term', $options->dryRun, 'normalizer');
+                            $suspiciousReason = implode(',', $normRes['review_reasons'] ?? []) ?: 'suspicious_term';
+                            if (!$memory->hasSuspicious((int)$survivor->getId(), $suspiciousReason)) {
+                                $suspiciousCount++;
+                                $memory->rememberSuspicious((int)$survivor->getId(), $suspiciousReason);
+                                $this->logAction($job, $survivor, 'suspicious', $oldDisplay, $normRes['display'], $oldNorm, $normRes['normalized'], null, null, null, $suspiciousReason, $options->dryRun, 'normalizer');
+                            }
                         }
                     }
                 }
@@ -425,6 +466,11 @@ class KeywordTreatmentService
                             }
                             $this->logAction($job, $kw, 'fuzzy_auto_matched', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, $result['score'], 'fuzzy_score: ' . round($result['score'], 1) . '% → ' . $result['conceptLabel'], $options->dryRun, 'fuzzy');
                         } elseif ($result['score'] >= $options->minReviewScore) {
+                            // Sugestão pendente ou recusada para o mesmo conceito: não registra nem conta de novo
+                            if ($memory->hasSuggestion((int)$kw->getId(), (int)$result['conceptId'])) {
+                                continue;
+                            }
+                            $memory->rememberSuggestion((int)$kw->getId(), (int)$result['conceptId']);
                             $fuzzyReviewCount++;
                             if (!$options->dryRun && $concept) {
                                 $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'pending');
@@ -500,6 +546,22 @@ class KeywordTreatmentService
         }
 
         return $job;
+    }
+
+    /**
+     * Próximo lote de palavras-chave por ID (id > último).
+     *
+     * @return Keyword[]
+     */
+    protected function fetchBatch(int $lastId, int $limit): array
+    {
+        return $this->em->getRepository(Keyword::class)->createQueryBuilder('k')
+            ->where('k.id > :lastId')
+            ->setParameter('lastId', $lastId)
+            ->orderBy('k.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     private function logAction(

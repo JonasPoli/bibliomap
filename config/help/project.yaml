@@ -267,7 +267,7 @@ project.show.kpi_keywords:
   how: |-
     Use como termômetro da limpeza: depois de mesclar plurais e variações em **Normalizar**, o número diminui.
   not: |-
-    Não é o total de ocorrências e não separa palavras-chave de autor das indexadas pela base.
+    Não é o total de ocorrências e não separa palavras-chave de autor das indexadas pela base. O número pode mudar de um dia para o outro sem ação do dono: o tratamento noturno de palavras-chave une grafias e liga termos ao tesauro em todos os projetos. Para figuras de dissertação, exporte e anote a data.
   example: |-
     "Machine learning" e "machine-learning" contam 2 até serem unificadas; depois de normalizar, o total cai de 6.120 para 5.480.
 

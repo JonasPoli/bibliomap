@@ -7,6 +7,8 @@ use App\Entity\KeywordTreatmentJob;
 use App\Entity\KeywordTreatmentLog;
 use App\Entity\ThesaurusMatch;
 use App\Service\Import\TextNormalizer;
+use App\Service\DatabaseBackup\DatabaseBackupService;
+use App\Service\KeywordTreatment\KeywordTreatmentBlockedException;
 use App\Service\KeywordTreatment\KeywordTreatmentService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,7 +26,8 @@ class SuperAdminKeywordTreatmentController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly KeywordTreatmentService $service
+        private readonly KeywordTreatmentService $service,
+        private readonly DatabaseBackupService $backups
     ) {}
 
     #[Route('', name: 'app_super_admin_keyword_treatment_index', methods: ['GET'])]
@@ -40,10 +43,17 @@ class SuperAdminKeywordTreatmentController extends AbstractController
             'status' => 'pending'
         ]);
 
+        // Último backup completo do banco (só nome, data e tamanho dos arquivos)
+        $lastBackup = $this->backups->findLatestBackup();
+
         return $this->render('admin/super_keywords_treatment/index.html.twig', [
             'diagnosis' => $diagnosis,
             'jobs' => $jobs,
             'pending_reviews_count' => $pendingReviewsCount,
+            'backup_configured' => $this->backups->isConfigured(),
+            'last_backup' => $lastBackup,
+            'last_backup_size' => $lastBackup ? DatabaseBackupService::formatBytes($lastBackup['size']) : null,
+            'backup_today' => $this->backups->hasBackupForDay(new DateTimeImmutable('today')),
         ]);
     }
 
@@ -69,6 +79,10 @@ class SuperAdminKeywordTreatmentController extends AbstractController
             ));
 
             return $this->redirectToRoute('app_super_admin_keyword_treatment_report', ['id' => $job->getId()]);
+        } catch (KeywordTreatmentBlockedException $e) {
+            // Outro tratamento em andamento ou importação em curso: nada foi gravado
+            $this->addFlash('warning', $e->getMessage());
+            return $this->redirectToRoute('app_super_admin_keyword_treatment_index');
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro ao executar tratamento: ' . $e->getMessage());
             return $this->redirectToRoute('app_super_admin_keyword_treatment_index');

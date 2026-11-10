@@ -395,10 +395,17 @@ admin.review.kw_discard:
 
 admin.kwtreat.page:
   title: "Tratamento de palavras-chave"
-  what: "Ferramenta em lote que limpa grafias, invalida lixo, agrupa duplicatas e liga palavras-chave a conceitos do tesauro, para **todas** as palavras-chave da plataforma."
-  how: "Rode primeiro em **Simulação**, leia o relatório e só então rode em modo **Real**. Recomenda-se ter um backup do banco antes do modo Real."
-  not: "Não atua em um projeto só; afeta todos. Não tem botão de desfazer."
+  what: "Ferramenta em lote que limpa grafias, invalida lixo, agrupa duplicatas e liga palavras-chave a conceitos do tesauro, para **todas** as palavras-chave da plataforma. Além do uso pela tela, uma **rotina noturna** do servidor roda o tratamento em modo **Real**, sobre todas as palavras-chave, às 00:45 do servidor (UTC, 21:45 em Brasília), logo depois do backup do banco das 00:30."
+  how: "Pela tela, rode primeiro em **Simulação**, leia o relatório e só então rode em modo **Real**. A rotina noturna só roda se houver backup do banco feito no mesmo dia; sem ele, a noite é pulada e nada muda (veja o cartão **Backup do banco**)."
+  not: "Não atua em um projeto só: a tela e a rotina noturna afetam **todos os projetos**, cujos números de palavras-chave podem mudar de um dia para o outro. Não tem botão de desfazer: a volta é pelo backup."
   example: "Depois de várias importações do Scopus e da WoS, “Higher Education”, “higher-education” e “HIGHER EDUCATION” aparecem separados; o tratamento unifica as grafias."
+
+admin.kwtreat.backup:
+  title: "Backup do banco"
+  what: "Data, hora (do servidor, UTC) e tamanho do último backup completo do banco, feito pela rotina noturna das 00:30 (app:database:backup) ou à mão. Avisa quando não há backup com a data de hoje."
+  how: "Sem backup do dia, a rotina noturna do tratamento (00:45) não roda e não altera nada. Para liberar a noite, rode o backup à mão no servidor ou confira o log da rotina de backup."
+  not: "Não faz nem restaura backup pela tela; só lê o nome, a data e o tamanho dos arquivos. O tratamento pela tela não exige o backup: quem decide é o super administrador."
+  example: "Último backup completo: 11/11/2026 00:31 (118,4 MB). Há backup de hoje: o tratamento da noite pode rodar."
 
 admin.kwtreat.diagnosis:
   title: "Diagnóstico da base"
@@ -445,15 +452,15 @@ admin.kwtreat.summary:
 admin.kwtreat.history:
   title: "Histórico de processamentos"
   what: "Os 10 processamentos mais recentes, com modo (Simulação ou Real), situação, quantidade de termos analisados e quantos foram higienizados."
-  how: "Clique em **Ver relatório** para ver detalhes e exportar o CSV de cada um."
-  not: "Simulações também aparecem aqui, mas não alteraram a base."
+  how: "Clique em **Ver relatório** para ver detalhes e exportar o CSV de cada um. A coluna **Origem** mostra quem iniciou: os processamentos da rotina noturna aparecem com origem `cli`, os da tela com o usuário."
+  not: "Simulações também aparecem aqui, mas não alteraram a base. Como só os 10 mais recentes aparecem, os da noite empurram os manuais antigos para fora da lista."
   example: "Job #7, Real, concluído, 1.412 termos analisados: abra o relatório para ver quantos foram limpos e agrupados."
 
 admin.kwtreat.run:
   title: "Executar novo processamento"
   what: "Percorre as palavras-chave por ordem de ID, em lotes de 500, em quatro etapas: (1) limpeza e invalidação, (2) agrupamento de grafias iguais dentro do lote, (3) ligação exata ao tesauro, (4) ligação por similaridade."
-  how: "Escolha o modo, o score mínimo, o limite e as etapas (todas marcadas por padrão) e clique em **Iniciar processo**. A página espera o fim do processamento e abre o relatório."
-  not: "Não cria conceitos novos no tesauro. Com o tesauro de palavras-chave vazio, as etapas 3 e 4 não ligam nada."
+  how: "Escolha o modo, o score mínimo, o limite e as etapas (todas marcadas por padrão) e clique em **Iniciar processo**. A página espera o fim do processamento e abre o relatório. Roda **um tratamento por vez**: se outro estiver em andamento (pela tela ou pela rotina noturna), aparece “Outro tratamento de palavras-chave está em andamento.” e nada é gravado."
+  not: "O modo Real não começa enquanto algum arquivo estiver sendo importado (“Importação em andamento: tratamento adiado.”); a simulação pode rodar. Não cria conceitos novos no tesauro. Com o tesauro de palavras-chave vazio, as etapas 3 e 4 não ligam nada."
   example: "Simulação com limite 5.000: em 1 minuto você vê quantos termos seriam limpos e invalidados, sem mudar nada."
 
 admin.kwtreat.mode:
@@ -480,9 +487,9 @@ admin.kwtreat.limit:
 admin.kwtreat.review_card:
   title: "Revisão manual de sugestões"
   what: "Quantidade de sugestões de ligação por similaridade que aguardam aprovação ou recusa."
-  how: "Clique em **Abrir tela de revisão** para decidir cada uma."
+  how: "Clique em **Abrir tela de revisão** para decidir cada uma. Uma sugestão pendente não se repete nos processamentos seguintes (nem na rotina noturna), e uma sugestão recusada não volta para o mesmo conceito."
   not: "Não inclui os itens da Fila de Revisão de autores e palavras-chave (menu Revisão)."
-  example: "12 sugestões pendentes após um processamento com score mínimo 95."
+  example: "12 sugestões pendentes após um processamento com score mínimo 95; a rotina da noite seguinte só acrescenta sugestões de termos novos."
 
 admin.kwtreat.report_page:
   title: "Relatório do processamento"
@@ -537,7 +544,7 @@ admin.kwtreat.report_suspicious:
   title: "Suspeitos"
   what: "Termos válidos que a limpeza marcou como suspeitos pelas mesmas regras brandas da importação: contém números (contains_number) ou tem formato de nome de autor (looks_like_author)."
   how: "Confira no CSV pela ação “suspicious”; o motivo traz o código da regra."
-  not: "Suspeito não é inválido: o processamento não altera nem tira o termo da base; é só um alerta."
+  not: "Mostra só os **novos** deste processamento: um termo já registrado como suspeito, com o mesmo motivo, num processamento Real anterior não é contado de novo. Suspeito não é inválido: o processamento não altera nem tira o termo da base; é só um alerta."
   example: "“COVID-19” e “Indústria 4.0” entram como suspeitos (contains_number) e são legítimos."
 
 admin.kwtreat.report_affected:
@@ -558,7 +565,7 @@ admin.kwtreat.report_invalid:
   title: "Termos inválidos"
   what: "Termos que a limpeza considerou lixo, com o código do motivo: purely_numeric (só números), numeric_reference (ex.: [12]), insufficient_letters, repetitive_nonsense, too_long, empty_or_too_short."
   how: "No modo Real eles vão para a Fila de Revisão, onde você decide aceitar ou descartar."
-  not: "Não foram apagados; continuam ligados aos documentos até serem descartados."
+  not: "Mostra só os **novos** deste processamento: um termo que já tem o mesmo motivo gravado (pendente na Fila de Revisão ou aceito por um administrador) não é invalidado nem contado de novo. Não foram apagados; continuam ligados aos documentos até serem descartados."
   example: "“4 54” → purely_numeric."
 
 admin.kwtreat.report_fuzzy:

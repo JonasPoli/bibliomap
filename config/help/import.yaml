@@ -742,9 +742,9 @@ sync.unresolved_journals:
   what: |-
     Periódicos dos documentos que não foram ligados a uma revista do Qualis CAPES (a ligação é feita pelo ISSN).
   how: |-
-    Exporte o CSV. Administradores podem clicar em **Cadastrar** para incluir a revista com o Qualis correspondente; depois, rode o sincronismo de novo.
+    Exporte o CSV. Administradores podem clicar em **Cadastrar** para incluir a revista com o Qualis correspondente; depois, rode o sincronismo de novo. Toda noite a plataforma também tenta resolver sozinha os ISSN sem revista: consulta o título no Crossref e o estrato na Sucupira e liga os documentos de todos os projetos com aquele ISSN.
   not: |-
-    Revistas estrangeiras sem avaliação na CAPES ou documentos sem ISSN (livros, anais) vão aparecer aqui normalmente.
+    Revistas estrangeiras sem avaliação na CAPES ou documentos sem ISSN (livros, anais) vão aparecer aqui normalmente. Como a resolução noturna vale para todos os projetos, esta lista e o relatório por estrato podem mudar de um dia para o outro.
   example: |-
     "Revista Brasileira de Extensão Universitária [2358-0399]" sem Qualis → depois de cadastrada, os artigos passam a contar no relatório por estrato.
 

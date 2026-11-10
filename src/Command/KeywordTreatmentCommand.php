@@ -2,6 +2,8 @@
 
 namespace App\Command;
 
+use App\Service\DatabaseBackup\DatabaseBackupService;
+use App\Service\KeywordTreatment\KeywordTreatmentBlockedException;
 use App\Service\KeywordTreatment\KeywordTreatmentOptions;
 use App\Service\KeywordTreatment\KeywordTreatmentService;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -17,8 +19,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class KeywordTreatmentCommand extends Command
 {
+    public const MSG_NO_BACKUP = 'Backup do banco de hoje não encontrado: tratamento adiado.';
+
     public function __construct(
-        private readonly KeywordTreatmentService $service
+        private readonly KeywordTreatmentService $service,
+        private readonly DatabaseBackupService $backups
     ) {
         parent::__construct();
     }
@@ -32,7 +37,8 @@ class KeywordTreatmentCommand extends Command
             ->addOption('batch-size', null, InputOption::VALUE_OPTIONAL, 'Batch size for processing', 200)
             ->addOption('min-auto-score', null, InputOption::VALUE_OPTIONAL, 'Minimum fuzzy auto-match threshold', 95.0)
             ->addOption('min-review-score', null, InputOption::VALUE_OPTIONAL, 'Minimum fuzzy review threshold', 75.0)
-            ->addOption('auto-create-concepts', null, InputOption::VALUE_NONE, 'Auto-create ThesaurusConcepts for unmatched keywords')
+            ->addOption('auto-create-concepts', null, InputOption::VALUE_NONE, 'Não implementada: aceita só por compatibilidade, sem efeito; não cria conceitos no tesauro')
+            ->addOption('require-backup', null, InputOption::VALUE_NONE, 'Só roda se a pasta DATABASE_BACKUP_DIR tiver um backup completo do banco com a data de hoje (usada pela rotina noturna)')
             ->addOption('no-invalids', null, InputOption::VALUE_NONE, 'Skip invalid/suspicious detection')
             ->addOption('no-exact', null, InputOption::VALUE_NONE, 'Skip exact matching')
             ->addOption('no-thesaurus', null, InputOption::VALUE_NONE, 'Skip thesaurus matching')
@@ -58,6 +64,13 @@ class KeywordTreatmentCommand extends Command
 
         $io->title(sprintf('Keyword Treatment Job — %s mode', $options->dryRun ? 'DRY-RUN' : 'EXECUTE'));
 
+        // Portão da rotina noturna: sem o backup do dia, nada é gravado
+        if ($input->getOption('require-backup') && !$this->backups->hasBackupForDay(new \DateTimeImmutable('today'))) {
+            $io->error(self::MSG_NO_BACKUP);
+
+            return Command::FAILURE;
+        }
+
         try {
             $job = $this->service->executeJob($options, 'cli');
 
@@ -78,6 +91,11 @@ class KeywordTreatmentCommand extends Command
                     ['Affected Documents', $job->getAffectedDocumentCount()],
                 ]
             );
+
+            return Command::SUCCESS;
+        } catch (KeywordTreatmentBlockedException $e) {
+            // Nada falhou: a execução só foi pulada, sem processamento nem alteração
+            $io->warning($e->getMessage());
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {

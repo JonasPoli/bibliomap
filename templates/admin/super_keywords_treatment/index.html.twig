@@ -86,6 +86,7 @@
                             <th>ID</th>
                             <th>Data/Hora</th>
                             <th>Modo</th>
+                            <th>Origem</th>
                             <th>Status</th>
                             <th>Total Termos</th>
                             <th>Limpos</th>
@@ -95,7 +96,7 @@
                     <tbody>
                         {% if jobs is empty %}
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted">Nenhum processamento registrado.</td>
+                                <td colspan="8" class="text-center py-4 text-muted">Nenhum processamento registrado.</td>
                             </tr>
                         {% else %}
                             {% for job in jobs %}
@@ -107,6 +108,7 @@
                                             {{ job.mode == 'execute' ? 'Real' : 'Simulação' }}
                                         </span>
                                     </td>
+                                    <td><span class="small {% if job.startedBy == 'cli' %}text-info{% else %}text-muted{% endif %}">{{ job.startedBy == 'cli' ? 'cli (rotina/terminal)' : job.startedBy }}</span></td>
                                     <td>
                                         <span class="badge {% if job.status == 'completed' %}bg-info{% elseif job.status == 'failed' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
                                             {{ ({completed: 'Concluído', failed: 'Falhou', running: 'Em execução'})[job.status] ?? job.status }}
@@ -130,6 +132,24 @@
 
     <!-- Actions Column -->
     <div class="col-lg-4">
+        <div class="bm-card mb-4">
+            <h5 class="mb-3 text-white"><i class="bi bi-database-check me-2"></i>Backup do Banco {{ help('admin.kwtreat.backup') }}</h5>
+            {% if last_backup %}
+                <p class="text-muted small mb-2">Último backup completo: <strong class="text-white">{{ last_backup.date|date('d/m/Y H:i') }}</strong> (horário do servidor, {{ last_backup_size }}).</p>
+            {% elseif backup_configured %}
+                <p class="text-muted small mb-2">Nenhum backup completo na pasta de backups.</p>
+            {% else %}
+                <p class="text-muted small mb-2">Pasta de backups não configurada (<code>DATABASE_BACKUP_DIR</code>).</p>
+            {% endif %}
+            {% if backup_today %}
+                <p class="small mb-0 text-success"><i class="bi bi-check-circle me-1"></i>Há backup de hoje: o tratamento da noite pode rodar.</p>
+            {% else %}
+                <div class="alert alert-warning text-dark small mb-0" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Sem backup do banco de hoje: o tratamento da noite não vai rodar.
+                </div>
+            {% endif %}
+        </div>
+
         <div class="bm-card mb-4">
             <h5 class="mb-3 text-white"><i class="bi bi-play-fill me-2"></i>Executar Novo Processamento {{ help('admin.kwtreat.run') }}</h5>
             <p class="text-muted small">Rode sempre uma simulação antes do modo Real.</p>
