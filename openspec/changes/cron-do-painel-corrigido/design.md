@@ -113,8 +113,8 @@ Toda noite, sem ação do dono:
 ### Medições (preencher nas tarefas 3.2, 3.3 e 4.2 a 4.6)
 | Rotina | Duração | Contagens principais |
 |---|---|---|
-| Backup manual | a medir | tamanho do arquivo, espaço livre antes e depois |
-| Restauração local | a medir | linhas de `document` e `document_keyword` em produção e no banco restaurado |
+| Backup manual | 49,6 s (10/11/2026, 14:42 UTC, com `nice -n 10`) | 99,8 MB (104.643.022 bytes, permissão 600, `gzip -t` ok); livres 22.563.745.792 bytes antes (`df -h`: 22G) e cerca de 100 MB a menos depois (`df -h`: 21G) |
+| Restauração local | 30 s (banco local temporário, apagado no fim) | `document` 104.368 e `document_keyword` 1.512.243, iguais em produção (contados logo depois do dump) e no banco restaurado; 46 tabelas |
 | Qualis manual | a medir | revistas criadas, falhas, documentos ainda sem revista |
 | Tratamento, simulação | a medir | processados, fusões, inválidos, suspeitos, ligações, sugestões, vínculos e documentos afetados |
 | Tratamento, Real | a medir | idem |

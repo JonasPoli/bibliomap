@@ -67,7 +67,9 @@ Ainda não medido: o banco local não tem variações e o acesso à produção f
 
 | Grupo (tipo) | Antes | Depois | Entram | Saem | Variações que mais trouxeram |
 |---|---|---|---|---|---|
-| a preencher na tarefa 4.5 | | | | | |
+| Projeto 9, grupo #1 (validador, 19 termos) | — | — | 0 | 0 | nenhuma: 19 termos viram 29 com os rótulos do tesauro, e as variações não acrescentam nenhum termo |
+
+Leitura de 10/11/2026 (só SELECT): nenhum projeto de produção tem resultados de classificação gravados; o projeto 9 é o único com termos em grupo com o tesauro ligado (os 2 grupos do projeto 1 não têm termos); a base tem 22 variações, todas ativas e de palavras-chave ativas. Como as listas de termos dos dois modos são iguais, a classificação do projeto 9 dá o mesmo resultado nas duas expansões. As contagens de documentos por grupo ficam pendentes: o comando de comparação estourou o `memory_limit` de 256 MB do PHP de linha de comando ao ler os 49.992 documentos do projeto (nada foi gravado).
 
 Mais a precisão estimada numa amostra de até 30 documentos que entraram, por grupo, conferida pelo Jonas.
 
