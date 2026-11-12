@@ -5,11 +5,11 @@ Rotinas que o servidor de produção executa sozinho, pelo cron do painel RunClo
 ## ADDED Requirements
 
 ### Requirement: Comando agendado sem intérprete de shell
-Cada tarefa do cron do BiblioMap SHALL rodar como o usuário runcloud e chamar diretamente o binário `/RunCloud/Packages/php84rc/bin/php` com o caminho completo de `bin/console` do webapp e `--env=prod`. Uma linha que entrega o binário do PHP ao `/bin/bash` MUST NOT existir.
+Cada tarefa do cron do BiblioMap SHALL rodar como o usuário runcloud e chamar diretamente o binário `<php do pool>` com o caminho completo de `bin/console` do webapp e `--env=prod`. Uma linha que entrega o binário do PHP ao `/bin/bash` MUST NOT existir.
 
 #### Scenario: Linha gerada pelo painel
 - **WHEN** as tarefas são salvas no painel RunCloud
-- **THEN** cada linha do BiblioMap em `/etc/cron.d/runcloud-runcloud` traz, depois do usuário runcloud, `/RunCloud/Packages/php84rc/bin/php /home/runcloud/webapps/app-bibliomap/bin/console`
+- **THEN** cada linha do BiblioMap em `/etc/cron.d/runcloud-runcloud` traz, depois do usuário runcloud, `<php do pool> <raiz do webapp>/bin/console`
 - **AND** nenhuma delas contém `/bin/bash`
 
 ### Requirement: Resolução noturna do Qualis

@@ -986,7 +986,8 @@ class ReportController extends AbstractController
     public function addTheoreticalLens(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
-        $this->denyAccessUnlessGranted('edit', $project);
+        // A tabela de lentes é global (vale para todos os projetos): só administradores cadastram
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         if (!$this->isCsrfTokenValid('lens_add_' . $id, $request->request->get('_token'))) {
             $this->addFlash('error', 'Token de segurança inválido.');

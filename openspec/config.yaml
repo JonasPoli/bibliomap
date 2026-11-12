@@ -17,40 +17,37 @@ context: |
   contrato nem ticket no sistema WAB (busca em 09/11/2026). Os pedidos vêm do próprio Jonas.
   O repositório github.com/JonasPoli/bibliomap é PÚBLICO.
 
-  Produção (conferida em 09/11/2026)
-  - Servidor RunCloud "n8n" (104.236.71.49, DigitalOcean, Ubuntu 22.04, 1 vCPU, 2 GB de RAM), webapp
-    app-bibliomap em /home/runcloud/webapps/app-bibliomap, domínio bibliomap.wab.com.br, branch main.
-    Acesso: ssh runcloud@104.236.71.49 (o runcloud é o dono; nunca git como root).
-  - Servidor compartilhado com ufscar-cech (cech.wab.com.br) e app-n8n (n8n em Docker). Comando pesado
-    (enriquecimento, tratamento de palavras-chave, importação grande) disputa a mesma CPU e o mesmo MySQL.
-  - PHP: /RunCloud/Packages/php84rc/bin/php (8.4.27). Symfony 7.3.11, MySQL 8.4.7 (a DATABASE_URL declara
-    serverVersion=8.0). Migrations em dia (Version20261025170000). No ar: c1f4094, igual ao main local.
-  - .env.local tem APP_ENV=prod, DATABASE_URL, MAILER_DSN, EMAIL_FROM, EMAIL_CONTACT_TO e TINYMCE.
-    Segredo de produção fica só no .env.local do servidor, nunca no .env versionado. Valores nunca exibidos.
+  Produção (conferida em 12/11/2026)
+  - Servidor RunCloud compartilhado (1 vCPU, 2 GB de RAM) com outros apps, domínio bibliomap.wab.com.br, branch main.
+    Os dados de acesso (IP, usuário SSH, caminhos do servidor, cron do painel) NÃO ficam neste repositório, que é
+    público: estão na memória local do Claude Code do Jonas (servidor-producao-bibliomap). Quem não tiver essa
+    memória pede o acesso ao Jonas.
+  - Comando pesado (enriquecimento, tratamento de palavras-chave, importação grande) disputa a mesma CPU e o mesmo MySQL
+    com os outros apps do servidor.
+  - PHP 8.4, Symfony 7.4, MySQL 8.4 (a DATABASE_URL declara serverVersion=8.0), 17 comandos app:* (os de uso único foram
+    removidos em 12/11/2026) e cache das análises (src/Service/Cache, var/cache/prod/pools).
+  - .env.local do servidor tem APP_ENV=prod, DATABASE_URL, APP_SECRET, MAILER_DSN, EMAIL_FROM, EMAIL_CONTACT_TO, TINYMCE
+    e DATABASE_BACKUP_DIR. Segredo de produção fica só no .env.local do servidor, nunca no .env versionado. Valores nunca
+    exibidos.
   - Leitura livre; escrita só com aprovação do Jonas. Nunca fazer requisição HTTP que execute algo.
-  - Cerca de 104 mil documentos, 7 projetos e 8 usuários. Em 12/11/2026 produção está no Symfony 7.4.23, com o cache das análises (src/Service/Cache, var/cache/prod/pools) e 17 comandos app:* (10 de uso único removidos). As tabelas de autoridade (keyword,
+  - Cerca de 104 mil documentos, 7 projetos e 8 usuários. As tabelas de autoridade (keyword,
     palavra_chave_variacoes_nome, thesaurus_*, author_identity, instituicoes_ensino, paises, qualis_journal)
     são globais: mudar uma delas muda os números de todos os projetos.
   - A importação roda em segundo plano: o controller dispara nohup bin/console app:import:dataset (Process).
-    Por isso exec e proc_open estão liberados no disable_functions do pool php84rc; não bloquear.
-    Log em var/log/import_{dataset}.log; arquivos enviados em var/uploads/{projeto}/ (1,4 GB, fora do git).
+    Por isso exec e proc_open precisam estar liberados no disable_functions do pool do PHP; não bloquear.
+    Log em var/log/import_{dataset}.log; arquivos enviados em var/uploads/{projeto}/ (fora do git).
   - Não há worker do Messenger nem envio de e-mail no código.
-  - Cron do painel (/etc/cron.d/runcloud-runcloud): 00:00 app:qualis:resolve-missing --env=prod e 00:45
-    app:keywords:treat --execute --auto-create-concepts. Os dois chamam /bin/bash antes do binário do PHP e
-    falham ("cannot execute binary file"): hoje nenhum roda.
-  - var/log/dev.log (689 MB) é do tempo em que o app rodava em dev; parado desde 21/10/2026.
-  - A classificação temática carrega todos os documentos do projeto na memória (título, resumo e palavras-chave).
-    O projeto 9 (49.992 documentos) estoura o memory_limit de 256 MB do PHP de linha de comando (10/11/2026).
-    Pendência: antes de classificar o projeto 9, uma mudança para ler os documentos aos poucos (a tela pode bater no mesmo limite).
+  - O cron do painel (qualis, backup e tratamento de palavras-chave) está descrito na mudança cron-do-painel-corrigido.
+  - A classificação temática lê os documentos em lotes (12/11/2026); a medição no projeto de 50 mil documentos em
+    produção ainda está pendente (tarefa 3.4 da mudança revisao-seguranca-desempenho-2026-11).
 
   Deploy
   - Local: commits pequenos por tema, direto na main, e git push origin main.
-  - Servidor, como runcloud, em ~/webapps/app-bibliomap: git pull --ff-only origin main; ./build.sh --prod;
-    /RunCloud/Packages/php84rc/bin/php bin/console doctrine:migrations:migrate --no-interaction
-    (o build só avisa as migrations pendentes).
+  - Servidor, como o usuário dono do webapp, na raiz do webapp: git pull --ff-only origin main; ./build.sh --prod;
+    <php do pool> bin/console doctrine:migrations:migrate --no-interaction (o build só avisa as migrations pendentes).
   - build.sh --prod apaga var/cache/* e public/assets/*, roda composer install --no-dev, recompila os assets
     e apaga var/log/*.log com mais de 7 dias (inclui os import_*.log).
-  - Antes de migration que altera dados: mysqldump em ~/backups/ (credenciais da DATABASE_URL, sem imprimir).
+  - Antes de migration que altera dados: mysqldump na pasta de backups do servidor (credenciais da DATABASE_URL, sem imprimir).
   - Banco local: MySQL 8 "bibliomap". Tabelas antigas em utf8mb4_0900_ai_ci e novas em utf8mb4_unicode_ci:
     comparar texto entre elas exige COLLATE explícito.
 
@@ -74,6 +71,6 @@ rules:
     - Toda tarefa que muda servidor ou banco de produção tem uma tarefa de backup antes e uma de conferência depois.
     - Rodar vendor/bin/phpunit antes de cada commit.
     - Tela nova ou alterada cria ou atualiza a entrada de ajuda em config/help/*.yaml.
-    - Comando no servidor roda como runcloud com /RunCloud/Packages/php84rc/bin/php; cron novo ou corrigido é
+    - Comando no servidor roda como o usuário dono do webapp com o PHP do pool; cron novo ou corrigido é
       tarefa no painel RunCloud, com o binário do PHP chamado direto (sem /bin/bash) e --env=prod.
     - Nada de segredo, dado pessoal ou arquivo de corpus no commit, porque o repositório é público.

@@ -6,8 +6,8 @@ Retrato de referência dos números (49 análises × projetos 13, 11 e 12, grava
 
 ## 0. Produção sem disco (antes de qualquer deploy)
 
-- [x] 0.1 (decisão do Jonas, escrita em produção, outro sistema) Liberar espaço: `~/webapps/ufscar-cech/var/cache/public_pages` tem 26 GB. Antes de apagar, conferir no código do cech que a pasta é recriada sob demanda. Depois: `df -h /` com pelo menos 10 G livres. (12/11/2026: o disco já estava liberado às 15:11 UTC (26 G livres; public_pages do cech em 247 MB), por ação do Jonas ou do próprio cech; não apaguei nada)
-- [x] 0.2 (leitura) Conferir que não sobrou `.git/index.lock` em `~/webapps/app-bibliomap` (um `git status` de 12/11 falhou por falta de espaço) e que o MySQL voltou a aceitar tabela temporária (`SELECT … GROUP BY` grande sem erro 1114). (12/11/2026: sem index.lock; `git pull` e backup rodaram)
+- [x] 0.1 (decisão do Jonas, escrita em produção, outro sistema) Liberar espaço: `<webapp do app vizinho>/var/cache/public_pages` tem 26 GB. Antes de apagar, conferir no código do cech que a pasta é recriada sob demanda. Depois: `df -h /` com pelo menos 10 G livres. (12/11/2026: o disco já estava liberado às 15:11 UTC (26 G livres; public_pages do cech em 247 MB), por ação do Jonas ou do próprio cech; não apaguei nada)
+- [x] 0.2 (leitura) Conferir que não sobrou `.git/index.lock` em `<raiz do webapp>` (um `git status` de 12/11 falhou por falta de espaço) e que o MySQL voltou a aceitar tabela temporária (`SELECT … GROUP BY` grande sem erro 1114). (12/11/2026: sem index.lock; `git pull` e backup rodaram)
 - [ ] 0.3 Registrar no projeto ufscar-cech a necessidade de limite ou limpeza periódica desse cache.
 
 ## 1. Segurança
@@ -137,7 +137,7 @@ Retrato de referência dos números (49 análises × projetos 13, 11 e 12, grava
 - [x] 8.1 `git push origin main` depois de cada grupo commitado e verde. (12/11/2026: push de befd8c6, 57fa5d3 e cf46d74 em 12/11/2026)
 - [x] 8.2 (produção, leitura) `df -h /` com espaço; `git status` limpo no servidor.
 - [x] 8.3 (produção, escrita em `~/backups/`) `mysqldump` comprimido antes do deploy, credenciais da `DATABASE_URL` sem imprimir; `gunzip -t` e tamanho. (12/11/2026: backup `bibliomap-20261112-1514.sql.gz` (99,8 MB, 149 s) antes do primeiro lote; os lotes seguintes não tinham migration)
-- [x] 8.4 (produção, escrita) `git pull --ff-only origin main`; `./build.sh --prod`; `/RunCloud/Packages/php84rc/bin/php bin/console doctrine:migrations:migrate --no-interaction --env=prod`. (12/11/2026: três deploys no mesmo dia (befd8c6 com 3 migrations em 37 s; 57fa5d3 e cf46d74 sem migration))
+- [x] 8.4 (produção, escrita) `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. (12/11/2026: três deploys no mesmo dia (befd8c6 com 3 migrations em 37 s; 57fa5d3 e cf46d74 sem migration))
 - [x] 8.5 (produção, leitura) `git log -1` igual ao `main`; `doctrine:migrations:status --env=prod` sem pendência; `app:create-admin --help` sem valores padrão; `php bin/console list app --env=prod` sem os comandos removidos; página inicial 200; `/login` 200; nenhum 5xx novo nos logs do nginx e do Apache; `SELECT version FROM analytics_data_version`. (12/11/2026: 200 em / e /login, 302 em /projects, 403 em /uploads/seo/x.php e /.user.ini, cabeçalhos de segurança chegando, 17 comandos app, sem migration pendente, versão dos dados em 2, Symfony 7.4.23 em produção, disco 26 G livres)
 - [ ] 8.6 (produção, leitura) Classificação do projeto 9 pela comparação sem gravar: `app:classification:compare-expansion` com o pico de memória abaixo de 256 MB.
 

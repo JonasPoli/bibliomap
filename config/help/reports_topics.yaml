@@ -585,9 +585,9 @@ report.lenses.recalculate:
 
 report.lenses.add:
   title: "Nova lente"
-  what: "Abre o formulário para cadastrar um novo teórico/referencial com os termos que serão buscados."
+  what: "Abre o formulário para cadastrar um novo teórico/referencial com os termos que serão buscados. Só administradores veem este botão."
   how: "Preencha nome, área, corrente, termos e descrição e salve. O resultado guardado deste projeto é descartado e a mineração é refeita para incluir a nova lente."
-  not: "A lente fica disponível para **todos** os projetos e usuários do sistema, não só para este projeto. Não é possível editar ou excluir a lente por esta tela."
+  not: "A lente fica disponível para **todos** os projetos e usuários do sistema, não só para este projeto, por isso só administradores cadastram. Para editar ou excluir, use Administração > Lentes teóricas."
   example: "Cadastre \"Paulo Freire\" com os termos \"freire, educação dialógica, pedagogia do oprimido, extensão ou comunicação\"."
 
 report.lenses.field_filter:

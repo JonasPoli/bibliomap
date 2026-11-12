@@ -29,3 +29,10 @@ O processamento e o recálculo do relatório de lentes teóricas SHALL exigir a 
 #### Scenario: Visitante de projeto público
 - **WHEN** um usuário que não é o dono chama o recálculo das lentes de um projeto público
 - **THEN** recebe acesso negado e o resultado guardado não muda
+
+### Requirement: Cadastro de lente teórica só por administradores
+A criação de lente teórica pela tela do relatório SHALL exigir `ROLE_ADMIN`, porque a tabela de lentes vale para todos os projetos; o dono de um projeto sem esse papel MUST NOT ver o botão "Nova Lente" nem conseguir chamar a rota.
+
+#### Scenario: Dono de projeto sem papel de administrador
+- **WHEN** o dono de um projeto chama `POST /projects/{id}/reports/theoretical-lenses/add`
+- **THEN** recebe acesso negado e nenhuma lente é criada

@@ -11,7 +11,7 @@
 ## 2. Produção
 
 - [ ] 2.1 Backup antes do deploy (produção, escrita só na pasta de backups): rodar `app:database:backup` à mão, como runcloud, e conferir o arquivo novo com `gzip -t`.
-- [ ] 2.2 Deploy (produção, escrita), como runcloud em `~/webapps/app-bibliomap`: `git pull --ff-only origin main` e `./build.sh --prod` (sem migration).
+- [ ] 2.2 Deploy (produção, escrita), como runcloud em `<raiz do webapp>`: `git pull --ff-only origin main` e `./build.sh --prod` (sem migration).
 - [ ] 2.3 Conferir depois do deploy (produção, leitura): `git log -1` igual ao main; `SELECT id FROM dataset WHERE status = 'importing'` e a trava de cada um, registrando só IDs; o log da rotina da madrugada seguinte sem "Importação em andamento" quando não há importação rodando; nenhum 5xx novo nos logs do Apache e do nginx.
 
 ## Workflow follow-up

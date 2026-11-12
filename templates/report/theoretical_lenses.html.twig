@@ -36,7 +36,7 @@
             </form>
             {{ help('report.lenses.recalculate') }}
             {% endif %}
-            {% if is_granted('edit', project) %}
+            {% if is_granted('ROLE_ADMIN') and is_granted('edit', project) %}
             <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
                 <i class="bi bi-plus-circle"></i> Nova Lente
             </button>

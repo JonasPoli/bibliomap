@@ -38,15 +38,15 @@ Motivação em proposal.md. Estado atual (código lido em 09/11/2026; produção
 ## Decisions
 
 ### 1. Linhas do cron (painel RunCloud, feitas pelo Jonas)
-Três tarefas, usuário `runcloud`, **Vendor Binary** `/RunCloud/Packages/php84rc/bin/php` (não `/bin/bash`), na madrugada de Brasília (decisão do Jonas em 10/11/2026: janela das 03:00 às 05:00, ou seja, 06:00 a 08:00 UTC), na ordem Qualis → backup (decisão 6) → tratamento:
+Três tarefas, usuário `runcloud`, **Vendor Binary** `<php do pool>` (não `/bin/bash`), na madrugada de Brasília (decisão do Jonas em 10/11/2026: janela das 03:00 às 05:00, ou seja, 06:00 a 08:00 UTC), na ordem Qualis → backup (decisão 6) → tratamento:
 
 | Horário | Command |
 |---|---|
-| `0 6 * * *` (03:00 em Brasília) | `/home/runcloud/webapps/app-bibliomap/bin/console app:qualis:resolve-missing --env=prod --no-interaction --no-ansi > /home/runcloud/webapps/app-bibliomap/var/log/cron_qualis_resolve_missing.log 2>&1` |
-| `15 7 * * *` (04:15 em Brasília) | `/home/runcloud/webapps/app-bibliomap/bin/console app:database:backup --env=prod --no-interaction --no-ansi > /home/runcloud/webapps/app-bibliomap/var/log/cron_db_backup.log 2>&1` |
-| `30 7 * * *` (04:30 em Brasília) | `/home/runcloud/webapps/app-bibliomap/bin/console app:keywords:treat --execute --require-backup --env=prod --no-interaction --no-ansi > /home/runcloud/webapps/app-bibliomap/var/log/cron_keywords_treat.log 2>&1` |
+| `0 6 * * *` (03:00 em Brasília) | `<raiz do webapp>/bin/console app:qualis:resolve-missing --env=prod --no-interaction --no-ansi > <raiz do webapp>/var/log/cron_qualis_resolve_missing.log 2>&1` |
+| `15 7 * * *` (04:15 em Brasília) | `<raiz do webapp>/bin/console app:database:backup --env=prod --no-interaction --no-ansi > <raiz do webapp>/var/log/cron_db_backup.log 2>&1` |
+| `30 7 * * *` (04:30 em Brasília) | `<raiz do webapp>/bin/console app:keywords:treat --execute --require-backup --env=prod --no-interaction --no-ansi > <raiz do webapp>/var/log/cron_keywords_treat.log 2>&1` |
 
-Cada linha gerada deve ficar `M H * * * runcloud /RunCloud/Packages/php84rc/bin/php /home/runcloud/webapps/app-bibliomap/bin/console …`.
+Cada linha gerada deve ficar `M H * * * runcloud <php do pool> <raiz do webapp>/bin/console …`.
 - `>` e não `>>`: cada noite substitui o log da anterior. O arquivo não cresce, e o `build.sh --prod` não o apaga, porque ele nunca chega a 7 dias. Se o cron parar, o log some depois de 7 dias, e isso também é sinal.
 - O log fica em `var/log/` do webapp, que é do runcloud. Outras pastas de log do servidor podem não aceitar escrita do runcloud.
 - Horários escolhidos em 10/11/2026 pela leitura do servidor (`/etc/crontab`, `/etc/cron.d`, crontab do runcloud, timers do systemd e logs de acesso): o ufscar-cech e o app-n8n não têm tarefa no cron (os agendamentos internos do n8n não são visíveis: ele roda em Docker sem acesso do runcloud); o `cron.daily` roda às 06:25 UTC (leve: com o systemd, quase todos os scripts saem na hora) e o `apt-daily-upgrade.timer` sorteia um horário entre 06:00 e 07:00 UTC e pode pesar. Por isso o Qualis, que espera a rede (Crossref e Sucupira) mais que usa CPU, fica às 06:00 UTC, e o backup e o tratamento ficam depois das 07:00 UTC, antes do aumento de acessos ao ufscar-cech, que começa por volta das 08:00 UTC. Folgas: 75 min entre o Qualis e o backup e 15 min entre o backup (cerca de 50 s medidos) e o tratamento. Se a primeira execução manual do Qualis passar de 70 min, o backup vai para 07:40 UTC (04:40) e o tratamento para 07:55 UTC (04:55), ainda dentro da janela (critério na tarefa 4.6). Em dados, as rotinas não se atrapalham: o Qualis mexe em `qualis_journal` e nas colunas de Qualis de `document`, o tratamento mexe em `keyword` e nas tabelas ligadas a ela, e o backup só lê, com uma cópia consistente que não trava as tabelas (decisão 6).
