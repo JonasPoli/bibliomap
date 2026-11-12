@@ -1,7 +1,7 @@
 # autoridade-em-camadas Specification
 
 ## Purpose
-TBD - created by archiving change tesauro-em-camadas. Update Purpose after archive.
+Mantém os dados importados (autor e palavra-chave como vieram do arquivo) imutáveis e trata nomes diferentes da mesma entidade por uma camada de agrupamento: o administrador grava o padrão global, o dono do projeto grava a exceção do projeto, e as análises leem a identidade efetiva guardada em `document_author.effective_author_id` e `document_keyword.effective_keyword_id`. Implementado em `AuthorityMappingService`, `AuthorityResolver`, `AuthorityMergeLogger`, `app:authority:rebuild` e nas telas de normalização do projeto e de administração.
 
 ## Requirements
 

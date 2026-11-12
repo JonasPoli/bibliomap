@@ -1,7 +1,7 @@
 # cache-das-analises Specification
 
 ## Purpose
-TBD - created by archiving change revisao-seguranca-desempenho-2026-11. Update Purpose after archive.
+Reaproveita o resultado das análises de um projeto (painel, relatórios, redes, mapa e evolução temática, três campos, matrizes e comparação de grupos) enquanto os dados não mudam, com versão dos dados que sobe a cada gravação. Implementado em `AnalyticsCache`, `DataVersionTracker`, `DataVersionMiddleware` e na tabela `analytics_data_version`.
 
 ## Requirements
 

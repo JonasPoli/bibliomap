@@ -1,7 +1,7 @@
 # seguranca-da-aplicacao Specification
 
 ## Purpose
-TBD - created by archiving change revisao-seguranca-desempenho-2026-11. Update Purpose after archive.
+Regras de autenticação, sessão, upload, escape de saída e criação de administrador do BiblioMap: administrador sem credencial padrão, texto vindo de dados nunca vira HTML, imagem de divulgação validada, limite de tentativas de login, sessão encerrada para usuário desativado e perfil que exige a senha atual.
 
 ## Requirements
 
