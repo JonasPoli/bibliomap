@@ -4,6 +4,7 @@
 Calcula as redes de coocorrência (coautoria, palavras-chave e colaboração entre países) e o mapa temático (diagrama estratégico de Callon), com o mesmo método do `thematicMap()` do Bibliometrix. O mapa de cada período da Evolução Temática usa o mesmo cálculo. Implementado em `NetworkService`, `ThematicMapService`, `ThematicEvolutionService`, `NetworkController` e `ThematicMapController`; as rotas exigem a permissão `view` do projeto.
 
 ## Requirements
+
 ### Requirement: Coocorrência conta documentos
 O peso da ligação entre dois itens SHALL ser o número de documentos distintos do projeto em que os dois aparecem; o par de um item com ele mesmo SHALL ser ignorado. Nas palavras-chave, os itens SHALL ser os conceitos efetivos do tesauro.
 
@@ -59,3 +60,10 @@ Com ano inicial, ano final ou os dois, o mapa temático SHALL usar só os docume
 #### Scenario: Corte em 2019
 - **WHEN** a Evolução Temática é pedida com corte em 2019
 - **THEN** o mapa P1 usa os documentos até 2019 e o mapa P2 os de 2020 em diante
+
+### Requirement: Corte determinístico
+Quando vários itens empatam na frequência do último lugar de um corte (nós da rede, itens do gráfico de três campos, linhas e colunas da matriz, listas "top N" dos relatórios), o sistema SHALL desempatar por um critério fixo, de modo que os mesmos dados deem sempre o mesmo resultado.
+
+#### Scenario: Empate no último nó
+- **WHEN** a rede de coautoria é pedida duas vezes com `limit=100` e há 5 autores empatados na 100ª posição
+- **THEN** as duas respostas trazem o mesmo autor na 100ª posição

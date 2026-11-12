@@ -4,6 +4,7 @@
 Unifica as variações de uma palavra-chave (sinônimos, siglas, grafias, idiomas) num conceito, para que contagens, redes, mapa temático, matrizes e classificação usem o termo preferido sem apagar o termo original importado. Há duas camadas: o tesauro global (`thesaurus_scheme`, `thesaurus_concept`, `thesaurus_label`, em `/admin/thesaurus`) e o agrupamento da própria tabela `keyword` (`keyword_concept_id` e as variações em `palavra_chave_variacoes_nome`, em `/admin/keywords`). As duas são globais, valem para todos os projetos. Implementado em `KeywordResolverService`, `KeywordThesaurusMatcherService`, `KeywordTreatmentService`, `ThesaurusFileService`, `Admin\ThesaurusController`, `AdminKeywordController`, `DocumentImportService` e `DocumentEnrichmentService`.
 
 ## Requirements
+
 ### Requirement: Conceito efetivo nas análises
 Toda análise que agrupa palavras-chave SHALL usar o conceito efetivo: o conceito do tesauro (rótulo preferido) quando a palavra tem `thesaurus_concept_id`; senão o `keyword_concept` (sua forma de exibição); senão a própria palavra. O ID de conceito do tesauro SHALL ser usado negativo, para não colidir com os IDs da tabela `keyword`.
 
@@ -20,11 +21,12 @@ Na importação, cada termo SHALL ser procurado pela forma normalizada e pelo ti
 - **THEN** o documento é ligado à palavra-chave existente, sem criar outra
 
 ### Requirement: Remapeamento pelas variações
-No enriquecimento do projeto, o sistema SHALL religar cada `document_keyword` pela forma normalizada do `original_term` à palavra-chave oficial (status 1) ou à palavra-chave de uma variação ativa em `palavra_chave_variacoes_nome`, do mesmo tipo, apagando o vínculo que ficaria repetido no mesmo documento.
+No enriquecimento do projeto, o sistema SHALL agrupar cada `document_keyword`, pela forma normalizada do `original_term`, na palavra-chave oficial (status 1) ou na palavra-chave de uma variação ativa em `palavra_chave_variacoes_nome`, do mesmo tipo, gravando o agrupamento e recalculando a identidade efetiva do vínculo. O enriquecimento MUST NOT alterar o id bruto do vínculo nem apagar vínculos repetidos no mesmo documento.
 
 #### Scenario: Variação cadastrada depois da importação
 - **WHEN** o administrador cadastra "IA" como variação de "inteligência artificial" e o projeto é sincronizado
-- **THEN** os documentos com a palavra-chave "IA" passam a apontar para "inteligência artificial"
+- **THEN** os documentos com a palavra-chave "IA" passam a contar como "inteligência artificial" nas análises
+- **AND** o vínculo continua com a palavra-chave "IA" e o `original_term` original
 
 ### Requirement: Correspondência com o tesauro global
 O sistema SHALL comparar a forma normalizada da palavra-chave só com o esquema `keyword`: rótulo exato, depois conceito exato (nota 100) e, sem isso, comparação aproximada com os rótulos de mesma letra inicial, ficando a melhor nota por conceito. Abaixo de 75 não há correspondência; 95 ou mais é automática quando não há empate.
