@@ -23,6 +23,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
+use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMergeLogger;
 
 #[Route('/admin/institutions')]
 #[IsGranted('ROLE_ADMIN')]
@@ -32,6 +34,8 @@ class AdminInstitutionController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
         private readonly EntityMergeService $mergeService,
+        private readonly AuthorityLinkGuard $linkGuard,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     #[Route('', name: 'app_admin_institutions_index', methods: ['GET'])]
@@ -115,6 +119,8 @@ class AdminInstitutionController extends AbstractController
         return $this->render('admin/institutions/index.html.twig', [
             'institutions' => $institutions,
             'variationCounts' => $variationCounts,
+            // Documentos ligados a cada instituição (uma consulta para a página): com documentos, Excluir fica desabilitado
+            'docCounts' => $this->linkGuard->documentCounts('institution', $ids),
             'search' => $search,
             'currentPage' => $page,
             'totalPages' => $totalPages,
@@ -237,8 +243,20 @@ class AdminInstitutionController extends AbstractController
         }
 
         $name = $institution->getOfficialName();
-        $this->em->remove($institution);
-        $this->em->flush();
+
+        // Com documentos ligados não exclui: o ON DELETE CASCADE apagaria os vínculos dos documentos
+        $docs = $this->linkGuard->documentCount('institution', (int) $institution->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('institution', (string) $name, $docs));
+            return $this->redirectToRoute('app_admin_institutions_index');
+        }
+
+        $institutionId = (int) $institution->getId();
+        $this->em->getConnection()->transactional(function () use ($institution, $institutionId, $name) {
+            $this->mergeLogger->begin('screen_admin', 'delete', 'institution', $institutionId, null, (string) $name);
+            $this->em->remove($institution);
+            $this->em->flush();
+        });
 
         $this->addFlash('success', "Instituição '{$name}' removida!");
         return $this->redirectToRoute('app_admin_institutions_index');

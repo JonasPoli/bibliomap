@@ -323,16 +323,16 @@ admin.review.move_to_keyword:
 
 admin.review.move_to_institution:
   title: "Mover para instituições"
-  what: "Cria (ou reaproveita) uma instituição com esse nome, liga-a como afiliação a todos os documentos onde o nome aparecia e **apaga o registro de autor**."
-  how: "Use quando o nome é claramente de uma organização. Depois, revise a instituição criada na administração de Instituições."
-  not: "Não tem desfazer. A instituição nova é criada sem país, cidade ou sigla."
+  what: "Cria (ou reaproveita) uma instituição com esse nome e **apaga o registro de autor**. Só é permitido para autor **sem nenhum documento ligado**: com documentos, o botão fica desabilitado e mostra a quantidade."
+  how: "Use quando o nome é claramente de uma organização e nenhum documento o lista como autor. Depois, revise a instituição criada na administração de Instituições."
+  not: "Não tem desfazer. A instituição nova é criada sem país, cidade ou sigla. Autor com documentos não pode ser movido, porque a ação apagaria a autoria e o nome original deles."
   example: "“Universidade Federal de Lavras” veio como autor em 8 artigos: mova para instituições e os 8 passam a ter essa afiliação."
 
 admin.review.discard_author:
   title: "Descartar autor"
-  what: "Apaga o registro de autor e, com ele, todas as ligações autor-documento, grafias e identificadores."
-  how: "Use só para lixo de importação (ex.: “Anonymous”, “[No author name available]”). Confirme na janela."
-  not: "**Não tem desfazer** e afeta todos os projetos: os documentos ficam sem esse autor e indicadores como h-index mudam."
+  what: "Apaga o registro de autor, com suas grafias e identificadores. Só é permitido para autor **sem nenhum documento ligado**: com documentos, o botão fica desabilitado e mostra a quantidade."
+  how: "Use só para cadastro sem documento (ex.: sobra de uma mesclagem antiga). Para um duplicado com documentos, use **Mesclar**. Confirme na janela."
+  not: "**Não tem desfazer.** Autor ligado a documentos não pode ser descartado: nenhum documento perde a autoria nem o nome original."
   example: "O autor “[No author name available]”, vindo do Scopus, pode ser descartado."
 
 admin.review.kw_original:
@@ -386,9 +386,9 @@ admin.review.kw_edit:
 
 admin.review.kw_discard:
   title: "Descartar palavra-chave"
-  what: "Apaga a palavra-chave e todos os seus vínculos com documentos."
-  how: "Use para lixo de importação (números soltos, fragmentos de tabela). Confirme na janela."
-  not: "**Não tem desfazer** e afeta todos os projetos que usam o termo."
+  what: "Apaga a palavra-chave. Só é permitido para termo **sem nenhum documento ligado**: com documentos, o botão fica desabilitado e mostra a quantidade."
+  how: "Use para termo sem documento (sobra de uma mesclagem antiga). Para lixo que está nos documentos (números soltos, fragmentos de tabela), use **Mesclar** num termo válido. Confirme na janela."
+  not: "**Não tem desfazer.** Termo ligado a documentos não pode ser descartado: nenhum documento perde o vínculo nem o termo original."
   example: "O termo “3.04” veio de um erro de exportação: descarte."
 
 # ─── Tratamento de palavras-chave (super admin) ──────────────────────────────

@@ -16,6 +16,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
+use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMergeLogger;
 
 #[Route('/admin/keywords')]
 #[IsGranted('ROLE_ADMIN')]
@@ -25,6 +27,8 @@ class AdminKeywordController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
         private readonly EntityMergeService $mergeService,
+        private readonly AuthorityLinkGuard $linkGuard,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     #[Route('', name: 'app_admin_keywords_index', methods: ['GET'])]
@@ -95,6 +99,8 @@ class AdminKeywordController extends AbstractController
         return $this->render('admin/keywords/index.html.twig', [
             'keywords' => $keywords,
             'variationCounts' => $variationCounts,
+            // Documentos ligados a cada palavra (uma consulta para a página): com documentos, Excluir fica desabilitado
+            'docCounts' => $this->linkGuard->documentCounts('keyword', $ids),
             'search' => $search,
             'status' => $status,
             'type' => $type,
@@ -386,8 +392,23 @@ class AdminKeywordController extends AbstractController
         }
 
         $term = $keyword->getKeywordOriginal();
-        $this->em->remove($keyword);
-        $this->em->flush();
+
+        // Com documentos ligados não exclui: o ON DELETE CASCADE apagaria os vínculos e o termo original deles
+        $docs = $this->linkGuard->documentCount('keyword', (int) $keyword->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('keyword', $term, $docs));
+            return $this->redirectToRoute('app_admin_keywords_index');
+        }
+
+        $keywordId = (int) $keyword->getId();
+        $this->em->getConnection()->transactional(function () use ($keyword, $keywordId, $term) {
+            $this->mergeLogger->begin('screen_admin', 'delete', 'keyword', $keywordId, null, (string) $term, [
+                'normalized' => $keyword->getKeywordNormalized(),
+                'type'       => $keyword->getKeywordType(),
+            ]);
+            $this->em->remove($keyword);
+            $this->em->flush();
+        });
 
         $this->addFlash('success', "Palavra-chave '{$term}' excluída permanentemente!");
         return $this->redirectToRoute('app_admin_keywords_index');
@@ -433,10 +454,17 @@ class AdminKeywordController extends AbstractController
 
         // Remap document_keyword records with original name to point to new keyword
         $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ? AND original_term = ?',
-            [$newKeyword->getId(), $parent->getId(), $varName]
-        );
+        // Diário e troca dos vínculos na mesma transação (o diário copia os vínculos antes de mudarem)
+        $conn->transactional(function () use ($conn, $parent, $newKeyword, $varName) {
+            $logId = $this->mergeLogger->begin('screen_admin', 'remap', 'keyword', (int) $parent->getId(), (int) $newKeyword->getId(), (string) $parent->getKeywordOriginal(), [
+                'separated_variation' => $varName,
+            ]);
+            $this->mergeLogger->logLinks($logId, 'document_keyword', (int) $parent->getId(), null, $varName);
+            $conn->executeStatement(
+                'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ? AND original_term = ?',
+                [$newKeyword->getId(), $parent->getId(), $varName]
+            );
+        });
 
         // Remove from old parent
         $parent->removeVariation($variation);

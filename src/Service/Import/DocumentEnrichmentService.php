@@ -2,6 +2,7 @@
 
 namespace App\Service\Import;
 
+use App\Service\Authority\AuthorityMergeLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -25,7 +26,31 @@ class DocumentEnrichmentService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
-    ) {}
+        private ?AuthorityMergeLogger $mergeLogger = null,
+    ) {
+        $this->mergeLogger ??= new AuthorityMergeLogger($em);
+    }
+
+    /**
+     * Id do cabeçalho do diário para o par (id anterior -> id novo) de autor ou palavra-chave, criado na
+     * primeira vez que o par aparece no processo (origem enrichment, sem usuário). Uma linha de link por
+     * vínculo remapeado ou apagado.
+     *
+     * @param array<string,int> $cache
+     */
+    private function remapLogId(array &$cache, string $entityType, int $from, int $to, Connection $conn, int $projectId): int
+    {
+        $key = $entityType . ':' . $from . ':' . $to;
+        if (!isset($cache[$key])) {
+            $label = (string) $conn->fetchOne(
+                $entityType === 'author' ? 'SELECT preferred_name FROM author_identity WHERE id = ?' : 'SELECT keyword_original FROM keyword WHERE id = ?',
+                [$from]
+            );
+            $cache[$key] = $this->mergeLogger->begin('enrichment', 'remap', $entityType, $from, $to, $label, ['project_id' => $projectId], null, $projectId);
+        }
+
+        return $cache[$key];
+    }
 
     /**
      * Recalculates and enriches all documents in a project with institutions, countries, states, and cities.
@@ -293,106 +318,8 @@ class DocumentEnrichmentService
             unset($docs);
         }
 
-        // ── 4. Re-map Authors ──────────────────────────────────────────
-        $rawNames = $conn->fetchFirstColumn(
-            'SELECT DISTINCT da.original_name 
-             FROM document_author da
-             JOIN document d ON da.document_id = d.id
-             WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name != ""',
-            [$projectId]
-        );
-        $normalizedNames = [];
-        foreach ($rawNames as $name) {
-            $normalizedNames[] = self::normalize($name);
-        }
-        $normalizedNames = array_unique(array_filter($normalizedNames));
-
-        unset($rawNames);
-
-        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
-        unset($normalizedNames);
-
-        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
-            // Dentro do documento, na ordem do id: é ela que decide qual linha repetida sai
-            $docAuthors = $conn->fetchAllAssociative(
-                'SELECT da.id, da.document_id, da.author_identity_id, da.original_name
-                 FROM document_author da
-                 WHERE da.document_id IN (' . implode(',', $docIds) . ')
-                 ORDER BY da.document_id, da.id'
-            );
-
-            foreach ($docAuthors as $da) {
-                if (!$da['original_name']) continue;
-                $norm = self::normalize($da['original_name']);
-                if (isset($authorsLookup[$norm])) {
-                    $targetAuthorId = $authorsLookup[$norm];
-                    if ($targetAuthorId !== (int)$da['author_identity_id']) {
-                        // Check if duplicate exists on document
-                        $isDuplicate = $conn->fetchOne(
-                            'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
-                            [$da['document_id'], $targetAuthorId, $da['id']]
-                        );
-                        if ($isDuplicate) {
-                            $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
-                        } else {
-                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
-                        }
-                    }
-                }
-            }
-        }
-        unset($authorsLookup, $docAuthors);
-
-        // ── 5. Re-map Keywords ─────────────────────────────────────────
-        $rawTerms = $conn->fetchFirstColumn(
-            'SELECT DISTINCT dk.original_term 
-             FROM document_keyword dk
-             JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND dk.original_term IS NOT NULL AND dk.original_term != ""',
-            [$projectId]
-        );
-        $normalizedTerms = [];
-        foreach ($rawTerms as $term) {
-            $normalizedTerms[] = self::normalize($term);
-        }
-        $normalizedTerms = array_unique(array_filter($normalizedTerms));
-
-        unset($rawTerms);
-
-        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
-        unset($normalizedTerms);
-
-        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
-            $docKeywords = $conn->fetchAllAssociative(
-                'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
-                 FROM document_keyword dk
-                 JOIN keyword k ON dk.keyword_id = k.id
-                 WHERE dk.document_id IN (' . implode(',', $docIds) . ')
-                 ORDER BY dk.document_id, dk.id'
-            );
-
-            foreach ($docKeywords as $dk) {
-                if (!$dk['original_term']) continue;
-                $norm = self::normalize($dk['original_term']);
-                $key = $norm . '|' . $dk['type'];
-                if (isset($keywordsLookup[$key])) {
-                    $targetKeywordId = $keywordsLookup[$key];
-                    if ($targetKeywordId !== (int)$dk['keyword_id']) {
-                        // Check duplicate
-                        $isDuplicate = $conn->fetchOne(
-                            'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
-                            [$dk['document_id'], $targetKeywordId, $dk['id']]
-                        );
-                        if ($isDuplicate) {
-                            $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
-                        } else {
-                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
-                        }
-                    }
-                }
-            }
-        }
-        unset($keywordsLookup, $docKeywords);
+        // ── 4 e 5. Re-map Authors e Keywords (com diário) ──
+        $this->remapAuthorsAndKeywords($projectId, $conn);
 
         // Enriquecer Qualis CAPES para os documentos do projeto
         $this->enrichQualis($projectId, $conn);
@@ -651,6 +578,145 @@ class DocumentEnrichmentService
             'matched_authors' => $matchedAuthorsList,
             'matched_keywords' => $matchedKeywordsList,
         ];
+    }
+
+    /**
+     * Passos 4 e 5 do enriquecimento: troca o id de autor/palavra-chave do vínculo pelo cadastro que casa com o
+     * texto original, apagando a linha que repetiria um vínculo do documento. Cada troca vai para o diário.
+     */
+    private function remapAuthorsAndKeywords(int $projectId, Connection $conn): void
+    {
+        // ── 4. Re-map Authors ──────────────────────────────────────────
+        $rawNames = $conn->fetchFirstColumn(
+            'SELECT DISTINCT da.original_name 
+             FROM document_author da
+             JOIN document d ON da.document_id = d.id
+             WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name != ""',
+            [$projectId]
+        );
+        $normalizedNames = [];
+        foreach ($rawNames as $name) {
+            $normalizedNames[] = self::normalize($name);
+        }
+        $normalizedNames = array_unique(array_filter($normalizedNames));
+
+        unset($rawNames);
+
+        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
+        unset($normalizedNames);
+
+        $remapLogIds = [];
+        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
+            // Dentro do documento, na ordem do id: é ela que decide qual linha repetida sai
+            $docAuthors = $conn->fetchAllAssociative(
+                'SELECT da.id, da.document_id, da.author_identity_id, da.original_name
+                 FROM document_author da
+                 WHERE da.document_id IN (' . implode(',', $docIds) . ')
+                 ORDER BY da.document_id, da.id'
+            );
+
+            // Cada bloco numa transação: o diário e a troca de vínculos andam juntos
+            $conn->beginTransaction();
+            try {
+            foreach ($docAuthors as $da) {
+                if (!$da['original_name']) continue;
+                $norm = self::normalize($da['original_name']);
+                if (isset($authorsLookup[$norm])) {
+                    $targetAuthorId = $authorsLookup[$norm];
+                    if ($targetAuthorId !== (int)$da['author_identity_id']) {
+                        // Check if duplicate exists on document
+                        $isDuplicate = $conn->fetchOne(
+                            'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
+                            [$da['document_id'], $targetAuthorId, $da['id']]
+                        );
+                        // Diário antes de trocar ou apagar o vínculo
+                        $this->mergeLogger->logLinks(
+                            $this->remapLogId($remapLogIds, 'author', (int)$da['author_identity_id'], $targetAuthorId, $conn, $projectId),
+                            'document_author',
+                            (int)$da['author_identity_id'],
+                            (int)$da['id']
+                        );
+                        if ($isDuplicate) {
+                            $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
+                        } else {
+                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
+                        }
+                    }
+                }
+            }
+            $conn->commit();
+            } catch (\Throwable $e) {
+                $conn->rollBack();
+                throw $e;
+            }
+        }
+        unset($authorsLookup, $docAuthors);
+
+        // ── 5. Re-map Keywords ─────────────────────────────────────────
+        $rawTerms = $conn->fetchFirstColumn(
+            'SELECT DISTINCT dk.original_term 
+             FROM document_keyword dk
+             JOIN document d ON dk.document_id = d.id
+             WHERE d.project_id = ? AND dk.original_term IS NOT NULL AND dk.original_term != ""',
+            [$projectId]
+        );
+        $normalizedTerms = [];
+        foreach ($rawTerms as $term) {
+            $normalizedTerms[] = self::normalize($term);
+        }
+        $normalizedTerms = array_unique(array_filter($normalizedTerms));
+
+        unset($rawTerms);
+
+        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
+        unset($normalizedTerms);
+        $remapLogIds = [];
+
+        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
+            $docKeywords = $conn->fetchAllAssociative(
+                'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
+                 FROM document_keyword dk
+                 JOIN keyword k ON dk.keyword_id = k.id
+                 WHERE dk.document_id IN (' . implode(',', $docIds) . ')
+                 ORDER BY dk.document_id, dk.id'
+            );
+
+            $conn->beginTransaction();
+            try {
+            foreach ($docKeywords as $dk) {
+                if (!$dk['original_term']) continue;
+                $norm = self::normalize($dk['original_term']);
+                $key = $norm . '|' . $dk['type'];
+                if (isset($keywordsLookup[$key])) {
+                    $targetKeywordId = $keywordsLookup[$key];
+                    if ($targetKeywordId !== (int)$dk['keyword_id']) {
+                        // Check duplicate
+                        $isDuplicate = $conn->fetchOne(
+                            'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
+                            [$dk['document_id'], $targetKeywordId, $dk['id']]
+                        );
+                        // Diário antes de trocar ou apagar o vínculo
+                        $this->mergeLogger->logLinks(
+                            $this->remapLogId($remapLogIds, 'keyword', (int)$dk['keyword_id'], $targetKeywordId, $conn, $projectId),
+                            'document_keyword',
+                            (int)$dk['keyword_id'],
+                            (int)$dk['id']
+                        );
+                        if ($isDuplicate) {
+                            $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
+                        } else {
+                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
+                        }
+                    }
+                }
+            }
+            $conn->commit();
+            } catch (\Throwable $e) {
+                $conn->rollBack();
+                throw $e;
+            }
+        }
+        unset($keywordsLookup, $docKeywords);
     }
 
     /**

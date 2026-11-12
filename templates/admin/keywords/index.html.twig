@@ -145,12 +145,21 @@
                                     <a href="{{ path('app_admin_keywords_edit', {id: kw.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" style="font-size:12px" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    {% set kwDocs = docCounts[kw.id] ?? 0 %}
+                                    {% if kwDocs > 0 %}
+                                        <span class="d-inline-block" title="Ligada a {{ kwDocs }} {{ kwDocs == 1 ? 'documento' : 'documentos' }}: não pode ser excluída">
+                                            <button type="button" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" disabled aria-label="Excluir indisponível: {{ kwDocs }} documento(s) ligado(s)">
+                                                <i class="bi bi-trash"></i> <small>{{ kwDocs }} doc.</small>
+                                            </button>
+                                        </span>
+                                    {% else %}
                                     <form action="{{ path('app_admin_keywords_delete', {id: kw.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente excluir esta palavra-chave?');" style="display:inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_keyword_' ~ kw.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" title="Excluir">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

@@ -161,12 +161,21 @@
                                     <a href="{{ path('app_admin_institutions_edit', {id: inst.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" style="font-size:12px" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    {% set instDocs = docCounts[inst.id] ?? 0 %}
+                                    {% if instDocs > 0 %}
+                                        <span class="d-inline-block" title="Ligada a {{ instDocs }} {{ instDocs == 1 ? 'documento' : 'documentos' }}: não pode ser excluída">
+                                            <button type="button" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" disabled aria-label="Excluir indisponível: {{ instDocs }} documento(s) ligado(s)">
+                                                <i class="bi bi-trash"></i> <small>{{ instDocs }} doc.</small>
+                                            </button>
+                                        </span>
+                                    {% else %}
                                     <form action="{{ path('app_admin_institutions_delete', {id: inst.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente excluir esta instituição?');" style="display:inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_institution_' ~ inst.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" title="Excluir">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

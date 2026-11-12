@@ -130,12 +130,21 @@
                                     <a href="{{ path('app_admin_authors_edit', {id: auth.id}) }}" class="btn btn-sm btn-bm-secondary px-2 py-1" style="font-size:12px" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    {% set authDocs = docCounts[auth.id] ?? 0 %}
+                                    {% if authDocs > 0 %}
+                                        <span class="d-inline-block" title="Ligado a {{ authDocs }} {{ authDocs == 1 ? 'documento' : 'documentos' }}: não pode ser excluído">
+                                            <button type="button" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" disabled aria-label="Excluir indisponível: {{ authDocs }} documento(s) ligado(s)">
+                                                <i class="bi bi-trash"></i> <small>{{ authDocs }} doc.</small>
+                                            </button>
+                                        </span>
+                                    {% else %}
                                     <form action="{{ path('app_admin_authors_delete', {id: auth.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente excluir este autor?');" style="display:inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_author_' ~ auth.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" style="font-size:12px" title="Excluir">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

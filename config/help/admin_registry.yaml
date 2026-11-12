@@ -11,7 +11,7 @@ admin.authors.page:
   title: "Cadastro de autores (tesauro de autores)"
   what: "Lista as **identidades de autor** usadas por todos os projetos. Cada identidade tem um nome preferido e várias **variações** (grafias) que os arquivos do WoS, Scopus, Lens e PubMed trazem para a mesma pessoa."
   how: "Busque o autor, abra o lápis para corrigir nome, ORCID e grafias, ou marque de 2 a 5 linhas e use **Mesclar** para unir duplicatas. Depois de alterar grafias, rode a **Sincronização** do projeto para que os documentos passem a apontar para a identidade correta."
-  not: "Não é a lista de autores de um projeto específico: o cadastro é global e uma alteração aqui afeta todos os projetos que usam esse autor. Também não busca dados no ORCID nem no Lattes."
+  not: "Não é a lista de autores de um projeto específico: o cadastro é global e uma alteração aqui afeta todos os projetos que usam esse autor. Também não busca dados no ORCID nem no Lattes. **Excluir** só funciona para autor sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**."
   example: "Numa revisão sobre extensão universitária, “Silva, M. A.”, “Silva MA” e “Maria Aparecida da Silva” aparecem como três autores no ranking. Aqui você junta as três grafias numa só identidade e o h-index dela passa a somar os documentos das três."
 
 admin.authors.search:
@@ -183,7 +183,7 @@ admin.institutions.page:
   title: "Cadastro de instituições"
   what: "Tesauro global de universidades e centros de pesquisa, com dados do e-MEC. É ele que transforma os textos de afiliação dos artigos em instituições padronizadas nos rankings e mapas."
   how: "Na **Sincronização** de um projeto, cada afiliação do documento é normalizada e comparada, por inteiro, com o nome oficial, nome curto, sigla e variações das instituições **ativas**. Se bater, o documento é ligado à instituição e herda o país, o estado e a cidade cadastrados nela."
-  not: "Não é uma busca por trecho: “Univ Fed Santa Catarina, Dept Enfermagem” só casa se essa grafia (ou outra que normalize igual) estiver cadastrada. Os campos do e-MEC (IGC, CI, CNPJ) são informativos e não entram nos cálculos."
+  not: "Não é uma busca por trecho: “Univ Fed Santa Catarina, Dept Enfermagem” só casa se essa grafia (ou outra que normalize igual) estiver cadastrada. Os campos do e-MEC (IGC, CI, CNPJ) são informativos e não entram nos cálculos. **Excluir** só funciona para instituição sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**."
   example: "Num corpus de 1.500 artigos sobre saúde coletiva, “UFSC”, “Univ Fed Santa Catarina” e “Federal University of Santa Catarina” viram uma só instituição no ranking depois que essas grafias são cadastradas e o projeto é sincronizado."
 
 admin.institutions.search:
@@ -1035,7 +1035,7 @@ admin.keywords.page:
   title: "Cadastro de palavras-chave"
   what: "Tesauro global de palavras-chave, separado por tipo (do autor, indexadas, MeSH), com as grafias e sinônimos de cada termo. É ele que junta “e-learning”, “elearning” e “electronic learning” num só termo nas nuvens, redes e mapas temáticos."
   how: "Cadastre as grafias no termo preferido e rode a **Sincronização** do projeto: cada palavra-chave dos documentos é normalizada e, se casar com uma grafia de um termo **ativo do mesmo tipo**, o documento passa a apontar para esse termo."
-  not: "Não cria palavras-chave novas nos documentos nem traduz automaticamente: sinônimos e traduções precisam ser cadastrados como variações."
+  not: "Não cria palavras-chave novas nos documentos nem traduz automaticamente: sinônimos e traduções precisam ser cadastrados como variações. **Excluir** só funciona para palavra-chave sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**."
   example: "Numa revisão sobre ensino remoto com 2.300 artigos, cadastrar “remote teaching”, “emergency remote teaching” e “ensino remoto emergencial” como variações de um mesmo termo faz o tema aparecer com a frequência correta no mapa temático."
 
 admin.keywords.search:

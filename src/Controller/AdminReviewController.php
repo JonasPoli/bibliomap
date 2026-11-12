@@ -8,6 +8,8 @@ use App\Entity\AuthorExternalIdentifier;
 use App\Entity\Keyword;
 use App\Entity\KeywordVariation;
 use App\Service\Import\TextNormalizer;
+use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,6 +26,8 @@ class AdminReviewController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly EntityMergeService $mergeService,
+        private readonly AuthorityLinkGuard $linkGuard,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     #[Route('', name: 'app_admin_review_index', methods: ['GET'])]
@@ -84,6 +88,9 @@ class AdminReviewController extends AbstractController
             }
         }
 
+        // Documentos ligados a cada item (uma consulta por tipo): com documentos, Descartar / Mover p/ Inst ficam desabilitados
+        $authorDocCounts = $this->linkGuard->documentCounts('author', $authorIds);
+
         $unresolvedAuthors = [];
         foreach ($unresolvedAuthorsRaw as $row) {
             $id = (int)$row['id'];
@@ -103,6 +110,7 @@ class AdminReviewController extends AbstractController
                 'original_names' => $origNamesById[$id] ?? [],
                 'review_reasons' => $row['review_reasons'],
                 'suggestion' => $suggestion,
+                'doc_count' => $authorDocCounts[$id] ?? 0,
             ];
         }
 
@@ -138,6 +146,8 @@ class AdminReviewController extends AbstractController
             } catch (\Throwable $e) {}
         }
 
+        $keywordDocCounts = $this->linkGuard->documentCounts('keyword', array_map(fn($r) => (int)$r['id'], $unresolvedKeywordsRaw));
+
         $unresolvedKeywords = [];
         foreach ($unresolvedKeywordsRaw as $row) {
             $id = (int)$row['id'];
@@ -151,6 +161,7 @@ class AdminReviewController extends AbstractController
                 'keyword_type' => $row['keyword_type'],
                 'review_reasons' => $row['review_reasons'],
                 'suggestion' => $suggestion,
+                'doc_count' => $keywordDocCounts[$id] ?? 0,
             ];
         }
 
@@ -313,9 +324,13 @@ class AdminReviewController extends AbstractController
             }
         }
 
-        // 3. Delete the old author identity
-        $this->em->remove($author);
-        $this->em->flush();
+        // 3. Delete the old author identity (diário antes: os vínculos do autor somem com ele)
+        $authorId = (int) $author->getId();
+        $conn->transactional(function () use ($author, $authorId, $kwId) {
+            $this->mergeLogger->logAuthorMerge('screen_admin', 'remap', $authorId, null, null, null, ['moved_to' => 'keyword', 'keyword_id' => (int) $kwId]);
+            $this->em->remove($author);
+            $this->em->flush();
+        });
 
         $this->addFlash('success', "Autor '{$displayName}' movido para Palavras-chave com sucesso!");
         return $this->redirectToRoute('app_admin_review_index');
@@ -337,6 +352,13 @@ class AdminReviewController extends AbstractController
 
         $conn = $this->em->getConnection();
         $name = $author->getPreferredName();
+
+        // Mover apaga a autoria (e o nome original) dos documentos: com documentos ligados, recusa
+        $docs = $this->linkGuard->documentCount('author', (int) $author->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('author', $name, $docs, 'movida'));
+            return $this->redirectToRoute('app_admin_review_index');
+        }
 
         // 1. Find or create institution
         $instId = $conn->fetchOne('SELECT id FROM instituicoes_ensino WHERE official_name = ?', [$name]);
@@ -371,9 +393,13 @@ class AdminReviewController extends AbstractController
             }
         }
 
-        // 3. Delete the old author identity
-        $this->em->remove($author);
-        $this->em->flush();
+        // 3. Delete the old author identity (sem documentos ligados: só o cabeçalho no diário)
+        $authorId = (int) $author->getId();
+        $conn->transactional(function () use ($author, $authorId, $instId) {
+            $this->mergeLogger->logAuthorMerge('screen_admin', 'remap', $authorId, null, null, null, ['moved_to' => 'institution', 'institution_id' => (int) $instId]);
+            $this->em->remove($author);
+            $this->em->flush();
+        });
 
         $this->addFlash('success', "Autor '{$name}' movido para Instituições com sucesso!");
         return $this->redirectToRoute('app_admin_review_index');
@@ -394,8 +420,22 @@ class AdminReviewController extends AbstractController
         }
 
         $name = $author->getPreferredName();
-        $this->em->remove($author);
-        $this->em->flush();
+
+        // Com documentos ligados não descarta: o ON DELETE CASCADE apagaria os vínculos e o nome original deles
+        $docs = $this->linkGuard->documentCount('author', (int) $author->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('author', $name, $docs, 'descartada'));
+            return $this->redirectToRoute('app_admin_review_index');
+        }
+
+        $authorId = (int) $author->getId();
+        $this->em->getConnection()->transactional(function () use ($author, $authorId, $name) {
+            $this->mergeLogger->begin('screen_admin', 'discard', 'author', $authorId, null, (string) $name, [
+                'normalized_name' => $author->getNormalizedName(),
+            ]);
+            $this->em->remove($author);
+            $this->em->flush();
+        });
 
         $this->addFlash('warning', "Autor '{$name}' descartado com sucesso.");
         return $this->redirectToRoute('app_admin_review_index');
@@ -505,8 +545,23 @@ class AdminReviewController extends AbstractController
         }
 
         $term = $keyword->getKeywordOriginal();
-        $this->em->remove($keyword);
-        $this->em->flush();
+
+        // Com documentos ligados não descarta: o ON DELETE CASCADE apagaria os vínculos e o termo original deles
+        $docs = $this->linkGuard->documentCount('keyword', (int) $keyword->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('keyword', $term, $docs, 'descartada'));
+            return $this->redirectToRoute('app_admin_review_index');
+        }
+
+        $keywordId = (int) $keyword->getId();
+        $this->em->getConnection()->transactional(function () use ($keyword, $keywordId, $term) {
+            $this->mergeLogger->begin('screen_admin', 'discard', 'keyword', $keywordId, null, (string) $term, [
+                'normalized' => $keyword->getKeywordNormalized(),
+                'type'       => $keyword->getKeywordType(),
+            ]);
+            $this->em->remove($keyword);
+            $this->em->flush();
+        });
 
         $this->addFlash('warning', "Palavra-chave '{$term}' descartada com sucesso.");
         return $this->redirectToRoute('app_admin_review_index');

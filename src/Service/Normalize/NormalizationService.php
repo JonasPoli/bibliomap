@@ -2,12 +2,14 @@
 
 namespace App\Service\Normalize;
 
+use App\Service\Authority\AuthorityMergeLogger;
 use Doctrine\ORM\EntityManagerInterface;
 
 class NormalizationService
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     // ── 1. Author Normalization Heuristics ──────────────────────────────────────
@@ -139,14 +141,17 @@ class NormalizationService
     }
 
     /**
-     * Execute author merge.
+     * Execute author merge. Grava no diário (authority_merge_log) antes de repontuar os vínculos.
+     *
+     * @param array $logExtra dados extras do diário (por exemplo ['via' => 'csv'])
      */
-    public function mergeAuthors(int $keepId, int $discardId): void
+    public function mergeAuthors(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = []): void
     {
         $conn = $this->em->getConnection();
         $conn->beginTransaction();
 
         try {
+            $this->mergeLogger->logAuthorMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, $logExtra);
             // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
             $this->remapDocumentLinks('document_author', 'author_identity_id', $keepId, $discardId);
 
@@ -209,7 +214,7 @@ class NormalizationService
     /**
      * Batch merge authors — all pairs in one transaction, with chain resolution.
      */
-    public function mergeAuthorsBatch(array $pairs): int
+    public function mergeAuthorsBatch(array $pairs, ?int $projectId = null): int
     {
         $conn   = $this->em->getConnection();
         $merged = 0;
@@ -263,6 +268,9 @@ class NormalizationService
                 if (!$exists) {
                     continue;
                 }
+
+                // Diário: vínculos do descartado, antes de apagar os repetidos e repontuar
+                $this->mergeLogger->logAuthorMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, ['via' => 'batch']);
 
                 // 1. Remove conflicting document_author rows
                 $conn->executeStatement(
@@ -527,12 +535,13 @@ class NormalizationService
     /**
      * Execute keyword merge.
      */
-    public function mergeKeywords(int $keepId, int $discardId): void
+    public function mergeKeywords(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = []): void
     {
         $conn = $this->em->getConnection();
         $conn->beginTransaction();
 
         try {
+            $this->mergeLogger->logKeywordMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, $logExtra);
             // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
             $this->remapDocumentLinks('document_keyword', 'keyword_id', $keepId, $discardId);
 
@@ -590,7 +599,7 @@ class NormalizationService
     /**
      * Batch merge keywords — all pairs in one transaction, 2 SQL statements per pair.
      */
-    public function mergeKeywordsBatch(array $pairs): int
+    public function mergeKeywordsBatch(array $pairs, ?int $projectId = null): int
     {
         $conn   = $this->em->getConnection();
         $merged = 0;
@@ -643,6 +652,9 @@ class NormalizationService
                 if (!$exists) {
                     continue;
                 }
+
+                // Diário: vínculos do descartado, antes de apagar os repetidos e repontuar
+                $this->mergeLogger->logKeywordMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, ['via' => 'batch']);
 
                 // 1. Remove conflicting rows
                 $conn->executeStatement(
@@ -1111,7 +1123,7 @@ class NormalizationService
 
             $discardId = $authorMap[$normVariant] ?? null;
             if ($discardId && $discardId !== $keepId) {
-                $this->mergeAuthors($keepId, $discardId);
+                $this->mergeAuthors($keepId, $discardId, $projectId, ['via' => 'csv']);
                 // O descartado deixou de existir: os nomes dele passam a apontar para o mantido
                 foreach ($authorMap as $mapKey => $mapId) {
                     if ($mapId === $discardId) {
@@ -1249,7 +1261,7 @@ class NormalizationService
             $discardId = $keywordMap[$kwType . '_' . $normVariant] ?? $keywordMap['all_' . $normVariant] ?? null;
 
             if ($discardId && $discardId !== $keepId) {
-                $this->mergeKeywords($keepId, $discardId);
+                $this->mergeKeywords($keepId, $discardId, $projectId, ['via' => 'csv']);
                 // O descartado deixou de existir: as chaves dele passam a apontar para o mantido
                 foreach ($keywordMap as $mapKey => $mapId) {
                     if ($mapId === $discardId) {

@@ -9,6 +9,7 @@ use App\Entity\KeywordTreatmentLog;
 use App\Entity\ThesaurusConcept;
 use App\Entity\ThesaurusScheme;
 use App\Entity\ThesaurusLabel;
+use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Cache\AnalyticsCache;
 use App\Service\Import\TextNormalizer;
 use App\Service\Keyword\KeywordThesaurusMatcherService;
@@ -27,9 +28,15 @@ class KeywordTreatmentService
         private readonly EntityManagerInterface $em,
         private readonly KeywordFuzzyMatcherService $fuzzyMatcher,
         private readonly KeywordThesaurusMatcherService $thesaurusMatcher,
-        private readonly ?AnalyticsCache $cache = null
+        private readonly ?AnalyticsCache $cache = null,
+        private ?AuthorityMergeLogger $mergeLogger = null,
     ) {
         $this->normalizer = new TextNormalizer();
+    }
+
+    private function mergeLogger(): AuthorityMergeLogger
+    {
+        return $this->mergeLogger ??= new AuthorityMergeLogger($this->em);
     }
 
     /**
@@ -291,6 +298,9 @@ class KeywordTreatmentService
 
                                 if (!$options->dryRun) {
                                     // Duplicate collision! Merge via raw SQL and detach from Doctrine.
+
+                                    // Diário (origem treatment, sem usuário): vínculos do termo que será fundido, antes de mudar
+                                    $this->mergeLogger()->logKeywordMerge('treatment', 'merge', $kwId, (int)$existingId, null, null, ['job_id' => $job->getId()]);
 
                                     // 1. Delete matching pairs in document_keyword to avoid unique key constraint violation
                                     $dupDkIds = $conn->fetchFirstColumn('

@@ -17,6 +17,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
+use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMergeLogger;
 
 #[Route('/admin/authors')]
 #[IsGranted('ROLE_ADMIN')]
@@ -26,6 +28,8 @@ class AdminAuthorController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly ThesaurusFileService $thesaurusService,
         private readonly EntityMergeService $mergeService,
+        private readonly AuthorityLinkGuard $linkGuard,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     #[Route('', name: 'app_admin_authors_index', methods: ['GET'])]
@@ -94,6 +98,8 @@ class AdminAuthorController extends AbstractController
         return $this->render('admin/authors/index.html.twig', [
             'authors' => $authors,
             'variationCounts' => $variationCounts,
+            // Documentos ligados a cada autor (uma consulta para a página): com documentos, Excluir fica desabilitado
+            'docCounts' => $this->linkGuard->documentCounts('author', $ids),
             'search' => $search,
             'status' => $status,
             'currentPage' => $page,
@@ -464,8 +470,22 @@ class AdminAuthorController extends AbstractController
         }
 
         $name = $author->getPreferredName();
-        $this->em->remove($author);
-        $this->em->flush();
+
+        // Com documentos ligados não exclui: o ON DELETE CASCADE apagaria os vínculos e o nome original deles
+        $docs = $this->linkGuard->documentCount('author', (int) $author->getId());
+        if ($docs > 0) {
+            $this->addFlash('danger', $this->linkGuard->blockMessage('author', $name, $docs));
+            return $this->redirectToRoute('app_admin_authors_index');
+        }
+
+        $authorId = (int) $author->getId();
+        $this->em->getConnection()->transactional(function () use ($author, $authorId, $name) {
+            $this->mergeLogger->begin('screen_admin', 'delete', 'author', $authorId, null, (string) $name, [
+                'normalized_name' => $author->getNormalizedName(),
+            ]);
+            $this->em->remove($author);
+            $this->em->flush();
+        });
 
         $this->addFlash('success', "Autor '{$name}' excluído permanentemente!");
         return $this->redirectToRoute('app_admin_authors_index');
@@ -509,10 +529,17 @@ class AdminAuthorController extends AbstractController
 
         // Update document_author records with original name to point to new identity
         $conn = $this->em->getConnection();
-        $conn->executeStatement(
-            'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ? AND original_name = ?',
-            [$newAuthor->getId(), $parent->getId(), $varName]
-        );
+        // Diário e troca dos vínculos na mesma transação (o diário copia os vínculos antes de mudarem)
+        $conn->transactional(function () use ($conn, $parent, $newAuthor, $varName) {
+            $logId = $this->mergeLogger->begin('screen_admin', 'remap', 'author', (int) $parent->getId(), (int) $newAuthor->getId(), (string) $parent->getPreferredName(), [
+                'separated_variation' => $varName,
+            ]);
+            $this->mergeLogger->logLinks($logId, 'document_author', (int) $parent->getId(), null, $varName);
+            $conn->executeStatement(
+                'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ? AND original_name = ?',
+                [$newAuthor->getId(), $parent->getId(), $varName]
+            );
+        });
 
         // Remove variation from old parent
         $parent->removeVariation($variation);

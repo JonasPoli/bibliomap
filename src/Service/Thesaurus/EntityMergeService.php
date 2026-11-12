@@ -17,13 +17,15 @@ use App\Entity\QualisJournal;
 use App\Entity\JournalVariation;
 use App\Entity\State;
 use App\Entity\StateVariation;
+use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 
 class EntityMergeService
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly AuthorityMergeLogger $mergeLogger,
     ) {}
 
     /**
@@ -155,9 +157,10 @@ class EntityMergeService
     }
 
     /**
-     * Merge multiple AuthorIdentities into Master AuthorIdentity
+     * Merge multiple AuthorIdentities into Master AuthorIdentity.
+     * $origin: origem no diário (nulo: screen_admin numa requisição web, command na linha de comando).
      */
-    public function mergeAuthors(int $masterId, array $sourceIds, array $selectedFields): AuthorIdentity
+    public function mergeAuthors(int $masterId, array $sourceIds, array $selectedFields, ?string $origin = null, ?int $projectId = null): AuthorIdentity
     {
         $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
         $authors = $this->em->getRepository(AuthorIdentity::class)->findBy(['id' => $allIds]);
@@ -232,7 +235,7 @@ class EntityMergeService
             $existingVariations[$norm] = true;
         }
 
-        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapAuthorLinks($sourceId, $masterId));
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapAuthorLinks($sourceId, $masterId, $origin, $projectId));
         return $master;
     }
 
@@ -322,9 +325,10 @@ class EntityMergeService
     }
 
     /**
-     * Merge multiple Keywords into Master Keyword
+     * Merge multiple Keywords into Master Keyword.
+     * $origin: origem no diário (nulo: screen_admin numa requisição web, command na linha de comando).
      */
-    public function mergeKeywords(int $masterId, array $sourceIds, array $selectedFields): Keyword
+    public function mergeKeywords(int $masterId, array $sourceIds, array $selectedFields, ?string $origin = null, ?int $projectId = null): Keyword
     {
         $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
         $keywords = $this->em->getRepository(Keyword::class)->findBy(['id' => $allIds]);
@@ -385,7 +389,7 @@ class EntityMergeService
             $master->setKeywordConcept($master);
         }
 
-        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapKeywordLinks($sourceId, $masterId));
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapKeywordLinks($sourceId, $masterId, $origin, $projectId));
         return $master;
     }
 
@@ -605,13 +609,16 @@ class EntityMergeService
         $conn->executeStatement("UPDATE {$table} SET {$column} = ? WHERE {$column} = ?", [$masterId, $sourceId]);
     }
 
-    public function remapAuthorLinks(int $sourceId, int $masterId): void
+    public function remapAuthorLinks(int $sourceId, int $masterId, ?string $origin = null, ?int $projectId = null): void
     {
+        // Diário antes de apagar os repetidos e repontuar (na transação do chamador)
+        $this->mergeLogger->logAuthorMerge($origin ?? $this->mergeLogger->defaultOrigin(), 'merge', $sourceId, $masterId, null, $projectId);
         $this->remapDocumentLinks('document_author', 'author_identity_id', $sourceId, $masterId);
     }
 
-    public function remapKeywordLinks(int $sourceId, int $masterId): void
+    public function remapKeywordLinks(int $sourceId, int $masterId, ?string $origin = null, ?int $projectId = null): void
     {
+        $this->mergeLogger->logKeywordMerge($origin ?? $this->mergeLogger->defaultOrigin(), 'merge', $sourceId, $masterId, null, $projectId);
         $conn = $this->em->getConnection();
         $this->remapDocumentLinks('document_keyword', 'keyword_id', $sourceId, $masterId);
         // Termos agrupados sob o secundário passam para o conceito do master

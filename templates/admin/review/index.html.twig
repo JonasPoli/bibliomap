@@ -131,20 +131,36 @@
                                             </form>
 
                                             <!-- Mover para Instituição -->
+                                            {% if item.doc_count > 0 %}
+                                                <span class="d-inline-block" title="Ligado a {{ item.doc_count }} {{ item.doc_count == 1 ? 'documento' : 'documentos' }}: não pode ser movido">
+                                                    <button type="button" class="btn btn-xs btn-outline-info py-1 px-2" disabled>
+                                                        <i class="bi bi-building-fill me-1"></i> Mover p/ Inst ({{ item.doc_count }} doc.)
+                                                    </button>
+                                                </span>
+                                            {% else %}
                                             <form action="{{ path('app_admin_review_author_move_to_institution', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Deseja realmente mover este autor para Instituições?');">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('move_to_institution_' ~ item.id) }}">
                                                 <button type="submit" class="btn btn-xs btn-outline-info py-1 px-2" title="Mover para Instituição">
                                                     <i class="bi bi-building-fill me-1"></i> Mover p/ Inst
                                                 </button>
                                             </form>
+                                            {% endif %}
 
                                             <!-- Descartar -->
+                                            {% if item.doc_count > 0 %}
+                                                <span class="d-inline-block" title="Ligado a {{ item.doc_count }} {{ item.doc_count == 1 ? 'documento' : 'documentos' }}: não pode ser descartado. Mescle em outro autor.">
+                                                    <button type="button" class="btn btn-xs btn-outline-danger py-1 px-2" disabled>
+                                                        <i class="bi bi-trash-fill me-1"></i> Descartar ({{ item.doc_count }} doc.)
+                                                    </button>
+                                                </span>
+                                            {% else %}
                                             <form action="{{ path('app_admin_review_author_discard', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Tem certeza de que deseja descartar este registro?');">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('discard_author_' ~ item.id) }}">
                                                 <button type="submit" class="btn btn-xs btn-outline-danger py-1 px-2" title="Descartar da Base">
                                                     <i class="bi bi-trash-fill me-1"></i> Descartar
                                                 </button>
                                             </form>
+                                            {% endif %}
                                         </div>
 
                                         <!-- Edit Author Modal -->
@@ -308,12 +324,20 @@
                                             </button>
 
                                             <!-- Descartar -->
+                                            {% if item.doc_count > 0 %}
+                                                <span class="d-inline-block" title="Ligada a {{ item.doc_count }} {{ item.doc_count == 1 ? 'documento' : 'documentos' }}: não pode ser descartada. Mescle em outra palavra-chave.">
+                                                    <button type="button" class="btn btn-xs btn-outline-danger py-1 px-2" disabled>
+                                                        <i class="bi bi-trash-fill me-1"></i> Descartar ({{ item.doc_count }} doc.)
+                                                    </button>
+                                                </span>
+                                            {% else %}
                                             <form action="{{ path('app_admin_review_keyword_discard', {id: item.id}) }}" method="POST" style="display:inline" onsubmit="return confirm('Tem certeza de que deseja descartar esta palavra-chave?');">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('discard_keyword_' ~ item.id) }}">
                                                 <button type="submit" class="btn btn-xs btn-outline-danger py-1 px-2" title="Descartar da Base">
                                                     <i class="bi bi-trash-fill me-1"></i> Descartar
                                                 </button>
                                             </form>
+                                            {% endif %}
                                         </div>
 
                                         <!-- Edit Keyword Modal -->
