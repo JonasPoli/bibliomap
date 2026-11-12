@@ -111,6 +111,9 @@
                                         {% for it in items %}
                                             <span class="badge bg-secondary text-dark me-1" style="font-size:10px">{{ it }}</span>
                                         {% endfor %}
+                                        {% if grouped_totals[concept] > items|length %}
+                                            <span class="text-muted small">+ {{ (grouped_totals[concept] - items|length)|number_format(0, ',', '.') }} (veja o CSV)</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -142,7 +145,7 @@
                         {% else %}
                             {% for item in invalid_terms %}
                                 <tr>
-                                    <td><span class="text-danger fw-bold">{{ item.keyword.keywordOriginal }}</span></td>
+                                    <td><span class="text-danger fw-bold">{{ item.term }}</span></td>
                                     <td><code>{{ item.reason }}</code></td>
                                 </tr>
                             {% endfor %}
@@ -150,6 +153,9 @@
                     </tbody>
                 </table>
             </div>
+            {% if invalid_total > invalid_terms|length %}
+                <p class="text-muted small mt-2 mb-0">Mostrando {{ invalid_terms|length }} de {{ invalid_total|number_format(0, ',', '.') }}. A lista completa está no CSV do relatório.</p>
+            {% endif %}
         </div>
 
         <!-- Fuzzy Suggestions Card -->
@@ -172,8 +178,8 @@
                         {% else %}
                             {% for item in fuzzy_suggestions %}
                                 <tr>
-                                    <td><span class="text-white">{{ item.keyword.keywordDisplay }}</span></td>
-                                    <td><span class="text-info">{{ item.newThesaurusConcept ? item.newThesaurusConcept.preferredLabel : (item.newConcept ? item.newConcept.keywordDisplay : item.reason) }}</span></td>
+                                    <td><span class="text-white">{{ item.display }}</span></td>
+                                    <td><span class="text-info">{{ item.concept }}</span></td>
                                     <td><span class="badge bg-warning text-dark">{{ item.score|round(1) }}%</span></td>
                                 </tr>
                             {% endfor %}
@@ -181,6 +187,9 @@
                     </tbody>
                 </table>
             </div>
+            {% if fuzzy_total > fuzzy_suggestions|length %}
+                <p class="text-muted small mt-2 mb-0">Mostrando {{ fuzzy_suggestions|length }} de {{ fuzzy_total|number_format(0, ',', '.') }}. A lista completa está no CSV do relatório.</p>
+            {% endif %}
         </div>
     </div>
 </div>

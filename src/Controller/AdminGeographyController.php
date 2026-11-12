@@ -38,56 +38,101 @@ class AdminGeographyController extends AbstractController
         $normSearch = StringNormalizer::normalizeString($search, true);
         $regions = $this->em->getRepository(Region::class)->findBy([], ['name' => 'ASC']);
 
-        // Countries query with variations search
-        $countryQb = $this->em->createQueryBuilder()
-            ->select('DISTINCT c')
-            ->from(Country::class, 'c')
-            ->leftJoin('c.variations', 'v');
-
-        if ($search !== '') {
-            $countryQb->andWhere('c.officialName LIKE :search OR c.commonName LIKE :search OR c.sigla LIKE :search OR c.isoCode LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
-                ->setParameter('search', '%' . $search . '%')
-                ->setParameter('normSearch', '%' . $normSearch . '%');
+        // Cada aba é paginada sozinha (50 por página: cp, sp, tp). Ids primeiro (a junção das variações
+        // só entra com busca), depois as entidades da página com país/região/estado e, por fim, a
+        // contagem de variações de todas de uma vez (GROUP BY), sem consulta por linha.
+        $tab = $request->query->getString('tab', 'countries');
+        if (!in_array($tab, ['countries', 'states', 'cities'], true)) {
+            $tab = 'countries';
         }
-        $countries = $countryQb->orderBy('c.commonName', 'ASC')->getQuery()->getResult();
+        $like = '%' . $search . '%';
+        $normLike = '%' . $normSearch . '%';
 
-        // States query with variations search
-        $stateQb = $this->em->createQueryBuilder()
-            ->select('DISTINCT s')
-            ->from(State::class, 's')
-            ->leftJoin('s.country', 'c')
-            ->leftJoin('s.region', 'r')
-            ->leftJoin('s.variations', 'v');
-
+        $countryQb = $this->em->createQueryBuilder()->from(Country::class, 'c');
         if ($search !== '') {
-            $stateQb->andWhere('s.officialName LIKE :search OR s.sigla LIKE :search OR c.commonName LIKE :search OR r.name LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
-                ->setParameter('search', '%' . $search . '%')
-                ->setParameter('normSearch', '%' . $normSearch . '%');
+            $countryQb->leftJoin('c.variations', 'v')
+                ->andWhere('c.officialName LIKE :search OR c.commonName LIKE :search OR c.sigla LIKE :search OR c.isoCode LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', $like)->setParameter('normSearch', $normLike);
         }
-        $states = $stateQb->orderBy('s.officialName', 'ASC')->getQuery()->getResult();
+        $countryPage = $this->geoPage($countryQb, Country::class, 'c', 'c.commonName', $request->query->getInt('cp', 1), [], 'pais_variacoes_nome', 'country_id');
 
-        // Cities query with variations search
-        $cityQb = $this->em->createQueryBuilder()
-            ->select('DISTINCT ct')
-            ->from(City::class, 'ct')
-            ->leftJoin('ct.country', 'c')
-            ->leftJoin('ct.state', 's')
-            ->leftJoin('ct.variations', 'v');
-
+        $stateQb = $this->em->createQueryBuilder()->from(State::class, 's')
+            ->leftJoin('s.country', 'c')->leftJoin('s.region', 'r');
         if ($search !== '') {
-            $cityQb->andWhere('ct.officialName LIKE :search OR s.officialName LIKE :search OR c.commonName LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
-                ->setParameter('search', '%' . $search . '%')
-                ->setParameter('normSearch', '%' . $normSearch . '%');
+            $stateQb->leftJoin('s.variations', 'v')
+                ->andWhere('s.officialName LIKE :search OR s.sigla LIKE :search OR c.commonName LIKE :search OR r.name LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', $like)->setParameter('normSearch', $normLike);
         }
-        $cities = $cityQb->orderBy('ct.officialName', 'ASC')->getQuery()->getResult();
+        $statePage = $this->geoPage($stateQb, State::class, 's', 's.officialName', $request->query->getInt('sp', 1), ['s.country' => 'c', 's.region' => 'r'], 'estado_variacoes_nome', 'state_id');
+
+        $cityQb = $this->em->createQueryBuilder()->from(City::class, 'ct')
+            ->leftJoin('ct.country', 'c')->leftJoin('ct.state', 's');
+        if ($search !== '') {
+            $cityQb->leftJoin('ct.variations', 'v')
+                ->andWhere('ct.officialName LIKE :search OR s.officialName LIKE :search OR c.commonName LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+                ->setParameter('search', $like)->setParameter('normSearch', $normLike);
+        }
+        $cityPage = $this->geoPage($cityQb, City::class, 'ct', 'ct.officialName', $request->query->getInt('tp', 1), ['ct.country' => 'c', 'ct.state' => 's'], 'cidade_variacoes_nome', 'city_id');
 
         return $this->render('admin/geography/index.html.twig', [
-            'countries' => $countries,
+            'countries' => $countryPage['items'],
+            'countryPage' => $countryPage,
             'regions' => $regions,
-            'states' => $states,
-            'cities' => $cities,
+            'states' => $statePage['items'],
+            'statePage' => $statePage,
+            'cities' => $cityPage['items'],
+            'cityPage' => $cityPage,
             'search' => $search,
+            'tab' => $tab,
         ]);
+    }
+
+    private const GEO_PAGE_SIZE = 50;
+
+    /**
+     * Uma página de uma aba da geografia.
+     *
+     * @param array<string, string> $fetchJoins caminho => alias das associações a carregar junto
+     * @return array{items: list<object>, total: int, page: int, pages: int, variationCounts: array<int|string, int|string>}
+     */
+    private function geoPage(\Doctrine\ORM\QueryBuilder $qb, string $class, string $alias, string $orderField, int $page, array $fetchJoins, string $varTable, string $varFk): array
+    {
+        $total = (int) (clone $qb)->select("COUNT(DISTINCT $alias.id)")->getQuery()->getSingleScalarResult();
+        $pages = max(1, (int) ceil($total / self::GEO_PAGE_SIZE));
+        $page = min(max(1, $page), $pages);
+
+        $idsQb = (clone $qb)->select("$alias.id", $orderField)
+            ->orderBy($orderField, 'ASC')->addOrderBy("$alias.id", 'ASC')
+            ->setFirstResult(($page - 1) * self::GEO_PAGE_SIZE)->setMaxResults(self::GEO_PAGE_SIZE);
+        if (in_array('v', $qb->getAllAliases(), true)) {
+            $idsQb->distinct();
+        }
+        $ids = array_map('intval', array_column($idsQb->getQuery()->getScalarResult(), 'id'));
+
+        $items = [];
+        $counts = [];
+        if ($ids !== []) {
+            $eq = $this->em->createQueryBuilder()->select($alias)->from($class, $alias);
+            foreach ($fetchJoins as $path => $joinAlias) {
+                $eq->leftJoin($path, $joinAlias)->addSelect($joinAlias);
+            }
+            $byId = [];
+            foreach ($eq->where("$alias.id IN (:ids)")->setParameter('ids', $ids)->getQuery()->getResult() as $entity) {
+                $byId[$entity->getId()] = $entity;
+            }
+            foreach ($ids as $id) {
+                if (isset($byId[$id])) {
+                    $items[] = $byId[$id];
+                }
+            }
+            $counts = $this->em->getConnection()->executeQuery(
+                "SELECT $varFk, COUNT(*) FROM $varTable WHERE $varFk IN (?) GROUP BY $varFk",
+                [$ids],
+                [\Doctrine\DBAL\ArrayParameterType::INTEGER]
+            )->fetchAllKeyValue();
+        }
+
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'pages' => $pages, 'variationCounts' => $counts];
     }
 
     // ── Countries CRUD ────────────────────────────────────────────────────────
@@ -937,23 +982,6 @@ class AdminGeographyController extends AbstractController
         return $this->redirectToRoute('app_admin_geography_city_edit', ['id' => $newCity->getId()]);
     }
 
-    private function findCountryHelper(string $name): ?Country
-    {
-        $name = trim($name);
-        if ($name === '') return null;
-
-        $country = $this->em->getRepository(Country::class)->createQueryBuilder('c')
-            ->where('c.officialName = :name OR c.commonName = :name OR c.sigla = :name')
-            ->setParameter('name', $name)
-            ->getQuery()->getOneOrNullResult();
-
-        if ($country) return $country;
-
-        $norm = DocumentEnrichmentService::normalize($name);
-        $variation = $this->em->getRepository(CountryVariation::class)->findOneBy(['normalizedName' => $norm]);
-        return $variation ? $variation->getCountry() : null;
-    }
-
     private function syncCountryVariations(Country $country, string $variationsText, bool $flush = true, bool $removeMissing = true): void
     {
         $lines = explode("\n", $variationsText);
@@ -1138,7 +1166,7 @@ class AdminGeographyController extends AbstractController
             }
 
             $addedVars = 0;
-            $newCountries = 0;
+            $skippedUnknown = 0;
 
             foreach ($entries as $entry) {
                 $headerName = trim($entry['header'] ?? '');
@@ -1147,16 +1175,11 @@ class AdminGeographyController extends AbstractController
                 $normHeader = DocumentEnrichmentService::normalize($headerName);
                 $country = $countriesMap[$normHeader] ?? null;
 
+                // Cabeçalho que não é país conhecido (nome, nome oficial ou sigla) não vira país novo:
+                // antes o sistema inventava código ISO e sigla a partir das primeiras letras do nome.
                 if (!$country) {
-                    $country = new Country();
-                    $country->setOfficialName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
-                    $country->setCommonName(mb_convert_case($headerName, MB_CASE_TITLE, 'UTF-8'));
-                    $country->setIsoCode(strtoupper(substr($normHeader, 0, 3)));
-                    $country->setSigla(strtoupper(substr($normHeader, 0, 2)));
-                    $country->setStatus(true);
-                    $this->em->persist($country);
-                    $countriesMap[$normHeader] = $country;
-                    $newCountries++;
+                    $skippedUnknown++;
+                    continue;
                 }
 
                 $existingVars = [];
@@ -1184,7 +1207,7 @@ class AdminGeographyController extends AbstractController
             }
 
             $this->em->flush();
-            $this->addFlash('success', "Importação de Tesauro concluída! Novos Países: {$newCountries}, Novas Variações: {$addedVars}.");
+            $this->addFlash('success', "Importação de Tesauro concluída! Novas Variações: {$addedVars}." . ($skippedUnknown > 0 ? " Cabeçalhos que não são país cadastrado (ignorados, nenhum país foi criado): {$skippedUnknown}." : ''));
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro na importação de tesauro: ' . $e->getMessage());
         }

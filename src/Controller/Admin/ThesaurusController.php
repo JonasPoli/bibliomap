@@ -28,19 +28,31 @@ class ThesaurusController extends AbstractController
     #[Route('', name: 'app_admin_thesaurus_index', methods: ['GET'])]
     public function index(): Response
     {
-        $this->addFlash('info', 'O gerenciamento de Tesauros (VantagePoint / CSV) foi integrado diretamente nas seções de Palavras-Chave, Instituições, Autores, Geografia e Revistas.');
-        return $this->redirectToRoute('app_admin_keywords_index');
+        $schemes = $this->em->getRepository(ThesaurusScheme::class)->findBy([], ['name' => 'ASC']);
+        $pending = (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM thesaurus_match WHERE status = 'pending'");
+
+        return $this->render('admin/thesaurus/index.html.twig', [
+            'schemes' => $schemes,
+            'pending_matches_count' => $pending,
+        ]);
     }
 
     #[Route('/scheme/{id}', name: 'app_admin_thesaurus_scheme_show', methods: ['GET'])]
-    public function showScheme(int $id): Response
+    public function showScheme(int $id, Request $request): Response
     {
         $scheme = $this->em->getRepository(ThesaurusScheme::class)->find($id);
         if (!$scheme) {
             throw $this->createNotFoundException('Esquema não encontrado.');
         }
 
-        $concepts = $this->em->getRepository(ThesaurusConcept::class)->findBy(['scheme' => $scheme]);
+        // Conceitos paginados (um esquema de palavras-chave chega a dezenas de milhares); rótulos só da página.
+        $perPage = 100;
+        $total = (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM thesaurus_concept WHERE scheme_id = ?', [$scheme->getId()]);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $request->query->getInt('page', 1)), $pages);
+
+        $concepts = $this->em->getRepository(ThesaurusConcept::class)
+            ->findBy(['scheme' => $scheme], ['id' => 'ASC'], $perPage, ($page - 1) * $perPage);
 
         $conceptLabels = [];
         if (!empty($concepts)) {
@@ -54,6 +66,10 @@ class ThesaurusController extends AbstractController
             'scheme' => $scheme,
             'concepts' => $concepts,
             'conceptLabels' => $conceptLabels,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'per_page' => $perPage,
         ]);
     }
 
@@ -273,11 +289,26 @@ class ThesaurusController extends AbstractController
     }
 
     #[Route('/matches', name: 'app_admin_thesaurus_matches', methods: ['GET'])]
-    public function matches(): Response
+    public function matches(Request $request): Response
     {
-        $matches = $this->em->getRepository(ThesaurusMatch::class)->findBy([], ['createdAt' => 'DESC']);
+        $perPage = 100;
+        $total = (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM thesaurus_match');
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $request->query->getInt('page', 1)), $pages);
+
+        $matches = $this->em->createQueryBuilder()
+            ->select('m', 'c')->from(ThesaurusMatch::class, 'm')
+            ->leftJoin('m.concept', 'c')
+            ->orderBy('m.createdAt', 'DESC')->addOrderBy('m.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage)
+            ->getQuery()->getResult();
+
         return $this->render('admin/thesaurus/matches.html.twig', [
             'matches' => $matches,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'per_page' => $perPage,
         ]);
     }
 
@@ -290,16 +321,23 @@ class ThesaurusController extends AbstractController
             
             fputcsv($handle, ['Scheme', 'Concept', 'Label', 'Type', 'Language'], ';', '"', '');
 
-            $labels = $this->em->getRepository(ThesaurusLabel::class)->findAll();
-            foreach ($labels as $lbl) {
-                fputcsv($handle, [
-                    $lbl->getConcept()->getScheme()->getSlug(),
-                    $lbl->getConcept()->getPreferredLabel(),
-                    $lbl->getLabel(),
-                    $lbl->getType(),
-                    $lbl->getLanguage()
-                ], ';', '"', '');
-            }
+            // Cursor por id, em blocos de 5.000, com esquema e conceito na mesma consulta (sem uma consulta por rótulo)
+            $conn = $this->em->getConnection();
+            $lastId = 0;
+            do {
+                $rows = $conn->fetchAllAssociative(
+                    'SELECT l.id, s.slug, c.preferred_label, l.label, l.type, l.language
+                     FROM thesaurus_label l
+                     JOIN thesaurus_concept c ON c.id = l.concept_id
+                     JOIN thesaurus_scheme s ON s.id = c.scheme_id
+                     WHERE l.id > ? ORDER BY l.id ASC LIMIT 5000',
+                    [$lastId]
+                );
+                foreach ($rows as $r) {
+                    fputcsv($handle, [$r['slug'], $r['preferred_label'], $r['label'], $r['type'], $r['language']], ';', '"', '');
+                    $lastId = (int) $r['id'];
+                }
+            } while (count($rows) === 5000);
 
             fclose($handle);
         });

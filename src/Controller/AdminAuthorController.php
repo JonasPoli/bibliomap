@@ -6,6 +6,7 @@ use App\Entity\AuthorIdentity;
 use App\Entity\AuthorNameVariant;
 use App\Entity\AuthorExternalIdentifier;
 use App\Service\Import\StringNormalizer;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -36,14 +37,13 @@ class AdminAuthorController extends AbstractController
         $page   = max(1, $request->query->getInt('page', 1));
         $limit  = 100;
 
-        $qb = $this->em->createQueryBuilder()
-            ->select('DISTINCT a')
-            ->from(AuthorIdentity::class, 'a')
-            ->leftJoin('a.variations', 'v')
-            ->leftJoin('a.identifiers', 'id');
+        // Só a página: 1) ids (a junção das variações e dos identificadores entra apenas com busca),
+        // 2) contagem, 3) entidades da página com os identificadores, 4) contagem de variações por GROUP BY.
+        $qb = $this->em->createQueryBuilder()->from(AuthorIdentity::class, 'a');
 
         if ($search !== '') {
-            $qb->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :normSearch OR id.identifier LIKE :search OR v.originalName LIKE :search OR v.displayName LIKE :search OR v.normalizedName LIKE :normSearch')
+            $qb->leftJoin('a.variations', 'v')->leftJoin('a.identifiers', 'id')
+               ->andWhere('a.preferredName LIKE :search OR a.normalizedName LIKE :normSearch OR id.identifier LIKE :search OR v.originalName LIKE :search OR v.displayName LIKE :search OR v.normalizedName LIKE :normSearch')
                ->setParameter('search', '%' . $search . '%')
                ->setParameter('normSearch', '%' . $normSearch . '%');
         }
@@ -54,21 +54,46 @@ class AdminAuthorController extends AbstractController
             $qb->andWhere('a.status = 0');
         }
 
-        $query = $qb->orderBy('a.preferredName', 'ASC')
-            ->setFirstResult(($page - 1) * $limit)
-            ->setMaxResults($limit)
-            ->getQuery();
-
-        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
-        $totalItems = count($paginator);
+        $totalItems = (int) (clone $qb)->select('COUNT(DISTINCT a.id)')->getQuery()->getSingleScalarResult();
         $totalPages = max(1, (int) ceil($totalItems / $limit));
-
         if ($page > $totalPages) {
             $page = $totalPages;
         }
 
+        $idsQb = (clone $qb)->select('a.id', 'a.preferredName')
+            ->orderBy('a.preferredName', 'ASC')->addOrderBy('a.id', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)->setMaxResults($limit);
+        if ($search !== '') {
+            $idsQb->distinct();
+        }
+        $ids = array_map('intval', array_column($idsQb->getQuery()->getScalarResult(), 'id'));
+
+        $authors = [];
+        $variationCounts = [];
+        if ($ids !== []) {
+            $byId = [];
+            foreach ($this->em->createQueryBuilder()
+                ->select('a', 'ident')->from(AuthorIdentity::class, 'a')
+                ->leftJoin('a.identifiers', 'ident')
+                ->where('a.id IN (:ids)')->setParameter('ids', $ids)
+                ->getQuery()->getResult() as $entity) {
+                $byId[$entity->getId()] = $entity;
+            }
+            foreach ($ids as $id) {
+                if (isset($byId[$id])) {
+                    $authors[] = $byId[$id];
+                }
+            }
+            $variationCounts = $this->em->getConnection()->executeQuery(
+                'SELECT author_identity_id, COUNT(*) FROM author_name_variant WHERE author_identity_id IN (?) GROUP BY author_identity_id',
+                [$ids],
+                [ArrayParameterType::INTEGER]
+            )->fetchAllKeyValue();
+        }
+
         return $this->render('admin/authors/index.html.twig', [
-            'authors' => $paginator,
+            'authors' => $authors,
+            'variationCounts' => $variationCounts,
             'search' => $search,
             'status' => $status,
             'currentPage' => $page,
@@ -89,46 +114,53 @@ class AdminAuthorController extends AbstractController
 
             fputcsv($handle, ['name', 'orcid', 'status', 'variations'], ';', '"', '\\');
 
-            // Load variations
-            $vars = $conn->fetchAllAssociative('
-                SELECT author_identity_id, original_name 
-                FROM author_name_variant 
-                WHERE source != "official"
-            ');
-            $varsByAuthor = [];
-            foreach ($vars as $v) {
-                $varsByAuthor[$v['author_identity_id']][] = $v['original_name'];
-            }
+            // Em blocos de 2.000 autores (paginação por chave em nome preferido + id): memória constante,
+            // sem carregar as grafias e os ORCIDs de todos os autores de uma vez.
+            $lastName = null;
+            $lastId = 0;
+            do {
+                $rows = $lastName === null
+                    ? $conn->fetchAllAssociative('SELECT id, preferred_name, status FROM author_identity ORDER BY preferred_name ASC, id ASC LIMIT 2000')
+                    : $conn->fetchAllAssociative(
+                        'SELECT id, preferred_name, status FROM author_identity
+                         WHERE preferred_name > ? OR (preferred_name = ? AND id > ?)
+                         ORDER BY preferred_name ASC, id ASC LIMIT 2000',
+                        [$lastName, $lastName, $lastId]
+                    );
+                if ($rows === []) {
+                    break;
+                }
+                $ids = array_map(static fn (array $r) => (int) $r['id'], $rows);
 
-            // Load ORCIDs
-            $orcids = $conn->fetchAllAssociative('
-                SELECT author_identity_id, identifier 
-                FROM author_external_identifier 
-                WHERE provider = "orcid"
-            ');
-            $orcidByAuthor = [];
-            foreach ($orcids as $o) {
-                $orcidByAuthor[$o['author_identity_id']] = $o['identifier'];
-            }
+                $varsByAuthor = [];
+                foreach ($conn->executeQuery(
+                    'SELECT author_identity_id, original_name FROM author_name_variant WHERE source != "official" AND author_identity_id IN (?) ORDER BY id',
+                    [$ids], [ArrayParameterType::INTEGER]
+                )->iterateNumeric() as [$aid, $orig]) {
+                    $varsByAuthor[(int) $aid][] = $orig;
+                }
+                $orcidByAuthor = [];
+                foreach ($conn->executeQuery(
+                    'SELECT author_identity_id, identifier FROM author_external_identifier WHERE provider = "orcid" AND author_identity_id IN (?) ORDER BY id',
+                    [$ids], [ArrayParameterType::INTEGER]
+                )->iterateNumeric() as [$aid, $ident]) {
+                    $orcidByAuthor[(int) $aid] = $ident;
+                }
 
-            $stmt = $conn->executeQuery('
-                SELECT id, preferred_name, status 
-                FROM author_identity 
-                ORDER BY preferred_name ASC
-            ');
+                foreach ($rows as $auth) {
+                    $authId = (int) $auth['id'];
+                    fputcsv($handle, [
+                        $auth['preferred_name'],
+                        $orcidByAuthor[$authId] ?? '',
+                        $auth['status'] ? '1' : '0',
+                        implode(';', $varsByAuthor[$authId] ?? []),
+                    ], ';', '"', '\\');
+                }
 
-            while ($auth = $stmt->fetchAssociative()) {
-                $authId = (int)$auth['id'];
-                $varNames = $varsByAuthor[$authId] ?? [];
-                $orcid = $orcidByAuthor[$authId] ?? '';
-
-                fputcsv($handle, [
-                    $auth['preferred_name'],
-                    $orcid,
-                    $auth['status'] ? '1' : '0',
-                    implode(';', $varNames)
-                ], ';', '"', '\\');
-            }
+                $last = end($rows);
+                $lastName = $last['preferred_name'];
+                $lastId = (int) $last['id'];
+            } while (count($rows) === 2000);
             fclose($handle);
         });
 
@@ -163,9 +195,19 @@ class AdminAuthorController extends AbstractController
             $updated = 0;
             $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
+            // Uma transação a cada 500 linhas (antes cada comando gravava e confirmava sozinho)
+            $rows = 0;
+            $conn->beginTransaction();
+
             foreach ($csv->getRecords() as $record) {
                 $name = trim($record['name'] ?? '');
                 if ($name === '') continue;
+
+                if ($rows > 0 && $rows % 500 === 0) {
+                    $conn->commit();
+                    $conn->beginTransaction();
+                }
+                $rows++;
 
                 $orcid = trim($record['orcid'] ?? '') ?: null;
                 $status = ($record['status'] ?? '1') === '1' ? 1 : 0;
@@ -261,9 +303,14 @@ class AdminAuthorController extends AbstractController
                 }
             }
 
+            $conn->commit();
+
             $this->addFlash('success', "Importação concluída: {$imported} novos autores criados, {$updated} atualizados.");
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao importar CSV: ' . $e->getMessage());
+            if (isset($conn) && $conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
+            $this->addFlash('danger', 'Erro ao importar CSV (as linhas de lotes de 500 já confirmados ficam gravadas; o lote em andamento foi desfeito): ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_authors_index');
@@ -579,9 +626,19 @@ class AdminAuthorController extends AbstractController
             $ext = strtolower($file->getClientOriginalExtension());
             $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
 
+            // Só as identidades que o arquivo cita (tabela global grande): por normalized_name, em lotes.
+            // Mesma chave de antes (nome preferido normalizado); em duplicata vale a de maior id.
             $authorsMap = [];
-            foreach ($this->em->getRepository(AuthorIdentity::class)->findAll() as $a) {
-                $authorsMap[StringNormalizer::normalizeString($a->getPreferredName(), true)] = $a;
+            $headers = ThesaurusFileService::normalizedHeaders($entries, static fn (string $h) => StringNormalizer::normalizeString($h, true));
+            foreach (array_chunk($headers, 500) as $chunk) {
+                $found = $this->em->createQueryBuilder()
+                    ->select('a')->from(AuthorIdentity::class, 'a')
+                    ->where('a.normalizedName IN (:n)')->setParameter('n', $chunk)
+                    ->orderBy('a.id', 'ASC')
+                    ->getQuery()->getResult();
+                foreach ($found as $a) {
+                    $authorsMap[StringNormalizer::normalizeString($a->getPreferredName(), true)] = $a;
+                }
             }
 
             $addedVars = 0;

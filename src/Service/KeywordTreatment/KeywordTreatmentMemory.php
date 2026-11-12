@@ -14,10 +14,10 @@ use Doctrine\DBAL\Connection;
  */
 class KeywordTreatmentMemory
 {
-    /** @var array<string, true> */
+    /** @var array<int, array<int, true>> palavra-chave => conceitos sugeridos */
     private array $suggestions = [];
 
-    /** @var array<string, true> */
+    /** @var array<int, array<string, true>> palavra-chave => motivos de suspeito */
     private array $suspicious = [];
 
     /**
@@ -53,35 +53,37 @@ class KeywordTreatmentMemory
 
     public function hasSuggestion(int $keywordId, int $conceptId): bool
     {
-        return isset($this->suggestions[$keywordId . '|' . $conceptId]);
+        return isset($this->suggestions[$keywordId][$conceptId]);
     }
 
     public function rememberSuggestion(int $keywordId, int $conceptId): void
     {
-        $this->suggestions[$keywordId . '|' . $conceptId] = true;
+        $this->suggestions[$keywordId][$conceptId] = true;
     }
 
     public function hasSuspicious(int $keywordId, string $reason): bool
     {
-        return isset($this->suspicious[$keywordId . '|' . $reason]);
+        return isset($this->suspicious[$keywordId][$reason]);
     }
 
     public function rememberSuspicious(int $keywordId, string $reason): void
     {
-        $this->suspicious[$keywordId . '|' . $reason] = true;
+        $this->suspicious[$keywordId][$reason] = true;
     }
 
-    /** Fusão: os logs do termo apagado passam ao que fica, e a memória acompanha. */
+    /**
+     * Fusão: os logs do termo apagado passam ao que fica, e a memória acompanha.
+     * Indexada por palavra-chave: custa só o que o termo apagado tem, não o tamanho da memória inteira.
+     */
     public function moveKeyword(int $fromId, int $toId): void
     {
-        foreach (['suggestions', 'suspicious'] as $prop) {
-            foreach ($this->$prop as $key => $_) {
-                [$kwId, $rest] = explode('|', $key, 2);
-                if ((int) $kwId === $fromId) {
-                    unset($this->$prop[$key]);
-                    $this->$prop[$toId . '|' . $rest] = true;
-                }
-            }
+        if (isset($this->suggestions[$fromId])) {
+            $this->suggestions[$toId] = ($this->suggestions[$toId] ?? []) + $this->suggestions[$fromId];
+            unset($this->suggestions[$fromId]);
+        }
+        if (isset($this->suspicious[$fromId])) {
+            $this->suspicious[$toId] = ($this->suspicious[$toId] ?? []) + $this->suspicious[$fromId];
+            unset($this->suspicious[$fromId]);
         }
     }
 }

@@ -111,6 +111,28 @@ class ThesaurusFileService
         return null;
     }
 
+    /**
+     * Cabeçalhos normalizados (únicos) das entradas do arquivo, na ordem de aparição.
+     * Serve para buscar no banco só os registros que o arquivo cita, em vez de carregar a tabela global inteira.
+     *
+     * @param array<int, array{header?: string}> $entries
+     * @param callable(string): string $normalize
+     * @return list<string>
+     */
+    public static function normalizedHeaders(array $entries, callable $normalize): array
+    {
+        $out = [];
+        foreach ($entries as $entry) {
+            $header = trim($entry['header'] ?? '');
+            if ($header === '') {
+                continue;
+            }
+            $out[$normalize($header)] = true;
+        }
+
+        return array_map('strval', array_keys($out));
+    }
+
     /** Leitor CSV com cabeçalho na 1ª linha e separador detectado automaticamente. */
     public static function createCsvReader(string $filePath): Reader
     {

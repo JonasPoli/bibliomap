@@ -23,6 +23,9 @@
     <button class="btn btn-sm btn-bm-secondary px-3 py-2" data-bs-toggle="modal" data-bs-target="#importThesaurusModal">
         <i class="bi bi-upload me-1"></i> Importar Tesauro
     </button>
+    <a href="{{ path('app_admin_thesaurus_index') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none" title="Esquemas, conceitos e correspondências do tesauro global">
+        <i class="bi bi-book me-1"></i> Tesauro global
+    </a>
     <a href="{{ path('app_admin_keywords_export') }}" class="btn btn-sm btn-bm-secondary px-3 py-2" style="text-decoration:none">
         <i class="bi bi-download me-1"></i> Exportar CSV
     </a>
@@ -127,7 +130,7 @@
                             </td>
                             <td>
                                 <span class="badge rounded-pill" title="Variações registradas" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                    {{ kw.variations|length }} variações
+                                    {{ variationCounts[kw.id] ?? 0 }} variações
                                 </span>
                             </td>
                             <td>

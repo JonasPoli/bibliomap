@@ -9,8 +9,10 @@ use App\Entity\KeywordTreatmentLog;
 use App\Entity\ThesaurusConcept;
 use App\Entity\ThesaurusScheme;
 use App\Entity\ThesaurusLabel;
+use App\Service\Cache\AnalyticsCache;
 use App\Service\Import\TextNormalizer;
 use App\Service\Keyword\KeywordThesaurusMatcherService;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use DateTimeImmutable;
 
@@ -24,7 +26,8 @@ class KeywordTreatmentService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly KeywordFuzzyMatcherService $fuzzyMatcher,
-        private readonly KeywordThesaurusMatcherService $thesaurusMatcher
+        private readonly KeywordThesaurusMatcherService $thesaurusMatcher,
+        private readonly ?AnalyticsCache $cache = null
     ) {
         $this->normalizer = new TextNormalizer();
     }
@@ -42,25 +45,33 @@ class KeywordTreatmentService
         $noDisplay = (int)$conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE keyword_display IS NULL OR keyword_display = ""');
         $noNormalized = (int)$conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE keyword_normalized = ""');
 
-        // Count dirty and invalid keywords
-        $stmt = $conn->executeQuery('SELECT id, keyword_display, keyword_original FROM keyword LIMIT 10000');
-        $dirtyCount = 0;
-        $invalidCount = 0;
-        $suspiciousCount = 0;
-        while ($row = $stmt->fetchAssociative()) {
-            $display = $row['keyword_display'] ?? $row['keyword_original'];
-            $cleaned = $this->normalizer->cleanDisplayValue($display);
-            if ($cleaned !== $display) {
-                $dirtyCount++;
+        // Sujas, inválidas e suspeitas: percorre todas as palavras (antes só as 10.000 primeiras, o que
+        // aparecia na tela como se fosse o total). Custa alguns segundos em 90 mil palavras; o resultado
+        // fica no cache por versão dos dados (global, projeto 0) e some quando a tabela muda.
+        $scan = function () use ($conn): array {
+            $dirtyCount = 0;
+            $invalidCount = 0;
+            $suspiciousCount = 0;
+            foreach ($conn->executeQuery('SELECT keyword_display, keyword_original FROM keyword')->iterateAssociative() as $row) {
+                $display = $row['keyword_display'] ?? $row['keyword_original'];
+                $cleaned = $this->normalizer->cleanDisplayValue($display);
+                if ($cleaned !== $display) {
+                    $dirtyCount++;
+                }
+                $normRes = $this->normalizer->normalizeKeyword($display);
+                if (!$normRes['valid']) {
+                    $invalidCount++;
+                }
+                if (!empty($normRes['needs_review'])) {
+                    $suspiciousCount++;
+                }
             }
-            $normRes = $this->normalizer->normalizeKeyword($display);
-            if (!$normRes['valid']) {
-                $invalidCount++;
-            }
-            if (!empty($normRes['needs_review'])) {
-                $suspiciousCount++;
-            }
-        }
+
+            return [$dirtyCount, $invalidCount, $suspiciousCount];
+        };
+        [$dirtyCount, $invalidCount, $suspiciousCount] = $this->cache
+            ? $this->cache->get(0, 'kwtreat_diagnosis_scan', [], $scan)
+            : $scan();
 
         $noThesaurusConcept = (int)$conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE thesaurus_concept_id IS NULL');
         $hasThesaurusConcept = (int)$conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE thesaurus_concept_id IS NOT NULL');
@@ -144,6 +155,12 @@ class KeywordTreatmentService
                 throw KeywordTreatmentBlockedException::importRunning();
             }
 
+            // Com a trava em mãos nenhum outro tratamento está rodando: processamento 'running' que sobrou
+            // (processo morto, servidor reiniciado) nunca vai terminar e passa a 'failed'.
+            $conn->executeStatement(
+                "UPDATE keyword_treatment_job SET status = 'failed', finished_at = COALESCE(finished_at, NOW()), updated_at = NOW() WHERE status = 'running'"
+            );
+
             return $this->runJob($options, $startedBy);
         } finally {
             try {
@@ -171,10 +188,9 @@ class KeywordTreatmentService
             $memory = KeywordTreatmentMemory::load($conn);
 
             // Load document frequencies for canonical tie-breakers
-            $freqs = $conn->fetchAllAssociative('SELECT keyword_id, COUNT(document_id) AS cnt FROM document_keyword GROUP BY keyword_id');
             $freqByKw = [];
-            foreach ($freqs as $f) {
-                $freqByKw[$f['keyword_id']] = (int)$f['cnt'];
+            foreach ($conn->iterateKeyValue('SELECT keyword_id, COUNT(document_id) AS cnt FROM document_keyword GROUP BY keyword_id') as $kwId => $cnt) {
+                $freqByKw[$kwId] = (int)$cnt;
             }
 
             $cleanedCount = 0;
@@ -208,6 +224,12 @@ class KeywordTreatmentService
                 $assignedInBatch = [];
                 $deletedInBatch = [];
                 $this->batchLogs = [];
+
+                // Gravações do lote (etapas 1 a 3: limpeza, fusões, agrupamento e tesauro exato) numa transação
+                // só: uma fusão tem vários comandos e não pode ficar pela metade. A comparação aproximada
+                // (etapa 4, lenta) roda fora da transação.
+                $conn->beginTransaction();
+                try {
 
                 // === Pass 1: Cleaning & Invalid marking ===
                 if ($options->processInvalids) {
@@ -445,13 +467,30 @@ class KeywordTreatmentService
                     }
                 }
 
+                // Fim das etapas 1 a 3: grava e confirma antes da comparação aproximada
+                $this->em->flush();
+                $conn->commit();
+                } catch (\Throwable $e) {
+                    $this->rollbackQuietly($conn);
+                    throw $e;
+                }
+
                 // === Pass 4: Fuzzy matching ===
+                // 4a. Calcula (sem gravar nada, fora de transação) a melhor correspondência de cada termo.
+                $fuzzyResults = [];
                 if ($options->processFuzzy) {
                     foreach ($keywords as $kw) {
                         if (isset($deletedInBatch[$kw->getId()])) continue;
                         if (!$kw->isStatus() || $kw->getThesaurusConcept() !== null) continue;
 
-                        $result = $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore);
+                        $fuzzyResults[] = [$kw, $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore)];
+                    }
+                }
+
+                // 4b. Grava o que a etapa 4 decidiu, numa transação curta
+                $conn->beginTransaction();
+                try {
+                    foreach ($fuzzyResults as [$kw, $result]) {
 
                         if ($result['conceptId'] === null || $result['score'] < $options->minReviewScore) continue;
                         // Match exato é da etapa 3 (na simulação o termo não fica ligado e voltava aqui como "revisão 100%")
@@ -483,16 +522,20 @@ class KeywordTreatmentService
                             $this->logAction($job, $kw, 'fuzzy_review_required', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, $result['score'], $reason, $options->dryRun, 'fuzzy');
                         }
                     }
-                }
 
-                // Flush batch (both modes: logs need to be persisted too)
-                $this->em->flush();
+                    // Flush batch (both modes: logs need to be persisted too)
+                    $this->em->flush();
+                    $conn->commit();
+                } catch (\Throwable $e) {
+                    $this->rollbackQuietly($conn);
+                    throw $e;
+                }
 
                 $totalProcessed += count($keywords);
 
                 // Always clear entity manager and free memory after each batch
                 $jobId = $job->getId();
-                unset($keywords, $assignedInBatch, $deletedInBatch);
+                unset($keywords, $assignedInBatch, $deletedInBatch, $fuzzyResults);
                 $this->batchLogs = [];
                 $this->em->clear();
                 gc_collect_cycles();
@@ -501,17 +544,24 @@ class KeywordTreatmentService
 
             // Vínculos e documentos cujas palavras-chave este job alterou (ou alteraria, na simulação).
             // Fusões entram pelos vínculos do termo apagado, medidos antes de movê-los.
-            $affectedDocIds = $conn->fetchFirstColumn(
-                "SELECT dk.document_id
-                 FROM document_keyword dk
+            // Só contagens no SQL: a lista de document_id de um tratamento real chega a milhões de linhas.
+            $affectedFrom = "FROM document_keyword dk
                  WHERE dk.keyword_id IN (
                      SELECT DISTINCT l.keyword_id FROM keyword_treatment_log l
                      WHERE l.job_id = ? AND l.action NOT IN ('suspicious', 'fuzzy_review_required', 'merged')
-                 )",
-                [$job->getId()]
-            );
-            $affectedDkCount = count($affectedDocIds) + $mergedDkCount;
-            $affectedDocCount = count(array_flip($affectedDocIds) + $mergedDocIds);
+                 )";
+            $affectedDkRows = (int)$conn->fetchOne("SELECT COUNT(*) $affectedFrom", [$job->getId()]);
+            $affectedDocs = (int)$conn->fetchOne("SELECT COUNT(DISTINCT dk.document_id) $affectedFrom", [$job->getId()]);
+            // Documentos dos termos fundidos que também estão entre os afetados (para não contar duas vezes)
+            $mergedAlsoAffected = 0;
+            foreach (array_chunk(array_keys($mergedDocIds), 1000) as $chunk) {
+                $mergedAlsoAffected += (int)$conn->fetchOne(
+                    "SELECT COUNT(DISTINCT dk.document_id) $affectedFrom AND dk.document_id IN (" . implode(',', array_map('intval', $chunk)) . ')',
+                    [$job->getId()]
+                );
+            }
+            $affectedDkCount = $affectedDkRows + $mergedDkCount;
+            $affectedDocCount = $affectedDocs + count($mergedDocIds) - $mergedAlsoAffected;
 
             // Fill job counts
             $job->setTotalKeywords($totalProcessed);
@@ -547,6 +597,17 @@ class KeywordTreatmentService
         }
 
         return $job;
+    }
+
+    private function rollbackQuietly(Connection $conn): void
+    {
+        try {
+            if ($conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
+        } catch (\Throwable) {
+            // o erro original é o que importa
+        }
     }
 
     /**

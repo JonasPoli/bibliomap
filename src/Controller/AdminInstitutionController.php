@@ -12,8 +12,10 @@ use App\Entity\City;
 use App\Entity\CityVariation;
 use App\Service\Import\DocumentEnrichmentService;
 use App\Service\Import\StringNormalizer;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -40,15 +42,16 @@ class AdminInstitutionController extends AbstractController
         $page = max(1, $request->query->getInt('page', 1));
         $limit = 100;
         
+        // Só a página: ids primeiro, contagem, entidades da página já com país/estado/cidade e contagem de
+        // variações por GROUP BY. A junção das variações só entra quando há busca.
         $qb = $this->em->createQueryBuilder()
-            ->select('DISTINCT i')
             ->from(Institution::class, 'i')
             ->leftJoin('i.country', 'co')
             ->leftJoin('i.state', 'st')
-            ->leftJoin('i.city', 'ci')
-            ->leftJoin('i.variations', 'v');
+            ->leftJoin('i.city', 'ci');
 
         if ($search !== '') {
+            $qb->leftJoin('i.variations', 'v');
             $orX = $qb->expr()->orX(
                 'i.officialName LIKE :search',
                 'i.shortName LIKE :search',
@@ -72,21 +75,46 @@ class AdminInstitutionController extends AbstractController
                ->setParameter('normSearch', '%' . $normSearch . '%');
         }
 
-        $query = $qb->orderBy('i.officialName', 'ASC')
-            ->setFirstResult(($page - 1) * $limit)
-            ->setMaxResults($limit)
-            ->getQuery();
-
-        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
-        $totalItems = count($paginator);
+        $totalItems = (int) (clone $qb)->select('COUNT(DISTINCT i.id)')->getQuery()->getSingleScalarResult();
         $totalPages = max(1, (int) ceil($totalItems / $limit));
-
         if ($page > $totalPages) {
             $page = $totalPages;
         }
 
+        $idsQb = (clone $qb)->select('i.id', 'i.officialName')
+            ->orderBy('i.officialName', 'ASC')->addOrderBy('i.id', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)->setMaxResults($limit);
+        if ($search !== '') {
+            $idsQb->distinct();
+        }
+        $ids = array_map('intval', array_column($idsQb->getQuery()->getScalarResult(), 'id'));
+
+        $institutions = [];
+        $variationCounts = [];
+        if ($ids !== []) {
+            $byId = [];
+            foreach ($this->em->createQueryBuilder()
+                ->select('i', 'co', 'st', 'ci')->from(Institution::class, 'i')
+                ->leftJoin('i.country', 'co')->leftJoin('i.state', 'st')->leftJoin('i.city', 'ci')
+                ->where('i.id IN (:ids)')->setParameter('ids', $ids)
+                ->getQuery()->getResult() as $entity) {
+                $byId[$entity->getId()] = $entity;
+            }
+            foreach ($ids as $id) {
+                if (isset($byId[$id])) {
+                    $institutions[] = $byId[$id];
+                }
+            }
+            $variationCounts = $this->em->getConnection()->executeQuery(
+                'SELECT institution_id, COUNT(*) FROM instituicao_variacoes_nome WHERE institution_id IN (?) GROUP BY institution_id',
+                [$ids],
+                [ArrayParameterType::INTEGER]
+            )->fetchAllKeyValue();
+        }
+
         return $this->render('admin/institutions/index.html.twig', [
-            'institutions' => $paginator,
+            'institutions' => $institutions,
+            'variationCounts' => $variationCounts,
             'search' => $search,
             'currentPage' => $page,
             'totalPages' => $totalPages,
@@ -168,23 +196,36 @@ class AdminInstitutionController extends AbstractController
         }
         $variationsText = implode("\n", $variationNames);
 
-        $otherInstitutions = $this->em->createQueryBuilder()
-            ->select('i')
-            ->from(Institution::class, 'i')
-            ->where('i.id != :id')
-            ->setParameter('id', $institution->getId())
-            ->orderBy('i.officialName', 'ASC')
-            ->getQuery()
-            ->getResult();
-
         return $this->render('admin/institutions/edit.html.twig', [
             'institution' => $institution,
             'countries' => $countries,
             'states' => $states,
             'cities' => $cities,
             'variationsText' => $variationsText,
-            'other_institutions' => $otherInstitutions,
         ]);
+    }
+
+    /** Busca de instituição de destino da fusão (até 20 resultados), no lugar de um select com a tabela inteira. */
+    #[Route('/search-options', name: 'app_admin_institutions_search_options', methods: ['GET'])]
+    public function searchOptions(Request $request): JsonResponse
+    {
+        $q = trim($request->query->getString('q', ''));
+        $exclude = $request->query->getInt('exclude', 0);
+        if (mb_strlen($q) < 2) {
+            return new JsonResponse([]);
+        }
+        $like = '%' . addcslashes($q, '%_\\') . '%';
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT id, official_name, sigla FROM instituicoes_ensino
+             WHERE id <> ? AND (official_name LIKE ? OR sigla LIKE ? OR short_name LIKE ?)
+             ORDER BY official_name ASC LIMIT 20',
+            [$exclude, $like, $like, $like]
+        );
+
+        return new JsonResponse(array_map(static fn (array $r) => [
+            'id' => (int) $r['id'],
+            'label' => $r['official_name'] . ($r['sigla'] ? ' (' . $r['sigla'] . ')' : ''),
+        ], $rows));
     }
 
     #[Route('/{id}/delete', name: 'app_admin_institutions_delete', methods: ['POST'])]
@@ -679,13 +720,16 @@ class AdminInstitutionController extends AbstractController
             $ext = strtolower($file->getClientOriginalExtension());
             $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
 
+            // Sem hidratar a tabela global inteira: mapa chave => id só com nome e sigla (a chave é calculada no PHP,
+            // igual a antes); a entidade só é carregada quando o cabeçalho casa.
             $instsMap = [];
-            foreach ($this->em->getRepository(Institution::class)->findAll() as $inst) {
-                $instsMap[DocumentEnrichmentService::normalize($inst->getOfficialName())] = $inst;
-                if ($inst->getSigla()) {
-                    $instsMap[DocumentEnrichmentService::normalize($inst->getSigla())] = $inst;
+            foreach ($this->em->getConnection()->executeQuery('SELECT id, official_name, sigla FROM instituicoes_ensino ORDER BY id')->iterateNumeric() as [$iid, $oname, $sigla]) {
+                $instsMap[DocumentEnrichmentService::normalize((string) $oname)] = (int) $iid;
+                if ($sigla !== null && $sigla !== '' && $sigla !== '0') {
+                    $instsMap[DocumentEnrichmentService::normalize((string) $sigla)] = (int) $iid;
                 }
             }
+            $instOf = fn (int|Institution|null $v): ?Institution => is_int($v) ? $this->em->find(Institution::class, $v) : $v;
 
             $addedVars = 0;
             $newInsts = 0;
@@ -695,7 +739,7 @@ class AdminInstitutionController extends AbstractController
                 if ($headerName === '') continue;
 
                 $normHeader = DocumentEnrichmentService::normalize($headerName);
-                $inst = $instsMap[$normHeader] ?? null;
+                $inst = $instOf($instsMap[$normHeader] ?? null);
 
                 if (!$inst) {
                     $inst = new Institution();

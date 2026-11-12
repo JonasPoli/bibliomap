@@ -52,13 +52,12 @@ class AdminJournalController extends AbstractController
         ];
         $sortField = $allowedSortFields[$sort] ?? 'q.title';
 
-        $qb = $this->em->createQueryBuilder()
-            ->select('DISTINCT q')
-            ->from(QualisJournal::class, 'q')
-            ->leftJoin('q.variations', 'v');
+        // Só a página: ids primeiro (junção das variações apenas com busca), contagem e entidades com as bases.
+        $qb = $this->em->createQueryBuilder()->from(QualisJournal::class, 'q');
 
         if ($search !== '') {
-            $qb->andWhere('q.title LIKE :search OR q.issn LIKE :search OR q.qualis LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
+            $qb->leftJoin('q.variations', 'v')
+               ->andWhere('q.title LIKE :search OR q.issn LIKE :search OR q.qualis LIKE :search OR v.variationName LIKE :search OR v.normalizedName LIKE :normSearch')
                ->setParameter('search', '%' . $search . '%')
                ->setParameter('normSearch', '%' . $normSearch . '%');
         }
@@ -68,17 +67,36 @@ class AdminJournalController extends AbstractController
                ->setParameter('qualis', $qualis);
         }
 
-        $query = $qb->orderBy($sortField, $direction)
-            ->setFirstResult($offset)
-            ->setMaxResults($limit)
-            ->getQuery();
-
-        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
-        $totalResults = count($paginator);
+        $totalResults = (int) (clone $qb)->select('COUNT(DISTINCT q.id)')->getQuery()->getSingleScalarResult();
         $totalPages = max(1, (int) ceil($totalResults / $limit));
 
+        $idsQb = (clone $qb)->select('q.id', $sortField)
+            ->orderBy($sortField, $direction)->addOrderBy('q.id', 'ASC')
+            ->setFirstResult($offset)->setMaxResults($limit);
+        if ($search !== '') {
+            $idsQb->distinct();
+        }
+        $ids = array_map('intval', array_column($idsQb->getQuery()->getScalarResult(), 'id'));
+
+        $journals = [];
+        if ($ids !== []) {
+            $byId = [];
+            foreach ($this->em->createQueryBuilder()
+                ->select('q', 'db')->from(QualisJournal::class, 'q')
+                ->leftJoin('q.academicDatabases', 'db')
+                ->where('q.id IN (:ids)')->setParameter('ids', $ids)
+                ->getQuery()->getResult() as $entity) {
+                $byId[$entity->getId()] = $entity;
+            }
+            foreach ($ids as $id) {
+                if (isset($byId[$id])) {
+                    $journals[] = $byId[$id];
+                }
+            }
+        }
+
         return $this->render('admin/journals/index.html.twig', [
-            'journals' => $paginator,
+            'journals' => $journals,
             'search' => $search,
             'qualis' => $qualis,
             'currentPage' => $page,
@@ -347,15 +365,32 @@ class AdminJournalController extends AbstractController
             $ext = strtolower($file->getClientOriginalExtension());
             $entries = $this->thesaurusService->parseFile($file->getRealPath(), $ext);
 
-            $journalsMap = [];
-            $issnMap = [];
-            foreach ($this->em->getRepository(QualisJournal::class)->findAll() as $j) {
-                $journalsMap[DocumentEnrichmentService::normalize($j->getTitle())] = $j;
-                $issnMap[$j->getNormalizedIssn()] = $j;
-                foreach ($j->getVariations() as $v) {
-                    $journalsMap[$v->getNormalizedName()] ??= $j;
+            // Sem carregar a tabela global como entidades: mapa chave => id só com colunas escalares
+            // (título de todas as revistas; grafias só as que coincidem com um cabeçalho do arquivo).
+            // A ordem de preenchimento é a de antes: por id, título sobrescreve e grafia só entra se a chave estiver livre.
+            $conn = $this->em->getConnection();
+            $headers = ThesaurusFileService::normalizedHeaders($entries, static fn (string $h) => DocumentEnrichmentService::normalize($h));
+            $variationsByJournal = [];
+            foreach (array_chunk($headers, 500) as $chunk) {
+                $rows = $conn->executeQuery(
+                    'SELECT journal_id, normalized_name FROM qualis_journal_variacoes_nome WHERE normalized_name IN (?) ORDER BY id',
+                    [$chunk],
+                    [\Doctrine\DBAL\ArrayParameterType::STRING]
+                )->fetchAllNumeric();
+                foreach ($rows as [$jid, $nn]) {
+                    $variationsByJournal[(int) $jid][] = (string) $nn;
                 }
             }
+            $journalsMap = [];
+            foreach ($conn->executeQuery('SELECT id, title FROM qualis_journal ORDER BY id')->iterateNumeric() as [$jid, $title]) {
+                $journalsMap[DocumentEnrichmentService::normalize((string) $title)] = (int) $jid;
+                foreach ($variationsByJournal[(int) $jid] ?? [] as $nn) {
+                    $journalsMap[$nn] ??= (int) $jid;
+                }
+            }
+            unset($variationsByJournal);
+            $issnMap = []; // revistas criadas nesta importação (ainda não gravadas)
+            $journalOf = fn (int|QualisJournal|null $v): ?QualisJournal => is_int($v) ? $this->em->find(QualisJournal::class, $v) : $v;
 
             $addedVars = 0;
             $newJournals = 0;
@@ -366,7 +401,7 @@ class AdminJournalController extends AbstractController
                 if ($headerName === '') continue;
 
                 $normHeader = DocumentEnrichmentService::normalize($headerName);
-                $journal = $journalsMap[$normHeader] ?? null;
+                $journal = $journalOf($journalsMap[$normHeader] ?? null);
 
                 // Documentos só se ligam a revistas pelo ISSN: sem ISSN no cabeçalho ou nas grafias,
                 // a revista criada nunca casaria (antes recebia um normalized_issn "custom_…").
@@ -379,7 +414,8 @@ class AdminJournalController extends AbstractController
                         $skippedNoIssn++;
                         continue;
                     }
-                    $journal = $issnMap[EntityMergeService::normalizeIssn($issn)] ?? null;
+                    $nIssn = EntityMergeService::normalizeIssn($issn);
+                    $journal = $issnMap[$nIssn] ?? $this->em->getRepository(QualisJournal::class)->findOneBy(['normalizedIssn' => $nIssn]);
                 }
 
                 if (!$journal) {

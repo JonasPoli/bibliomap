@@ -67,25 +67,25 @@
 <div class="bm-card">
     <ul class="nav nav-tabs border-bm mb-4" id="geo-tabs" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active text-accent" id="countries-tab" data-bs-toggle="tab" data-bs-target="#tab-countries" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
-                🌍 Países ({{ countries|length }})
+            <button class="nav-link {{ tab == 'countries' ? 'active' : '' }} text-accent" id="countries-tab" data-bs-toggle="tab" data-bs-target="#tab-countries" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                🌍 Países ({{ countryPage.total|number_format(0, ',', '.') }})
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link text-accent" id="states-tab" data-bs-toggle="tab" data-bs-target="#tab-states" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
-                🗺 Estados ({{ states|length }})
+            <button class="nav-link {{ tab == 'states' ? 'active' : '' }} text-accent" id="states-tab" data-bs-toggle="tab" data-bs-target="#tab-states" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                🗺 Estados ({{ statePage.total|number_format(0, ',', '.') }})
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link text-accent" id="cities-tab" data-bs-toggle="tab" data-bs-target="#tab-cities" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
-                🏙 Cidades ({{ cities|length }})
+            <button class="nav-link {{ tab == 'cities' ? 'active' : '' }} text-accent" id="cities-tab" data-bs-toggle="tab" data-bs-target="#tab-cities" type="button" role="tab" style="background:transparent;border:none;font-weight:600;font-size:14px">
+                🏙 Cidades ({{ cityPage.total|number_format(0, ',', '.') }})
             </button>
         </li>
     </ul>
 
     <div class="tab-content" id="geo-tabs-content">
         <!-- Tab 1: Countries -->
-        <div class="tab-pane fade show active" id="tab-countries" role="tabpanel">
+        <div class="tab-pane fade {{ tab == 'countries' ? 'show active' : '' }}" id="tab-countries" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div style="font-size:13.5px;color:var(--bm-text-muted)">Países cadastrados {{ help('admin.geography.countries_tab') }}</div>
                 <div class="d-flex gap-2">
@@ -148,7 +148,7 @@
                                 </td>
                                 <td>
                                     <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                        {{ c.variations|length }} variações
+                                        {{ countryPage.variationCounts[c.id] ?? 0 }} variações
                                     </span>
                                 </td>
                                 <td>
@@ -170,11 +170,20 @@
                     </tbody>
                 </table>
             </div>
+            {% if countryPage.pages > 1 %}
+                <nav class="d-flex justify-content-between align-items-center mt-3" style="font-size:13px" aria-label="Paginação">
+                    <span class="text-muted-bm">Página <b>{{ countryPage.page }}</b> de <b>{{ countryPage.pages }}</b> ({{ countryPage.total|number_format(0, ',', '.') }} no total, 50 por página)</span>
+                    <span>
+                        {% if countryPage.page > 1 %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'countries', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, cp: countryPage.page - 1}) }}"><i class="bi bi-chevron-left"></i> Anterior</a>{% endif %}
+                        {% if countryPage.page < countryPage.pages %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'countries', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, cp: countryPage.page + 1}) }}">Próxima <i class="bi bi-chevron-right"></i></a>{% endif %}
+                    </span>
+                </nav>
+            {% endif %}
             </form>
         </div>
 
         <!-- Tab 2: States -->
-        <div class="tab-pane fade" id="tab-states" role="tabpanel">
+        <div class="tab-pane fade {{ tab == 'states' ? 'show active' : '' }}" id="tab-states" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div style="font-size:13.5px;color:var(--bm-text-muted)">Estados ou províncias cadastrados {{ help('admin.geography.states_tab') }}</div>
                 <div class="d-flex gap-2">
@@ -222,7 +231,7 @@
                                 <td>{{ s.officialCode ?? '—' }}</td>
                                 <td>
                                     <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                        {{ s.variations|length }} variações
+                                        {{ statePage.variationCounts[s.id] ?? 0 }} variações
                                     </span>
                                 </td>
                                 <td>
@@ -244,10 +253,19 @@
                     </tbody>
                 </table>
             </div>
+            {% if statePage.pages > 1 %}
+                <nav class="d-flex justify-content-between align-items-center mt-3" style="font-size:13px" aria-label="Paginação">
+                    <span class="text-muted-bm">Página <b>{{ statePage.page }}</b> de <b>{{ statePage.pages }}</b> ({{ statePage.total|number_format(0, ',', '.') }} no total, 50 por página)</span>
+                    <span>
+                        {% if statePage.page > 1 %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'states', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, sp: statePage.page - 1}) }}"><i class="bi bi-chevron-left"></i> Anterior</a>{% endif %}
+                        {% if statePage.page < statePage.pages %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'states', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, sp: statePage.page + 1}) }}">Próxima <i class="bi bi-chevron-right"></i></a>{% endif %}
+                    </span>
+                </nav>
+            {% endif %}
         </div>
 
         <!-- Tab 3: Cities -->
-        <div class="tab-pane fade" id="tab-cities" role="tabpanel">
+        <div class="tab-pane fade {{ tab == 'cities' ? 'show active' : '' }}" id="tab-cities" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div style="font-size:13.5px;color:var(--bm-text-muted)">Cidades cadastradas {{ help('admin.geography.cities_tab') }}</div>
                 <div class="d-flex gap-2">
@@ -293,7 +311,7 @@
                                 <td>{{ ct.officialCode ?? '—' }}</td>
                                 <td>
                                     <span class="badge rounded-pill" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                        {{ ct.variations|length }} variações
+                                        {{ cityPage.variationCounts[ct.id] ?? 0 }} variações
                                     </span>
                                 </td>
                                 <td>
@@ -315,6 +333,15 @@
                     </tbody>
                 </table>
             </div>
+            {% if cityPage.pages > 1 %}
+                <nav class="d-flex justify-content-between align-items-center mt-3" style="font-size:13px" aria-label="Paginação">
+                    <span class="text-muted-bm">Página <b>{{ cityPage.page }}</b> de <b>{{ cityPage.pages }}</b> ({{ cityPage.total|number_format(0, ',', '.') }} no total, 50 por página)</span>
+                    <span>
+                        {% if cityPage.page > 1 %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'cities', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, tp: cityPage.page - 1}) }}"><i class="bi bi-chevron-left"></i> Anterior</a>{% endif %}
+                        {% if cityPage.page < cityPage.pages %}<a class="btn btn-sm btn-bm-secondary" href="{{ path('app_admin_geography_index', {search: search, tab: 'cities', cp: countryPage.page, sp: statePage.page, tp: cityPage.page, tp: cityPage.page + 1}) }}">Próxima <i class="bi bi-chevron-right"></i></a>{% endif %}
+                    </span>
+                </nav>
+            {% endif %}
         </div>
     </div>
 </div>

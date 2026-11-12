@@ -30,13 +30,13 @@
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-warning">{{ diagnosis.dirtyCount }}</div>
-                        <div class="bm-stat-label">Com sujeiras* {{ help('admin.kwtreat.kpi_dirty') }}</div>
+                        <div class="bm-stat-label">Com sujeiras {{ help('admin.kwtreat.kpi_dirty') }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="p-3 border border-secondary rounded text-center">
                         <div class="bm-stat-value text-danger">{{ diagnosis.invalidCount }}</div>
-                        <div class="bm-stat-label">Inválidas* {{ help('admin.kwtreat.kpi_invalid') }}</div>
+                        <div class="bm-stat-label">Inválidas {{ help('admin.kwtreat.kpi_invalid') }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
@@ -47,7 +47,6 @@
                 </div>
             </div>
 
-            <p class="text-muted small mb-3">* Calculado sobre os primeiros 10.000 termos (por ID).</p>
             <h6 class="text-white mb-3">Resumo Adicional {{ help('admin.kwtreat.summary') }}</h6>
             <div class="row">
                 <div class="col-md-6">

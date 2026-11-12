@@ -425,14 +425,14 @@ admin.kwtreat.kpi_dirty:
   title: "Com sujeiras"
   what: "Termos cuja exibição muda ao aplicar a limpeza padrão (espaços extras, pontuação nas pontas, caracteres estranhos)."
   how: "Um processamento Real com limpeza ativa corrige esses termos."
-  not: "Contado só nos primeiros 10.000 termos. Não indica erro de significado."
+  not: "Contado sobre todas as palavras-chave (o resultado fica guardado até alguma palavra mudar). Não indica erro de significado."
   example: "“ Sustainability;” vira “Sustainability”."
 
 admin.kwtreat.kpi_invalid:
   title: "Inválidas"
   what: "Termos que a regra de limpeza considera lixo: só números, referência numérica, menos de 2 letras, palavra repetida 3 vezes ou mais, ou mais de 200 caracteres."
   how: "No modo Real eles ficam com status pendente e vão para a Fila de Revisão com o motivo."
-  not: "Contado só nos primeiros 10.000 termos. Invalidar não apaga o termo nem seus vínculos."
+  not: "Contado sobre todas as palavras-chave. Invalidar não apaga o termo nem seus vínculos."
   example: "“32”, “[12]” e “sic sic sic” são inválidos."
 
 admin.kwtreat.kpi_duplicates:
@@ -565,14 +565,14 @@ admin.kwtreat.report_invalid:
   title: "Termos inválidos"
   what: "Termos que a limpeza considerou lixo, com o código do motivo: purely_numeric (só números), numeric_reference (ex.: [12]), insufficient_letters, repetitive_nonsense, too_long, empty_or_too_short."
   how: "No modo Real eles vão para a Fila de Revisão, onde você decide aceitar ou descartar."
-  not: "Mostra só os **novos** deste processamento: um termo que já tem o mesmo motivo gravado (pendente na Fila de Revisão ou aceito por um administrador) não é invalidado nem contado de novo. Não foram apagados; continuam ligados aos documentos até serem descartados."
+  not: "Mostra só os **novos** deste processamento: um termo que já tem o mesmo motivo gravado (pendente na Fila de Revisão ou aceito por um administrador) não é invalidado nem contado de novo. Não foram apagados; continuam ligados aos documentos até serem descartados. A tela mostra até 500; a lista completa está no CSV do relatório."
   example: "“4 54” → purely_numeric."
 
 admin.kwtreat.report_fuzzy:
   title: "Sugestões por similaridade"
   what: "Termos com grafia parecida com um conceito (score entre 75% e o mínimo automático, ou empate entre dois conceitos), que precisam de decisão humana."
   how: "Decida cada uma na tela de Revisão de sugestões."
-  not: "Nada foi ligado ainda; são só propostas."
+  not: "Nada foi ligado ainda; são só propostas. A tela mostra até 500; a lista completa está no CSV do relatório."
   example: "“behaviour change” → “Behavior change”, 89,0%."
 
 admin.kwtreat.review_page:
@@ -644,7 +644,7 @@ admin.thesaurus.matches_page:
   title: "Correspondências com o tesauro"
   what: "Registro de auditoria das ligações entre termos importados e conceitos do tesauro, gravadas pelo Tratamento de Palavras-chave, das mais recentes para as mais antigas."
   how: "Use para conferir quais termos foram ligados a qual conceito e com que confiança."
-  not: "Somente leitura: não permite aprovar nem desfazer ligações. Ligações feitas ao salvar conceitos no tesauro não aparecem aqui."
+  not: "Somente leitura, paginada de 100 em 100: não permite aprovar nem desfazer ligações. Ligações feitas ao salvar conceitos no tesauro não aparecem aqui."
   example: "“organisational learning” → “Organizational learning”, confiança 0.957, automatic."
 
 admin.thesaurus.matches_type:
@@ -698,7 +698,7 @@ admin.thesaurus.synonyms:
 
 admin.thesaurus.concepts_list:
   title: "Conceitos cadastrados"
-  what: "Todos os conceitos do esquema, com seus sinônimos e a forma normalizada usada na comparação."
+  what: "Os conceitos do esquema (100 por página), com seus sinônimos e a forma normalizada usada na comparação."
   how: "Use **Editar** para ajustar nome ou sinônimos e **Excluir** para remover o conceito."
   not: "Não mostra quantas palavras-chave estão ligadas a cada conceito."
   example: "“Artificial intelligence” — sinônimos: AI, Inteligência Artificial."

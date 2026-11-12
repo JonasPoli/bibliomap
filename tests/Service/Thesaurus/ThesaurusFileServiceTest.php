@@ -88,4 +88,18 @@ class ThesaurusFileServiceTest extends TestCase
             [' 0101 7330 ', '01017330'],
         ];
     }
+
+    public function testNormalizedHeadersDeduplicaENormalizaOsCabecalhos(): void
+    {
+        $entries = [
+            ['header' => '  Educação  ', 'variations' => ['x']],
+            ['header' => 'EDUCACAO.', 'variations' => []],
+            ['header' => '', 'variations' => ['y']],
+            ['header' => '2020', 'variations' => []],
+            ['variations' => []],
+        ];
+        $norm = static fn (string $h): string => \App\Service\Import\StringNormalizer::normalizeString($h, true);
+
+        $this->assertSame(['educacao', '2020'], ThesaurusFileService::normalizedHeaders($entries, $norm));
+    }
 }

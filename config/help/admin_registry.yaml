@@ -218,7 +218,7 @@ admin.institutions.import_csv:
   title: "Importar instituições (CSV)"
   what: "Cria ou atualiza instituições em massa usando o mesmo layout do Exportar CSV. A instituição é reconhecida pelo nome oficial (normalizado)."
   how: "Colunas lidas: official_name (obrigatória), short_name, sigla, razao_social, cnpj, codigo_ies, institution_type, natureza, country_name, state_sigla, city_name, official_website, institutional_email, status, notes e variations. O separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. País, UF e cidade precisam existir no cadastro de Geografia."
-  not: "As demais colunas do arquivo exportado (IGC, CI, coordenadas, reitor etc.) são ignoradas. Variações que não estiverem na coluna variations são removidas da instituição atualizada."
+  not: "As demais colunas do arquivo exportado (IGC, CI, coordenadas, reitor etc.) são ignoradas. A importação só acrescenta: variações que não estiverem na coluna variations continuam na instituição, e país, estado ou cidade que não casarem com o cadastro de Geografia mantêm o valor que a instituição já tinha (não são zerados)."
   example: "Linha com official_name = “Universidade Federal de Santa Catarina”, sigla = “UFSC”, country_name = “Brasil”, state_sigla = “SC”, city_name = “Florianópolis”."
 
 admin.institutions.merge_selected:
@@ -455,7 +455,7 @@ admin.institutions.edit.variations_list:
 admin.institutions.edit.merge:
   title: "Mesclar esta instituição em outra"
   what: "Transfere os vínculos de documentos, as unidades e as variações desta instituição para a escolhida, cria variações com o nome oficial, nome curto, sigla e razão social deste registro e o exclui."
-  how: "Escolha a instituição de destino e clique em Mesclar e Excluir. Se um documento estava ligado às duas, fica um vínculo só."
+  how: "Digite duas letras do nome ou da sigla da instituição de destino, escolha-a na lista de resultados e clique em Mesclar e Excluir. Se um documento estava ligado às duas, fica um vínculo só."
   not: "Não pode ser desfeito e não copia dados e-MEC ou localização deste registro para o destino."
   example: "“Univ Brasilia” (criada pelo tesauro, 340 documentos) mesclada em “Universidade de Brasília”: o destino ganha os 340 documentos e a grafia."
 
@@ -528,10 +528,10 @@ admin.geography.export_thesaurus:
 
 admin.geography.import_thesaurus:
   title: "Importar tesauro de países"
-  what: "Lê um .the ou .csv e acrescenta grafias aos **países**. O termo preferido é procurado pelo nome comum, oficial ou sigla; se não existir, um país novo é criado."
+  what: "Lê um .the ou .csv e acrescenta grafias aos **países**. O termo preferido é procurado pelo nome comum, oficial ou sigla; se não existir, o termo é ignorado."
   how: "No CSV, colunas preferred_name e variant_name; o separador (ponto e vírgula, vírgula ou tabulação) é detectado automaticamente. Depois sincronize os projetos."
-  not: "Não cria estados nem cidades. Países novos recebem sigla e código ISO provisórios (as primeiras letras do nome): corrija-os na edição. O CSV do “Exportar tesauro” pode ser reimportado sem conversão."
-  example: "Importar o termo “Cabo Verde” com a variação “Cape Verde” cria o país, se ele ainda não existir, já reconhecendo a grafia em inglês."
+  not: "Não cria países, estados nem cidades: cabeçalho que não é um país cadastrado é ignorado (a mensagem final diz quantos), para não inventar sigla e código ISO. Para cadastrar um país novo use o formulário ou o CSV de países. O CSV do “Exportar tesauro” pode ser reimportado sem conversão."
+  example: "Importar o termo “Cabo Verde” com a variação “Cape Verde” acrescenta a grafia em inglês ao país já cadastrado; se “Cabo Verde” não existir no cadastro, a linha é ignorada."
 
 admin.geography.merge_selected:
   title: "Mesclar países selecionados"
@@ -542,7 +542,7 @@ admin.geography.merge_selected:
 
 admin.geography.countries_tab:
   title: "Aba Países"
-  what: "Lista todos os países com sigla, código ISO, continente, período histórico e número de grafias."
+  what: "Lista os países (50 por página; use Anterior e Próxima) com sigla, código ISO, continente, período histórico e número de grafias."
   how: "Use Editar para ajustar grafias e dados, ou marque caixas para mesclar duplicatas."
   not: "A bandeira é ilustrativa (vem da sigla de 2 letras); sigla errada mostra bandeira errada ou nenhuma."
   example: "Confira se “Alemanha”, “Germany” e “Deutschland” estão como variações de um único país."
@@ -551,12 +551,12 @@ admin.geography.countries_csv:
   title: "Exportar/importar países (CSV)"
   what: "Exporta ou importa países com as colunas official_name, common_name, sigla, iso_code, continente, nationality, status e variations (grafias separadas por ponto e vírgula)."
   how: "O arquivo exportado usa ponto e vírgula e UTF-8 (abre direto no Excel); na importação o separador é detectado. O país é reconhecido pelo nome oficial ou comum (e por variações já cadastradas); existentes são atualizados, os demais criados."
-  not: "Anos de fundação e extinção não entram no CSV. Grafias que não estiverem na coluna variations são removidas do país atualizado."
+  not: "Anos de fundação e extinção não entram no CSV. A importação só acrescenta: grafias que não estiverem na coluna variations continuam no país atualizado."
   example: "Exporte, corrija no Excel o continente de 30 países africanos e reimporte o mesmo arquivo."
 
 admin.geography.states_tab:
   title: "Aba Estados"
-  what: "Lista estados, províncias ou unidades federativas, com país, região e código oficial."
+  what: "Lista (50 por página) estados, províncias ou unidades federativas, com país, região e código oficial."
   how: "Use Editar para corrigir sigla, região ou grafias."
   not: "Estados dos EUA podem ter sido criados automaticamente pela Sincronização (quando o endereço traz “CA 94305 USA”, por exemplo), com nome igual à sigla: complete o nome."
   example: "Corrija um estado criado como “CA” para “Califórnia”, mantendo “CA” como sigla."
@@ -565,12 +565,12 @@ admin.geography.states_csv:
   title: "Exportar/importar estados (CSV)"
   what: "CSV com official_name, sigla, country_name, region_name, official_code, status e variations."
   how: "Separador ponto e vírgula na exportação; na importação é detectado. O país precisa existir (pelo nome); linhas de países desconhecidos são ignoradas. Regiões que não existirem são criadas. O estado é reconhecido pelo nome ou sigla dentro do país."
-  not: "Não importa cidades. Grafias fora da coluna variations são removidas do estado atualizado."
+  not: "Não importa cidades. A importação só acrescenta: grafias fora da coluna variations continuam no estado atualizado."
   example: "Importe as 27 UFs do Brasil com region_name “Sul”, “Sudeste” etc. e o código IBGE de cada uma."
 
 admin.geography.cities_tab:
   title: "Aba Cidades"
-  what: "Lista as cidades cadastradas, com estado, país e código oficial."
+  what: "Lista (50 por página) as cidades cadastradas, com estado, país e código oficial."
   how: "Cadastre as cidades das instituições do seu corpus para que apareçam no mapa por cidade."
   not: "Não contém todos os municípios do país: só os cadastrados aqui."
   example: "Para um estudo sobre universidades do Sul, cadastre Pelotas, Santa Maria e Chapecó."
@@ -579,7 +579,7 @@ admin.geography.cities_csv:
   title: "Exportar/importar cidades (CSV)"
   what: "CSV com official_name, state_sigla, country_name, official_code, status e variations."
   how: "Separador ponto e vírgula na exportação; na importação é detectado. País (pelo nome) e estado (pela sigla, dentro do país) precisam existir. A cidade é reconhecida pelo nome dentro do mesmo país e estado."
-  not: "Linhas com país desconhecido são ignoradas. Grafias fora da coluna variations são removidas da cidade atualizada."
+  not: "Linhas com país desconhecido são ignoradas. A importação só acrescenta: grafias fora da coluna variations continuam na cidade atualizada."
   example: "Importe os municípios de Santa Catarina com o código IBGE de 7 dígitos (ex.: 4205407 para Florianópolis)."
 
 admin.geography.col_variations:

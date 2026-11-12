@@ -283,16 +283,52 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('merge_institution_' ~ institution.id) }}">
                 <div class="mb-3">
                     <label class="form-label" style="font-size:12px">Instituição de Destino</label>
-                    <select name="targetId" class="form-select" style="font-size:12.5px" required>
-                        <option value="">Selecione...</option>
-                        {% for other in other_institutions %}
-                            <option value="{{ other.id }}">{{ other.officialName }}</option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="targetId" id="merge-target-id" required>
+                    <input type="text" id="merge-target-search" class="form-control" style="font-size:12.5px" placeholder="Digite 2 letras do nome ou da sigla..." autocomplete="off">
+                    <div id="merge-target-results" class="list-group mt-1" style="font-size:12.5px"></div>
+                    <div id="merge-target-chosen" class="small mt-1 text-muted-bm"></div>
                 </div>
                 <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
             </form>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var input = document.getElementById('merge-target-search');
+    if (!input) return;
+    var hidden = document.getElementById('merge-target-id');
+    var box = document.getElementById('merge-target-results');
+    var chosen = document.getElementById('merge-target-chosen');
+    var url = {{ path('app_admin_institutions_search_options')|json_encode|raw }};
+    var self = {{ institution.id|json_encode|raw }};
+    var timer = null;
+    input.addEventListener('input', function () {
+        hidden.value = ''; chosen.textContent = '';
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { box.innerHTML = ''; return; }
+        timer = setTimeout(function () {
+            fetch(url + '?q=' + encodeURIComponent(q) + '&exclude=' + self, {headers: {'Accept': 'application/json'}})
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    box.innerHTML = '';
+                    items.forEach(function (it) {
+                        var b = document.createElement('button');
+                        b.type = 'button'; b.className = 'list-group-item list-group-item-action py-1';
+                        b.textContent = it.label;
+                        b.addEventListener('click', function () {
+                            hidden.value = it.id; chosen.textContent = 'Destino escolhido: ' + it.label;
+                            box.innerHTML = ''; input.value = '';
+                        });
+                        box.appendChild(b);
+                    });
+                });
+        }, 250);
+    });
+    input.form.addEventListener('submit', function (e) {
+        if (!hidden.value) { e.preventDefault(); alert('Escolha a instituição de destino na lista.'); }
+    }, true);
+})();
+</script>
 {% endblock %}

@@ -722,11 +722,7 @@ Criar comandos Symfony:
    php bin/console app:keywords:treat --min-review-score=75
    php bin/console app:keywords:treat --auto-create-concepts
 
-3. Migração legado:
-   php bin/console app:keywords:migrate-keyword-concepts-to-thesaurus --dry-run
-   php bin/console app:keywords:migrate-keyword-concepts-to-thesaurus --execute
-
-4. Exportar relatório:
+3. Exportar relatório:
    php bin/console app:keywords:export-treatment-report {jobId}
 
 Parte 12 — Importação CSV do tesauro

@@ -97,38 +97,76 @@ class SuperAdminKeywordTreatmentController extends AbstractController
             throw $this->createNotFoundException('Job não encontrado.');
         }
 
-        $logs = $this->em->getRepository(KeywordTreatmentLog::class)->findBy(['job' => $job], ['id' => 'ASC']);
+        // Tudo por SQL, sem hidratar um log por linha: o relatório de um tratamento real tem dezenas de
+        // milhares de registros. As listas da tela são limitadas; o CSV (Exportar) traz o job completo.
+        $conn = $this->em->getConnection();
+        $jobId = $job->getId();
+        $logsCount = (int) $conn->fetchOne('SELECT COUNT(*) FROM keyword_treatment_log WHERE job_id = ?', [$jobId]);
 
-        // Group actions by types
+        // Agrupamentos: os 50 primeiros conceitos (na ordem em que aparecem) com até 200 termos cada
         $topGroupings = [];
-        $invalidTerms = [];
-        $fuzzySuggestions = [];
-
-        foreach ($logs as $log) {
-            // Ações de ligação gravadas pelo serviço (exact_grouped nunca é gravada)
-            if (in_array($log->getAction(), ['exact_label_matched', 'exact_concept_matched', 'fuzzy_auto_matched'], true)) {
-                $conceptName = $log->getNewThesaurusConcept()?->getPreferredLabel()
-                    ?? $log->getNewConcept()?->getKeywordDisplay()
-                    ?? 'N/A';
-                $topGroupings[$conceptName][] = $log->getKeyword()->getKeywordOriginal();
+        $groupedTotals = [];
+        $rows = $conn->executeQuery(
+            "SELECT tc.preferred_label AS tc_label, nk.keyword_display AS nk_label, k.keyword_original
+             FROM keyword_treatment_log l
+             JOIN keyword k ON k.id = l.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = l.new_thesaurus_concept_id
+             LEFT JOIN keyword nk ON nk.id = l.new_concept_id
+             WHERE l.job_id = ? AND l.action IN ('exact_label_matched', 'exact_concept_matched', 'fuzzy_auto_matched')
+             ORDER BY l.id ASC",
+            [$jobId]
+        );
+        foreach ($rows->iterateAssociative() as $row) {
+            $conceptName = $row['tc_label'] ?? $row['nk_label'] ?? 'N/A';
+            if (!isset($topGroupings[$conceptName])) {
+                if (count($topGroupings) >= 50) {
+                    continue;
+                }
+                $topGroupings[$conceptName] = [];
+                $groupedTotals[$conceptName] = 0;
             }
-            if ($log->getAction() === 'invalid') {
-                $invalidTerms[] = $log;
-            }
-            if ($log->getAction() === 'fuzzy_review_required') {
-                $fuzzySuggestions[] = $log;
+            $groupedTotals[$conceptName]++;
+            if (count($topGroupings[$conceptName]) < 200) {
+                $topGroupings[$conceptName][] = $row['keyword_original'];
             }
         }
 
-        // Limit top groupings to 50 for the template
-        $topGroupings = array_slice($topGroupings, 0, 50, true);
+        $limit = 500;
+        $invalidTotal = (int) $conn->fetchOne("SELECT COUNT(*) FROM keyword_treatment_log WHERE job_id = ? AND action = 'invalid'", [$jobId]);
+        $invalidTerms = $conn->fetchAllAssociative(
+            "SELECT k.keyword_original AS term, l.reason FROM keyword_treatment_log l JOIN keyword k ON k.id = l.keyword_id
+             WHERE l.job_id = ? AND l.action = 'invalid' ORDER BY l.id ASC LIMIT $limit",
+            [$jobId]
+        );
+
+        $fuzzyTotal = (int) $conn->fetchOne("SELECT COUNT(*) FROM keyword_treatment_log WHERE job_id = ? AND action = 'fuzzy_review_required'", [$jobId]);
+        $fuzzySuggestions = [];
+        foreach ($conn->fetchAllAssociative(
+            "SELECT k.keyword_display, tc.preferred_label AS tc_label, nk.keyword_display AS nk_label, l.reason, l.score
+             FROM keyword_treatment_log l
+             JOIN keyword k ON k.id = l.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = l.new_thesaurus_concept_id
+             LEFT JOIN keyword nk ON nk.id = l.new_concept_id
+             WHERE l.job_id = ? AND l.action = 'fuzzy_review_required' ORDER BY l.id ASC LIMIT $limit",
+            [$jobId]
+        ) as $row) {
+            $fuzzySuggestions[] = [
+                'display' => $row['keyword_display'],
+                'concept' => $row['tc_label'] ?? $row['nk_label'] ?? $row['reason'],
+                'score' => $row['score'] !== null ? (float) $row['score'] : 0.0,
+            ];
+        }
 
         return $this->render('admin/super_keywords_treatment/report.html.twig', [
             'job' => $job,
-            'logs_count' => count($logs),
+            'logs_count' => $logsCount,
             'top_groupings' => $topGroupings,
+            'grouped_totals' => $groupedTotals,
             'invalid_terms' => $invalidTerms,
+            'invalid_total' => $invalidTotal,
             'fuzzy_suggestions' => $fuzzySuggestions,
+            'fuzzy_total' => $fuzzyTotal,
+            'list_limit' => $limit,
         ]);
     }
 
@@ -146,21 +184,40 @@ class SuperAdminKeywordTreatmentController extends AbstractController
             
             fputcsv($handle, ['Keyword ID', 'Original Term', 'Action', 'Old Display', 'New Display', 'Old Concept', 'New Concept', 'Score', 'Reason', 'Status'], ';', '"', '');
 
-            $logs = $this->em->getRepository(KeywordTreatmentLog::class)->findBy(['job' => $job]);
-            foreach ($logs as $log) {
-                fputcsv($handle, [
-                    $log->getKeyword()->getId(),
-                    $log->getKeyword()->getKeywordOriginal(),
-                    $log->getAction(),
-                    $log->getOldDisplay(),
-                    $log->getNewDisplay(),
-                    $log->getOldThesaurusConcept()?->getPreferredLabel() ?? $log->getOldConcept()?->getKeywordDisplay() ?? '',
-                    $log->getNewThesaurusConcept()?->getPreferredLabel() ?? $log->getNewConcept()?->getKeywordDisplay() ?? '',
-                    $log->getScore(),
-                    $log->getReason(),
-                    $log->getStatus()
-                ], ';', '"', '');
-            }
+            // Cursor por id, em blocos de 5.000, com conceitos e palavra na mesma consulta
+            $conn = $this->em->getConnection();
+            $lastId = 0;
+            do {
+                $rows = $conn->fetchAllAssociative(
+                    'SELECT l.id, l.keyword_id, k.keyword_original, l.action, l.old_display, l.new_display,
+                            otc.preferred_label AS old_tc, ok.keyword_display AS old_k,
+                            ntc.preferred_label AS new_tc, nk.keyword_display AS new_k,
+                            l.score, l.reason, l.status
+                     FROM keyword_treatment_log l
+                     JOIN keyword k ON k.id = l.keyword_id
+                     LEFT JOIN thesaurus_concept otc ON otc.id = l.old_thesaurus_concept_id
+                     LEFT JOIN keyword ok ON ok.id = l.old_concept_id
+                     LEFT JOIN thesaurus_concept ntc ON ntc.id = l.new_thesaurus_concept_id
+                     LEFT JOIN keyword nk ON nk.id = l.new_concept_id
+                     WHERE l.job_id = ? AND l.id > ? ORDER BY l.id ASC LIMIT 5000',
+                    [$job->getId(), $lastId]
+                );
+                foreach ($rows as $r) {
+                    fputcsv($handle, [
+                        $r['keyword_id'],
+                        $r['keyword_original'],
+                        $r['action'],
+                        $r['old_display'],
+                        $r['new_display'],
+                        $r['old_tc'] ?? $r['old_k'] ?? '',
+                        $r['new_tc'] ?? $r['new_k'] ?? '',
+                        $r['score'] !== null ? (float) $r['score'] : null,
+                        $r['reason'],
+                        $r['status'],
+                    ], ';', '"', '');
+                    $lastId = (int) $r['id'];
+                }
+            } while (count($rows) === 5000);
 
             fclose($handle);
         });
@@ -176,15 +233,33 @@ class SuperAdminKeywordTreatmentController extends AbstractController
     }
 
     #[Route('/review', name: 'app_super_admin_keyword_treatment_review', methods: ['GET'])]
-    public function review(): Response
+    public function review(Request $request): Response
     {
-        $logs = $this->em->getRepository(KeywordTreatmentLog::class)->findBy([
+        $perPage = 100;
+        $total = $this->em->getRepository(KeywordTreatmentLog::class)->count([
             'action' => 'fuzzy_review_required',
-            'status' => 'pending'
-        ], ['id' => 'ASC']);
+            'status' => 'pending',
+        ]);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $request->query->getInt('page', 1)), $pages);
+
+        $logs = $this->em->createQueryBuilder()
+            ->select('l', 'k', 'tc', 'nc')->from(KeywordTreatmentLog::class, 'l')
+            ->join('l.keyword', 'k')
+            ->leftJoin('l.newThesaurusConcept', 'tc')
+            ->leftJoin('l.newConcept', 'nc')
+            ->where('l.action = :a')->andWhere('l.status = :s')
+            ->setParameter('a', 'fuzzy_review_required')->setParameter('s', 'pending')
+            ->orderBy('l.id', 'ASC')
+            ->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage)
+            ->getQuery()->getResult();
 
         return $this->render('admin/super_keywords_treatment/review.html.twig', [
             'logs' => $logs,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'per_page' => $perPage,
         ]);
     }
 

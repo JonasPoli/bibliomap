@@ -48,7 +48,7 @@
 
 <!-- 2. Tabela de Listagem de Conceitos (Abaixo do Card) -->
 <div class="bm-card">
-    <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ concepts|length }}) {{ help('admin.thesaurus.concepts_list') }}</h5>
+    <h5 class="mb-4 text-white"><i class="bi bi-list-stars me-2"></i>Conceitos Cadastrados ({{ total|number_format(0, ',', '.') }}) {{ help('admin.thesaurus.concepts_list') }}</h5>
     <div class="table-responsive">
         <table class="table table-dark table-hover align-middle mb-0">
             <thead>
@@ -106,5 +106,6 @@
             </tbody>
         </table>
     </div>
+    {% include 'admin/_simple_pager.html.twig' with {page: page, pages: pages, total: total, per_page: per_page, route: 'app_admin_thesaurus_scheme_show', route_params: {id: scheme.id}} only %}
 </div>
 {% endblock %}

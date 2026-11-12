@@ -65,5 +65,6 @@
             </tbody>
         </table>
     </div>
+    {% include 'admin/_simple_pager.html.twig' with {page: page, pages: pages, total: total, per_page: per_page, route: 'app_admin_thesaurus_matches', route_params: {}} only %}
 </div>
 {% endblock %}

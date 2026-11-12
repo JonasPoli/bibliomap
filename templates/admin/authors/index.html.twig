@@ -115,7 +115,7 @@
                             </td>
                             <td>
                                 <span class="badge rounded-pill" title="Variações registradas" style="background:rgba(128,128,128,0.15); border:1px solid var(--bm-border); color:var(--bm-text)">
-                                    {{ auth.variations|length }} variações
+                                    {{ variationCounts[auth.id] ?? 0 }} variações
                                 </span>
                             </td>
                             <td>
