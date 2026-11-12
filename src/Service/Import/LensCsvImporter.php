@@ -103,7 +103,8 @@ class LensCsvImporter implements BibliographicImporterInterface
     {
         $dto = new BibliographicRecordDTO();
         $dto->source = 'lens';
-        $dto->rawData = json_encode($rawRecord, JSON_UNESCAPED_UNICODE);
+        // Colunas com o nome aparado uma só vez; get() vira uma busca direta (antes percorria todas as colunas a cada campo)
+        $rawRecord = TextNormalizer::trimKeys($rawRecord);
 
         $dto->externalId = $this->get($rawRecord, 'Lens ID');
         $dto->title = $this->get($rawRecord, 'Title');
@@ -117,8 +118,9 @@ class LensCsvImporter implements BibliographicImporterInterface
         $dto->documentType = $this->get($rawRecord, 'Publication Type');
         $dto->doi = $this->normalizeDoi($this->get($rawRecord, 'DOI'));
         $dto->pmid = $this->get($rawRecord, 'PMID');
-        $dto->issn = $this->get($rawRecord, 'ISSNs');
-        $dto->url = $this->get($rawRecord, 'External URL') ?? $this->get($rawRecord, 'Source URLs');
+        $dto->issn = TextNormalizer::firstIssn($this->get($rawRecord, 'ISSNs'));
+        $dto->url = TextNormalizer::safeUrl($this->get($rawRecord, 'External URL'))
+            ?? TextNormalizer::safeUrl($this->get($rawRecord, 'Source URLs'));
         $dto->sourceTitle = $this->get($rawRecord, 'Source Title');
         $dto->volume = $this->get($rawRecord, 'Volume');
         $dto->issue = $this->get($rawRecord, 'Issue Number');
@@ -159,15 +161,14 @@ class LensCsvImporter implements BibliographicImporterInterface
     public function getSourceName(): string { return 'Lens.org'; }
     public function getFormatName(): string { return 'CSV'; }
 
+    /** @param array $record registro já passado por TextNormalizer::trimKeys() */
     private function get(array $record, string $key): ?string
     {
-        foreach ($record as $k => $v) {
-            if (trim($k) === $key) {
-                $val = trim((string) $v);
-                return $val !== '' ? $val : null;
-            }
+        if (!isset($record[$key])) {
+            return null;
         }
-        return null;
+        $val = trim((string) $record[$key]);
+        return $val !== '' ? $val : null;
     }
 
     private function getInt(array $record, string $key): ?int

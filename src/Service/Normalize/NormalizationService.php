@@ -47,15 +47,18 @@ class NormalizationService
             $count = count($group);
             if ($count < 2) continue;
 
+            // Cada nome é preparado uma vez (minúsculas, forma limpa, tamanho), não a cada par
+            $prep = array_map(fn ($a) => self::prepareSimilarity($a['name']), $group);
+
             // Compare inside the small group
             for ($i = 0; $i < $count; $i++) {
                 for ($j = $i + 1; $j < $count; $j++) {
                     $a1 = $group[$i];
                     $a2 = $group[$j];
 
-                    // Check similarity
-                    $sim = $this->calculateSimilarity($a1['name'], $a2['name']);
-                    if ($sim >= $minSimilarity) {
+                    // Check similarity (null: o tamanho já garante similaridade abaixo do limiar)
+                    $sim = self::similarityPrepared($prep[$i], $prep[$j], $minSimilarity);
+                    if ($sim !== null && $sim >= $minSimilarity) {
                         // Order so the one with more documents is preferred to keep
                         $keep = $a1['doc_count'] >= $a2['doc_count'] ? $a1 : $a2;
                         $discard = $keep['id'] === $a1['id'] ? $a2 : $a1;
@@ -112,6 +115,30 @@ class NormalizationService
     }
 
     /**
+     * Passa os vínculos documento -> autor/palavra-chave do descartado para o mantido, com o mesmo
+     * resultado do laço por documento de antes (e dos mesmos dois comandos da mesclagem em lote):
+     * se o mantido já está no documento, o vínculo do descartado some; senão, o vínculo passa a ser
+     * do mantido.
+     */
+    private function remapDocumentLinks(string $table, string $column, int $keepId, int $discardId): void
+    {
+        $conn = $this->em->getConnection();
+
+        // 1. Documentos em que o mantido já aparece
+        $conn->executeStatement(
+            "DELETE FROM {$table}
+             WHERE {$column} = ?
+               AND document_id IN (SELECT document_id FROM (SELECT document_id FROM {$table} WHERE {$column} = ?) AS _keep)",
+            [$discardId, $keepId]
+        );
+        // 2. Os demais passam para o mantido
+        $conn->executeStatement(
+            "UPDATE {$table} SET {$column} = ? WHERE {$column} = ?",
+            [$keepId, $discardId]
+        );
+    }
+
+    /**
      * Execute author merge.
      */
     public function mergeAuthors(int $keepId, int $discardId): void
@@ -120,35 +147,8 @@ class NormalizationService
         $conn->beginTransaction();
 
         try {
-            // Find all documents of the discarded author
-            $docAuthors = $conn->fetchAllAssociative(
-                'SELECT document_id, position, original_name FROM document_author WHERE author_identity_id = ?',
-                [$discardId]
-            );
-
-            foreach ($docAuthors as $da) {
-                $docId = $da['document_id'];
-
-                // Check if the kept author is already associated with this document
-                $exists = $conn->fetchOne(
-                    'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ?',
-                    [$docId, $keepId]
-                );
-
-                if ($exists) {
-                    // Both exist on the same document: delete the discarded one's link
-                    $conn->executeStatement(
-                        'DELETE FROM document_author WHERE document_id = ? AND author_identity_id = ?',
-                        [$docId, $discardId]
-                    );
-                } else {
-                    // Update discarded link to kept author
-                    $conn->executeStatement(
-                        'UPDATE document_author SET author_identity_id = ? WHERE document_id = ? AND author_identity_id = ?',
-                        [$keepId, $docId, $discardId]
-                    );
-                }
-            }
+            // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
+            $this->remapDocumentLinks('document_author', 'author_identity_id', $keepId, $discardId);
 
             // Create variation for the kept author with the name of the discarded author
             $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
@@ -382,19 +382,23 @@ class NormalizationService
             $count = count($group);
             if ($count < 2) continue;
 
+            // Cada termo é preparado uma vez (minúsculas, forma limpa, tamanho), não a cada par
+            $prep = array_map(fn ($k) => self::prepareSimilarity($k['term']), $group);
+
             for ($i = 0; $i < $count; $i++) {
                 for ($j = $i + 1; $j < $count; $j++) {
                     $k1 = $group[$i];
                     $k2 = $group[$j];
 
-                    $sim = $this->calculateSimilarity($k1['term'], $k2['term']);
-
-                    $t1 = strtolower(trim($k1['term']));
-                    $t2 = strtolower(trim($k2['term']));
+                    $t1 = $prep[$i]['lower'];
+                    $t2 = $prep[$j]['lower'];
                     $isPluralMatch = ($t1 . 's' === $t2) || ($t2 . 's' === $t1)
                                   || ($t1 . 'es' === $t2) || ($t2 . 'es' === $t1);
 
-                    if ($sim >= $minSimilarity || $isPluralMatch) {
+                    // Par singular/plural mostra a similaridade real: nunca é descartado pelo tamanho
+                    $sim = self::similarityPrepared($prep[$i], $prep[$j], $isPluralMatch ? 0.0 : $minSimilarity);
+
+                    if ($sim !== null && ($sim >= $minSimilarity || $isPluralMatch)) {
                         $keep    = $k1['doc_count'] >= $k2['doc_count'] ? $k1 : $k2;
                         $discard = $keep['id'] === $k1['id'] ? $k2 : $k1;
 
@@ -529,31 +533,8 @@ class NormalizationService
         $conn->beginTransaction();
 
         try {
-            $docKeywords = $conn->fetchAllAssociative(
-                'SELECT document_id FROM document_keyword WHERE keyword_id = ?',
-                [$discardId]
-            );
-
-            foreach ($docKeywords as $dk) {
-                $docId = $dk['document_id'];
-
-                $exists = $conn->fetchOne(
-                    'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ?',
-                    [$docId, $keepId]
-                );
-
-                if ($exists) {
-                    $conn->executeStatement(
-                        'DELETE FROM document_keyword WHERE document_id = ? AND keyword_id = ?',
-                        [$docId, $discardId]
-                    );
-                } else {
-                    $conn->executeStatement(
-                        'UPDATE document_keyword SET keyword_id = ? WHERE document_id = ? AND keyword_id = ?',
-                        [$keepId, $docId, $discardId]
-                    );
-                }
-            }
+            // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
+            $this->remapDocumentLinks('document_keyword', 'keyword_id', $keepId, $discardId);
 
             // Create variation for the kept keyword with the term of the discarded keyword
             $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
@@ -771,19 +752,25 @@ class NormalizationService
             $count = count($group);
             if ($count < 2) continue;
 
+            // Tamanho do título e forma preparada calculados uma vez por documento, não por par
+            $lens = array_map(fn ($d) => strlen($d['title']), $group);
+            $prep = [];
+
             for ($i = 0; $i < $count; $i++) {
                 for ($j = $i + 1; $j < $count; $j++) {
                     $d1 = $group[$i];
                     $d2 = $group[$j];
 
-                    $len1 = strlen($d1['title']);
-                    $len2 = strlen($d2['title']);
+                    $len1 = $lens[$i];
+                    $len2 = $lens[$j];
                     if (abs($len1 - $len2) > max($len1, $len2) * (1 - $minSimilarity)) {
                         continue;
                     }
 
-                    $sim = $this->calculateSimilarity($d1['title'], $d2['title']);
-                    if ($sim >= $minSimilarity) {
+                    $prep[$i] ??= self::prepareSimilarity($d1['title']);
+                    $prep[$j] ??= self::prepareSimilarity($d2['title']);
+                    $sim = self::similarityPrepared($prep[$i], $prep[$j], $minSimilarity);
+                    if ($sim !== null && $sim >= $minSimilarity) {
                         $keep = ($d1['doi'] && !$d2['doi']) || ($d1['cited_by'] >= $d2['cited_by']) ? $d1 : $d2;
                         $discard = $keep['id'] === $d1['id'] ? $d2 : $d1;
 
@@ -836,7 +823,9 @@ class NormalizationService
             }
 
             if (!empty($updates)) {
-                $conn->update('document', $updates, ['id' => $keepId]);
+                // Colunas entre crases: `references` é palavra reservada do MySQL
+                [$sql, $params] = self::buildUpdateStatement('document', $updates, 'id', $keepId);
+                $conn->executeStatement($sql, $params);
             }
 
             // 3. Move document authors
@@ -910,35 +899,135 @@ class NormalizationService
         }
     }
 
+    /**
+     * UPDATE com os nomes de coluna entre crases (DBAL::update não os protege).
+     *
+     * @return array{0: string, 1: array}  SQL e parâmetros
+     */
+    public static function buildUpdateStatement(string $table, array $updates, string $keyColumn, int|string $keyValue): array
+    {
+        $sets = [];
+        $params = [];
+        foreach ($updates as $col => $val) {
+            $sets[] = '`' . str_replace('`', '``', (string) $col) . '` = ?';
+            $params[] = $val;
+        }
+        $params[] = $keyValue;
+
+        return [
+            sprintf('UPDATE `%s` SET %s WHERE `%s` = ?', $table, implode(', ', $sets), $keyColumn),
+            $params,
+        ];
+    }
+
     // ── Helper: String Similarity Heuristic ───────────────────────────────────
 
     private function calculateSimilarity(string $s1, string $s2): float
     {
-        $s1 = strtolower(trim($s1));
-        $s2 = strtolower(trim($s2));
+        return self::similarityPrepared(self::prepareSimilarity($s1), self::prepareSimilarity($s2), 0.0);
+    }
 
-        if ($s1 === $s2) return 1.0;
+    /** Parte de cada texto que não depende do outro: minúsculas, forma só com a-z0-9 e espaço, tamanho em bytes e histograma de caracteres. */
+    public static function prepareSimilarity(string $s): array
+    {
+        $lower = strtolower(trim($s));
+        $len = strlen($lower);
 
-        $clean1 = preg_replace('/[^a-z0-9 ]/', '', $s1);
-        $clean2 = preg_replace('/[^a-z0-9 ]/', '', $s2);
-        if ($clean1 === $clean2) return 0.98;
+        // Histograma por grupos de bytes (28 grupos: a-z, "dígito ou espaço" e o resto). Só para textos que
+        // vão a Levenshtein (até 255 bytes); serve ao limite inferior de similarityPrepared.
+        $hist = null;
+        if ($len > 0 && $len <= 255) {
+            static $map = null;
+            if ($map === null) {
+                $map = array_fill(0, 256, 27);
+                foreach (range('a', 'z') as $i => $ch) {
+                    $map[ord($ch)] = $i;
+                }
+                for ($d = 0; $d < 10; $d++) {
+                    $map[ord((string) $d)] = 26;
+                }
+                $map[32] = 26;
+            }
+            $hist = array_fill(0, 28, 0);
+            for ($k = 0; $k < $len; $k++) {
+                $hist[$map[ord($lower[$k])]]++;
+            }
+        }
 
-        $len1 = strlen($s1);
-        $len2 = strlen($s2);
-        $maxLen = max($len1, $len2);
+        return [
+            'lower' => $lower,
+            'clean' => preg_replace('/[^a-z0-9 ]/', '', $lower),
+            'len'   => $len,
+            'hist'  => $hist,
+        ];
+    }
+
+    /**
+     * Similaridade (0 a 1) entre dois textos preparados. Mesma regra de sempre: iguais = 1,0;
+     * iguais sem pontuação = 0,98; textos longos (> 255) por similar_text; os demais por Levenshtein.
+     *
+     * Com $threshold > 0, devolve null quando já se sabe que a similaridade fica abaixo do limiar,
+     * sem calcular Levenshtein. Dois limites inferiores da distância, ambos exatos:
+     *  - a diferença de tamanho (cada inserção ou remoção muda o tamanho em 1);
+     *  - metade da diferença entre os histogramas de caracteres (uma inserção ou remoção muda o
+     *    histograma em 1 e uma troca em 2).
+     * Com $threshold = 0 nunca devolve null.
+     */
+    public static function similarityPrepared(array $p1, array $p2, float $threshold): ?float
+    {
+        if ($p1['lower'] === $p2['lower']) return 1.0;
+        if ($p1['clean'] === $p2['clean']) return 0.98;
+
+        $maxLen = max($p1['len'], $p2['len']);
 
         if ($maxLen === 0) return 1.0;
 
         if ($maxLen > 255) {
-            similar_text($s1, $s2, $percent);
+            similar_text($p1['lower'], $p2['lower'], $percent);
             return $percent / 100;
         }
 
-        $lev = levenshtein($s1, $s2);
+        if ($threshold > 0) {
+            // Máximo de edições que ainda deixa a similaridade no limiar. A margem de 1e-9 evita que o
+            // arredondamento decimal (ex.: 1 - 0,85 = 0,15000000000000002) descarte um par que chega.
+            $allowed = (int) floor($maxLen * (1 - $threshold) + 1e-9);
+            if (abs($p1['len'] - $p2['len']) > $allowed) {
+                return null;
+            }
+            if ($p1['hist'] !== null && $p2['hist'] !== null) {
+                $limit = 2 * $allowed;
+                $sum = 0;
+                $h1 = $p1['hist'];
+                $h2 = $p2['hist'];
+                for ($k = 0; $k < 28; $k++) {
+                    $x = $h1[$k] - $h2[$k];
+                    $sum += $x < 0 ? -$x : $x;
+                    if ($sum > $limit) {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        $lev = levenshtein($p1['lower'], $p2['lower']);
         return 1 - ($lev / $maxLen);
     }
 
     // ── Export & Import Normalization Rules ────────────────────────────────────
+
+    /**
+     * Desfaz o apóstrofo que a exportação põe antes de células que começam com = + - @
+     * (proteção contra injeção de fórmula no Excel), para o CSV exportado poder ser reimportado.
+     */
+    public static function unescapeCsvCell(mixed $value): string
+    {
+        $value = (string) $value;
+        if (preg_match("/^'[=+\\-@\t\r]/", $value)) {
+            return substr($value, 1);
+        }
+
+        return $value;
+    }
 
     public function exportAuthorNormalization(int $projectId): array
     {
@@ -979,7 +1068,7 @@ class NormalizationService
         }
 
         $variations = $conn->fetchAllAssociative('
-            SELECT anv.author_identity_id, anv.normalized_name
+            SELECT DISTINCT anv.author_identity_id, anv.normalized_name
             FROM author_name_variant anv
             JOIN document_author da ON anv.author_identity_id = da.author_identity_id
             JOIN document d ON da.document_id = d.id
@@ -991,6 +1080,7 @@ class NormalizationService
         }
 
         foreach ($records as $record) {
+            $record = array_map([self::class, 'unescapeCsvCell'], $record);
             $preferredName = trim($record['preferred_name'] ?? $record['keep_name'] ?? $record['preferred'] ?? $record['keep'] ?? '');
             $variantName   = trim($record['variant_name'] ?? $record['discard_name'] ?? $record['variant'] ?? $record['discard'] ?? '');
 
@@ -1022,6 +1112,12 @@ class NormalizationService
             $discardId = $authorMap[$normVariant] ?? null;
             if ($discardId && $discardId !== $keepId) {
                 $this->mergeAuthors($keepId, $discardId);
+                // O descartado deixou de existir: os nomes dele passam a apontar para o mantido
+                foreach ($authorMap as $mapKey => $mapId) {
+                    if ($mapId === $discardId) {
+                        $authorMap[$mapKey] = $keepId;
+                    }
+                }
                 $appliedCount++;
             } else {
                 $existsVar = $conn->fetchOne(
@@ -1071,6 +1167,7 @@ class NormalizationService
     {
         $conn = $this->em->getConnection();
         $appliedCount = 0;
+        $textNormalizer = new \App\Service\Import\TextNormalizer();
 
         $keywords = $conn->fetchAllAssociative('
             SELECT k.id, k.keyword_display, k.keyword_original, k.keyword_type
@@ -1090,7 +1187,7 @@ class NormalizationService
         }
 
         $variations = $conn->fetchAllAssociative('
-            SELECT kv.keyword_id, kv.normalized_name, k.keyword_type
+            SELECT DISTINCT kv.keyword_id, kv.normalized_name, k.keyword_type
             FROM palavra_chave_variacoes_nome kv
             JOIN keyword k ON kv.keyword_id = k.id
             JOIN document_keyword dk ON k.id = dk.keyword_id
@@ -1104,6 +1201,7 @@ class NormalizationService
         }
 
         foreach ($records as $record) {
+            $record = array_map([self::class, 'unescapeCsvCell'], $record);
             $preferredTerm = trim($record['preferred_keyword'] ?? $record['keep_term'] ?? $record['preferred'] ?? $record['keep'] ?? '');
             $variantTerm   = trim($record['variant_keyword'] ?? $record['discard_term'] ?? $record['variant'] ?? $record['discard'] ?? '');
             $kwType        = trim($record['keyword_type'] ?? $record['type'] ?? 'author_keyword');
@@ -1123,15 +1221,27 @@ class NormalizationService
             if (!$keepId) {
                 $keepId = $conn->fetchOne('SELECT id FROM keyword WHERE keyword_type = ? AND keyword_original = ?', [$kwType, $preferredTerm]);
                 if (!$keepId) {
-                    $conn->insert('keyword', [
-                        'keyword_original' => $preferredTerm,
-                        'keyword_display'  => $preferredTerm,
-                        'keyword_type'     => $kwType,
-                    ]);
-                    $keepId = (int)$conn->lastInsertId();
-                } else {
-                    $keepId = (int)$keepId;
+                    // Mesmo tratamento da importação: exibição limpa, forma normalizada e conceito próprio
+                    $res = $textNormalizer->normalizeKeyword($preferredTerm);
+                    if (!$res['valid']) {
+                        continue;
+                    }
+                    $normKey = \App\Service\Import\DocumentImportService::cut($res['normalized'], 255);
+                    $keepId = $conn->fetchOne('SELECT id FROM keyword WHERE keyword_type = ? AND keyword_normalized = ?', [$kwType, $normKey]);
+                    if (!$keepId) {
+                        $conn->insert('keyword', [
+                            'keyword_original'   => \App\Service\Import\DocumentImportService::cut($preferredTerm, 255),
+                            'keyword_display'    => \App\Service\Import\DocumentImportService::cut($textNormalizer->cleanDisplayValue($preferredTerm), 255),
+                            'keyword_normalized' => $normKey,
+                            'keyword_type'       => $kwType,
+                            'status'             => $res['needs_review'] ? 0 : 1,
+                            'review_reasons'     => !empty($res['review_reasons']) ? implode(',', $res['review_reasons']) : null,
+                        ]);
+                        $keepId = (int)$conn->lastInsertId();
+                        $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE id = ?', [$keepId, $keepId]);
+                    }
                 }
+                $keepId = (int)$keepId;
                 $keywordMap[$kwType . '_' . $normPreferred] = $keepId;
                 $keywordMap['all_' . $normPreferred] = $keepId;
             }
@@ -1140,6 +1250,12 @@ class NormalizationService
 
             if ($discardId && $discardId !== $keepId) {
                 $this->mergeKeywords($keepId, $discardId);
+                // O descartado deixou de existir: as chaves dele passam a apontar para o mantido
+                foreach ($keywordMap as $mapKey => $mapId) {
+                    if ($mapId === $discardId) {
+                        $keywordMap[$mapKey] = $keepId;
+                    }
+                }
                 $appliedCount++;
             } else {
                 $existsVar = $conn->fetchOne(

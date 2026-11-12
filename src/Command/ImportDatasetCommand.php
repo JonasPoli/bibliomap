@@ -7,6 +7,8 @@ use App\Repository\DatasetRepository;
 use App\Service\Import\DocumentEnrichmentService;
 use App\Service\Import\DocumentImportService;
 use App\Service\Import\ImporterResolver;
+use App\Service\Import\TextNormalizer;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -70,28 +72,100 @@ class ImportDatasetCommand extends Command
         return $ok ? Command::SUCCESS : Command::FAILURE;
     }
 
+    /** Espera máxima pela vez na fila de importações (segundos). */
+    private const QUEUE_WAIT_SECONDS = 6 * 3600;
+
+    /** Projeto do dataset em andamento: o `finally` acerta o status dele em qualquer desfecho. */
+    private ?int $currentProjectId = null;
+
     /**
      * @return array{projectId: int, imported: int}|null  null em caso de falha
      */
     private function importDataset(int $datasetId, SymfonyStyle $io): ?array
     {
-        $this->em->clear();
+        $this->currentProjectId = null;
         $conn = $this->em->getConnection();
-
-        // Trava por dataset: uma segunda execução simultânea do mesmo dataset
-        // duplicaria contagens e registros de "duplicados".
         $lockName = 'bibliomap_import_dataset_' . $datasetId;
-        if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 0)', [$lockName]) !== 1) {
-            $io->error("Dataset #{$datasetId} já está sendo importado por outro processo.");
-            return null;
-        }
+        $queueLock = 'bibliomap_import';
+        $hasQueueLock = false;
+        $hasDatasetLock = false;
 
         try {
+            $this->em->clear();
+            // A conexão pode ter caído durante o dataset anterior: as travas (da sessão do MySQL)
+            // são pegas de novo a cada dataset, já na conexão que vai importar.
+            $this->ensureConnection($conn);
+
+            // Uma importação por vez no servidor: as demais esperam aqui (fila natural),
+            // com o dataset ainda pendente.
+            if ((int) $conn->fetchOne('SELECT GET_LOCK(?, ?)', [$queueLock, self::QUEUE_WAIT_SECONDS]) !== 1) {
+                $io->error("Dataset #{$datasetId}: outra importação ocupou o servidor por mais de " . (self::QUEUE_WAIT_SECONDS / 3600) . ' h; ele continua pendente.');
+                return null;
+            }
+            $hasQueueLock = true;
+
+            // Trava por dataset: uma segunda execução simultânea do mesmo dataset
+            // duplicaria contagens e registros de "duplicados".
+            if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 0)', [$lockName]) !== 1) {
+                $io->error("Dataset #{$datasetId} já está sendo importado por outro processo.");
+                return null;
+            }
+            $hasDatasetLock = true;
+
             return $this->doImportDataset($datasetId, $io);
+        } catch (\Throwable $e) {
+            $io->error("Dataset #{$datasetId}: erro antes de importar: " . $e->getMessage());
+            return null;
         } finally {
+            // Sem isto, um dataset que falha deixava o projeto em "Importando" para sempre
+            if ($this->currentProjectId !== null) {
+                $this->refreshProjectStatus($this->currentProjectId);
+            }
+            foreach ([$hasDatasetLock ? $lockName : null, $hasQueueLock ? $queueLock : null] as $name) {
+                if ($name === null) {
+                    continue;
+                }
+                try {
+                    $conn->fetchOne('SELECT RELEASE_LOCK(?)', [$name]);
+                } catch (\Throwable) {}
+            }
+        }
+    }
+
+    /** Fecha a conexão se ela não responde: o DBAL abre outra na próxima consulta. */
+    private function ensureConnection(Connection $conn): void
+    {
+        try {
+            $conn->fetchOne('SELECT 1');
+        } catch (\Throwable) {
             try {
-                $conn->fetchOne('SELECT RELEASE_LOCK(?)', [$lockName]);
+                $conn->close();
             } catch (\Throwable) {}
+        }
+    }
+
+    /** Projeto pronto se tem documentos; senão, apenas importado. Via DBAL: não depende do EntityManager. */
+    private function refreshProjectStatus(int $projectId): void
+    {
+        $conn = $this->em->getConnection();
+        try {
+            $this->ensureConnection($conn);
+            $total = (int) $conn->fetchOne('SELECT COUNT(*) FROM document WHERE project_id = ?', [$projectId]);
+            $conn->executeStatement(
+                'UPDATE bibliometric_project SET status = ? WHERE id = ? AND status IN (?, ?, ?, ?, ?)',
+                [
+                    $total > 0 ? \App\Entity\BibliometricProject::STATUS_READY : \App\Entity\BibliometricProject::STATUS_IMPORTED,
+                    $projectId,
+                    // só estados de importação; um projeto já normalizando ou concluído não é tocado
+                    \App\Entity\BibliometricProject::STATUS_IMPORTING,
+                    \App\Entity\BibliometricProject::STATUS_DRAFT,
+                    \App\Entity\BibliometricProject::STATUS_AWAITING_IMPORT,
+                    \App\Entity\BibliometricProject::STATUS_IMPORTED,
+                    \App\Entity\BibliometricProject::STATUS_READY,
+                ]
+            );
+        } catch (\Throwable) {
+            // Sem banco agora: o status é corrigido na próxima importação ou pela retomada da fila
         }
     }
 
@@ -102,6 +176,8 @@ class ImportDatasetCommand extends Command
             $io->error("Dataset #{$datasetId} not found.");
             return null;
         }
+
+        $this->currentProjectId = (int) $dataset->getProject()->getId();
 
         $filePath = $dataset->getFilePath();
         if (!$filePath || !file_exists($filePath)) {
@@ -136,15 +212,29 @@ class ImportDatasetCommand extends Command
             return null;
         }
 
+        if (!TextNormalizer::isUtf8File($filePath)) {
+            $dataset->setStatus(Dataset::STATUS_ERROR);
+            $dataset->setErrorMessage(
+                'O arquivo não está em UTF-8 (parece Windows-1252, Latin-1 ou UTF-16): os acentos seriam gravados errados. '
+                . 'Reexporte em UTF-8 ou abra e salve o arquivo como UTF-8 antes de enviar.'
+            );
+            $this->em->flush();
+            $io->error('Arquivo fora de UTF-8.');
+            return null;
+        }
+
         try {
             // Reexecução (ex.: após queda do banco): os duplicados da tentativa
             // anterior são registrados de novo nesta execução.
             $this->em->getConnection()->executeStatement('DELETE FROM dataset_skip WHERE dataset_id = ?', [$datasetId]);
 
-            // Count total rows
-            $totalRows = method_exists($importer, 'countRows')
-                ? $importer->countRows($filePath)
-                : 0;
+            // O envio já contou as linhas na prévia: só conta de novo se o valor não veio
+            $totalRows = $dataset->getRecordsCount();
+            if ($totalRows <= 0) {
+                $totalRows = method_exists($importer, 'countRows')
+                    ? $importer->countRows($filePath)
+                    : 0;
+            }
 
             $dataset->setRecordsCount($totalRows);
             $this->em->flush();
@@ -178,17 +268,6 @@ class ImportDatasetCommand extends Command
                 $dataset->setStatus(Dataset::STATUS_IMPORTED);
             }
 
-            // Update project status
-            $project = $dataset->getProject();
-            $totalDocs = $this->em->getConnection()->fetchOne(
-                'SELECT COUNT(*) FROM document WHERE project_id = ?',
-                [$project->getId()]
-            );
-            $project->setStatus($totalDocs > 0
-                ? \App\Entity\BibliometricProject::STATUS_READY
-                : \App\Entity\BibliometricProject::STATUS_IMPORTED
-            );
-
             $this->em->flush();
 
             $io->success(sprintf(
@@ -198,9 +277,15 @@ class ImportDatasetCommand extends Command
                 $stats['errors']
             ));
 
-            return ['projectId' => (int) $project->getId(), 'imported' => $stats['imported']];
+            return ['projectId' => (int) $dataset->getProject()->getId(), 'imported' => $stats['imported']];
 
         } catch (\Throwable $e) {
+            // Conexão perdida ("server has gone away"): fecha para o DBAL reabrir, senão o erro
+            // abaixo também falharia e o dataset ficaria "importando" para sempre.
+            $conn = $this->em->getConnection();
+            try {
+                $conn->close();
+            } catch (\Throwable) {}
             try {
                 $dataset->setStatus(Dataset::STATUS_ERROR);
                 $dataset->setErrorMessage(substr($e->getMessage(), 0, 1000));
@@ -215,6 +300,7 @@ class ImportDatasetCommand extends Command
     private function enrichProject(int $projectId, SymfonyStyle $io): void
     {
         $conn = $this->em->getConnection();
+        $this->ensureConnection($conn);
         // Uma sincronização por projeto de cada vez (ela apaga e recria os vínculos)
         $lockName = 'bibliomap_enrich_project_' . $projectId;
         if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 600)', [$lockName]) !== 1) {

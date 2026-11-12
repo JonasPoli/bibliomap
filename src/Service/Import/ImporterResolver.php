@@ -14,6 +14,25 @@ class ImporterResolver
         $this->importers = iterator_to_array($importers);
     }
 
+    /**
+     * Valores aceitos no campo "base de origem" dos formulários: as bases fixas, as cadastradas
+     * (siglas) e "generic" (Outra).
+     *
+     * @return string[]
+     */
+    public function allowedSources(): array
+    {
+        $allowed = array_keys(\App\Config\DataSources::all());
+        try {
+            foreach ($this->em->getRepository(\App\Entity\AcademicDatabase::class)->findAll() as $db) {
+                $allowed[] = $db->getAcronym();
+            }
+        } catch (\Throwable) {}
+        $allowed[] = 'generic';
+
+        return array_values(array_unique(array_filter($allowed)));
+    }
+
     public function resolve(string $filePath, string $format, ?string $source = null): ?BibliographicImporterInterface
     {
         $src = strtolower(trim($source ?? ''));

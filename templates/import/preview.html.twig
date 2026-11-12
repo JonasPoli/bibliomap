@@ -49,8 +49,8 @@
                     <i class="bi bi-check-circle-fill me-1"></i>Confiança: {{ (detected.score * 100)|number_format(0) }}%
                 </div>
             {% else %}
-                <div style="font-size:14px;font-weight:500;color:var(--bm-warning)">Não detectada</div>
-                <div style="font-size:11px;color:var(--bm-text-muted)">Formato provavelmente sem leitor (RIS, BibTeX, XLSX, OpenAlex...). Confira a prévia abaixo.</div>
+                <div style="font-size:14px;font-weight:500;color:var(--bm-warning)">Formato não reconhecido</div>
+                <div style="font-size:11px;color:var(--bm-text-muted)">O arquivo não parece ser Scopus, Web of Science, Lens.org nem PubMed (RIS, BibTeX, XLSX, OpenAlex...). Não há prévia; reexporte num formato lido ou escolha a base abaixo se tiver certeza.</div>
             {% endif %}
         </div>
     </div>
@@ -133,7 +133,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--bm-text-muted)">Nenhum registro reconhecido na prévia. Se você confirmar, provavelmente nenhum documento será importado — verifique se o arquivo é Scopus CSV, WoS TXT, Lens CSV ou PubMed NBIB/CSV.</td></tr>
+                    <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--bm-text-muted)">{% if unrecognized|default(false) %}Formato não reconhecido: não há prévia dos registros. {% endif %}Nenhum registro reconhecido na prévia. Se você confirmar, provavelmente nenhum documento será importado — verifique se o arquivo é Scopus CSV, WoS TXT, Lens CSV ou PubMed NBIB/CSV.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -147,6 +147,7 @@
     </h3>
 
     <form method="post" action="{{ path('app_import_confirm', {projectId: project.id}) }}" id="confirm-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('import_confirm_' ~ project.id) }}">
 
         <style>
         .src-pick-card {

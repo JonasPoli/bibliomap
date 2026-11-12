@@ -121,6 +121,7 @@
         <div class="bm-card mb-4">
             <form method="post" action="{{ path('app_import_upload', {projectId: project.id}) }}"
                   enctype="multipart/form-data" id="upload-form">
+                <input type="hidden" name="_token" value="{{ csrf_token('import_upload_' ~ project.id) }}">
 
                 <h3 style="font-size:15px;font-weight:600;color:var(--bm-text);margin:0 0 20px">Selecionar arquivo(s) {{ help('import.index.file') }}</h3>
 

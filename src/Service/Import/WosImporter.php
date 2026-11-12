@@ -168,7 +168,6 @@ class WosImporter implements BibliographicImporterInterface
     {
         $dto = new BibliographicRecordDTO();
         $dto->source = 'wos';
-        $dto->rawData = json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         // Title (can span multiple lines in WoS)
         $dto->title = $this->field($raw, 'TI');

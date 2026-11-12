@@ -141,7 +141,6 @@ class PubmedNbibImporter implements BibliographicImporterInterface
     {
         $dto = new BibliographicRecordDTO();
         $dto->source = 'pubmed';
-        $dto->rawData = json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         // PMID & ExternalId
         $pmid = $this->field($raw, 'PMID');
@@ -202,6 +201,9 @@ class PubmedNbibImporter implements BibliographicImporterInterface
             $dto->pageEnd = isset($parts[1]) ? trim($parts[1]) : null;
         }
 
+        // ISSN: tag IS ("1234-5678 (Print)", pode repetir para o eletrônico); fica o primeiro válido
+        $dto->issn = TextNormalizer::firstIssn($this->field($raw, 'IS'));
+
         // Language
         $dto->language = $this->field($raw, 'LA');
 
@@ -259,7 +261,7 @@ class PubmedNbibImporter implements BibliographicImporterInterface
             return;
         }
 
-        $arrayTags = ['AU', 'FAU', 'AD', 'MH', 'OT', 'AID', 'LID', 'PT'];
+        $arrayTags = ['AU', 'FAU', 'AD', 'MH', 'OT', 'AID', 'LID', 'PT', 'IS'];
 
         $record = [];
         $currentTag = null;

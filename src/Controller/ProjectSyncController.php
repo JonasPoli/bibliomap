@@ -17,6 +17,7 @@ class ProjectSyncController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly DocumentEnrichmentService $enrichmentService,
+        private readonly \Psr\Log\LoggerInterface $logger,
     ) {}
 
     // Legacy Redirects
@@ -100,7 +101,8 @@ class ProjectSyncController extends AbstractController
 
             $this->addFlash('success', 'Sincronização do projeto concluída com sucesso!');
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Ocorreu um erro durante a sincronização: ' . $e->getMessage());
+            $this->logger->error('Sincronização do projeto ' . $id . ' falhou: ' . $e->getMessage(), ['exception' => $e]);
+            $this->addFlash('danger', 'Ocorreu um erro durante a sincronização. Tente de novo em alguns minutos; se persistir, fale com o administrador.');
         } finally {
             $conn->fetchOne('SELECT RELEASE_LOCK(?)', [$lockName]);
         }
@@ -121,6 +123,8 @@ class ProjectSyncController extends AbstractController
         $type = $request->query->get('type', 'institutions');
 
         $csv = \League\Csv\Writer::createFromString('');
+        // Célula que começa com = + - @ vira texto no Excel (injeção de fórmula)
+        $csv->addFormatter((new \League\Csv\EscapeFormula("'"))->escapeRecord(...));
         
         if ($type === 'countries') {
             $csv->insertOne(['raw_country_name', 'occurrences']);

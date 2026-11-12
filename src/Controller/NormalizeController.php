@@ -6,6 +6,8 @@ use App\Entity\BibliometricProject;
 use App\Service\Normalize\NormalizationService;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Reader;
+use League\Csv\EscapeFormula;
+use Psr\Log\LoggerInterface;
 use League\Csv\Writer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +22,22 @@ class NormalizeController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly NormalizationService $normalizationService,
+        private readonly LoggerInterface $logger,
     ) {}
+
+    /**
+     * Mensagem para o usuário: só as recusas previstas (token, tipo, IDs de outro projeto) aparecem como estão;
+     * qualquer outra exceção vai para o log e a tela recebe uma mensagem genérica.
+     */
+    private function safeMessage(\Throwable $e, string $generic): string
+    {
+        if ($e instanceof \InvalidArgumentException || $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException) {
+            return $e->getMessage() !== '' ? $e->getMessage() : $generic;
+        }
+        $this->logger->error($generic . ' ' . $e->getMessage(), ['exception' => $e]);
+
+        return $generic;
+    }
 
     #[Route('', name: 'app_normalize_index', methods: ['GET'])]
     public function index(int $id, Request $request): Response
@@ -94,7 +111,7 @@ class NormalizeController extends AbstractController
             $this->addFlash('success', $message);
 
         } catch (\Throwable $e) {
-            $errMessage = 'Erro ao realizar mesclagem: ' . $e->getMessage();
+            $errMessage = 'Erro ao realizar mesclagem: ' . $this->safeMessage($e, 'não foi possível concluir. Tente de novo ou fale com o administrador.');
             
             if ($isAjax) {
                 return $this->json(['success' => false, 'message' => $errMessage], 400);
@@ -150,7 +167,7 @@ class NormalizeController extends AbstractController
                 'message' => "{$merged} item(s) mesclados com sucesso!",
             ]);
         } catch (\Throwable $e) {
-            return $this->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return $this->json(['success' => false, 'message' => $this->safeMessage($e, 'Erro ao mesclar em lote. Tente de novo ou fale com o administrador.')], 500);
         }
     }
 
@@ -163,6 +180,8 @@ class NormalizeController extends AbstractController
         $rules = $this->normalizationService->exportAuthorNormalization($project->getId());
 
         $csv = Writer::createFromString('');
+        // Célula que começa com = + - @ vira texto no Excel; a importação desfaz o apóstrofo
+        $csv->addFormatter((new EscapeFormula("'"))->escapeRecord(...));
         $csv->insertOne(['preferred_name', 'variant_name', 'source', 'created_at']);
 
         foreach ($rules as $r) {
@@ -206,7 +225,7 @@ class NormalizeController extends AbstractController
 
             $this->addFlash('success', "Importação de normatização de autores concluída! Processados: {$applied} par(es).");
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao importar normatização de autores: ' . $e->getMessage());
+            $this->addFlash('danger', 'Erro ao importar normatização de autores: ' . $this->safeMessage($e, 'o arquivo não pôde ser processado. Confira as colunas e a codificação (UTF-8).'));
         }
 
         return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'authors']);
@@ -219,6 +238,8 @@ class NormalizeController extends AbstractController
         $rules = $this->normalizationService->exportKeywordNormalization($project->getId());
 
         $csv = Writer::createFromString('');
+        // Célula que começa com = + - @ vira texto no Excel; a importação desfaz o apóstrofo
+        $csv->addFormatter((new EscapeFormula("'"))->escapeRecord(...));
         $csv->insertOne(['preferred_keyword', 'variant_keyword', 'keyword_type', 'status']);
 
         foreach ($rules as $r) {
@@ -262,7 +283,7 @@ class NormalizeController extends AbstractController
 
             $this->addFlash('success', "Importação de normatização de palavras-chave concluída! Processados: {$applied} par(es).");
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao importar normatização de palavras-chave: ' . $e->getMessage());
+            $this->addFlash('danger', 'Erro ao importar normatização de palavras-chave: ' . $this->safeMessage($e, 'o arquivo não pôde ser processado. Confira as colunas e a codificação (UTF-8).'));
         }
 
         return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'keywords']);

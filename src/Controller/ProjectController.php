@@ -21,6 +21,7 @@ class ProjectController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly BibliometricProjectRepository $projectRepo,
         private readonly SlugService $slugService,
+        private readonly \Psr\Log\LoggerInterface $logger,
     ) {}
 
     #[Route('', name: 'app_projects_index', methods: ['GET'])]
@@ -195,23 +196,27 @@ class ProjectController extends AbstractController
                 $this->em->commit();
             } catch (\Throwable $e) {
                 $this->em->rollback();
-                $this->addFlash('danger', 'Erro ao excluir o projeto do banco de dados: ' . $e->getMessage());
+                $this->logger->error('Exclusão do projeto ' . $projectId . ' falhou: ' . $e->getMessage(), ['exception' => $e]);
+                $this->addFlash('danger', 'Erro ao excluir o projeto do banco de dados. Nada foi apagado; tente de novo ou fale com o administrador.');
                 return $this->redirectToRoute('app_projects_edit', ['id' => $projectId]);
             }
 
-            // 3. Delete physical files on disk
+            // 3. Delete physical files on disk. Arquivo que outro dataset (de outro projeto) ainda
+            // referencia fica: cópias antigas de projeto dividiam a pasta e, sem o original, o caminho.
+            $conn = $this->em->getConnection();
+            $stillUsed = static fn (string $path): bool => (int) $conn->fetchOne('SELECT COUNT(*) FROM dataset WHERE file_path = ?', [$path]) > 0;
             foreach ($filePaths as $path) {
-                if (file_exists($path)) {
+                if (file_exists($path) && !$stillUsed($path)) {
                     @unlink($path);
                 }
             }
 
-            // 4. Delete upload directory for this project
+            // 4. Delete upload directory for this project (uploads sem dataset e restos)
             $uploadDir = $projectDir . '/var/uploads/' . $projectId;
             if (is_dir($uploadDir)) {
                 $files = glob($uploadDir . '/*');
                 foreach ($files as $file) {
-                    if (is_file($file)) {
+                    if (is_file($file) && !$stillUsed($file)) {
                         @unlink($file);
                     }
                 }

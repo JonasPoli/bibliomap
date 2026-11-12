@@ -291,11 +291,22 @@ dataset.index.page:
   what: |-
     Lista cada arquivo importado no projeto (cada um vira uma "importação" ou dataset), com base de origem, status e números de registros importados e duplicados.
   how: |-
-    Clique numa importação para ver os documentos e os duplicados ignorados. Use o lápis para editar nome, descrição e período, e a lixeira para excluir a importação e os documentos dela.
+    Clique numa importação para ver os documentos e os duplicados ignorados. Use o lápis para editar nome, descrição e período, e a lixeira para excluir a importação e os documentos dela (o arquivo enviado também é apagado do servidor).
   not: |-
-    Não mostra os registros que deram erro um a um (só a contagem). Para importar mais arquivos, use **Nova importação**.
+    Não mostra os registros que deram erro um a um (só a contagem). Para importar mais arquivos, use **Nova importação**. Uma importação em andamento não pode ser excluída: espere terminar.
   example: |-
     Um projeto com 4 lotes do WoS mostra 4 linhas; o lote 2 indica 500 registros, 470 importados e 30 duplicados (já vindos do lote 1).
+
+dataset.index.resume:
+  title: "Importação interrompida"
+  what: |-
+    Aparece quando um arquivo ficou com status **Pendente** ou **Importando** e nenhum processo está trabalhando nele (por exemplo, o servidor reiniciou no meio da importação). O BiblioMap confere isso pelas travas do banco: com uma importação rodando, o aviso não aparece.
+  how: |-
+    Clique em **Retomar importação**. Os arquivos parados são importados em sequência; o que já tinha sido gravado não é duplicado (conta como importado). Um arquivo Pendente só aparece aqui 2 minutos depois do envio.
+  not: |-
+    Não apaga nada nem refaz importações já concluídas. Só o dono do projeto vê e usa o botão.
+  example: |-
+    O servidor foi reiniciado com o lote 3 em 48.200 de 50.281 registros: Retomar importação termina o lote 3 sem repetir os 48.200.
 
 dataset.index.kpi_imports:
   title: "Importações"

@@ -174,11 +174,11 @@ import.index.supported_formats:
 import.dedup:
   title: "Deduplicação automática"
   what: |-
-    Ao importar, cada registro é comparado com tudo o que já está no projeto (inclusive registros anteriores do mesmo arquivo). É ignorado se tiver o **mesmo DOI** ou, sem DOI, o **mesmo título e ano** (iguais letra por letra, sem diferenciar maiúsculas).
+    Ao importar, cada registro é comparado com tudo o que já está no projeto (inclusive registros anteriores do mesmo arquivo). É ignorado se tiver o **mesmo DOI** ou, sem DOI, o **mesmo título e ano** (iguais letra por letra, sem diferenciar maiúsculas). Sem DOI e sem ano, vale o **mesmo identificador da base** (EID, PMID, Lens ID) e, por último, o **mesmo título**.
   how: |-
     Importe todas as bases e lotes no **mesmo projeto**. A ordem importa: o registro que fica é o que entrou primeiro; importe primeiro a base com metadados mais completos.
   not: |-
-    Não mescla dados: o duplicado é descartado inteiro (citações, palavras-chave extras). Não detecta títulos com pequenas diferenças; para isso use **Normalizar e Deduplicar › Documentos duplicados**. Registros sem DOI e sem ano nunca são considerados duplicados.
+    Não mescla dados: o duplicado é descartado inteiro (citações, palavras-chave extras). Não detecta títulos com pequenas diferenças; para isso use **Normalizar e Deduplicar › Documentos duplicados**. Registros sem DOI, sem ano, sem identificador da base e sem título nunca são considerados duplicados.
   example: |-
     Importando Scopus (1.200) e depois WoS (900) com 640 em comum, ficam 1.460 documentos; os 640 do WoS aparecem na aba "Duplicados ignorados".
 
@@ -189,7 +189,7 @@ import.dedup:
 import.preview.page:
   title: "Prévia da importação"
   what: |-
-    Mostra como o BiblioMap leu os 10 primeiros registros do arquivo, antes de gravar qualquer coisa no projeto.
+    Mostra como o BiblioMap leu os 10 primeiros registros do arquivo, antes de gravar qualquer coisa no projeto. Se o formato não for reconhecido, aparece "Formato não reconhecido" e não há prévia.
   how: |-
     Confira se título, autores, ano e periódico aparecem nas colunas certas e se a base detectada está correta. Depois preencha as configurações e confirme.
   not: |-
@@ -527,7 +527,7 @@ normalize.merge_selected:
 normalize.export_authors:
   title: "Exportar normatização de autores"
   what: |-
-    Baixa um CSV com as variações de nome registradas para os autores do projeto (colunas preferred_name, variant_name, source, created_at).
+    Baixa um CSV com as variações de nome registradas para os autores do projeto (colunas preferred_name, variant_name, source, created_at). Célula que começa com = + - @ sai com um apóstrofo na frente, para o Excel não executá-la como fórmula.
   how: |-
     Guarde como backup ou para reaplicar em outro projeto via Importar normatização.
   not: |-
@@ -540,7 +540,7 @@ normalize.import_authors:
   what: |-
     Aplica em lote uma lista de unificações de autores a partir de um CSV com as colunas **preferred_name** (nome mantido) e **variant_name** (nome a unir).
   how: |-
-    Use o CSV exportado de outro projeto ou monte o seu na planilha (salve como CSV UTF-8 separado por vírgulas). Se o nome variante existir no projeto, os autores são mesclados; senão, a variação fica registrada.
+    Use o CSV exportado de outro projeto ou monte o seu na planilha (salve como CSV UTF-8 separado por vírgulas). Se o nome variante existir no projeto, os autores são mesclados; senão, a variação fica registrada. O apóstrofo que a exportação coloca antes de células que começam com = + - @ (proteção do Excel) é retirado na leitura.
   not: |-
     Não tem desfazer e afeta os autores em todos os projetos que os usam. Nomes que não existirem são criados como novos cadastros.
   example: |-
@@ -549,7 +549,7 @@ normalize.import_authors:
 normalize.export_keywords:
   title: "Exportar normatização de palavras-chave"
   what: |-
-    Baixa um CSV com as variações registradas para as palavras-chave do projeto (preferred_keyword, variant_keyword, keyword_type, status).
+    Baixa um CSV com as variações registradas para as palavras-chave do projeto (preferred_keyword, variant_keyword, keyword_type, status). Célula que começa com = + - @ sai com um apóstrofo na frente, para o Excel não executá-la como fórmula.
   how: |-
     Use como backup ou para reaplicar as mesmas unificações em outro projeto.
   not: |-
@@ -564,7 +564,7 @@ normalize.import_keywords:
   how: |-
     Monte a planilha com uma unificação por linha e salve como CSV UTF-8 separado por vírgulas. Termos que existirem no projeto são mesclados; os demais ficam registrados como variação.
   not: |-
-    Não tem desfazer e vale para todos os projetos que usam esses termos.
+    Não tem desfazer e vale para todos os projetos que usam esses termos. Palavra preferida que ainda não existe é criada já com a forma normalizada e o conceito próprios, e com o texto limpo (sem aspas e pontuação nas bordas).
   example: |-
     A linha artificial intelligence,AI,author_keyword (separada por vírgula) passa a contar "AI" como "artificial intelligence".
 
@@ -755,7 +755,7 @@ sync.export_csv:
   how: |-
     Abra no Excel ou envie ao administrador para cadastrar as variações.
   not: |-
-    Não corrige nada sozinho. As listas de instituições e países vêm da última execução do sincronismo; rode-o antes para ter a lista atualizada.
+    Não corrige nada sozinho. As listas de instituições e países vêm da última execução do sincronismo; rode-o antes para ter a lista atualizada. Célula que começa com = + - @ sai com um apóstrofo na frente, para o Excel não executá-la como fórmula.
   example: |-
     "instituicoes_nao_encontradas_projeto_13.csv" com 312 afiliações, da mais frequente para a menos.
 

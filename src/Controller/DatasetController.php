@@ -6,6 +6,9 @@ use App\Entity\BibliometricProject;
 use App\Entity\Dataset;
 use App\Repository\DatasetRepository;
 use App\Repository\DocumentRepository;
+use App\Service\Import\ImporterResolver;
+use App\Service\Import\ImportQueueInspector;
+use Psr\Log\LoggerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +24,9 @@ class DatasetController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly DatasetRepository $datasetRepo,
         private readonly DocumentRepository $documentRepo,
+        private readonly ImporterResolver $resolver,
+        private readonly ImportQueueInspector $queueInspector,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -38,6 +44,10 @@ class DatasetController extends AbstractController
         return $this->render('dataset/index.html.twig', [
             'project' => $project,
             'datasets' => $datasets,
+            // Só o dono pode retomar; só consulta as travas quando há dataset parado em pendente/importando
+            'interrupted' => $this->isGranted('edit', $project) && array_filter($datasets, fn (Dataset $d) => in_array($d->getStatus(), [Dataset::STATUS_PENDING, Dataset::STATUS_IMPORTING], true))
+                ? $this->queueInspector->interruptedDatasetIds($project->getId())
+                : [],
         ]);
     }
 
@@ -94,11 +104,17 @@ class DatasetController extends AbstractController
         $this->assertDatasetBelongs($dataset, $project);
 
         if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('dataset_edit_' . $dataset->getId(), (string) $request->request->get('_token'))) {
+                $this->addFlash('danger', 'Token CSRF inválido. Recarregue a página e tente de novo.');
+                return $this->redirectToRoute('app_datasets_edit', ['projectId' => $projectId, 'id' => $dataset->getId()]);
+            }
+
             $dataset->setName(trim($request->request->get('name', $dataset->getName())));
             $dataset->setDescription(trim($request->request->get('description', '')) ?: null);
 
-            $source = $request->request->get('source');
-            if ($source) {
+            // Só valores da lista de bases (os cartões da tela)
+            $source = (string) $request->request->get('source');
+            if ($source !== '' && in_array($source, $this->resolver->allowedSources(), true)) {
                 $dataset->setSource($source);
             }
 
@@ -139,15 +155,36 @@ class DatasetController extends AbstractController
         }
 
         $name = $dataset->getName();
+        $conn = $this->em->getConnection();
 
-        // Cascade delete documents via raw query (faster than Doctrine for large sets)
-        $this->em->getConnection()->executeStatement(
-            'DELETE FROM document WHERE dataset_id = ?',
-            [$dataset->getId()]
-        );
+        // Importação em andamento (trava do dataset ocupada por outro processo): apagar agora
+        // deixaria o processo gravando documentos sem dataset.
+        $lockName = 'bibliomap_import_dataset_' . $dataset->getId();
+        if ((int) $conn->fetchOne('SELECT GET_LOCK(?, 0)', [$lockName]) !== 1) {
+            $this->addFlash('warning', 'Este dataset está sendo importado agora. Espere terminar para excluí-lo.');
+            return $this->redirectToRoute('app_datasets_index', ['projectId' => $projectId]);
+        }
 
-        $this->em->remove($dataset);
-        $this->em->flush();
+        $filePath = $dataset->getFilePath();
+        try {
+            // Em faixas: um DELETE único de dezenas de milhares de documentos (com os vínculos em
+            // CASCADE) segura bloqueios e o log do InnoDB por minutos.
+            do {
+                $deleted = (int) $conn->executeStatement(
+                    'DELETE FROM document WHERE dataset_id = ? ORDER BY id LIMIT 2000',
+                    [$dataset->getId()]
+                );
+            } while ($deleted > 0);
+
+            $this->em->remove($dataset);
+            $this->em->flush();
+        } finally {
+            try {
+                $conn->fetchOne('SELECT RELEASE_LOCK(?)', [$lockName]);
+            } catch (\Throwable) {}
+        }
+
+        $this->removeUploadedFile($filePath, $project);
 
         // Recalculate project status
         $totalDocs = $this->documentRepo->countByProject($project->getId());
@@ -162,6 +199,27 @@ class DatasetController extends AbstractController
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /** Apaga o arquivo enviado, se está na pasta de uploads deste projeto e nenhum outro dataset o usa. */
+    private function removeUploadedFile(?string $path, BibliometricProject $project): void
+    {
+        if (!$path) {
+            return;
+        }
+        try {
+            $root = realpath($this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId());
+            $real = realpath($path);
+            if ($root === false || $real === false || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)) {
+                return;
+            }
+            $others = (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM dataset WHERE file_path = ?', [$path]);
+            if ($others === 0) {
+                @unlink($real);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('Não foi possível apagar o arquivo do dataset: ' . $e->getMessage());
+        }
+    }
 
     /** Listar/ver vale para projeto público ('view'); editar/excluir só o dono ('edit'). */
     private function getProject(int $projectId, string $attribute = 'edit'): BibliometricProject

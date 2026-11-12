@@ -6,7 +6,9 @@ class StringNormalizer
 {
     public static function normalizeString(string $val, bool $forComparison = false): string
     {
-        $normalizer = new TextNormalizer();
+        // Uma instância só: guarda o transliterador e os termos já normalizados
+        static $normalizer = null;
+        $normalizer ??= new TextNormalizer();
         if ($forComparison) {
             return $normalizer->normalizeForComparison($val);
         }

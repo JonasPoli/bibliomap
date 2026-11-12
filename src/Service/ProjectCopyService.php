@@ -16,8 +16,8 @@ use Symfony\Component\String\Slugger\SluggerInterface;
  *  1. ORM  – clone project (1 row)
  *  2. ORM  – clone datasets (few rows) + copy files on disk; build old→new dataset ID map
  *  3. DBAL – bulk INSERT documents with CASE WHEN dataset remapping
- *  4. DBAL – build old_doc_id → new_doc_id map (ORDER BY trick on sequential IDs)
- *  5. DBAL – batch INSERT document_author + document_keyword using the mapping
+ *  4. DBAL – tabela temporária old_doc_id → new_doc_id (posição na ordem de id, como a inserção é feita)
+ *  5. DBAL – INSERT … SELECT … JOIN da tabela temporária para document_author e document_keyword
  *  6. DBAL – vínculos geográficos/institucionais, classificação temática,
  *            matrizes salvas e duplicados ignorados (sem eles os relatórios da cópia saem vazios)
  *
@@ -27,10 +27,15 @@ class ProjectCopyService
 {
     private const BATCH = 500; // rows per INSERT batch
 
+    /** @var list<array{source: string, dest: string, datasetId: int}> cópias de arquivo a fazer depois do commit */
+    private array $pendingCopies = [];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly Connection             $dbal,
         private readonly SluggerInterface       $slugger,
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire('%kernel.project_dir%')]
+        private readonly string                 $projectDir,
     ) {}
 
     /**
@@ -38,6 +43,7 @@ class ProjectCopyService
      */
     public function copy(BibliometricProject $source, User $targetUser): BibliometricProject
     {
+        $this->pendingCopies = [];
         $this->em->beginTransaction();
         try {
             // ── 1. Clone project ──────────────────────────────────────────────
@@ -45,46 +51,52 @@ class ProjectCopyService
             $this->em->persist($newProject);
             $this->em->flush(); // get new project ID
 
-            // ── 2. Clone datasets + files ─────────────────────────────────────
+            // ── 2. Clone datasets (arquivos são copiados depois da confirmação) ─
             // Map: old_dataset_id => new_dataset_id
             $datasetMap = $this->cloneDatasets($source, $newProject);
             $this->em->flush();
 
             // ── 3. Bulk clone documents ───────────────────────────────────────
-            // Returns ordered list of [old_id, new_id] pairs
-            $docMap = $this->bulkCloneDocuments(
+            // Cria a tabela temporária tmp_doc_map (old_id, new_id)
+            $docCount = $this->bulkCloneDocuments(
                 $source->getId(),
                 $newProject->getId(),
                 $datasetMap,
             );
 
             // ── 4. Bulk clone document_author + document_keyword ──────────────
-            if (!empty($docMap)) {
-                $this->bulkCloneDocumentAuthors($docMap);
-                $this->bulkCloneDocumentKeywords($docMap);
+            if ($docCount > 0) {
+                $this->bulkCloneDocumentAuthors();
+                $this->bulkCloneDocumentKeywords();
 
                 // Vínculos gerados pela sincronização (mapas, instituições)
-                $this->bulkCloneDocumentLinks('documento_paises', ['country_id'], $docMap);
-                $this->bulkCloneDocumentLinks('documento_estados', ['state_id'], $docMap);
-                $this->bulkCloneDocumentLinks('documento_cidades', ['city_id'], $docMap);
-                $this->bulkCloneDocumentLinks('documento_instituicoes', ['institution_id', 'link_type'], $docMap);
+                $this->bulkCloneDocumentLinks('documento_paises', ['country_id']);
+                $this->bulkCloneDocumentLinks('documento_estados', ['state_id']);
+                $this->bulkCloneDocumentLinks('documento_cidades', ['city_id']);
+                $this->bulkCloneDocumentLinks('documento_instituicoes', ['institution_id', 'link_type']);
             }
 
             // ── 5. Classificação temática, matrizes salvas, duplicados ────────
             $groupMap = $this->cloneClassificationGroups($source->getId(), $newProject->getId());
-            if (!empty($docMap)) {
-                $this->cloneDocumentClassifications($source->getId(), $newProject->getId(), $docMap, $groupMap);
+            if ($docCount > 0) {
+                $this->cloneDocumentClassifications($source->getId(), $newProject->getId(), $groupMap);
             }
             $this->cloneSavedMatrices($source->getId(), $newProject->getId());
-            $this->cloneDatasetSkips($datasetMap, $docMap);
+            $this->cloneDatasetSkips($datasetMap);
 
+            $this->dropMapTables();
             $this->em->commit();
-            return $newProject;
-
         } catch (\Throwable $e) {
+            $this->dropMapTables();
             $this->em->rollback();
+            $this->pendingCopies = [];
             throw $e;
         }
+
+        // ── 6. Arquivos, fora da transação: copiar arquivo grande não segura bloqueios do banco ──
+        $this->copyPendingFiles();
+
+        return $newProject;
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
@@ -129,6 +141,9 @@ class ProjectCopyService
             // Flush one-by-one to obtain IDs; datasets are few (usually < 20)
             $this->em->flush();
             $map[$ds->getId()] = $newDs->getId();
+            if ($newDs->getFilePath() !== $ds->getFilePath()) {
+                $this->pendingCopies[] = ['source' => $ds->getFilePath(), 'dest' => $newDs->getFilePath(), 'datasetId' => $newDs->getId()];
+            }
         }
         return $map;
     }
@@ -151,59 +166,99 @@ class ProjectCopyService
             ->setStatus($source->getStatus())
             ->setImportedAt($source->getImportedAt());
 
-        // Copy physical file
-        $newPath = $this->copyFile($source->getFilePath());
+        // O arquivo físico é copiado depois do commit (copyPendingFiles); aqui só se define o destino,
+        // na pasta do projeto novo. Arquivo ausente: mantém a referência ao caminho original.
+        $newPath = $this->planFileCopy($source->getFilePath(), $newProject);
         $newDs->setFilePath($newPath);
 
         return $newDs;
     }
 
-    private function copyFile(string $sourcePath): string
+    /** Caminho do arquivo na pasta do projeto novo (antes ia para a do projeto de origem: apagar um levava o arquivo do outro). */
+    private function planFileCopy(string $sourcePath, BibliometricProject $newProject): string
     {
         if (!file_exists($sourcePath)) {
             return $sourcePath; // keep original path reference if file missing
         }
 
-        $dir  = dirname($sourcePath);
-        $ext  = pathinfo($sourcePath, PATHINFO_EXTENSION);
-        $dest = $dir . '/' . bin2hex(random_bytes(8)) . ($ext ? '.' . $ext : '');
+        $ext = pathinfo($sourcePath, PATHINFO_EXTENSION);
 
-        copy($sourcePath, $dest);
-        return $dest;
+        return $this->projectDir . '/var/uploads/' . $newProject->getId() . '/' . bin2hex(random_bytes(8)) . ($ext ? '.' . $ext : '');
     }
 
     /**
-     * Bulk-inserts documents via DBAL INSERT … SELECT.
-     * Returns old_doc_id → new_doc_id mapping.
+     * Copia os arquivos dos datasets depois do commit. Se uma cópia falhar, o dataset volta a
+     * apontar para o arquivo original (como no caso de arquivo ausente) e o erro vai ao log do PHP.
+     */
+    private function copyPendingFiles(): void
+    {
+        foreach ($this->pendingCopies as $job) {
+            $dir = dirname($job['dest']);
+            $ok = (is_dir($dir) || @mkdir($dir, 0755, true) || is_dir($dir)) && @copy($job['source'], $job['dest']);
+            if ($ok) {
+                continue;
+            }
+            @unlink($job['dest']);
+            $this->dbal->executeStatement('UPDATE dataset SET file_path = ? WHERE id = ?', [$job['source'], $job['datasetId']]);
+            error_log(sprintf('ProjectCopyService: não foi possível copiar %s; o dataset #%d aponta para o original.', $job['source'], $job['datasetId']));
+        }
+        $this->pendingCopies = [];
+    }
+
+    // ── Tabelas temporárias de correspondência (antigo → novo) ───────────────
+
+    private function createMapTable(string $name): void
+    {
+        $this->dbal->executeStatement("DROP TEMPORARY TABLE IF EXISTS {$name}");
+        $this->dbal->executeStatement("CREATE TEMPORARY TABLE {$name} (old_id INT NOT NULL PRIMARY KEY, new_id INT NOT NULL)");
+    }
+
+    /** @param array<int,int> $map */
+    private function fillMapTable(string $name, array $map): void
+    {
+        $this->createMapTable($name);
+        foreach (array_chunk($map, self::BATCH, true) as $chunk) {
+            $values = [];
+            $params = [];
+            foreach ($chunk as $old => $new) {
+                $values[] = '(?, ?)';
+                $params[] = (int) $old;
+                $params[] = (int) $new;
+            }
+            $this->dbal->executeStatement("INSERT INTO {$name} (old_id, new_id) VALUES " . implode(', ', $values), $params);
+        }
+    }
+
+    private function dropMapTables(): void
+    {
+        foreach (['tmp_doc_map', 'tmp_group_map', 'tmp_dataset_map'] as $name) {
+            try {
+                $this->dbal->executeStatement("DROP TEMPORARY TABLE IF EXISTS {$name}");
+            } catch (\Throwable) {}
+        }
+    }
+
+    /**
+     * Bulk-inserts documents via DBAL INSERT … SELECT e deixa a tabela temporária tmp_doc_map
+     * (old_id → new_id). Devolve quantos documentos foram copiados.
      *
      * @param  array<int,int> $datasetMap  old_dataset_id => new_dataset_id
-     * @return array<int,int>              old_doc_id     => new_doc_id
      */
-    private function bulkCloneDocuments(int $oldProjectId, int $newProjectId, array $datasetMap): array
+    private function bulkCloneDocuments(int $oldProjectId, int $newProjectId, array $datasetMap): int
     {
         // Build the CASE WHEN for dataset_id remapping
         $caseWhen = 'dataset_id'; // default: keep null as-is
         if (!empty($datasetMap)) {
             $cases = [];
             foreach ($datasetMap as $oldId => $newId) {
-                $cases[] = "WHEN {$oldId} THEN {$newId}";
+                $cases[] = 'WHEN ' . (int) $oldId . ' THEN ' . (int) $newId;
             }
             $caseWhen = 'CASE dataset_id ' . implode(' ', $cases) . ' ELSE dataset_id END';
         }
 
-        // Fetch ordered old document IDs BEFORE insert (to build mapping later)
-        $oldIds = $this->dbal->fetchFirstColumn(
-            'SELECT id FROM document WHERE project_id = ? ORDER BY id ASC',
-            [$oldProjectId],
-        );
-
-        if (empty($oldIds)) {
-            return [];
-        }
-
         // Bulk INSERT via INSERT … SELECT
         // Note: id (auto-increment) is omitted → DB assigns new sequential IDs
-        $this->dbal->executeStatement(
+        $copied = (int) $this->dbal->executeStatement(
             "INSERT INTO document
                 (project_id, dataset_id, title, normalized_title, abstract_text,
                  year, document_type, doi, pmid, isbn, issn, url, language,
@@ -226,114 +281,57 @@ class ProjectCopyService
             ['newProjectId' => $newProjectId, 'oldProjectId' => $oldProjectId],
         );
 
-        // Fetch new document IDs in insertion order (same ORDER BY id ASC)
-        $newIds = $this->dbal->fetchFirstColumn(
-            'SELECT id FROM document WHERE project_id = ? ORDER BY id ASC',
-            [$newProjectId],
+        // Correspondência antigo → novo: o n-ésimo documento do projeto de origem (por id) é o
+        // n-ésimo do projeto novo, pois a inserção acima preservou a ordem.
+        $this->createMapTable('tmp_doc_map');
+        $this->dbal->executeStatement(
+            'INSERT INTO tmp_doc_map (old_id, new_id)
+             SELECT o.id, n.id
+             FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM document WHERE project_id = ?) o
+             JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM document WHERE project_id = ?) n ON n.rn = o.rn',
+            [$oldProjectId, $newProjectId],
         );
 
-        // Build mapping old → new (same cardinality, same order)
-        return array_combine($oldIds, $newIds) ?: [];
+        return $copied;
     }
 
-    /**
-     * @param array<int,int> $docMap  old_document_id => new_document_id
-     */
-    private function bulkCloneDocumentAuthors(array $docMap): void
+    private function bulkCloneDocumentAuthors(): void
     {
-        $oldDocIds = array_keys($docMap);
-
-        // Fetch all document_author rows for old documents
-        $rows = $this->dbal->fetchAllAssociative(
-            'SELECT document_id, author_identity_id, position, original_name
-             FROM document_author
-             WHERE document_id IN (' . implode(',', $oldDocIds) . ')
-             ORDER BY document_id, position',
+        $this->dbal->executeStatement(
+            'INSERT INTO document_author (document_id, author_identity_id, position, original_name)
+             SELECT m.new_id, da.author_identity_id, da.position, da.original_name
+             FROM document_author da
+             JOIN tmp_doc_map m ON m.old_id = da.document_id
+             ORDER BY da.document_id, da.position, da.id'
         );
-
-        if (empty($rows)) return;
-
-        // Batch INSERT with remapped document_id
-        foreach (array_chunk($rows, self::BATCH) as $chunk) {
-            $values = [];
-            $params = [];
-            foreach ($chunk as $row) {
-                $values[] = '(?, ?, ?, ?)';
-                $params[] = $docMap[$row['document_id']];
-                $params[] = $row['author_identity_id'];
-                $params[] = $row['position'];
-                $params[] = $row['original_name'];
-            }
-            $this->dbal->executeStatement(
-                'INSERT INTO document_author (document_id, author_identity_id, position, original_name) VALUES '
-                . implode(', ', $values),
-                $params,
-            );
-        }
     }
 
-    /**
-     * @param array<int,int> $docMap  old_document_id => new_document_id
-     */
-    private function bulkCloneDocumentKeywords(array $docMap): void
+    private function bulkCloneDocumentKeywords(): void
     {
-        $oldDocIds = array_keys($docMap);
-
-        $rows = $this->dbal->fetchAllAssociative(
-            'SELECT document_id, keyword_id, original_term
-             FROM document_keyword
-             WHERE document_id IN (' . implode(',', $oldDocIds) . ')
-             ORDER BY document_id',
+        $this->dbal->executeStatement(
+            'INSERT INTO document_keyword (document_id, keyword_id, original_term)
+             SELECT m.new_id, dk.keyword_id, dk.original_term
+             FROM document_keyword dk
+             JOIN tmp_doc_map m ON m.old_id = dk.document_id
+             ORDER BY dk.document_id, dk.id'
         );
-
-        if (empty($rows)) return;
-
-        foreach (array_chunk($rows, self::BATCH) as $chunk) {
-            $values = [];
-            $params = [];
-            foreach ($chunk as $row) {
-                $values[] = '(?, ?, ?)';
-                $params[] = $docMap[$row['document_id']];
-                $params[] = $row['keyword_id'];
-                $params[] = $row['original_term']; // NOT NULL na tabela
-            }
-            $this->dbal->executeStatement(
-                'INSERT INTO document_keyword (document_id, keyword_id, original_term) VALUES '
-                . implode(', ', $values),
-                $params,
-            );
-        }
     }
 
     /**
      * Copia uma tabela de vínculo documento → X trocando apenas o document_id.
      *
-     * @param string[]       $columns  colunas copiadas como estão (além de document_id)
-     * @param array<int,int> $docMap   old_document_id => new_document_id
+     * @param string[] $columns  colunas copiadas como estão (além de document_id)
      */
-    private function bulkCloneDocumentLinks(string $table, array $columns, array $docMap): void
+    private function bulkCloneDocumentLinks(string $table, array $columns): void
     {
         $cols = implode(', ', $columns);
-        $rows = $this->dbal->fetchAllAssociative(
-            "SELECT document_id, {$cols} FROM {$table} WHERE document_id IN (" . implode(',', array_keys($docMap)) . ')'
+        $srcCols = implode(', ', array_map(fn (string $c) => 't.' . $c, $columns));
+        $this->dbal->executeStatement(
+            "INSERT INTO {$table} (document_id, {$cols})
+             SELECT m.new_id, {$srcCols}
+             FROM {$table} t
+             JOIN tmp_doc_map m ON m.old_id = t.document_id"
         );
-
-        $placeholders = '(' . implode(', ', array_fill(0, count($columns) + 1, '?')) . ')';
-        foreach (array_chunk($rows, self::BATCH) as $chunk) {
-            $values = [];
-            $params = [];
-            foreach ($chunk as $row) {
-                $values[] = $placeholders;
-                $params[] = $docMap[$row['document_id']];
-                foreach ($columns as $col) {
-                    $params[] = $row[$col];
-                }
-            }
-            $this->dbal->executeStatement(
-                "INSERT INTO {$table} (document_id, {$cols}) VALUES " . implode(', ', $values),
-                $params,
-            );
-        }
     }
 
     /**
@@ -366,40 +364,20 @@ class ProjectCopyService
     }
 
     /**
-     * @param array<int,int> $docMap    old_document_id => new_document_id
-     * @param array<int,int> $groupMap  old_group_id    => new_group_id
+     * @param array<int,int> $groupMap  old_group_id => new_group_id
      */
-    private function cloneDocumentClassifications(int $oldProjectId, int $newProjectId, array $docMap, array $groupMap): void
+    private function cloneDocumentClassifications(int $oldProjectId, int $newProjectId, array $groupMap): void
     {
-        $rows = $this->dbal->fetchAllAssociative(
-            'SELECT document_id, group_id, matched_term, run_at, manual_override
-             FROM document_classification WHERE project_id = ?',
-            [$oldProjectId],
+        $this->fillMapTable('tmp_group_map', $groupMap);
+        $this->dbal->executeStatement(
+            'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override)
+             SELECT m.new_id, g.new_id, ?, dc.matched_term, dc.run_at, dc.manual_override
+             FROM document_classification dc
+             JOIN tmp_doc_map m ON m.old_id = dc.document_id
+             LEFT JOIN tmp_group_map g ON g.old_id = dc.group_id
+             WHERE dc.project_id = ?',
+            [$newProjectId, $oldProjectId],
         );
-
-        foreach (array_chunk($rows, self::BATCH) as $chunk) {
-            $values = [];
-            $params = [];
-            foreach ($chunk as $row) {
-                if (!isset($docMap[$row['document_id']])) {
-                    continue;
-                }
-                $values[] = '(?, ?, ?, ?, ?, ?)';
-                $params[] = $docMap[$row['document_id']];
-                $params[] = $row['group_id'] !== null ? ($groupMap[$row['group_id']] ?? null) : null;
-                $params[] = $newProjectId;
-                $params[] = $row['matched_term'];
-                $params[] = $row['run_at'];
-                $params[] = $row['manual_override'];
-            }
-            if ($values) {
-                $this->dbal->executeStatement(
-                    'INSERT INTO document_classification (document_id, group_id, project_id, matched_term, run_at, manual_override) VALUES '
-                    . implode(', ', $values),
-                    $params,
-                );
-            }
-        }
     }
 
     private function cloneSavedMatrices(int $oldProjectId, int $newProjectId): void
@@ -419,38 +397,21 @@ class ProjectCopyService
      * Lista de "duplicados ignorados" de cada importação, para a cópia bater com as contagens do dataset.
      *
      * @param array<int,int> $datasetMap  old_dataset_id  => new_dataset_id
-     * @param array<int,int> $docMap      old_document_id => new_document_id
      */
-    private function cloneDatasetSkips(array $datasetMap, array $docMap): void
+    private function cloneDatasetSkips(array $datasetMap): void
     {
         if (empty($datasetMap)) {
             return;
         }
-        $rows = $this->dbal->fetchAllAssociative(
-            'SELECT dataset_id, title, doi, hash, reason, matched_document_id, created_at
-             FROM dataset_skip WHERE dataset_id IN (' . implode(',', array_map('intval', array_keys($datasetMap))) . ')
-             ORDER BY id',
+        $this->fillMapTable('tmp_dataset_map', $datasetMap);
+        $this->dbal->executeStatement(
+            'INSERT INTO dataset_skip (dataset_id, title, doi, hash, reason, matched_document_id, created_at)
+             SELECT dm.new_id, s.title, s.doi, s.hash, s.reason, m.new_id, s.created_at
+             FROM dataset_skip s
+             JOIN tmp_dataset_map dm ON dm.old_id = s.dataset_id
+             LEFT JOIN tmp_doc_map m ON m.old_id = s.matched_document_id
+             ORDER BY s.id'
         );
-
-        foreach (array_chunk($rows, self::BATCH) as $chunk) {
-            $values = [];
-            $params = [];
-            foreach ($chunk as $row) {
-                $values[] = '(?, ?, ?, ?, ?, ?, ?)';
-                $params[] = $datasetMap[$row['dataset_id']];
-                $params[] = $row['title'];
-                $params[] = $row['doi'];
-                $params[] = $row['hash'];
-                $params[] = $row['reason'];
-                $params[] = $row['matched_document_id'] !== null ? ($docMap[$row['matched_document_id']] ?? null) : null;
-                $params[] = $row['created_at'];
-            }
-            $this->dbal->executeStatement(
-                'INSERT INTO dataset_skip (dataset_id, title, doi, hash, reason, matched_document_id, created_at) VALUES '
-                . implode(', ', $values),
-                $params,
-            );
-        }
     }
 
     /** Colunas como `references`/`position` exigem crase no insert do DBAL. */

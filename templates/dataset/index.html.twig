@@ -26,6 +26,19 @@
     </div>
 </div>
 
+{% if interrupted|default([]) is not empty %}
+    <div class="bm-card mb-3" style="border-left:3px solid var(--bm-warning);display:flex;align-items:center;gap:16px;padding:14px 18px">
+        <div style="flex:1;font-size:13px;color:var(--bm-text)">
+            <strong><i class="bi bi-exclamation-triangle me-1" style="color:var(--bm-warning)"></i>Importação interrompida {{ help('dataset.index.resume') }}</strong><br>
+            <span style="color:var(--bm-text-muted)">{{ interrupted|length }} arquivo(s) ficaram parados (status Pendente ou Importando) e nenhum processo está trabalhando neles.</span>
+        </div>
+        <form method="post" action="{{ path('app_import_resume', {projectId: project.id}) }}" onsubmit="this.querySelector('button').disabled = true">
+            <input type="hidden" name="_token" value="{{ csrf_token('import_resume_' ~ project.id) }}">
+            <button type="submit" class="btn-bm-primary"><i class="bi bi-arrow-repeat me-1"></i>Retomar importação</button>
+        </form>
+    </div>
+{% endif %}
+
 {% if datasets is empty %}
     <div style="text-align:center;padding:80px 20px">
         <div style="font-size:64px;margin-bottom:16px">📭</div>

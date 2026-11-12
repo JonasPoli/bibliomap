@@ -110,7 +110,7 @@ class PubmedCsvImporter implements BibliographicImporterInterface
     {
         $dto = new BibliographicRecordDTO();
         $dto->source = 'pubmed';
-        $dto->rawData = json_encode($rawRecord, JSON_UNESCAPED_UNICODE);
+        $rawRecord = TextNormalizer::trimKeys($rawRecord);
 
         $pmid = $this->get($rawRecord, 'PMID');
         $dto->externalId = $pmid;
@@ -139,15 +139,14 @@ class PubmedCsvImporter implements BibliographicImporterInterface
     public function getSourceName(): string { return 'PubMed'; }
     public function getFormatName(): string { return 'CSV'; }
 
+    /** @param array $record registro já passado por TextNormalizer::trimKeys() */
     private function get(array $record, string $key): ?string
     {
-        foreach ($record as $k => $v) {
-            if (trim($k) === $key) {
-                $val = trim((string) $v);
-                return $val !== '' ? $val : null;
-            }
+        if (!isset($record[$key])) {
+            return null;
         }
-        return null;
+        $val = trim((string) $record[$key]);
+        return $val !== '' ? $val : null;
     }
 
     private function getInt(array $record, string $key): ?int

@@ -7,6 +7,8 @@ use App\Entity\Dataset;
 use App\Service\Import\StringNormalizer;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\ConnectionException;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -67,6 +69,7 @@ class DocumentImportService
         $docsBatch        = [];
         $authorLinksBatch = [];
         $kwLinksBatch     = [];
+        $dtoBatch         = [];
         $skipsBatch       = [];
 
         foreach ($records as $dto) {
@@ -77,7 +80,7 @@ class DocumentImportService
             }
 
             try {
-                $hash = $this->computeHash($dto);
+                $hash = self::computeHash($dto);
 
                 $matchedId = null;
                 if ($dto->doi && isset($existingDois[$dto->doi])) {
@@ -135,62 +138,23 @@ class DocumentImportService
                 if ($dto->doi)  $existingDois[$dto->doi]   = true;
                 if ($hash)      $existingHashes[$hash]      = true;
 
-                // ── Resolve authors (SQL, cached) ──────────────────
-                $authorLinks = [];
-                foreach ($dto->authorNames as $pos => $rawName) {
-                    $name = trim($rawName);
-                    if (!$name) continue;
-                    $authorId = $this->resolveAuthorId($name, $now, $projectId);
-                    if ($authorId) {
-                        $authorLinks[] = [
-                            'author_id'     => $authorId,
-                            'position'      => $pos,
-                            'original_name' => substr($name, 0, 255),
-                        ];
-                    }
-                }
-
-                // ── Resolve keywords (SQL, cached) ─────────────────
-                $kwLinks = [];
-                $usedKw  = [];
-                foreach ($dto->authorKeywords as $term) {
-                    $norm = strtolower(trim($term));
-                    if (!$norm || isset($usedKw[$norm])) continue;
-                    $usedKw[$norm] = true;
-                    $id = $this->resolveKeywordId($term, 'author', $now, $projectId);
-                    if ($id) {
-                        $kwLinks[] = [
-                            'keyword_id' => $id,
-                            'original_term' => substr(trim($term), 0, 255),
-                        ];
-                    }
-                }
-                foreach ($dto->indexedKeywords as $term) {
-                    $norm = strtolower(trim($term));
-                    if (!$norm || isset($usedKw[$norm])) continue;
-                    $usedKw[$norm] = true;
-                    $id = $this->resolveKeywordId($term, 'indexed', $now, $projectId);
-                    if ($id) {
-                        $kwLinks[] = [
-                            'keyword_id' => $id,
-                            'original_term' => substr(trim($term), 0, 255),
-                        ];
-                    }
-                }
+                [$authorLinks, $kwLinks] = $this->resolveLinks($dto, $now, $projectId);
 
                 $docsBatch[]        = $this->buildDocRow($dto, $projectId, $datasetId, $now, $hash);
                 $authorLinksBatch[] = $authorLinks;
                 $kwLinksBatch[]     = $kwLinks;
+                $dtoBatch[]         = $dto; // para refazer os vínculos se o cache de IDs estiver velho
 
                 $stats['imported']++;
 
                 if (count($docsBatch) >= self::BATCH_SIZE) {
-                    $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
+                    $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $dtoBatch, $now, $projectId);
                     // Reconcile: some records may have been rejected by the DB
                     $this->reconcile($stats, $result);
                     $docsBatch        = [];
                     $authorLinksBatch = [];
                     $kwLinksBatch     = [];
+                    $dtoBatch         = [];
 
                     // Persist live progress to the DB so the status endpoint
                     // can show real-time progress while the import runs
@@ -206,14 +170,14 @@ class DocumentImportService
                 $stats['errors']++;
                 $this->logger->error('Import error: ' . $e->getMessage(), [
                     'eid'   => $dto->externalId ?? '?',
-                    'title' => substr($dto->title ?? '', 0, 60),
+                    'title' => self::cut($dto->title ?? '', 60),
                 ]);
             }
         }
 
         // Final partial batch
         if ($docsBatch) {
-            $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $now);
+            $result = $this->flushBatch($docsBatch, $authorLinksBatch, $kwLinksBatch, $dtoBatch, $now, $projectId);
             $this->reconcile($stats, $result);
             if ($onProgress !== null) {
                 $onProgress($stats);
@@ -260,15 +224,15 @@ class DocumentImportService
     {
         $conn = $this->conn();
 
-        $authors = $conn->fetchAllAssociative('SELECT id, normalized_name FROM author_identity WHERE normalized_name IS NOT NULL');
-        foreach ($authors as $row) {
-            $this->authorCache[$row['normalized_name']] = (int) $row['id'];
+        // Linha a linha (iterateKeyValue), sem montar antes uma matriz com a tabela inteira:
+        // em produção são centenas de milhares de autores e palavras-chave. Mesma ordem e mesma
+        // regra de antes (em nome repetido vale o último).
+        foreach ($conn->iterateKeyValue('SELECT normalized_name, id FROM author_identity WHERE normalized_name IS NOT NULL') as $name => $id) {
+            $this->authorCache[$name] = (int) $id;
         }
 
-        $keywords = $conn->fetchAllAssociative('SELECT id, keyword_normalized, keyword_type FROM keyword');
-        foreach ($keywords as $row) {
-            $cacheKey = $row['keyword_normalized'] . '|' . $row['keyword_type'];
-            $this->keywordCache[$cacheKey] = (int) $row['id'];
+        foreach ($conn->iterateKeyValue("SELECT CONCAT(keyword_normalized, '|', keyword_type), id FROM keyword") as $cacheKey => $id) {
+            $this->keywordCache[$cacheKey] = (int) $id;
         }
 
         $this->logger->info(sprintf(
@@ -280,10 +244,8 @@ class DocumentImportService
 
     private function loadSet(string $sql, int $projectId): array
     {
-        $rows = $this->conn()->fetchAllAssociative($sql, [$projectId]);
-        $set  = [];
-        foreach ($rows as $row) {
-            $val = reset($row);
+        $set = [];
+        foreach ($this->conn()->iterateNumeric($sql, [$projectId]) as [$val]) {
             if ($val !== null) $set[$val] = true;
         }
         return $set;
@@ -308,7 +270,7 @@ class DocumentImportService
         }
 
         $displayName = $res['display'];
-        $normKey     = substr($res['normalized'], 0, 255);
+        $normKey     = self::cut($res['normalized'], 255);
 
         if (isset($this->authorCache[$normKey])) {
             return $this->authorCache[$normKey];
@@ -323,7 +285,7 @@ class DocumentImportService
         if (!$id) {
             try {
                 $conn->insert('author_identity', [
-                    'preferred_name'  => substr($displayName, 0, 255),
+                    'preferred_name'  => self::cut($displayName, 255),
                     'normalized_name' => $normKey,
                     'status'          => $status,
                     'review_reasons'  => $reasonsStr,
@@ -345,8 +307,8 @@ class DocumentImportService
         if (!$varExists) {
             $conn->insert('author_name_variant', [
                 'author_identity_id' => $id,
-                'original_name'      => substr(trim($name), 0, 255),
-                'display_name'       => substr($displayName, 0, 255),
+                'original_name'      => self::cut(trim($name), 255),
+                'display_name'       => self::cut($displayName, 255),
                 'normalized_name'    => $normKey,
                 'source'             => 'import',
                 'confidence'         => $res['needs_review'] ? 0.5 : 1.0,
@@ -377,7 +339,7 @@ class DocumentImportService
         }
 
         $displayName = $res['display'];
-        $normKey     = substr($res['normalized'], 0, 255);
+        $normKey     = self::cut($res['normalized'], 255);
         $cacheKey    = $normKey . '|' . $mappedType;
 
         if (isset($this->keywordCache[$cacheKey])) {
@@ -396,8 +358,8 @@ class DocumentImportService
         if (!$id) {
             try {
                 $conn->insert('keyword', [
-                    'keyword_original'   => substr(trim($term), 0, 255),
-                    'keyword_display'    => substr($displayName, 0, 255),
+                    'keyword_original'   => self::cut(trim($term), 255),
+                    'keyword_display'    => self::cut($displayName, 255),
                     'keyword_normalized' => $normKey,
                     'keyword_type'       => $mappedType,
                     'status'             => $status,
@@ -420,114 +382,249 @@ class DocumentImportService
     }
 
     /**
-     * Insert a batch of documents + their author/keyword links inside a transaction.
-     * Handles DB-level unique constraint violations gracefully (counts as skipped).
+     * Resolve (com cache) os autores e as palavras-chave de um registro.
      *
+     * @return array{0: list<array>, 1: list<array>}  vínculos de autor e de palavra-chave
+     */
+    private function resolveLinks(BibliographicRecordDTO $dto, string $now, int $projectId): array
+    {
+        $authorLinks = [];
+        foreach ($dto->authorNames as $pos => $rawName) {
+            $name = trim($rawName);
+            if (!$name) continue;
+            $authorId = $this->resolveAuthorId($name, $now, $projectId);
+            if ($authorId) {
+                $authorLinks[] = [
+                    'author_id'     => $authorId,
+                    'position'      => $pos,
+                    'original_name' => self::cut($name, 255),
+                ];
+            }
+        }
+
+        $kwLinks = [];
+        $usedKw  = [];
+        foreach (['author' => $dto->authorKeywords, 'indexed' => $dto->indexedKeywords] as $type => $terms) {
+            foreach ($terms as $term) {
+                $norm = strtolower(trim($term));
+                if (!$norm || isset($usedKw[$norm])) continue;
+                $usedKw[$norm] = true;
+                $id = $this->resolveKeywordId($term, $type, $now, $projectId);
+                if ($id) {
+                    $kwLinks[] = [
+                        'keyword_id' => $id,
+                        'original_term' => self::cut(trim($term), 255),
+                    ];
+                }
+            }
+        }
+
+        return [$authorLinks, $kwLinks];
+    }
+
+    /** Tira do cache de IDs as entradas usadas pelo registro (o ID pode ter sumido por fusão em outro processo). */
+    private function forgetCachedIds(BibliographicRecordDTO $dto): void
+    {
+        $normalizer = $this->textNormalizer();
+        foreach ($dto->authorNames as $rawName) {
+            $res = $normalizer->normalizeAuthor(trim($rawName));
+            if ($res['valid']) {
+                unset($this->authorCache[self::cut($res['normalized'], 255)]);
+            }
+        }
+        foreach (['author_keyword' => $dto->authorKeywords, 'indexed_keyword' => $dto->indexedKeywords] as $type => $terms) {
+            foreach ($terms as $term) {
+                $res = $normalizer->normalizeKeyword($term);
+                if ($res['valid']) {
+                    unset($this->keywordCache[self::cut($res['normalized'], 255) . '|' . $type]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Grava um lote de documentos com seus vínculos.
+     *
+     * Caminho rápido: uma transação para o lote inteiro, um INSERT por documento (precisa do ID)
+     * e INSERTs de várias linhas para os vínculos. Se qualquer coisa falhar (duplicidade que o
+     * cache em memória não viu, ID velho no cache...), desfaz o lote e o refaz documento a
+     * documento, que é onde duplicados viram "ignorados" e falhas viram "erros".
+     *
+     * @param list<array>                  $docs
+     * @param list<list<array>>            $authorLinks
+     * @param list<list<array>>            $kwLinks
+     * @param list<BibliographicRecordDTO> $dtos
      * @return array{inserted: int, skipped: int, errors: int}
      */
-    private function flushBatch(array $docs, array $authorLinks, array $kwLinks, string $now): array
+    private function flushBatch(array $docs, array $authorLinks, array $kwLinks, array $dtos, string $now, int $projectId): array
+    {
+        $conn = $this->conn();
+
+        $conn->beginTransaction();
+        try {
+            $authorRows = [];
+            $kwRows = [];
+            foreach ($docs as $i => $docRow) {
+                $docId = $this->insertDocumentRow($docRow);
+                foreach ($authorLinks[$i] as $link) {
+                    $authorRows[] = [$docId, $link['author_id'], $link['position'], $link['original_name']];
+                }
+                foreach ($kwLinks[$i] as $link) {
+                    $kwRows[] = [$docId, $link['keyword_id'], $link['original_term']];
+                }
+            }
+            $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name'], $authorRows);
+            $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term'], $kwRows);
+            $conn->commit();
+
+            return ['inserted' => count($docs), 'skipped' => 0, 'errors' => 0];
+        } catch (\Throwable $e) {
+            try {
+                $conn->rollBack();
+            } catch (\Throwable) {}
+            if ($e instanceof ConnectionException) {
+                throw $e;
+            }
+        }
+
+        // Refaz linha a linha. A tentativa em lote não deixou nada gravado (rollback).
+        return $this->flushBatchRowByRow($docs, $authorLinks, $kwLinks, $dtos, $now, $projectId);
+    }
+
+    private function flushBatchRowByRow(array $docs, array $authorLinks, array $kwLinks, array $dtos, string $now, int $projectId): array
     {
         $conn = $this->conn();
         $inserted = 0;
         $skipped  = 0;
         $errors   = 0;
 
-        // Insert one by one within a transaction so a duplicate on one row
-        // doesn't roll back the entire batch
         foreach ($docs as $i => $docRow) {
-            $conn->beginTransaction();
-            try {
-                $columns = [];
-                $placeholders = [];
-                $params = [];
-                foreach ($docRow as $col => $val) {
-                    $columns[] = '`' . $col . '`';
-                    $placeholders[] = '?';
-                    $params[] = $val;
-                }
-                $sql = sprintf(
-                    'INSERT INTO document (%s) VALUES (%s)',
-                    implode(', ', $columns),
-                    implode(', ', $placeholders)
-                );
-                $conn->executeStatement($sql, $params);
-                $docId = (int) $conn->lastInsertId();
-
-                foreach ($authorLinks[$i] as $link) {
-                    $conn->insert('document_author', [
-                        'document_id'        => $docId,
-                        'author_identity_id' => $link['author_id'],
-                        'position'           => $link['position'],
-                        'original_name'      => $link['original_name'],
-                    ]);
-                }
-
-                foreach ($kwLinks[$i] as $link) {
-                    $conn->insert('document_keyword', [
-                        'document_id'   => $docId,
-                        'keyword_id'    => $link['keyword_id'],
-                        'original_term' => $link['original_term'],
-                    ]);
-                }
-
-                $conn->commit();
-                $inserted++;
-            } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                // Record already exists in this project (db-level safety net)
-                $conn->rollBack();
-                $skipped++;
-
-                $matchedDocId = null;
-                if (!empty($docRow['doi'])) {
-                    $matchedDocId = $conn->fetchOne(
-                        'SELECT id FROM document WHERE project_id = ? AND doi = ?',
-                        [$docRow['project_id'], $docRow['doi']]
-                    );
-                }
-                if (!$matchedDocId && !empty($docRow['hash'])) {
-                    $matchedDocId = $conn->fetchOne(
-                        'SELECT id FROM document WHERE project_id = ? AND hash = ?',
-                        [$docRow['project_id'], $docRow['hash']]
-                    );
-                }
-
+            $retried = false;
+            while (true) {
+                $conn->beginTransaction();
                 try {
-                    $conn->insert('dataset_skip', [
-                        'dataset_id'          => $docRow['dataset_id'],
-                        'title'               => substr($docRow['title'] ?? 'Sem título', 0, 1000),
-                        'doi'                 => $docRow['doi'] ?? null,
-                        'hash'               => $docRow['hash'] ?? null,
-                        'reason'              => 'db_constraint',
-                        'matched_document_id' => $matchedDocId ? (int) $matchedDocId : null,
-                        'created_at'          => $now,
-                    ]);
-                } catch (\Throwable) {}
-            } catch (\Throwable $e) {
-                try {
+                    $docId = $this->insertDocumentRow($docRow);
+                    $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name'],
+                        array_map(fn ($l) => [$docId, $l['author_id'], $l['position'], $l['original_name']], $authorLinks[$i]));
+                    $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term'],
+                        array_map(fn ($l) => [$docId, $l['keyword_id'], $l['original_term']], $kwLinks[$i]));
+                    $conn->commit();
+                    $inserted++;
+                } catch (ForeignKeyConstraintViolationException $e) {
+                    try {
+                        $conn->rollBack();
+                    } catch (\Throwable) {}
+                    if (!$retried) {
+                        // ID de autor/palavra-chave do cache não existe mais (fusão em outro processo):
+                        // limpa as entradas deste registro, resolve de novo e tenta uma vez mais.
+                        $retried = true;
+                        $this->forgetCachedIds($dtos[$i]);
+                        [$authorLinks[$i], $kwLinks[$i]] = $this->resolveLinks($dtos[$i], $now, $projectId);
+                        continue;
+                    }
+                    $this->logger->warning('Batch insert failed: ' . $e->getMessage(), ['hash' => $docRow['hash'] ?? '?']);
+                    $errors++;
+                } catch (UniqueConstraintViolationException) {
+                    // Record already exists in this project (db-level safety net)
                     $conn->rollBack();
-                } catch (\Throwable) {}
-                if ($e instanceof ConnectionException) {
-                    throw $e;
+                    $skipped++;
+                    $this->recordDbConstraintSkip($docRow, $now);
+                } catch (\Throwable $e) {
+                    try {
+                        $conn->rollBack();
+                    } catch (\Throwable) {}
+                    if ($e instanceof ConnectionException) {
+                        throw $e;
+                    }
+                    $this->logger->warning('Batch insert failed: ' . $e->getMessage(), ['hash' => $docRow['hash'] ?? '?']);
+                    // Falha de gravação é erro, não duplicado
+                    $errors++;
                 }
-                $this->logger->warning('Batch insert failed: ' . $e->getMessage(), [
-                    'hash' => $docRow['hash'] ?? '?',
-                ]);
-                // Falha de gravação é erro, não duplicado
-                $errors++;
+                break;
             }
         }
 
         return ['inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors];
     }
 
+    /** INSERT de um documento; devolve o ID gerado. */
+    private function insertDocumentRow(array $docRow): int
+    {
+        $columns = [];
+        $placeholders = [];
+        $params = [];
+        foreach ($docRow as $col => $val) {
+            $columns[] = '`' . $col . '`';
+            $placeholders[] = '?';
+            $params[] = $val;
+        }
+        $conn = $this->conn();
+        $conn->executeStatement(
+            sprintf('INSERT INTO document (%s) VALUES (%s)', implode(', ', $columns), implode(', ', $placeholders)),
+            $params
+        );
+
+        return (int) $conn->lastInsertId();
+    }
+
+    /** INSERT de várias linhas, em blocos (limite de parâmetros do MySQL). */
+    private function insertRows(string $table, array $columns, array $rows): void
+    {
+        if (!$rows) {
+            return;
+        }
+        $cols = '`' . implode('`, `', $columns) . '`';
+        $tuple = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
+        foreach (array_chunk($rows, 1000) as $chunk) {
+            $params = [];
+            foreach ($chunk as $row) {
+                foreach ($row as $v) {
+                    $params[] = $v;
+                }
+            }
+            $this->conn()->executeStatement(
+                sprintf('INSERT INTO `%s` (%s) VALUES %s', $table, $cols, implode(', ', array_fill(0, count($chunk), $tuple))),
+                $params
+            );
+        }
+    }
+
+    private function recordDbConstraintSkip(array $docRow, string $now): void
+    {
+        $conn = $this->conn();
+        $matchedDocId = null;
+        if (!empty($docRow['doi'])) {
+            $matchedDocId = $conn->fetchOne(
+                'SELECT id FROM document WHERE project_id = ? AND doi = ?',
+                [$docRow['project_id'], $docRow['doi']]
+            );
+        }
+        if (!$matchedDocId && !empty($docRow['hash'])) {
+            $matchedDocId = $conn->fetchOne(
+                'SELECT id FROM document WHERE project_id = ? AND hash = ?',
+                [$docRow['project_id'], $docRow['hash']]
+            );
+        }
+
+        try {
+            $conn->insert('dataset_skip', [
+                'dataset_id'          => $docRow['dataset_id'],
+                'title'               => self::cut($docRow['title'] ?? 'Sem título', 1000),
+                'doi'                 => $docRow['doi'] ?? null,
+                'hash'               => $docRow['hash'] ?? null,
+                'reason'              => 'db_constraint',
+                'matched_document_id' => $matchedDocId ? (int) $matchedDocId : null,
+                'created_at'          => $now,
+            ]);
+        } catch (\Throwable) {}
+    }
+
     private function loadMap(string $sql, int $projectId): array
     {
-        $rows = $this->conn()->fetchAllAssociative($sql, [$projectId]);
-        $map  = [];
-        foreach ($rows as $row) {
-            $cols = array_values($row);
-            if ($cols[0] !== null) {
-                $map[$cols[0]] = (int) $cols[1];
+        $map = [];
+        foreach ($this->conn()->iterateKeyValue($sql, [$projectId]) as $key => $id) {
+            if ($key !== null) {
+                $map[$key] = (int) $id;
             }
         }
         return $map;
@@ -541,7 +638,7 @@ class DocumentImportService
             foreach ($skips as $skip) {
                 $conn->insert('dataset_skip', [
                     'dataset_id'          => $skip['dataset_id'],
-                    'title'               => substr($skip['title'], 0, 1000),
+                    'title'               => self::cut($skip['title'], 1000),
                     'doi'                 => $skip['doi'],
                     'hash'               => $skip['hash'],
                     'reason'              => $skip['reason'],
@@ -562,28 +659,28 @@ class DocumentImportService
             'project_id'        => $projectId,
             'dataset_id'        => $datasetId,
             'source'            => $dto->source,
-            'external_id'       => $dto->externalId       ? substr($dto->externalId,       0, 100) : null,
+            'external_id'       => $dto->externalId       ? self::cut($dto->externalId, 100) : null,
             'title'             => $dto->title,
             'normalized_title'  => $dto->title             ? strtolower(trim($dto->title))          : null,
             'abstract_text'     => $dto->abstractText,
             'year'              => $dto->year,
-            'document_type'     => $dto->documentType      ? substr($dto->documentType,      0, 50)  : null,
-            'doi'               => $dto->doi               ? substr($dto->doi,               0, 255) : null,
-            'pmid'              => $dto->pmid              ? substr($dto->pmid,              0, 50)  : null,
-            'isbn'              => $dto->isbn              ? substr($dto->isbn,              0, 50)  : null,
-            'issn'              => $dto->issn              ? substr($dto->issn,              0, 50)  : null,
-            'url'               => $dto->url               ? substr($dto->url,               0, 500) : null,
-            'language'          => $dto->language          ? substr($dto->language,          0, 10)  : null,
-            'source_title'      => $dto->sourceTitle       ? substr($dto->sourceTitle,       0, 500) : null,
-            'volume'            => $dto->volume            ? substr($dto->volume,            0, 20)  : null,
-            'issue'             => $dto->issue             ? substr($dto->issue,             0, 20)  : null,
-            'page_start'        => $dto->pageStart         ? substr($dto->pageStart,         0, 30)  : null,
-            'page_end'          => $dto->pageEnd           ? substr($dto->pageEnd,           0, 30)  : null,
-            'publisher'         => $dto->publisher         ? substr($dto->publisher,         0, 255) : null,
+            'document_type'     => $dto->documentType      ? self::cut($dto->documentType, 50)  : null,
+            'doi'               => $dto->doi               ? self::cut($dto->doi, 255) : null,
+            'pmid'              => $dto->pmid              ? self::cut($dto->pmid, 50)  : null,
+            'isbn'              => $dto->isbn              ? self::cut($dto->isbn, 50)  : null,
+            'issn'              => $dto->issn              ? self::cut($dto->issn, 50)  : null,
+            'url'               => ($url = TextNormalizer::safeUrl($dto->url)) ? self::cut($url, 500) : null,
+            'language'          => $dto->language          ? self::cut($dto->language, 10)  : null,
+            'source_title'      => $dto->sourceTitle       ? self::cut($dto->sourceTitle, 500) : null,
+            'volume'            => $dto->volume            ? self::cut($dto->volume, 20)  : null,
+            'issue'             => $dto->issue             ? self::cut($dto->issue, 20)  : null,
+            'page_start'        => $dto->pageStart         ? self::cut($dto->pageStart, 30)  : null,
+            'page_end'          => $dto->pageEnd           ? self::cut($dto->pageEnd, 30)  : null,
+            'publisher'         => $dto->publisher         ? self::cut($dto->publisher, 255) : null,
             'cited_by'          => $dto->citedBy,
             'local_citations'   => null,
-            'open_access_status'=> $dto->openAccessStatus  ? substr($dto->openAccessStatus,  0, 100) : null,
-            'publication_stage' => $dto->publicationStage  ? substr($dto->publicationStage,  0, 50)  : null,
+            'open_access_status'=> $dto->openAccessStatus  ? self::cut($dto->openAccessStatus, 100) : null,
+            'publication_stage' => $dto->publicationStage  ? self::cut($dto->publicationStage, 50)  : null,
             'hash'              => $hash,
             'countries'         => $dto->countries ? json_encode(array_values($dto->countries), JSON_UNESCAPED_UNICODE) : null,
             'institutions'      => $dto->institutions ? json_encode(array_values($dto->institutions), JSON_UNESCAPED_UNICODE) : null,
@@ -592,7 +689,12 @@ class DocumentImportService
         ];
     }
 
-    private function computeHash(BibliographicRecordDTO $dto): ?string
+    /**
+     * Hash de deduplicação. Com DOI ou com título + ano o valor é o de sempre (não pode mudar:
+     * há documentos gravados com ele). Sem isso, usa a base + o identificador externo e,
+     * por último, o título normalizado, para esses registros também não entrarem em duplicata.
+     */
+    public static function computeHash(BibliographicRecordDTO $dto): ?string
     {
         if ($dto->doi) {
             return md5('doi:' . strtolower(trim($dto->doi)));
@@ -601,7 +703,19 @@ class DocumentImportService
             $normalized = preg_replace('/\s+/', ' ', strtolower(trim($dto->title)));
             return md5($normalized . ':' . $dto->year);
         }
+        if ($dto->externalId !== null && trim($dto->externalId) !== '') {
+            return md5('ext:' . strtolower(trim($dto->source)) . ':' . trim($dto->externalId));
+        }
+        if ($dto->title && trim($dto->title) !== '') {
+            return md5('title:' . preg_replace('/\s+/', ' ', strtolower(trim($dto->title))));
+        }
         return null;
+    }
+
+    /** Corta em bytes sem partir um caractere UTF-8 ao meio (substr deixava bytes inválidos no fim). */
+    public static function cut(string $value, int $bytes): string
+    {
+        return mb_strcut($value, 0, $bytes, 'UTF-8');
     }
 
     private function parseName(string $name): array
@@ -612,7 +726,7 @@ class DocumentImportService
         }
         $parts   = explode(' ', trim($name));
         $surname = array_pop($parts);
-        $initials = implode('', array_map(fn($p) => strtoupper(substr($p, 0, 1)) . '.', $parts));
+        $initials = implode('', array_map(fn($p) => strtoupper(self::cut($p, 1)) . '.', $parts));
         return [$surname, $initials];
     }
 }

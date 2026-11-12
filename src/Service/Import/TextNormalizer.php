@@ -4,6 +4,14 @@ namespace App\Service\Import;
 
 final class TextNormalizer
 {
+    /** Transliterador criado uma vez (criar um por termo é a parte mais cara da normalização). */
+    private static ?\Transliterator $accentRemover = null;
+
+    /** Resultados já calculados por termo: os mesmos autores e palavras-chave se repetem entre documentos. */
+    private const MEMO_LIMIT = 30000;
+    private array $keywordMemo = [];
+    private array $authorMemo = [];
+
     public function cleanDisplayValue(?string $value): string
     {
         if ($value === null) {
@@ -36,6 +44,97 @@ final class TextNormalizer
         $value = preg_replace('/\s+/u', ' ', $value);
 
         return trim($value);
+    }
+
+    /**
+     * Mesmo registro com os nomes de coluna aparados (trim). Em nome repetido vale o primeiro,
+     * como na busca linear que isto substitui.
+     */
+    public static function trimKeys(array $record): array
+    {
+        $out = [];
+        foreach ($record as $key => $value) {
+            $trimmed = trim((string) $key);
+            if (!array_key_exists($trimmed, $out)) {
+                $out[$trimmed] = $value;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Só aceita endereço http:// ou https:// (nada de javascript:, data: etc.).
+     * Numa lista (ex.: "url1; url2") devolve o primeiro endereço válido.
+     */
+    public static function safeUrl(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        foreach (preg_split('/[;\s]+/u', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $candidate) {
+            if (preg_match('#^https?://[^\s<>"\'\x00-\x1F\x7F]+$#i', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Primeiro ISSN válido (8 caracteres, o último pode ser X) de um texto que pode
+     * trazer vários ("1234-5678; 8765-432X", "1234-5678 (Print)"). Devolve "NNNN-NNNN".
+     */
+    public static function firstIssn(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (preg_match_all('/(?<![0-9A-Za-z])(\d{4})-?(\d{3}[\dXx])(?![0-9A-Za-z])/', $value, $m, PREG_SET_ORDER)) {
+            return $m[0][1] . '-' . strtoupper($m[0][2]);
+        }
+
+        return null;
+    }
+
+    /**
+     * O começo do arquivo (256 KB) é UTF-8 válido? Arquivo em Windows-1252/Latin-1 ou UTF-16
+     * gravaria texto quebrado e, depois, termos duplicados com e sem acento.
+     * Um caractere cortado no fim da amostra não conta como erro.
+     */
+    public static function isUtf8File(string $path, int $sampleBytes = 262144): bool
+    {
+        $handle = @fopen($path, 'rb');
+        if (!$handle) {
+            return true; // quem chamou trata arquivo ilegível
+        }
+        $sample = (string) fread($handle, $sampleBytes);
+        $atEnd = feof($handle) || strlen($sample) < $sampleBytes;
+        fclose($handle);
+
+        return self::isUtf8Sample($sample, !$atEnd);
+    }
+
+    public static function isUtf8Sample(string $sample, bool $mayBeTruncated = false): bool
+    {
+        if (str_starts_with($sample, "\xFF\xFE") || str_starts_with($sample, "\xFE\xFF")) {
+            return false; // UTF-16
+        }
+        if (str_contains($sample, "\0")) {
+            return false;
+        }
+        if (mb_check_encoding($sample, 'UTF-8')) {
+            return true;
+        }
+        if ($mayBeTruncated) {
+            for ($cut = 1; $cut <= 3; $cut++) {
+                if (mb_check_encoding(substr($sample, 0, -$cut), 'UTF-8')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function trimUnbalancedBrackets(string $value): string
@@ -86,7 +185,8 @@ final class TextNormalizer
         $value = mb_strtolower($value, 'UTF-8');
 
         // Remove acentos
-        $value = transliterator_transliterate('NFD; [:Nonspacing Mark:] Remove; NFC', $value);
+        self::$accentRemover ??= \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
+        $value = self::$accentRemover->transliterate($value);
 
         // Remove pontuação para comparação
         $value = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value);
@@ -192,6 +292,18 @@ final class TextNormalizer
     }
 
     public function normalizeKeyword(string $original): array
+    {
+        if (isset($this->keywordMemo[$original])) {
+            return $this->keywordMemo[$original];
+        }
+        if (count($this->keywordMemo) >= self::MEMO_LIMIT) {
+            $this->keywordMemo = [];
+        }
+
+        return $this->keywordMemo[$original] = $this->computeKeyword($original);
+    }
+
+    private function computeKeyword(string $original): array
     {
         $display = $this->cleanDisplayValue($original);
         $display = $this->formatKeywordCasing($display);
@@ -311,6 +423,18 @@ final class TextNormalizer
     }
 
     public function normalizeAuthor(string $original): array
+    {
+        if (isset($this->authorMemo[$original])) {
+            return $this->authorMemo[$original];
+        }
+        if (count($this->authorMemo) >= self::MEMO_LIMIT) {
+            $this->authorMemo = [];
+        }
+
+        return $this->authorMemo[$original] = $this->computeAuthor($original);
+    }
+
+    private function computeAuthor(string $original): array
     {
         $display = $this->cleanDisplayValue($original);
         $normalized = $this->normalizeForComparison($display);

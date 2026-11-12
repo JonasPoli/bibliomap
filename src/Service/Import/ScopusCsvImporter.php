@@ -117,7 +117,8 @@ class ScopusCsvImporter implements BibliographicImporterInterface
     {
         $dto = new BibliographicRecordDTO();
         $dto->source = 'scopus';
-        $dto->rawData = json_encode($rawRecord, JSON_UNESCAPED_UNICODE);
+        // Colunas com o nome aparado uma só vez; get() vira uma busca direta (antes percorria todas as colunas a cada campo)
+        $rawRecord = TextNormalizer::trimKeys($rawRecord);
 
         $dto->externalId = $this->get($rawRecord, 'EID');
         $dto->title = $this->get($rawRecord, 'Title');
@@ -128,7 +129,7 @@ class ScopusCsvImporter implements BibliographicImporterInterface
         $dto->pmid = $this->get($rawRecord, 'PubMed ID');
         $dto->issn = $this->get($rawRecord, 'ISSN');
         $dto->isbn = $this->get($rawRecord, 'ISBN');
-        $dto->url = $this->get($rawRecord, 'Link');
+        $dto->url = TextNormalizer::safeUrl($this->get($rawRecord, 'Link'));
         $dto->language = $this->get($rawRecord, 'Language of Original Document');
         $dto->sourceTitle = $this->get($rawRecord, 'Source title');
         $dto->volume = $this->get($rawRecord, 'Volume');
@@ -180,15 +181,14 @@ class ScopusCsvImporter implements BibliographicImporterInterface
 
     // ── Helpers ────────────────────────────────────────
 
+    /** @param array $record registro já passado por TextNormalizer::trimKeys() */
     private function get(array $record, string $key): ?string
     {
-        foreach ($record as $k => $v) {
-            if (trim($k) === $key) {
-                $val = trim((string) $v);
-                return $val !== '' ? $val : null;
-            }
+        if (!isset($record[$key])) {
+            return null;
         }
-        return null;
+        $val = trim((string) $record[$key]);
+        return $val !== '' ? $val : null;
     }
 
     private function getInt(array $record, string $key): ?int
