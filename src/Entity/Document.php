@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(fields: ['year'])]
 #[ORM\Index(fields: ['hash'])]
 #[ORM\Index(fields: ['project', 'year'])]
+#[ORM\Index(name: 'idx_document_project_year_cited', columns: ['project_id', 'year', 'cited_by'])]
 #[ORM\UniqueConstraint(name: 'uniq_project_hash', columns: ['project_id', 'hash'])]
 #[ORM\HasLifecycleCallbacks]
 class Document

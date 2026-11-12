@@ -6,6 +6,7 @@ use App\Repository\DocumentKeywordRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: DocumentKeywordRepository::class)]
+#[ORM\Index(name: 'idx_dk_document_keyword', columns: ['document_id', 'keyword_id'])]
 class DocumentKeyword
 {
     #[ORM\Id]

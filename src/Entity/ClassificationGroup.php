@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClassificationGroupRepository::class)]
 #[ORM\Table(name: 'classification_group')]
+#[ORM\Index(name: 'IDX_CLF_GROUP_PROJECT', columns: ['project_id', 'position'])]
 class ClassificationGroup
 {
     public const TYPE_NORMAL       = 'normal';
