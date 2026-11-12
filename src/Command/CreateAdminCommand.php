@@ -30,59 +30,92 @@ class CreateAdminCommand extends Command
 
     protected function configure(): void
     {
+        // Sem valores padrão: o repositório é público e um e-mail/senha fixos no código seriam credenciais conhecidas
         $this
-            ->addArgument('email',    InputArgument::OPTIONAL, 'E-mail do administrador', 'admin@wab.com.br')
-            ->addArgument('password', InputArgument::OPTIONAL, 'Senha do administrador',  'wab12345678')
+            ->addArgument('email',    InputArgument::REQUIRED, 'E-mail do administrador')
+            ->addArgument('password', InputArgument::OPTIONAL, 'Senha (se omitida, é pedida no terminal sem aparecer na tela)')
             ->addOption('super', null, InputOption::VALUE_NONE, 'Promover a Super Administrador')
+            ->addOption('reset-password', null, InputOption::VALUE_NONE, 'Trocar a senha de um usuário que já existe')
             ->setHelp(<<<'EOT'
 Cria um usuário administrador ou promove um usuário existente.
 
 Uso:
-  <info>php bin/console app:admin:create</info>
-      → Cria admin@wab.com.br com a senha wab12345678
+  <info>php bin/console app:admin:create voce@exemplo.org</info>
+      → Cria o administrador e pede a senha no terminal (não fica no histórico do shell)
 
-  <info>php bin/console app:admin:create seuemail@example.com MinhaS3nh@</info>
-      → Cria/promove o usuário especificado
+  <info>php bin/console app:admin:create voce@exemplo.org --super</info>
+      → Cria/promove para Super Administrador
 
-  <info>php bin/console app:admin:create --super</info>
-      → Cria/promove o usuário para Super Administrador
+  <info>php bin/console app:admin:create voce@exemplo.org --reset-password</info>
+      → Usuário que já existe: promove e troca a senha
+
+Usuário que já existe é só promovido e ativado; a senha dele não muda sem <info>--reset-password</info>.
+A senha nova precisa ter ao menos 10 caracteres e nunca é exibida.
 EOT);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io       = new SymfonyStyle($input, $output);
-        $email    = (string) $input->getArgument('email');
-        $password = (string) $input->getArgument('password');
-        $isSuper  = (bool) $input->getOption('super');
+        $io      = new SymfonyStyle($input, $output);
+        $email   = trim((string) $input->getArgument('email'));
+        $isSuper = (bool) $input->getOption('super');
+        $reset   = (bool) $input->getOption('reset-password');
 
         $io->title('BiblioMap — Criar Administrador');
 
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $io->error('Informe um e-mail válido.');
+            return Command::INVALID;
+        }
+
         /** @var User|null $user */
         $user = $this->userRepo->findOneBy(['email' => $email]);
+        $isNew = $user === null;
 
-        if ($user !== null) {
-            $io->note("Usuário '{$email}' já existe. Promovendo...");
-        } else {
+        $password = $input->getArgument('password');
+        if (!$isNew && !$reset && $password !== null) {
+            $io->error("O usuário '{$email}' já existe. Para trocar a senha dele, repita o comando com --reset-password.");
+            return Command::INVALID;
+        }
+
+        $setPassword = $isNew || $reset;
+        if ($setPassword) {
+            if ($password === null) {
+                if (!$input->isInteractive()) {
+                    $io->error('Informe a senha como segundo argumento ou rode o comando num terminal interativo.');
+                    return Command::INVALID;
+                }
+                $password = $io->askHidden('Senha do administrador (mínimo de ' . User::PASSWORD_MIN_LENGTH . ' caracteres)');
+            }
+            $password = (string) $password;
+            if (mb_strlen($password) < User::PASSWORD_MIN_LENGTH) {
+                $io->error('A senha deve ter ao menos ' . User::PASSWORD_MIN_LENGTH . ' caracteres.');
+                return Command::INVALID;
+            }
+        }
+
+        if ($isNew) {
             $user = new User();
             $user->setEmail($email);
             $user->setName($isSuper ? 'Super Administrador' : 'Administrador');
             $this->em->persist($user);
             $io->note("Criando novo usuário '{$email}'...");
+        } else {
+            $io->note("Usuário '{$email}' já existe. Promovendo" . ($reset ? ' e trocando a senha' : ' (a senha não muda)') . '...');
         }
 
-        // Hash password
-        $hashed = $this->passwordHasher->hashPassword($user, $password);
-        $user->setPassword($hashed);
+        if ($setPassword) {
+            $user->setPassword($this->passwordHasher->hashPassword($user, $password));
+        }
         $user->setRoles($isSuper ? ['ROLE_SUPER_ADMIN'] : ['ROLE_ADMIN']);
         $user->setStatus(User::STATUS_ACTIVE);
 
         $this->em->flush();
 
         $io->success([
-            ($isSuper ? 'Super Administrador' : 'Administrador') . ' criado/atualizado com sucesso!',
+            ($isSuper ? 'Super Administrador' : 'Administrador') . ($isNew ? ' criado' : ' atualizado') . ' com sucesso!',
             "E-mail : {$email}",
-            "Senha  : {$password}",
+            'Senha  : ' . ($setPassword ? 'definida agora (não é exibida)' : 'mantida'),
             'Acesso : /login',
         ]);
 

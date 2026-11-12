@@ -8,12 +8,21 @@ use Symfony\Component\Security\Core\User\UserCheckerInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
- * Blocks login for users who are pending approval or inactive.
- * Registered in security.yaml under firewalls.main.user_checker.
+ * Recusa o login de usuário pendente de aprovação ou inativo.
+ * Registrado em security.yaml (firewalls.main.user_checker).
+ *
+ * A conferência fica em checkPostAuth, depois da senha: em checkPreAuth a mensagem de status
+ * aparecia para qualquer senha, o que revelava a quem não tem a senha se um e-mail tem conta
+ * e em que situação ela está. O checkPostAuth também roda no remember-me e na impersonação.
  */
 class UserChecker implements UserCheckerInterface
 {
     public function checkPreAuth(UserInterface $user): void
+    {
+        // Nada antes da senha (ver comentário da classe)
+    }
+
+    public function checkPostAuth(UserInterface $user): void
     {
         if (!$user instanceof User) {
             return;
@@ -31,10 +40,5 @@ class UserChecker implements UserCheckerInterface
                 'Sua conta foi desativada. Entre em contato com o administrador.'
             );
         }
-    }
-
-    public function checkPostAuth(UserInterface $user): void
-    {
-        // No post-auth checks needed
     }
 }

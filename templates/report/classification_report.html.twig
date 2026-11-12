@@ -107,7 +107,7 @@
 {# ══════════════════════════════════════════════════
    DATA BRIDGE — pass PHP data to JavaScript once
    ══════════════════════════════════════════════════ #}
-<script id="reportPayload" type="application/json">{{ data|json_encode|raw }}</script>
+<script id="reportPayload" type="application/json">{{ data|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }}</script>
 
 {% if data.groups is empty %}
 <div class="bm-main" style="padding:3rem;text-align:center">
@@ -290,10 +290,14 @@ const growth   = payload.growth; // {groupId: {year: n, …}}
 const journals = payload.journals;// {groupId: [{name, n}, …]}
 const years    = payload.years;  // [2010, 2011, …]
 
-// Use the exact color defined by the user for each group (g.color), fallback to palette if missing
-const groupColors = groups.map((g, i) =>
-    g.color && g.color !== '#000000' && g.color !== '' ? g.color : PALETTE[i % PALETTE.length]
-);
+// Cor definida pelo usuário para cada grupo (g.color); sem cor, ou com valor que não seja um
+// hexadecimal (#rgb a #rrggbbaa), usa a paleta. A cor entra em atributos style montados via
+// innerHTML, então um valor livre do banco permitiria injetar HTML na página de quem abre o relatório.
+function safeColor(c) { return typeof c === 'string' && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c.trim()) ? c.trim() : null; }
+const groupColors = groups.map((g, i) => {
+    const c = safeColor(g.color);
+    return c && c !== '#000000' ? c : PALETTE[i % PALETTE.length];
+});
 
 function shortLabel(s, n = 24) { return s.length > n ? s.slice(0, n) + '\u2026' : s; }
 function fmt(n) { return (n||0).toLocaleString('pt-BR'); }
@@ -520,7 +524,7 @@ groups.forEach((g, gi) => {
                             <strong style="color: var(--bm-text)">Autores:</strong> ${esc(p.authors)}
                         </div>
                         <div class="paper-meta mt-2" style="display: flex; flex-wrap: wrap; gap: 0.8rem; font-size: 11.5px; color: var(--bm-text-muted);">
-                            <span><i class="bi bi-calendar3 me-1"></i>${p.year || '—'}</span>
+                            <span><i class="bi bi-calendar3 me-1"></i>${esc(p.year || '—')}</span>
                             <span><i class="bi bi-journal-text me-1"></i>${esc(p.source_title || '—')}</span>
                             ${p.doi ? `<a class="paper-doi" href="https://doi.org/${encodeURI(p.doi)}" target="_blank" rel="noopener"><i class="bi bi-link-45deg me-1"></i>${esc(p.doi)}</a>` : ''}
                         </div>
@@ -573,7 +577,7 @@ document.getElementById('statTableContainer').innerHTML =
             </div></td>
             <td>${fmt(s.total)}<div class="bar-i" style="width:${w}px;background:${groupColors[i]}55;border:1px solid ${groupColors[i]}"></div></td>
             <td>${fmt(s.total_cit)}</td>
-            <td><span style="color:${avgColor};font-weight:700">${s.avg_cit || 0}</span></td>
+            <td><span style="color:${avgColor};font-weight:700">${esc(s.avg_cit || 0)}</span></td>
             <td style="color:${Chart.defaults.color};font-size:.78rem">${fmt(s.max_cit)} cit</td>
         </tr>`;
     }).join('') +
@@ -620,7 +624,7 @@ groups.forEach((g, gi) => {
             `<div class="prog-row">
                 <div class="prog-lbl" title="${esc(j.name)}">${esc(j.name.length > 28 ? j.name.slice(0, 28) + '\u2026' : j.name)}</div>
                 <div class="prog-wrap"><div class="prog-bar" style="width:${Math.round(j.n / mx * 100)}%;background:${groupColors[gi]}"></div></div>
-                <div class="prog-val">${j.n}</div>
+                <div class="prog-val">${esc(j.n)}</div>
             </div>`
         ).join('');
     jGrid.appendChild(card);

@@ -28,10 +28,16 @@ class ProfileController extends AbstractController
             $email = trim($request->request->get('email', ''));
             $institution = trim($request->request->get('institution', ''));
             $country = trim($request->request->get('country', ''));
-            $plainPassword = $request->request->get('plainPassword', '');
-            $confirmPassword = $request->request->get('confirmPassword', '');
+            $plainPassword = (string) $request->request->get('plainPassword', '');
+            $confirmPassword = (string) $request->request->get('confirmPassword', '');
+            $currentPassword = (string) $request->request->get('currentPassword', '');
 
             $hasError = false;
+
+            if (!$this->isCsrfTokenValid('profile_edit', (string) $request->request->get('_token'))) {
+                $this->addFlash('danger', 'Token de segurança inválido. Recarregue a página e tente de novo.');
+                return $this->redirectToRoute('app_profile_edit');
+            }
 
             if ($name === '') {
                 $this->addFlash('danger', 'O nome não pode estar em branco.');
@@ -55,13 +61,22 @@ class ProfileController extends AbstractController
 
             // Password matching & validation if not blank
             if ($plainPassword !== '') {
-                if (strlen($plainPassword) < 6) {
-                    $this->addFlash('danger', 'A nova senha deve ter no mínimo 6 caracteres.');
+                if (mb_strlen($plainPassword) < User::PASSWORD_MIN_LENGTH) {
+                    $this->addFlash('danger', 'A nova senha deve ter no mínimo ' . User::PASSWORD_MIN_LENGTH . ' caracteres.');
                     $hasError = true;
                 } elseif ($plainPassword !== $confirmPassword) {
                     $this->addFlash('danger', 'As senhas informadas não coincidem.');
                     $hasError = true;
                 }
+            }
+
+            // Trocar o e-mail de acesso ou a senha exige a senha atual: sem isso, quem pegasse a
+            // sessão aberta por um instante ficava com a conta.
+            $changesCredentials = $plainPassword !== '' || ($email !== '' && $email !== $user->getEmail());
+            if ($changesCredentials && !$hasError
+                && ($currentPassword === '' || !$passwordHasher->isPasswordValid($user, $currentPassword))) {
+                $this->addFlash('danger', 'Para alterar o e-mail ou a senha, informe corretamente a sua senha atual.');
+                $hasError = true;
             }
 
             if (!$hasError) {

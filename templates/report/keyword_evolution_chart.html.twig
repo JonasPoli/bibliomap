@@ -160,7 +160,7 @@ const DATA_URL = '{{ path('app_report_keyword_evolution_data', {id: project.id})
 const KW_IDS   = [{{ selectedIds|join(',') }}];
 const YEAR_FROM = {{ yearFrom }};
 const YEAR_TO   = {{ yearTo }};
-const KW_TERMS  = {{ selectedKeywords|map(k => k.term)|json_encode|raw }};
+const KW_TERMS  = {{ selectedKeywords|map(k => k.term)|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
 
 // Year palette — each year gets a distinct color
 const YEAR_PALETTE = [

@@ -280,13 +280,15 @@
 })();
 
 {% if mapped_docs > 0 %}
+// Escapa texto do banco e do GeoJSON antes de montar os tooltips com innerHTML
+function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Dados compartilhados por buildCharts() e buildMaps()
-const continentsData = {{ continents|json_encode|raw }};
-const regionsData    = {{ regions|json_encode|raw }};
-const statesData     = {{ states|json_encode|raw }};
-const citiesData     = {{ cities|json_encode|raw }};
-const natureData     = {{ nature|json_encode|raw }};
-const typesData      = {{ types|json_encode|raw }};
+const continentsData = {{ continents|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const regionsData    = {{ regions|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const statesData     = {{ states|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const citiesData     = {{ cities|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const natureData     = {{ nature|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const typesData      = {{ types|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
 
 function isThemeLight() {
     return document.documentElement.getAttribute('data-bs-theme') === 'light';
@@ -632,11 +634,11 @@ function buildMaps() {
                             const region = ufRegionMap[sigla] || '';
                             const count = regionDocs[region] || 0;
                             if (region) {
-                                tooltip.innerHTML = `<strong>Região ${region}</strong> (${sigla})<br>
-                                    <span style="color:var(--bm-accent)">📄 ${count} documentos na região</span><br>
-                                    <span style="color:var(--bm-text-muted)">Estado: ${feature.properties.name || sigla}</span>`;
+                                tooltip.innerHTML = `<strong>Região ${escHtml(region)}</strong> (${escHtml(sigla)})<br>
+                                    <span style="color:var(--bm-accent)">📄 ${escHtml(count)} documentos na região</span><br>
+                                    <span style="color:var(--bm-text-muted)">Estado: ${escHtml(feature.properties.name || sigla)}</span>`;
                             } else {
-                                tooltip.innerHTML = `<strong>${feature.properties.name || sigla}</strong><br><span style="color:var(--bm-text-muted)">Sem dados de região</span>`;
+                                tooltip.innerHTML = `<strong>${escHtml(feature.properties.name || sigla)}</strong><br><span style="color:var(--bm-text-muted)">Sem dados de região</span>`;
                             }
                         });
                         layer.on('mouseout', () => { tooltip.style.display = 'none'; });
@@ -683,9 +685,9 @@ function buildMaps() {
                     tooltip.style.display = 'block';
                     tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
                     tooltip.style.top = (e.originalEvent.clientY - 10) + 'px';
-                    tooltip.innerHTML = `<strong>${c.label}</strong> (${c.state_sigla || ''})<br>
-                        <span style="color:var(--bm-accent)">📄 ${c.doc_count} artigos</span><br>
-                        <span style="color:var(--bm-text-muted)">🔖 ${c.citation_count} citações</span>`;
+                    tooltip.innerHTML = `<strong>${escHtml(c.label)}</strong> (${escHtml(c.state_sigla || '')})<br>
+                        <span style="color:var(--bm-accent)">📄 ${escHtml(c.doc_count)} artigos</span><br>
+                        <span style="color:var(--bm-text-muted)">🔖 ${escHtml(c.citation_count)} citações</span>`;
                 });
                 marker.on('mouseout', () => { tooltip.style.display = 'none'; });
             }

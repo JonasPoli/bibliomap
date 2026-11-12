@@ -47,7 +47,7 @@
             <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }} alert-dismissible mb-4"
                  style="border-radius:10px;font-size:13.5px">
                 <i class="bi bi-{{ type == 'success' ? 'check-circle' : 'exclamation-triangle' }} me-2"></i>
-                {{ message|raw }}
+                {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         {% endfor %}

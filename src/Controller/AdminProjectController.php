@@ -61,13 +61,20 @@ class AdminProjectController extends AbstractController
             return $this->redirectToRoute('app_admin_projects_user', ['id' => $ownerId]);
         }
 
+        // A tela só lista usuários ativos; o id vem do formulário, então confere de novo aqui
+        if (!$targetUser->isActive()) {
+            $this->addFlash('danger', 'O usuário de destino precisa estar ativo. Aprove ou reative a conta antes de copiar.');
+            return $this->redirectToRoute('app_admin_projects_user', ['id' => $ownerId]);
+        }
+
         try {
             $newProject = $this->copyService->copy($project, $targetUser);
 
             $this->addFlash(
                 'success',
                 sprintf(
-                    'Projeto <strong>"%s"</strong> copiado com sucesso para <strong>%s</strong>!',
+                    // Texto simples: título e nome vêm de outros usuários e o template escapa a mensagem
+                    'Projeto "%s" copiado com sucesso para %s!',
                     $project->getTitle(),
                     $targetUser->getName(),
                 ),

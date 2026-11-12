@@ -122,7 +122,7 @@ admin.users.reject:
 admin.users.impersonate:
   title: "Impersonar (entrar como o usuário)"
   what: "Abre a plataforma com a identidade do usuário, vendo exatamente os projetos e telas dele. Serve para dar suporte e reproduzir problemas."
-  how: "Clique em **Impersonar** e confirme. Para voltar à sua conta, use **Sair da impersonação** no menu. Só é possível com contas ativas e que não são administradoras."
+  how: "Clique em **Impersonar** e confirme. Para voltar à sua conta, use **Sair da impersonação** no menu. Só é possível com contas ativas. Administrador comum só entra como usuário comum; super administrador entra como qualquer outra conta."
   not: "Não é um modo só de leitura: tudo o que você criar, editar ou apagar fica gravado como se o próprio usuário tivesse feito."
   example: "Uma pesquisadora relata que o mapa temático do projeto “Extensão universitária” está vazio. Impersone-a, abra o projeto e veja o mesmo que ela vê, sem pedir a senha."
 
@@ -224,7 +224,7 @@ admin.settings.base_url:
 admin.settings.og_image:
   title: "Imagem de compartilhamento (OG Image)"
   what: "Imagem que aparece no cartão quando o link da home é compartilhado no WhatsApp, LinkedIn, X e outros."
-  how: "Envie JPG, PNG ou WebP em 1200 × 630 px (recomendado até 5 MB) e salve. Ao enviar outra, a anterior é apagada do servidor; **Remover** apaga a atual ao salvar."
+  how: "Envie JPG, PNG ou WebP em 1200 × 630 px, com no máximo 5 MB, e salve. Outro tipo de arquivo, ou arquivo que não seja uma imagem de verdade, é recusado. Ao enviar outra, a anterior é apagada do servidor; **Remover** apaga a atual ao salvar."
   not: "Redes sociais guardam a imagem antiga em cache por dias; a troca não aparece na hora em links já compartilhados."
   example: "Uma arte com o logotipo e um mapa de coautoria em 1200 × 630 px deixa o link mais atraente nos grupos de pós-graduação."
 

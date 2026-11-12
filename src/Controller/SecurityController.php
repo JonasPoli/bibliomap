@@ -90,7 +90,7 @@ class SecurityController extends AbstractController
      * any authorization check, restoring the original admin session.
      */
     #[Route('/sair-impersonacao', name: 'app_exit_impersonation')]
-    #[IsGranted('ROLE_PREVIOUS_ADMIN')]
+    #[IsGranted('IS_IMPERSONATOR')]
     public function exitImpersonation(): Response
     {
         // The _switch_user=_exit query param is handled by Symfony's firewall

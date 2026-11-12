@@ -10,6 +10,15 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 
 class SiteSettingsService
 {
+    /** Tipos aceitos para a imagem OG: tipo detectado no conteúdo => extensão gravada. */
+    public const OG_IMAGE_TYPES = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    public const OG_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
     public function __construct(
         private readonly SiteSettingsRepository $repo,
         private readonly EntityManagerInterface $em,
@@ -32,7 +41,12 @@ class SiteSettingsService
 
             $originalFilename = pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME);
             $safeFilename     = $this->slugger->slug($originalFilename);
-            $extension        = $imageFile->guessExtension() ?? 'jpg';
+            if (!$imageFile->isValid()) {
+                throw new \InvalidArgumentException('O envio da imagem falhou: ' . $imageFile->getErrorMessage());
+            }
+            // A pasta fica dentro de public/: só entra imagem de verdade e a extensão vem da lista,
+            // nunca do arquivo (um .php ou .svg enviado aqui seria servido pelo site)
+            $extension        = self::validateOgImage($imageFile->getPathname(), (int) $imageFile->getSize());
             $newFilename      = $safeFilename . '-' . uniqid() . '.' . $extension;
 
             $imageFile->move($this->uploadDir, $newFilename);
@@ -47,6 +61,32 @@ class SiteSettingsService
 
         $this->em->persist($settings);
         $this->em->flush();
+    }
+
+    /**
+     * Confere a imagem OG pelo conteúdo (não pelo nome nem pelo tipo informado pelo navegador)
+     * e devolve a extensão com que ela será gravada.
+     *
+     * @throws \InvalidArgumentException com a mensagem a mostrar ao administrador
+     */
+    public static function validateOgImage(string $path, int $size): string
+    {
+        if ($size <= 0 || !is_file($path)) {
+            throw new \InvalidArgumentException('O arquivo da imagem não foi recebido.');
+        }
+        if ($size > self::OG_IMAGE_MAX_BYTES) {
+            throw new \InvalidArgumentException('A imagem é grande demais: o máximo é 5 MB.');
+        }
+
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path) ?: '';
+        $info = @getimagesize($path);
+
+        // As duas leituras precisam concordar: o tipo do conteúdo e o cabeçalho da imagem
+        if (!isset(self::OG_IMAGE_TYPES[$mime]) || $info === false || ($info['mime'] ?? '') !== $mime) {
+            throw new \InvalidArgumentException('Envie uma imagem JPG, PNG ou WebP. Outros tipos de arquivo não são aceitos.');
+        }
+
+        return self::OG_IMAGE_TYPES[$mime];
     }
 
     /**

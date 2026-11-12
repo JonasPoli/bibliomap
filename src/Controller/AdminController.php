@@ -6,6 +6,7 @@ use App\Entity\SiteSettings;
 use App\Entity\User;
 use App\Repository\SiteSettingsRepository;
 use App\Repository\UserRepository;
+use App\Security\Voter\SwitchUserVoter;
 use App\Service\SiteSettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -76,7 +77,7 @@ class AdminController extends AbstractController
         $user->setStatus(User::STATUS_ACTIVE);
         $this->em->flush();
 
-        $this->addFlash('success', "Usuário <strong>{$user->getName()}</strong> aprovado com sucesso!");
+        $this->addFlash('success', "Usuário {$user->getName()} aprovado com sucesso!");
         return $this->redirectToRoute('app_admin_users');
     }
 
@@ -93,7 +94,7 @@ class AdminController extends AbstractController
         $user->setStatus(User::STATUS_INACTIVE);
         $this->em->flush();
 
-        $this->addFlash('warning', "Acesso de <strong>{$user->getName()}</strong> rejeitado/desativado.");
+        $this->addFlash('warning', "Acesso de {$user->getName()} rejeitado/desativado.");
         return $this->redirectToRoute('app_admin_users');
     }
 
@@ -110,17 +111,28 @@ class AdminController extends AbstractController
         $user->setStatus(User::STATUS_ACTIVE);
         $this->em->flush();
 
-        $this->addFlash('success', "Usuário <strong>{$user->getName()}</strong> reativado com sucesso!");
+        $this->addFlash('success', "Usuário {$user->getName()} reativado com sucesso!");
         return $this->redirectToRoute('app_admin_users');
     }
 
     // ─── Impersonation ───────────────────────────────────────────────────────
 
-    #[Route('/usuarios/{id}/impersonar', name: 'user_impersonate')]
-    public function impersonate(User $user): Response
+    #[Route('/usuarios/{id}/impersonar', name: 'user_impersonate', methods: ['POST'])]
+    public function impersonate(User $user, Request $request): Response
     {
+        if (!$this->isCsrfTokenValid('admin_impersonate_' . $user->getId(), $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token inválido.');
+            return $this->redirectToRoute('app_admin_users');
+        }
+
         if ($user->isPending() || $user->isInactive()) {
             $this->addFlash('danger', 'Não é possível impersonar um usuário inativo ou pendente.');
+            return $this->redirectToRoute('app_admin_users');
+        }
+
+        // Mesma regra que o firewall aplica ao parâmetro _switch_user (SwitchUserVoter)
+        if (!$this->isGranted(SwitchUserVoter::ATTRIBUTE, $user)) {
+            $this->addFlash('danger', 'Você não tem permissão para impersonar este usuário.');
             return $this->redirectToRoute('app_admin_users');
         }
 

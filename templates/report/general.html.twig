@@ -389,8 +389,8 @@
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
-const annualData = {{ annual|json_encode|raw }};
-const qualisData = {{ qualisDist|json_encode|raw }};
+const annualData = {{ annual|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
+const qualisData = {{ qualisDist|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
 let annualChart  = null;
 let qualisChart  = null;
 

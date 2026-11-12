@@ -9,8 +9,8 @@ security:
                 property: email
 
     role_hierarchy:
-        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_ALLOWED_TO_SWITCH]
-        ROLE_ADMIN: [ROLE_USER, ROLE_ALLOWED_TO_SWITCH]
+        ROLE_SUPER_ADMIN: [ROLE_ADMIN]
+        ROLE_ADMIN: [ROLE_USER]
 
     firewalls:
         dev:
@@ -26,22 +26,29 @@ security:
                 enable_csrf: true
                 default_target_path: app_projects_index
                 always_use_default_target_path: false
+            # 5 tentativas erradas por minuto (por usuário + IP); o bloqueio por IP sozinho é 5x isso
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
             logout:
                 path: app_logout
                 target: app_login
+                # Sair só por POST com token (formulário no menu); evita logout forçado por link externo
+                enable_csrf: true
             remember_me:
                 secret: '%kernel.secret%'
                 lifetime: 604800 # 1 semana
             switch_user:
-                role: ROLE_ALLOWED_TO_SWITCH
+                # Decidido pelo SwitchUserVoter: o alvo precisa estar ativo; administrador comum só
+                # entra como usuário comum, super administrador entra como qualquer outro
+                role: CAN_SWITCH_USER
                 parameter: _switch_user
 
     access_control:
-        - { path: ^/login, roles: PUBLIC_ACCESS }
-        - { path: ^/register, roles: PUBLIC_ACCESS }
-        - { path: ^/cadastro-pendente, roles: PUBLIC_ACCESS }
-        - { path: ^/reset-password, roles: PUBLIC_ACCESS }
-        - { path: ^/pub, roles: PUBLIC_ACCESS }
+        # Padrões ancorados: um prefixo solto (^/login) liberaria qualquer rota futura que começasse igual
+        - { path: ^/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/cadastro-pendente$, roles: PUBLIC_ACCESS }
         - { path: ^/$, roles: PUBLIC_ACCESS }
         - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/, roles: ROLE_USER }

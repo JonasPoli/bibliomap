@@ -633,7 +633,7 @@ profile.email:
   what: |-
     E-mail usado para entrar no BiblioMap. Precisa ser único.
   how: |-
-    Se mudar, use o novo e-mail no próximo login.
+    Se mudar, informe também a senha atual (campo abaixo) e use o novo e-mail no próximo login.
   not: |-
     Não pode ser um e-mail já usado por outra conta.
   example: |-
@@ -664,13 +664,24 @@ profile.country:
 profile.password:
   title: "Nova senha"
   what: |-
-    Troca a senha de acesso. Mínimo de 6 caracteres nesta tela.
+    Troca a senha de acesso. Mínimo de 10 caracteres, igual ao cadastro.
   how: |-
-    Preencha só se quiser trocar e repita no campo de confirmação. Em branco, a senha atual é mantida.
+    Preencha só se quiser trocar, repita no campo de confirmação e informe a senha atual. Em branco, a senha atual é mantida.
   not: |-
-    Não pede a senha atual; por isso, não deixe sua sessão aberta em computadores compartilhados.
+    Não troca a senha sem a senha atual. Senhas antigas mais curtas continuam valendo até serem trocadas.
   example: |-
     Após usar o laboratório de informática, troque a senha por uma frase longa como "mapa-tese-2025-cerrado".
+
+profile.current_password:
+  title: "Senha atual"
+  what: |-
+    Confirma que é você mesmo quem está trocando o e-mail de acesso ou a senha.
+  how: |-
+    Preencha só quando for trocar o e-mail ou a senha. Para mudar nome, instituição ou país, deixe em branco.
+  not: |-
+    Não é exigida para as outras alterações. Se estiver errada, nada é salvo e aparece um aviso.
+  example: |-
+    Para trocar o e-mail pessoal pelo institucional, digite o novo e-mail, a senha atual e clique em "Salvar alterações".
 
 profile.password_confirm:
   title: "Confirmar nova senha"
@@ -734,7 +745,7 @@ register.institution:
 register.password:
   title: "Senha"
   what: |-
-    Senha de acesso, com no mínimo 8 caracteres.
+    Senha de acesso, com no mínimo 10 caracteres.
   how: |-
     Use uma frase longa, fácil de lembrar e difícil de adivinhar.
   not: |-

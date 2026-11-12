@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Security\Core\User\EquatableInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -16,8 +17,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
 #[ORM\HasLifecycleCallbacks]
 #[UniqueEntity(fields: ['email'], message: 'Este e-mail já está em uso.')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface, EquatableInterface
 {
+    /** Tamanho mínimo de senha nova (cadastro, perfil e app:admin:create); senhas já gravadas não são revalidadas. */
+    public const PASSWORD_MIN_LENGTH = 10;
+
     public const STATUS_PENDING  = 'pending';
     public const STATUS_ACTIVE   = 'active';
     public const STATUS_INACTIVE = 'inactive';
@@ -149,6 +153,38 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $data = (array) $this;
         $data["\0".self::class."\0password"] = hash('crc32c', (string)$this->password);
         return $data;
+    }
+
+    /**
+     * Chamado a cada requisição com o usuário recarregado do banco ($this é a cópia da sessão).
+     * Devolver false encerra a sessão: além do que o Symfony já compara por padrão (e-mail, senha
+     * e papéis), a conta precisa continuar ativa, senão o usuário desativado pelo administrador
+     * seguiria navegando até a sessão expirar.
+     */
+    public function isEqualTo(UserInterface $user): bool
+    {
+        if (!$user instanceof self || !$user->isActive()) {
+            return false;
+        }
+
+        if ($this->getUserIdentifier() !== $user->getUserIdentifier()) {
+            return false;
+        }
+
+        // Na sessão a senha fica como crc32c do hash (ver __serialize); no primeiro acesso após o login é o hash inteiro
+        $sessionPassword = (string) $this->password;
+        $currentPassword = (string) $user->getPassword();
+        if ($sessionPassword !== $currentPassword
+            && (8 !== strlen($sessionPassword) || hash('crc32c', $currentPassword) !== $sessionPassword)
+        ) {
+            return false;
+        }
+
+        $sessionRoles = $this->getRoles();
+        $currentRoles = $user->getRoles();
+
+        return count($sessionRoles) === count($currentRoles)
+            && count($sessionRoles) === count(array_intersect($sessionRoles, $currentRoles));
     }
 
     #[\Deprecated]

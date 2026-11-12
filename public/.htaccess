@@ -14,8 +14,23 @@ DirectoryIndex index.php
     Options -MultiViews
 </IfModule>
 
+# Cabeçalhos de segurança. "setifempty" não duplica o que o nginx da frente já tiver enviado.
+# HSTS: o site é servido só por HTTPS (o navegador ignora este cabeçalho em HTTP).
+<IfModule mod_headers.c>
+    Header always setifempty X-Content-Type-Options "nosniff"
+    Header always setifempty X-Frame-Options "SAMEORIGIN"
+    Header always setifempty Referrer-Policy "strict-origin-when-cross-origin"
+    Header always setifempty Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Arquivos e pastas ocultos (.user.ini, .htaccess, .git...) não são servidos; .well-known continua
+    RewriteRule (^|/)\.(?!well-known(/|$)) - [F,L]
+
+    # /uploads recebe arquivos enviados pelo painel: nunca executa nem serve script
+    RewriteRule ^uploads/.*\.(php\d*|phtml|phar|pht|cgi|pl|py|sh)$ - [F,L,NC]
 
     # Determine the RewriteBase automatically and set it as environment variable.
     # If you are using Apache aliases or installing Symfony in a subdirectory,

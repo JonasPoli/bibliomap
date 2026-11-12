@@ -381,7 +381,7 @@
 
 
             {% endif %}
-            {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+            {% if is_granted('IS_IMPERSONATOR') %}
                 {# ── Impersonation exit — prominent nav item ── #}
                 <div style="margin:8px 0 4px;padding:0 12px">
                     <a href="{{ path('app_exit_impersonation') }}"
@@ -467,7 +467,7 @@
                     <div style="min-width:0;overflow:hidden">
                         <div class="bm-user-name" style="text-overflow:ellipsis;white-space:nowrap;overflow:hidden">{{ app.user.name|split(' ')|first }}</div>
                         <div class="bm-user-role">
-                            {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+                            {% if is_granted('IS_IMPERSONATOR') %}
                                 <span style="color:#a855f7;font-weight:600">Impersonando</span>
                             {% elseif is_granted('ROLE_ADMIN') %}
                                 <span style="color:var(--bm-accent)">Administrador</span>
@@ -477,15 +477,20 @@
                         </div>
                     </div>
                 </a>
-                {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+                {% if is_granted('IS_IMPERSONATOR') %}
                     <a href="{{ path('app_exit_impersonation') }}" class="ms-auto"
                        style="color:#a855f7" title="Sair da impersona&ccedil;&atilde;o">
                         <i class="bi bi-person-fill-x"></i>
                     </a>
                 {% else %}
-                    <a href="{{ path('app_logout') }}" class="ms-auto" style="color:var(--bm-text-muted)" title="Sair">
-                        <i class="bi bi-box-arrow-right"></i>
-                    </a>
+                    {# Sair por POST com token: um link GET permitiria deslogar o usuário a partir de outro site #}
+                    <form method="post" action="{{ path('app_logout') }}" class="ms-auto" style="margin:0">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                        <button type="submit" title="Sair" aria-label="Sair"
+                                style="background:none;border:0;padding:0;color:var(--bm-text-muted);cursor:pointer;line-height:1">
+                            <i class="bi bi-box-arrow-right"></i>
+                        </button>
+                    </form>
                 {% endif %}
             </div>
         </div>
@@ -514,7 +519,7 @@
     </header>
 
     <main class="bm-main">
-        {% if is_granted('ROLE_PREVIOUS_ADMIN') %}
+        {% if is_granted('IS_IMPERSONATOR') %}
         <div class="alert d-flex align-items-center gap-3 mb-4"
              style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.35);border-radius:10px;padding:12px 16px;color:#c084fc">
             <i class="bi bi-person-fill-gear fs-5"></i>

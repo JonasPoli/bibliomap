@@ -367,7 +367,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
 <script>
-const listData = {{ list|json_encode|raw }};
+// Escapa texto do banco antes de usar em HTML: o tooltip do ECharts insere o retorno do formatter como HTML
+function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const listData = {{ list|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
 // Visão "por origem": cada conceito vira até duas entradas (autor e indexada) com a frequência daquela origem.
 const originData = listData.flatMap(k => [
     ...(k.author_freq  > 0 ? [{ ...k, type: 'author',  freq: k.author_freq  }] : []),
@@ -551,8 +553,8 @@ function buildTreemap() {
         tooltip: {
             trigger: 'item',
             formatter: function (info) {
-                const term = info.name;
-                const value = info.value;
+                const term = escHtml(info.name);
+                const value = escHtml(info.value);
                 const typeText = info.data && info.data.origin === 'author' ? 'Palavra de Autor' : 'Palavra Indexada';
                 return `<div style="font-family:'Inter',sans-serif;font-size:12px;">` +
                        `<b>${term}</b><br/>` +
@@ -616,8 +618,8 @@ function buildTreemap() {
         tooltip: {
             trigger: 'item',
             formatter: function (info) {
-                const term = info.name;
-                const value = info.value;
+                const term = escHtml(info.name);
+                const value = escHtml(info.value);
                 return `<div style="font-family:'Inter',sans-serif;font-size:12px;">` +
                        `<b>${term}</b><br/>` +
                        `Tipo: <b>Consolidada (Soma)</b><br/>` +
@@ -991,7 +993,7 @@ function viewKeywordWorks(projectId, keywordId, keywordTerm) {
 }
 
 function exportCSV() {
-    const fullList = {{ list|json_encode|raw }};
+    const fullList = {{ list|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
     let csv = "\uFEFFKeyword;Type;Frequency;Author Frequency;Indexed Frequency;First Year;Last Year\r\n";
     fullList.forEach(k => {
         csv += `"${k.term}";${k.type};${k.freq};${k.author_freq};${k.indexed_freq};${k.first_year};${k.last_year}\r\n`;

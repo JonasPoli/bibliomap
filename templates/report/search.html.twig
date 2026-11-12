@@ -356,7 +356,7 @@ function copyBibtexToClipboard() {
     });
 }
 
-const searchDocumentsList = {{ list|json_encode|raw }};
+const searchDocumentsList = {{ list|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }};
 
 function showBibtexByIndex(index) {
     const doc = searchDocumentsList[index];

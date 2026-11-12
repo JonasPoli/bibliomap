@@ -228,11 +228,11 @@
                                 {% endif %}
 
                                 {# Impersonate #}
-                                {% if user.isActive() and not user.isAdmin() %}
+                                {% if is_granted('CAN_SWITCH_USER', user) %}
                                     <a href="#"
                                        class="action-btn btn-impersonate"
                                        title="Entrar como este usuário"
-                                       onclick="openImpersonateModal('{{ path('app_admin_user_impersonate', {id: user.id}) }}', '{{ user.name|escape('js') }}'); return false;">
+                                       onclick="openImpersonateModal('{{ path('app_admin_user_impersonate', {id: user.id}) }}', '{{ user.name|escape('js') }}', '{{ csrf_token('admin_impersonate_' ~ user.id) }}'); return false;">
                                         <i class="bi bi-person-fill-gear me-1"></i>Impersonar
                                     </a>
                                 {% endif %}
@@ -268,7 +268,11 @@
             </p>
             <div style="display:flex;justify-content:end;gap:10px">
                 <button onclick="closeImpersonateModal()" style="background:transparent;border:1px solid var(--bm-border);color:var(--bm-text);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
-                <a id="impersonate-confirm-btn" href="#" style="background:var(--bm-accent);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer">Continuar</a>
+                {# POST com token: a impersonação não pode ser disparada por um link #}
+                <form id="impersonate-form" method="post" action="#" style="margin:0">
+                    <input type="hidden" name="_token" id="impersonate-token" value="">
+                    <button type="submit" id="impersonate-confirm-btn" style="background:var(--bm-accent);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Continuar</button>
+                </form>
             </div>
         </div>
     </div>
@@ -277,9 +281,10 @@
 
 {% block javascripts %}
 <script>
-function openImpersonateModal(url, userName) {
+function openImpersonateModal(url, userName, token) {
     document.getElementById('impersonate-user-name').textContent = userName;
-    document.getElementById('impersonate-confirm-btn').href = url;
+    document.getElementById('impersonate-form').action = url;
+    document.getElementById('impersonate-token').value = token;
     document.getElementById('impersonate-modal').style.display = 'flex';
 }
 function closeImpersonateModal() {

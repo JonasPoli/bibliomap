@@ -36,10 +36,10 @@ class RegistrationFormType extends AbstractType
                 'mapped' => false,
                 'first_options' => [
                     'label' => 'Senha',
-                    'attr' => ['placeholder' => 'Mínimo 8 caracteres'],
+                    'attr' => ['placeholder' => 'Mínimo ' . User::PASSWORD_MIN_LENGTH . ' caracteres'],
                     'constraints' => [
                         new NotBlank(['message' => 'Informe uma senha.']),
-                        new Length(['min' => 8, 'minMessage' => 'A senha deve ter ao menos {{ limit }} caracteres.']),
+                        new Length(['min' => User::PASSWORD_MIN_LENGTH, 'max' => 4096, 'minMessage' => 'A senha deve ter ao menos {{ limit }} caracteres.']),
                     ],
                 ],
                 'second_options' => [
