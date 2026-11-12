@@ -11,6 +11,10 @@ Decisões do Jonas (12/11/2026):
 - Projeto público: todos veem os números com o tesauro do dono.
 - Fusões globais já feitas: administrador → global; usuário comum → só o tesauro dele. O banco não registra quem fez as fusões passadas: a regra vale daqui para frente (a fase 0 passa a registrar autoria) e o histórico fica para a fase 5.
 
+- Dois vínculos do mesmo documento com a mesma identidade efetiva: manter as duas linhas, sem apagar, e contar o documento uma vez. Prioridade do Jonas: eficiência do sistema; os dados antigos são recalculados pela sincronia do projeto (`DocumentEnrichmentService`), que passa a recalcular o id efetivo de cada vínculo. Texto original já apagado por mesclagens passadas só volta por reimportação dos arquivos guardados em `var/uploads` (fase 5).
+- Mesclagem entre tipos (autor ↔ indexada): aceito que o tipo de origem se mantenha e que os números desses casos mudem.
+- Fase 1: seguir adiante e publicar na janela que o Jonas indicar.
+
 ## Decisions
 
 1. **Id efetivo no vínculo** (`document_author.effective_author_id`, `document_keyword.effective_keyword_id`, `INT NOT NULL DEFAULT 0`, `0` = ainda não calculado; palavra-chave mantém a convenção de hoje, negativo = `-thesaurus_concept.id`), criado com `ALGORITHM=INSTANT` e preenchido em lotes. Escolhida sobre a junção na consulta e sobre o mapa efetivo por projeto: 1,5 a 3 vezes mais rápida que hoje, contra 2 a 2,7 vezes mais lenta da junção; custo de 50 a 70 MB em produção.
