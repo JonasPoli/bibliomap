@@ -1,3 +1,12 @@
+## MODIFIED Requirements
+
+### Requirement: Áreas por papel
+Toda página SHALL exigir login, exceto `/login`, `/register`, `/cadastro-pendente` e a página inicial `/`. As páginas `/admin` SHALL exigir `ROLE_ADMIN`, e o tratamento de palavras-chave em `/admin/super/keywords/treatment` SHALL exigir `ROLE_SUPER_ADMIN`.
+
+#### Scenario: Visitante sem login
+- **WHEN** alguém sem sessão abre `/projects`
+- **THEN** é levado para `/login`
+
 ## ADDED Requirements
 
 ### Requirement: Impersonação restrita

@@ -318,6 +318,11 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div id="modalWorksMoreWrap" class="mt-3" style="display:none;align-items:center;justify-content:space-between">
+                        <span id="modalWorksCounter" style="font-size:12.5px;color:var(--bm-text-muted)"></span>
+                        <button type="button" id="modalWorksMoreBtn" class="btn btn-bm-secondary" style="font-size:13px;font-weight:600" onclick="loadMoreWorks(worksState)">Carregar mais</button>
+                    </div>
                 </div>
 
             </div>
@@ -363,9 +368,9 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js" integrity="sha384-o5uz97et3bErHvpKfD4Jz4n0JfhJDWABFuF4NP+iEEDxE1VwMWJ19QGR0lqFZnr6" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js" integrity="sha384-qFO0W0pEXGHcEQcFOCL1dqVNS1/5JIj7kQpsg0oVND1YuikX5rrXdX0SubOXnmhJ" crossorigin="anonymous"></script>
 <script>
 // Escapa texto do banco antes de usar em HTML: o tooltip do ECharts insere o retorno do formatter como HTML
 function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -821,6 +826,198 @@ function sortKeywordsTable(columnIndex, type) {
     rows.forEach(row => tbody.appendChild(row));
 }
 
+const WORKS_PAGE_SIZE = 200;
+let worksLoadToken = 0;
+let worksState = null;
+
+// Acrescenta linhas ao mesmo tbody (usado a cada página carregada).
+function appendKeywordWorkRows(tbody, docs) {
+    docs.forEach(doc => {
+        const tr = document.createElement('tr');
+        
+        // Title td formatted with [All Authors] - [Year] - [Title]
+        const tdTitle = document.createElement('td');
+        tdTitle.style.fontWeight = '600';
+        tdTitle.style.color = 'var(--bm-text)';
+        const docTitle = (doc.title || 'Sem título').replace(/[:\/]/g, '');
+        const docYear = doc.year || '—';
+        const docAuthors = doc.author_names || 'Autor desconhecido';
+        const formattedTitle = `${docAuthors} - ${docYear} - ${docTitle}`;
+        tdTitle.title = formattedTitle;
+        tdTitle.textContent = formattedTitle + ' ';
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn btn-sm btn-link p-0 text-muted ms-1';
+        copyBtn.style.verticalAlign = 'middle';
+        copyBtn.style.textDecoration = 'none';
+        copyBtn.title = 'Copiar nome reduzido (máx 250 caracteres)';
+        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+        copyBtn.onclick = function() {
+            const cleanTitle = docTitle;
+            const cleanYear = String(docYear);
+            const cleanAuthors = String(docAuthors);
+            const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
+            let reducedAuthors = cleanAuthors;
+            if (cleanAuthors.length > maxAuthorsLen) {
+                reducedAuthors = cleanAuthors.slice(0, Math.max(0, maxAuthorsLen));
+            }
+            const textToCopy = `${reducedAuthors} - ${cleanYear} - ${cleanTitle}`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const icon = copyBtn.querySelector('i');
+                if (icon) {
+                    icon.className = 'bi bi-check2 text-success';
+                    setTimeout(() => {
+                        icon.className = 'bi bi-clipboard';
+                    }, 1500);
+                }
+            });
+        };
+        tdTitle.appendChild(copyBtn);
+        
+        tr.appendChild(tdTitle);
+        
+        // Year td
+        const tdYear = document.createElement('td');
+        tdYear.style.textAlign = 'center';
+        tdYear.textContent = doc.year || '—';
+        tr.appendChild(tdYear);
+        
+        // Citations td
+        const tdCit = document.createElement('td');
+        tdCit.style.textAlign = 'center';
+        tdCit.style.fontWeight = '700';
+        tdCit.className = 'text-accent';
+        tdCit.textContent = doc.cited_by !== null ? doc.cited_by : 0;
+        tr.appendChild(tdCit);
+        
+        // Document type td
+        const tdType = document.createElement('td');
+        tdType.style.color = 'var(--bm-text-muted)';
+        tdType.textContent = doc.document_type || '—';
+        tr.appendChild(tdType);
+        
+        // Source title td
+        const tdSource = document.createElement('td');
+        tdSource.style.maxWidth = '150px';
+        tdSource.style.overflow = 'hidden';
+        tdSource.style.textOverflow = 'ellipsis';
+        tdSource.style.whiteSpace = 'nowrap';
+        tdSource.style.color = 'var(--bm-text-muted)';
+        tdSource.title = doc.source_title || '—';
+        tdSource.textContent = doc.source_title || '—';
+        tr.appendChild(tdSource);
+        
+        // Link td
+        const tdLink = document.createElement('td');
+        tdLink.style.textAlign = 'center';
+        tdLink.style.whiteSpace = 'nowrap';
+        
+        let hasLink = false;
+        if (doc.doi) {
+            const a = document.createElement('a');
+            a.href = `https://doi.org/${doc.doi}`;
+            a.target = '_blank';
+            a.style.color = 'var(--bm-accent)';
+            a.style.textDecoration = 'none';
+            a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> DOI';
+            tdLink.appendChild(a);
+
+            const aSci = document.createElement('a');
+            aSci.href = `https://sci-hub.box/${doc.doi}`;
+            aSci.target = '_blank';
+            aSci.style.color = 'var(--bm-accent)';
+            aSci.style.textDecoration = 'none';
+            aSci.style.marginLeft = '8px';
+            aSci.title = 'Sci-Hub';
+            aSci.innerHTML = '<i class="bi bi-key"></i> Sci-Hub';
+            tdLink.appendChild(aSci);
+
+            hasLink = true;
+        } else if (doc.url) {
+            const a = document.createElement('a');
+            a.href = doc.url;
+            a.target = '_blank';
+            a.style.color = 'var(--bm-accent)';
+            a.style.textDecoration = 'none';
+            a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> URL';
+            tdLink.appendChild(a);
+            hasLink = true;
+        }
+
+        const btnBib = document.createElement('button');
+        btnBib.type = 'button';
+        btnBib.className = 'btn btn-sm btn-outline-secondary py-0 px-2' + (hasLink ? ' ms-2' : '');
+        btnBib.style.fontSize = '11.5px';
+        btnBib.style.borderRadius = '4px';
+        btnBib.innerHTML = '<i class="bi bi-journal-code"></i> BibTeX';
+        btnBib.onclick = (e) => {
+            e.preventDefault();
+            showBibtex(doc, docAuthors);
+        };
+        tdLink.appendChild(btnBib);
+
+        tr.appendChild(tdLink);
+        
+        tbody.appendChild(tr);
+    });
+}
+
+function updateWorksMore(state, hasMore) {
+    const wrap = document.getElementById('modalWorksMoreWrap');
+    const counter = document.getElementById('modalWorksCounter');
+    const btn = document.getElementById('modalWorksMoreBtn');
+    counter.textContent = state.offset.toLocaleString('pt-BR') + ' de ' + state.total.toLocaleString('pt-BR') + ' trabalhos';
+    btn.textContent = 'Carregar mais (' + state.offset.toLocaleString('pt-BR') + ' de ' + state.total.toLocaleString('pt-BR') + ')';
+    btn.style.display = hasMore ? '' : 'none';
+    btn.disabled = false;
+    wrap.style.display = state.total > 0 && (hasMore || state.total > WORKS_PAGE_SIZE) ? 'flex' : 'none';
+}
+
+function loadMoreWorks(state) {
+    if (state.loading) return;
+    state.loading = true;
+    const btn = document.getElementById('modalWorksMoreBtn');
+    btn.disabled = true;
+    const url = `/projects/${state.projectId}/reports/keywords/${state.id}/documents?limit=${WORKS_PAGE_SIZE}&offset=${state.offset}`;
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar os trabalhos.');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (state !== worksState) return; // modal reaberto para outro item
+            state.loading = false;
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+
+            const docs = data.documents || [];
+            if (state.offset === 0 && docs.length === 0) {
+                document.getElementById('modalNoWorksMessage').style.display = 'block';
+                return;
+            }
+
+            appendKeywordWorkRows(document.getElementById('modalKeywordWorksBody'), docs);
+            state.offset += docs.length;
+            state.total = data.total ?? state.offset;
+            document.getElementById('modalContentTable').style.display = 'block';
+            updateWorksMore(state, !!data.hasMore && docs.length > 0);
+        })
+        .catch(err => {
+            if (state !== worksState) return;
+            state.loading = false;
+            btn.disabled = false;
+            document.getElementById('modalLoadingSpinner').style.display = 'none';
+            if (state.offset === 0) {
+                document.getElementById('modalNoWorksMessage').textContent = 'Erro: ' + err.message;
+                document.getElementById('modalNoWorksMessage').style.display = 'block';
+            } else {
+                alert('Erro: ' + err.message);
+            }
+        });
+}
+
 function viewKeywordWorks(projectId, keywordId, keywordTerm) {
     const modal = new bootstrap.Modal(document.getElementById('keywordWorksModal'));
     
@@ -833,163 +1030,12 @@ function viewKeywordWorks(projectId, keywordId, keywordTerm) {
     document.getElementById('modalNoWorksMessage').style.display = 'none';
     document.getElementById('modalKeywordWorksBody').innerHTML = '';
     
+    const state = { projectId, id: keywordId, offset: 0, total: 0, loading: false, label: keywordTerm, token: ++worksLoadToken };
+    worksState = state;
+    document.getElementById('modalWorksMoreWrap').style.display = 'none';
+
     modal.show();
-    
-    // Fetch via AJAX
-    const url = `/projects/${projectId}/reports/keywords/${keywordId}/documents`;
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erro ao carregar os trabalhos.');
-            }
-            return response.json();
-        })
-        .then(data => {
-            document.getElementById('modalLoadingSpinner').style.display = 'none';
-            
-            if (!data.documents || data.documents.length === 0) {
-                document.getElementById('modalNoWorksMessage').style.display = 'block';
-                return;
-            }
-            
-            const tbody = document.getElementById('modalKeywordWorksBody');
-            data.documents.forEach(doc => {
-                const tr = document.createElement('tr');
-                
-                // Title td formatted with [All Authors] - [Year] - [Title]
-                const tdTitle = document.createElement('td');
-                tdTitle.style.fontWeight = '600';
-                tdTitle.style.color = 'var(--bm-text)';
-                const docTitle = (doc.title || 'Sem título').replace(/[:\/]/g, '');
-                const docYear = doc.year || '—';
-                const docAuthors = doc.author_names || 'Autor desconhecido';
-                const formattedTitle = `${docAuthors} - ${docYear} - ${docTitle}`;
-                tdTitle.title = formattedTitle;
-                tdTitle.textContent = formattedTitle + ' ';
-                
-                const copyBtn = document.createElement('button');
-                copyBtn.type = 'button';
-                copyBtn.className = 'btn btn-sm btn-link p-0 text-muted ms-1';
-                copyBtn.style.verticalAlign = 'middle';
-                copyBtn.style.textDecoration = 'none';
-                copyBtn.title = 'Copiar nome reduzido (máx 250 caracteres)';
-                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
-                copyBtn.onclick = function() {
-                    const cleanTitle = docTitle;
-                    const cleanYear = String(docYear);
-                    const cleanAuthors = String(docAuthors);
-                    const maxAuthorsLen = 250 - 6 - cleanYear.length - cleanTitle.length;
-                    let reducedAuthors = cleanAuthors;
-                    if (cleanAuthors.length > maxAuthorsLen) {
-                        reducedAuthors = cleanAuthors.slice(0, Math.max(0, maxAuthorsLen));
-                    }
-                    const textToCopy = `${reducedAuthors} - ${cleanYear} - ${cleanTitle}`;
-                    navigator.clipboard.writeText(textToCopy).then(() => {
-                        const icon = copyBtn.querySelector('i');
-                        if (icon) {
-                            icon.className = 'bi bi-check2 text-success';
-                            setTimeout(() => {
-                                icon.className = 'bi bi-clipboard';
-                            }, 1500);
-                        }
-                    });
-                };
-                tdTitle.appendChild(copyBtn);
-                
-                tr.appendChild(tdTitle);
-                
-                // Year td
-                const tdYear = document.createElement('td');
-                tdYear.style.textAlign = 'center';
-                tdYear.textContent = doc.year || '—';
-                tr.appendChild(tdYear);
-                
-                // Citations td
-                const tdCit = document.createElement('td');
-                tdCit.style.textAlign = 'center';
-                tdCit.style.fontWeight = '700';
-                tdCit.className = 'text-accent';
-                tdCit.textContent = doc.cited_by !== null ? doc.cited_by : 0;
-                tr.appendChild(tdCit);
-                
-                // Document type td
-                const tdType = document.createElement('td');
-                tdType.style.color = 'var(--bm-text-muted)';
-                tdType.textContent = doc.document_type || '—';
-                tr.appendChild(tdType);
-                
-                // Source title td
-                const tdSource = document.createElement('td');
-                tdSource.style.maxWidth = '150px';
-                tdSource.style.overflow = 'hidden';
-                tdSource.style.textOverflow = 'ellipsis';
-                tdSource.style.whiteSpace = 'nowrap';
-                tdSource.style.color = 'var(--bm-text-muted)';
-                tdSource.title = doc.source_title || '—';
-                tdSource.textContent = doc.source_title || '—';
-                tr.appendChild(tdSource);
-                
-                // Link td
-                const tdLink = document.createElement('td');
-                tdLink.style.textAlign = 'center';
-                tdLink.style.whiteSpace = 'nowrap';
-                
-                let hasLink = false;
-                if (doc.doi) {
-                    const a = document.createElement('a');
-                    a.href = `https://doi.org/${doc.doi}`;
-                    a.target = '_blank';
-                    a.style.color = 'var(--bm-accent)';
-                    a.style.textDecoration = 'none';
-                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> DOI';
-                    tdLink.appendChild(a);
-
-                    const aSci = document.createElement('a');
-                    aSci.href = `https://sci-hub.box/${doc.doi}`;
-                    aSci.target = '_blank';
-                    aSci.style.color = 'var(--bm-accent)';
-                    aSci.style.textDecoration = 'none';
-                    aSci.style.marginLeft = '8px';
-                    aSci.title = 'Sci-Hub';
-                    aSci.innerHTML = '<i class="bi bi-key"></i> Sci-Hub';
-                    tdLink.appendChild(aSci);
-
-                    hasLink = true;
-                } else if (doc.url) {
-                    const a = document.createElement('a');
-                    a.href = doc.url;
-                    a.target = '_blank';
-                    a.style.color = 'var(--bm-accent)';
-                    a.style.textDecoration = 'none';
-                    a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> URL';
-                    tdLink.appendChild(a);
-                    hasLink = true;
-                }
-
-                const btnBib = document.createElement('button');
-                btnBib.type = 'button';
-                btnBib.className = 'btn btn-sm btn-outline-secondary py-0 px-2' + (hasLink ? ' ms-2' : '');
-                btnBib.style.fontSize = '11.5px';
-                btnBib.style.borderRadius = '4px';
-                btnBib.innerHTML = '<i class="bi bi-journal-code"></i> BibTeX';
-                btnBib.onclick = (e) => {
-                    e.preventDefault();
-                    showBibtex(doc, docAuthors);
-                };
-                tdLink.appendChild(btnBib);
-
-                tr.appendChild(tdLink);
-                
-                tbody.appendChild(tr);
-            });
-            
-            document.getElementById('modalContentTable').style.display = 'block';
-        })
-        .catch(err => {
-            document.getElementById('modalLoadingSpinner').style.display = 'none';
-            document.getElementById('modalNoWorksMessage').textContent = 'Erro: ' + err.message;
-            document.getElementById('modalNoWorksMessage').style.display = 'block';
-        });
+    loadMoreWorks(state);
 }
 
 function exportCSV() {

@@ -233,7 +233,7 @@ input[type="range"] {
 
 {% block javascripts %}
 <!-- Load Apache ECharts from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js" integrity="sha384-o5uz97et3bErHvpKfD4Jz4n0JfhJDWABFuF4NP+iEEDxE1VwMWJ19QGR0lqFZnr6" crossorigin="anonymous"></script>
 <script>
 // ── Global Config ────────────────────────────────────────────────────────────
 const DATA_URL = '{{ path('app_thematic_evolution_data', {id: project.id}) }}';
