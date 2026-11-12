@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\BibliometricProject;
 use App\Service\Analytics\IndicatorService;
+use App\Service\Cache\AnalyticsCache;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,6 +19,7 @@ class AnnualProductionController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly Connection $conn,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('/annual-production', name: 'app_report_annual_production', methods: ['GET'])]
@@ -25,87 +27,96 @@ class AnnualProductionController extends AbstractController
     {
         $project = $this->getProject($id);
 
-        // Fetch per-year stats
-        $rows = $this->conn->fetchAllAssociative(
-            'SELECT year,
-                    COUNT(*) AS doc_count,
-                    SUM(COALESCE(cited_by, 0)) AS citation_count,
-                    ROUND(AVG(COALESCE(cited_by, 0)), 1) AS avg_citations
-             FROM document
-             WHERE project_id = ? AND year IS NOT NULL
-             GROUP BY year
-             ORDER BY year ASC',
-            [$id]
-        );
+        // O resultado depende só do projeto (nenhuma informação do usuário logado)
+        $result = $this->cache->get($id, 'report.annual_production', [], function () use ($id) {
+            // Fetch per-year stats
+            $rows = $this->conn->fetchAllAssociative(
+                'SELECT year,
+                        COUNT(*) AS doc_count,
+                        SUM(COALESCE(cited_by, 0)) AS citation_count,
+                        ROUND(AVG(COALESCE(cited_by, 0)), 1) AS avg_citations
+                 FROM document
+                 WHERE project_id = ? AND year IS NOT NULL
+                 GROUP BY year
+                 ORDER BY year ASC',
+                [$id]
+            );
 
-        // Anos sem publicação não aparecem no GROUP BY: preenche com zero para que
-        // gráfico, crescimento e média móvel não "pulem" anos.
-        $rows = IndicatorService::fillYearGaps($rows, ['doc_count' => 0, 'citation_count' => 0, 'avg_citations' => 0]);
+            // Anos sem publicação não aparecem no GROUP BY: preenche com zero para que
+            // gráfico, crescimento e média móvel não "pulem" anos.
+            $rows = IndicatorService::fillYearGaps($rows, ['doc_count' => 0, 'citation_count' => 0, 'avg_citations' => 0]);
 
-        // Augment with cumulative, growth and moving average
-        $cumulative = 0;
-        $prevCount = null;
-        $annualData = [];
+            // Augment with cumulative, growth and moving average
+            $cumulative = 0;
+            $prevCount = null;
+            $annualData = [];
 
-        foreach ($rows as $row) {
-            $cumulative += (int) $row['doc_count'];
-            $growth = null;
-            if ($prevCount !== null && $prevCount > 0) {
-                $growth = round((($row['doc_count'] - $prevCount) / $prevCount) * 100, 1);
+            foreach ($rows as $row) {
+                $cumulative += (int) $row['doc_count'];
+                $growth = null;
+                if ($prevCount !== null && $prevCount > 0) {
+                    $growth = round((($row['doc_count'] - $prevCount) / $prevCount) * 100, 1);
+                }
+                $annualData[] = [
+                    'year'          => (int) $row['year'],
+                    'doc_count'     => (int) $row['doc_count'],
+                    'citation_count'=> (int) $row['citation_count'],
+                    'avg_citations' => (float) $row['avg_citations'],
+                    'cumulative'    => $cumulative,
+                    'growth_pct'    => $growth,
+                ];
+                $prevCount = (int) $row['doc_count'];
             }
-            $annualData[] = [
-                'year'          => (int) $row['year'],
-                'doc_count'     => (int) $row['doc_count'],
-                'citation_count'=> (int) $row['citation_count'],
-                'avg_citations' => (float) $row['avg_citations'],
-                'cumulative'    => $cumulative,
-                'growth_pct'    => $growth,
+
+            // 3-year moving average
+            $ma3 = [];
+            for ($i = 0; $i < count($annualData); $i++) {
+                if ($i < 2) {
+                    $ma3[] = null;
+                } else {
+                    $ma3[] = round(
+                        ($annualData[$i - 2]['doc_count'] + $annualData[$i - 1]['doc_count'] + $annualData[$i]['doc_count']) / 3,
+                        1
+                    );
+                }
+            }
+
+            // KPIs
+            $totalDocs   = array_sum(array_column($annualData, 'doc_count'));
+            $totalYears  = count($annualData);
+            $bestYear    = $totalYears > 0 ? $annualData[array_search(max(array_column($annualData, 'doc_count')), array_column($annualData, 'doc_count'))]['year'] : 'N/A';
+            $firstYear   = $totalYears > 0 ? $annualData[0]['year'] : 'N/A';
+            $lastYear    = $totalYears > 0 ? $annualData[$totalYears - 1]['year'] : 'N/A';
+
+            // Average annual growth (compound) — ((N_último / N_primeiro)^(1 / (último ano − primeiro ano)) − 1) × 100
+            $cagr = null;
+            if ($totalYears >= 2) {
+                $startCount = $annualData[0]['doc_count'];
+                $endCount   = $annualData[$totalYears - 1]['doc_count'];
+                if ($startCount > 0) {
+                    $cagr = round((pow($endCount / $startCount, 1 / ($lastYear - $firstYear)) - 1) * 100, 1);
+                }
+            }
+
+            return [
+                'annualData' => $annualData,
+                'ma3'        => $ma3,
+                'kpis'       => [
+                    'total_docs'  => $totalDocs,
+                    'total_years' => $totalYears,
+                    'best_year'   => $bestYear,
+                    'first_year'  => $firstYear,
+                    'last_year'   => $lastYear,
+                    'cagr'        => $cagr,
+                ],
             ];
-            $prevCount = (int) $row['doc_count'];
-        }
-
-        // 3-year moving average
-        $ma3 = [];
-        for ($i = 0; $i < count($annualData); $i++) {
-            if ($i < 2) {
-                $ma3[] = null;
-            } else {
-                $ma3[] = round(
-                    ($annualData[$i - 2]['doc_count'] + $annualData[$i - 1]['doc_count'] + $annualData[$i]['doc_count']) / 3,
-                    1
-                );
-            }
-        }
-
-        // KPIs
-        $totalDocs   = array_sum(array_column($annualData, 'doc_count'));
-        $totalYears  = count($annualData);
-        $bestYear    = $totalYears > 0 ? $annualData[array_search(max(array_column($annualData, 'doc_count')), array_column($annualData, 'doc_count'))]['year'] : 'N/A';
-        $firstYear   = $totalYears > 0 ? $annualData[0]['year'] : 'N/A';
-        $lastYear    = $totalYears > 0 ? $annualData[$totalYears - 1]['year'] : 'N/A';
-
-        // Average annual growth (compound) — ((N_último / N_primeiro)^(1 / (último ano − primeiro ano)) − 1) × 100
-        $cagr = null;
-        if ($totalYears >= 2) {
-            $startCount = $annualData[0]['doc_count'];
-            $endCount   = $annualData[$totalYears - 1]['doc_count'];
-            if ($startCount > 0) {
-                $cagr = round((pow($endCount / $startCount, 1 / ($lastYear - $firstYear)) - 1) * 100, 1);
-            }
-        }
+        });
 
         return $this->render('report/annual_production.html.twig', [
             'project'    => $project,
-            'annualData' => $annualData,
-            'ma3'        => $ma3,
-            'kpis'       => [
-                'total_docs'  => $totalDocs,
-                'total_years' => $totalYears,
-                'best_year'   => $bestYear,
-                'first_year'  => $firstYear,
-                'last_year'   => $lastYear,
-                'cagr'        => $cagr,
-            ],
+            'annualData' => $result['annualData'],
+            'ma3'        => $result['ma3'],
+            'kpis'       => $result['kpis'],
         ]);
     }
 

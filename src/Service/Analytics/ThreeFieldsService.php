@@ -43,15 +43,23 @@ class ThreeFieldsService
         $middleSet = array_flip($topMiddle);
         $rightSet  = array_flip($topRight);
 
-        // 2. Fetch all document relationships in the project in three targeted queries
+        // 2. Busca só os campos pedidos e só os itens do top (o resto nunca entra nos links).
+        // Os mesmos filtros são reaplicados no PHP, então o resultado não muda.
         $docs = $this->conn->fetchAllAssociative(
-            'SELECT id, source_title FROM document WHERE project_id = ?',
+            'SELECT id, source_title FROM document WHERE project_id = ? ORDER BY id',
             [$projectId]
         );
 
         // Países e instituições vêm do cadastro padronizado (documento_paises / documento_instituicoes),
         // não do texto bruto da afiliação (document.countries traz "IA 50010 USA", "MI 48824 USA"...).
         $fields = [$leftField, $middleField, $rightField];
+        $topByField = [
+            $leftField   => $topLeft,
+        ];
+        foreach ([[$middleField, $topMiddle], [$rightField, $topRight]] as [$f, $top]) {
+            $topByField[$f] = array_values(array_unique(array_merge($topByField[$f] ?? [], $top)));
+        }
+
         $geoByDoc = [];
         foreach (['country', 'institution'] as $geoField) {
             if (!in_array($geoField, $fields, true)) continue;
@@ -61,33 +69,50 @@ class ThreeFieldsService
         }
 
         $authorsByDoc = [];
-        $authorRows = $this->conn->fetchAllAssociative(
-            'SELECT da.document_id, a.preferred_name AS name
-             FROM document_author da
-             JOIN author_identity a ON a.id = da.author_identity_id
-             JOIN document d ON d.id = da.document_id
-             WHERE d.project_id = ?',
-            [$projectId]
-        );
-        foreach ($authorRows as $row) {
-            $authorsByDoc[(int)$row['document_id']][] = $row['name'];
+        if (in_array('author', $fields, true) && !empty($topByField['author'])) {
+            $authorRows = $this->conn->fetchAllAssociative(
+                'SELECT da.document_id, a.preferred_name AS name
+                 FROM document_author da
+                 JOIN author_identity a ON a.id = da.author_identity_id
+                 JOIN document d ON d.id = da.document_id
+                 WHERE d.project_id = ? AND a.preferred_name IN (?)
+                 ORDER BY da.document_id, da.id',
+                [$projectId, $topByField['author']],
+                [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::STRING]
+            );
+            foreach ($authorRows as $row) {
+                $authorsByDoc[(int)$row['document_id']][] = $row['name'];
+            }
         }
 
         $kwsByDoc = [];
-        $kwRows = $this->conn->fetchAllAssociative(
-            'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, k.keyword_type AS type
-             FROM document_keyword dk
-             JOIN keyword k ON k.id = dk.keyword_id
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             JOIN document d ON d.id = dk.document_id
-             WHERE d.project_id = ?',
-            [$projectId]
-        );
-        foreach ($kwRows as $row) {
-            // Map types from author_keyword/indexed_keyword to author/indexed for compatibility with frontend code expectations
-            $legacyType = str_replace('_keyword', '', $row['type']);
-            $kwsByDoc[(int)$row['document_id']][$legacyType][] = $row['term'];
+        $kwTypes = [];
+        $kwTerms = [];
+        foreach (['keyword_author' => 'author_keyword', 'keyword_indexed' => 'indexed_keyword'] as $f => $type) {
+            if (in_array($f, $fields, true) && !empty($topByField[$f])) {
+                $kwTypes[] = $type;
+                $kwTerms = array_merge($kwTerms, $topByField[$f]);
+            }
+        }
+        if ($kwTypes) {
+            $kwRows = $this->conn->fetchAllAssociative(
+                'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, k.keyword_type AS type
+                 FROM document_keyword dk
+                 JOIN keyword k ON k.id = dk.keyword_id
+                 LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+                 LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+                 JOIN document d ON d.id = dk.document_id
+                 WHERE d.project_id = ? AND k.keyword_type IN (?)
+                   AND COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) IN (?)
+                 ORDER BY dk.document_id, dk.id',
+                [$projectId, $kwTypes, array_values(array_unique($kwTerms))],
+                [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::STRING, \Doctrine\DBAL\ArrayParameterType::STRING]
+            );
+            foreach ($kwRows as $row) {
+                // Map types from author_keyword/indexed_keyword to author/indexed for compatibility with frontend code expectations
+                $legacyType = str_replace('_keyword', '', $row['type']);
+                $kwsByDoc[(int)$row['document_id']][$legacyType][] = $row['term'];
+            }
         }
 
         // 3. Compute Links
@@ -187,7 +212,7 @@ class ThreeFieldsService
                  JOIN document_author da ON a.id = da.author_identity_id
                  JOIN document d         ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY a.id, a.preferred_name
-                 ORDER BY COUNT(DISTINCT da.document_id) DESC
+                 ORDER BY COUNT(DISTINCT da.document_id) DESC, a.id ASC
                  LIMIT ' . (int)$limit,
                 [$projectId]
             );
@@ -204,7 +229,7 @@ class ThreeFieldsService
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                  WHERE k.keyword_type = ?
                  GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
-                 ORDER BY COUNT(DISTINCT dk.document_id) DESC
+                 ORDER BY COUNT(DISTINCT dk.document_id) DESC, term ASC
                  LIMIT ' . (int)$limit,
                 [$projectId, $type]
             );
@@ -217,7 +242,7 @@ class ThreeFieldsService
                  FROM document
                  WHERE project_id = ? AND source_title IS NOT NULL AND source_title != \'\'
                  GROUP BY source_title
-                 ORDER BY COUNT(*) DESC
+                 ORDER BY COUNT(*) DESC, source_title ASC
                  LIMIT ' . (int)$limit,
                 [$projectId]
             );

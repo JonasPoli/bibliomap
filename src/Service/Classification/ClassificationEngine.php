@@ -100,16 +100,18 @@ class ClassificationEngine
      * Cálculo puro da classificação: sem INSERT, sem DELETE e sem criar o grupo "Sem Classificação"
      * (quando ele ainda não existe, a atribuição vem com group = null e unclassified = true).
      * O modo "só tesauro" existe apenas para a comparação (app:classification:compare-expansion).
+     * $withDocuments guarda ano e título de cada documento (memória proporcional ao projeto): quem
+     * precisa deles só de alguns documentos deve consultá-los depois.
      *
      * @return array{
      *     groups: ClassificationGroup[],
      *     termMap: array<int, string[]>,
      *     assignments: array<int, list<array{group: ?ClassificationGroup, term: ?string, unclassified: bool}>>,
-     *     documents: array<int, array{year: ?int, title: ?string}>,
+     *     documents: array<int, array{year: ?int, title: ?string}>,   (vazio, salvo com $withDocuments)
      *     stats: array{total: int, by_group: array<string, int>, unclassified: int, noise: int, multi: int, rejected_unassigned: int}
      * }
      */
-    public function calculate(BibliometricProject $project, int $expansionMode = ClassificationTermExpander::MODE_WITH_VARIATIONS): array
+    public function calculate(BibliometricProject $project, int $expansionMode = ClassificationTermExpander::MODE_WITH_VARIATIONS, bool $withDocuments = false): array
     {
         // Load groups ordered by processing priority
         $allGroups = $this->groupRepo->findByProjectOrdered($project->getId());
@@ -348,7 +350,9 @@ class ClassificationEngine
 
                 // Resultado do documento — one row per assigned group (gravado só por run())
                 $assignments[$docId] = $assignedGroups;
-                $documents[$docId]   = ['year' => $docYear, 'title' => $row['title'] ?? null];
+                if ($withDocuments) {
+                    $documents[$docId] = ['year' => $docYear, 'title' => $row['title'] ?? null];
+                }
 
                 foreach ($assignedGroups as $assignment) {
                     $gName = $assignment['unclassified'] ? $uncName : $assignment['group']?->getName();

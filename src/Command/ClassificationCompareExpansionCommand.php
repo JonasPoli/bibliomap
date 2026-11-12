@@ -70,11 +70,20 @@ HELP);
 
         $io->title(sprintf('Comparação da expansão — projeto #%d', $id));
 
-        $old = $this->engine->calculate($project, ClassificationTermExpander::MODE_THESAURUS_ONLY);
-        $new = $this->engine->calculate($project, ClassificationTermExpander::MODE_WITH_VARIATIONS);
+        // Um resultado por vez: de cada cálculo guardamos só a pertinência (grupo → documento → termo),
+        // as estatísticas e os termos; as atribuições completas são soltas antes do segundo cálculo.
+        $oldResult = $this->engine->calculate($project, ClassificationTermExpander::MODE_THESAURUS_ONLY);
+        $before = $this->membership($oldResult['assignments']);
+        $old = ['stats' => $oldResult['stats'], 'termMap' => $oldResult['termMap']];
+        unset($oldResult);
+        gc_collect_cycles();
 
-        $before = $this->membership($old['assignments']);
-        $after = $this->membership($new['assignments']);
+        $newResult = $this->engine->calculate($project, ClassificationTermExpander::MODE_WITH_VARIATIONS);
+        $after = $this->membership($newResult['assignments']);
+        $new = ['stats' => $newResult['stats'], 'termMap' => $newResult['termMap'], 'groups' => $newResult['groups']];
+        unset($newResult);
+        gc_collect_cycles();
+
         $groups = $this->groupLabels($new['groups']);
 
         // 1. Uma linha por grupo
@@ -127,7 +136,7 @@ HELP);
         }
 
         if ($csvPath !== null) {
-            $written = $this->writeCsv($csvPath, $groups, $changes, $old, $new);
+            $written = $this->writeCsv($csvPath, $groups, $changes);
             $io->note(sprintf('%d linha(s) gravadas no CSV (dados do corpus: apague depois da análise).', $written));
         }
 
@@ -180,8 +189,32 @@ HELP);
         return $dir !== false && $dir !== $project && !str_starts_with($dir . '/', rtrim($project, '/') . '/');
     }
 
-    private function writeCsv(string $path, array $groups, array $changes, array $old, array $new): int
+    /** Ano e título só dos documentos que mudaram (consulta em blocos; o projeto inteiro não fica na memória). */
+    private function loadDocuments(array $docIds): array
     {
+        $docs = [];
+        foreach (array_chunk(array_keys($docIds), 1000) as $chunk) {
+            $rows = $this->em->getConnection()->fetchAllAssociative(
+                'SELECT id, year, title FROM document WHERE id IN (?)',
+                [$chunk],
+                [\Doctrine\DBAL\ArrayParameterType::INTEGER]
+            );
+            foreach ($rows as $r) {
+                $docs[(int) $r['id']] = ['year' => $r['year'], 'title' => $r['title']];
+            }
+        }
+
+        return $docs;
+    }
+
+    private function writeCsv(string $path, array $groups, array $changes): int
+    {
+        $changedIds = [];
+        foreach ($changes as $change) {
+            $changedIds += $change['in'] + $change['out'];
+        }
+        $docs = $this->loadDocuments($changedIds);
+
         $oldUmask = umask(0077);
         $f = fopen($path, 'w');
         umask($oldUmask);
@@ -195,7 +228,6 @@ HELP);
         $count = 0;
         foreach ($changes as $key => $change) {
             foreach (['in' => 'entrou', 'out' => 'saiu'] as $side => $label) {
-                $docs = $side === 'in' ? $new['documents'] : $old['documents'];
                 foreach ($change[$side] as $docId => $term) {
                     fputcsv($f, [
                         $docId,

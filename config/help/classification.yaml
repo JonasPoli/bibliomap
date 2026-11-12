@@ -44,7 +44,7 @@ classification.index.page:
 classification.index.export_groups:
   title: "Exportar Grupos (CSV)"
   what: "Baixa o cadastro de todos os grupos (nome, tipo, cor, ícone, posição, termos e filtros) num CSV separado por ponto e vírgula, que abre no Excel."
-  how: "Use como backup antes de grandes mudanças ou para levar os mesmos grupos a outro projeto, com **Importar Grupos (CSV)**."
+  how: "Use como backup antes de grandes mudanças ou para levar os mesmos grupos a outro projeto, com **Importar Grupos (CSV)**. Texto que começa com =, +, - ou @ sai com um apóstrofo na frente (proteção contra fórmulas do Excel); a importação o retira."
   not: "Não exporta os documentos classificados. Para isso use **Exportar Resultados**."
   example: "Antes de refinar os termos com a orientadora, o mestrando exportou “grupos_classificacao_projeto_13.csv” para poder comparar a versão nova com a antiga."
 
@@ -72,7 +72,7 @@ classification.index.import_format:
 classification.index.export_results:
   title: "Exportar Resultados (CSV)"
   what: "Baixa um CSV com uma linha por documento: título, ano, DOI, grupos em que entrou, tipos, termos que casaram, se houve ajuste manual e data da classificação."
-  how: "Abra no Excel e filtre pela coluna Grupos (separados por “|”) para montar quadros de categorização ou conferir amostras."
+  how: "Abra no Excel e filtre pela coluna Grupos (separados por “|”) para montar quadros de categorização ou conferir amostras. O arquivo é gerado aos poucos, sem carregar o projeto inteiro na memória, e texto que começa com =, +, - ou @ recebe um apóstrofo na frente (proteção contra fórmulas do Excel)."
   not: "Não traz autores, resumo nem citações; para isso use a exportação geral do projeto."
   example: "Para o apêndice da tese, o doutorando exportou o CSV e entregou à banca a lista dos 1.868 artigos classificados com o termo que justificou cada enquadramento."
 
@@ -235,15 +235,15 @@ classification.form.countries:
 classification.form.color:
   title: "Cor do grupo"
   what: "Cor usada nas barras, gráficos, abas e cartões do grupo em todas as telas e relatórios."
-  how: "Escolha no seletor ou digite o código hexadecimal (#2ea043). Use cores bem diferentes entre grupos que serão comparados."
-  not: "Não muda a classificação. Evite preto (#000000): o relatório o troca por uma cor automática."
+  how: "Escolha no seletor ou digite o código hexadecimal de 6 dígitos (#2ea043). Use cores bem diferentes entre grupos que serão comparados."
+  not: "Não muda a classificação. Só vale #RRGGBB: qualquer outro texto (nome de cor, código curto) volta para o azul padrão. Evite preto (#000000): o relatório o troca por uma cor automática."
   example: "Verde para “Sustentabilidade”, azul para “Sensoriamento” e laranja para “Robótica” deixam o gráfico de evolução legível até impresso."
 
 classification.form.icon:
   title: "Ícone"
   what: "Ícone Bootstrap exibido ao lado do nome do grupo nas listas e abas."
   how: "Clique em **Escolher** e pesquise em inglês (robot, leaf, book) ou digite o nome, como “bi-robot”."
-  not: "É só visual: não influencia a classificação nem as cores dos gráficos."
+  not: "É só visual: não influencia a classificação nem as cores dos gráficos. Só vale o formato “bi-” seguido de letras minúsculas, números e hífen; outro texto volta para o ícone padrão."
   example: "“bi-mortarboard” para “Formação docente” e “bi-heart-pulse” para “Saúde comunitária”."
 
 classification.form.position:
@@ -344,7 +344,7 @@ classification.results.qualis_badge:
 classification.compare.page:
   title: "Comparativo entre grupos"
   what: "Coloca lado a lado os grupos escolhidos: volume, citações, evolução anual, semelhança de palavras-chave, países, natureza institucional e Qualis."
-  how: "Marque os grupos na barra superior; todos os painéis se atualizam na hora. Por padrão vêm marcados os grupos temáticos."
+  how: "Marque os grupos na barra superior; todos os painéis se atualizam na hora. Por padrão vêm marcados os grupos temáticos. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não reclassifica: usa o resultado da última execução. Se mudou termos, execute a classificação antes."
   example: "Para a discussão da tese, o pesquisador comparou “Monitoramento da lavoura” e “Aplicação localizada de insumos”: 1.816 contra 82 artigos, com média de 23,0 e 19,5 citações."
 
@@ -472,7 +472,7 @@ classification.compare.qualis:
 classification.report.page:
   title: "Relatório de Classificação"
   what: "Relatório pronto para a dissertação com volume, impacto, evolução, periódicos e destaques de cada grupo **temático** (tipo Normal)."
-  how: "Rode a classificação antes. Navegue pelas seções e use **Imprimir / PDF** para anexar ao trabalho."
+  how: "Rode a classificação antes. Navegue pelas seções e use **Imprimir / PDF** para anexar ao trabalho. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Ignora grupos de Ruído, Validador e Sem Classificação."
   example: "No projeto de agricultura de precisão, o relatório compara “Monitoramento da lavoura” e “Aplicação localizada de insumos” e mostra os 3 artigos mais citados de cada um."
 

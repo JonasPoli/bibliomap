@@ -16,10 +16,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 class ReportController extends AbstractController
 {
+    /** Teto de documentos por lote na mineração das lentes teóricas. */
+    private const LENS_MAX_BATCH = 500;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly Connection $conn,
         private readonly \App\Service\Analytics\ReportService $reportService,
+        private readonly \App\Service\Cache\AnalyticsCache $analyticsCache,
     ) {}
 
     // ── Keyword Evolution — Step 1: selection ─────────────────────────────────
@@ -248,7 +252,7 @@ class ReportController extends AbstractController
         fputcsv($fp, $headers, ';');
 
         foreach ($pivot as $kw) {
-            $rowValues = [$kw['term']];
+            $rowValues = [\App\Service\Analytics\CsvCell::escape($kw['term'])];
             $total = 0;
             foreach ($allYears as $y) {
                 $count = $kw['years'][$y];
@@ -279,7 +283,8 @@ class ReportController extends AbstractController
     {
         $project = $this->getProject($id);
         $search = $request->query->get('q');
-        $data = $this->reportService->getAuthorsReport($project->getId(), 100, $search);
+        $data = $this->cachedSearch($project->getId(), 'report.authors', ['limit' => 100], (string) $search,
+            fn() => $this->reportService->getAuthorsReport($project->getId(), 100, $search));
         return $this->render('report/authors.html.twig', [
             'project'        => $project,
             'list'           => $data['list'],
@@ -290,25 +295,16 @@ class ReportController extends AbstractController
     }
 
     #[Route('/authors/{authorId}/documents', name: 'app_report_author_documents', methods: ['GET'])]
-    public function authorDocuments(int $id, int $authorId): Response
+    public function authorDocuments(int $id, int $authorId, Request $request): Response
     {
         $project = $this->getProject($id);
-        
-        // Fetch all documents for this author inside this project
-        $documents = $this->conn->fetchAllAssociative(
-            'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
-                    d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
-                    (
-                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
-                        FROM document_author da2
-                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
-                        WHERE da2.document_id = d.id
-                    ) AS author_names
-             FROM document d
-             JOIN document_author da ON d.id = da.document_id
-             WHERE d.project_id = ? AND da.author_identity_id = ?
-             ORDER BY d.year DESC, d.title ASC',
-            [$project->getId(), $authorId]
+
+        // EXISTS em vez de JOIN: um autor repetido no mesmo documento não duplica a linha
+        $documents = $this->fetchWorkList(
+            $project->getId(),
+            'EXISTS (SELECT 1 FROM document_author da WHERE da.document_id = d.id AND da.author_identity_id = ?)',
+            [$authorId],
+            $request
         );
 
         // Fetch author name
@@ -319,15 +315,63 @@ class ReportController extends AbstractController
 
         return $this->json([
             'authorName' => $authorName ?: 'Autor desconhecido',
-            'documents' => $documents,
-        ]);
+        ] + $documents);
+    }
+
+    /**
+     * Lista de trabalhos de "Ver trabalhos" (autor ou palavra-chave).
+     * Sem parâmetros devolve todos (como sempre, com o resumo, que o BibTeX usa).
+     * ?limit=N (máx. 500) e ?offset=N paginam; ?abstract=0 omite o resumo (o campo mais pesado).
+     * Com limit, a resposta traz também total e hasMore.
+     *
+     * @param array<int, mixed> $filterParams parâmetros do filtro (depois do id do projeto)
+     * @return array{documents: list<array<string,mixed>>, total?: int, hasMore?: bool, limit?: int, offset?: int}
+     */
+    private function fetchWorkList(int $projectId, string $filterSql, array $filterParams, Request $request): array
+    {
+        $withAbstract = $request->query->get('abstract', '1') !== '0';
+        $limitRaw     = $request->query->get('limit');
+        $limit        = ($limitRaw !== null && $limitRaw !== '') ? min(500, max(1, (int) $limitRaw)) : null;
+        $offset       = max(0, (int) $request->query->get('offset', 0));
+
+        $params = array_merge([$projectId], $filterParams);
+        $sql = 'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
+                       d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn'
+             . ($withAbstract ? ', d.abstract_text' : '') . ',
+                       (
+                           SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
+                           FROM document_author da2
+                           JOIN author_identity a2 ON a2.id = da2.author_identity_id
+                           WHERE da2.document_id = d.id
+                       ) AS author_names
+                FROM document d
+                WHERE d.project_id = ? AND ' . $filterSql . '
+                ORDER BY d.year DESC, d.title ASC, d.id ASC';
+
+        if ($limit === null) {
+            return ['documents' => $this->conn->fetchAllAssociative($sql, $params)];
+        }
+
+        // Uma linha a mais para saber se há próxima página, sem uma segunda consulta de contagem pesada
+        $rows    = $this->conn->fetchAllAssociative($sql . ' LIMIT ' . ($limit + 1) . ' OFFSET ' . $offset, $params);
+        $hasMore = count($rows) > $limit;
+        $total   = (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document d WHERE d.project_id = ? AND ' . $filterSql, $params);
+
+        return [
+            'documents' => array_slice($rows, 0, $limit),
+            'total'     => $total,
+            'hasMore'   => $hasMore,
+            'limit'     => $limit,
+            'offset'    => $offset,
+        ];
     }
 
     #[Route('/sources', name: 'app_report_sources', methods: ['GET'])]
     public function sources(int $id): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getSourcesReport($project->getId());
+        $data = $this->analyticsCache->get($project->getId(), 'report.sources', ['limit' => 100],
+            fn() => $this->reportService->getSourcesReport($project->getId()));
         return $this->render('report/sources.html.twig', [
             'project'  => $project,
             'list'     => $data['list'],
@@ -340,7 +384,8 @@ class ReportController extends AbstractController
     public function documents(int $id): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getDocumentsReport($project->getId());
+        $data = $this->analyticsCache->get($project->getId(), 'report.documents', ['limit' => 100],
+            fn() => $this->reportService->getDocumentsReport($project->getId()));
         return $this->render('report/documents.html.twig', [
             'project' => $project,
             'list'    => $data['list'],
@@ -353,7 +398,8 @@ class ReportController extends AbstractController
     {
         $project = $this->getProject($id);
         $search = $request->query->get('q');
-        $data = $this->reportService->getKeywordsReport($project->getId(), 150, $search);
+        $data = $this->cachedSearch($project->getId(), 'report.keywords', ['limit' => 150], (string) $search,
+            fn() => $this->reportService->getKeywordsReport($project->getId(), 150, $search));
         return $this->render('report/keywords.html.twig', [
             'project' => $project,
             'list'    => $data['list'],
@@ -362,27 +408,28 @@ class ReportController extends AbstractController
     }
 
     #[Route('/keywords/{keywordId}/documents', name: 'app_report_keyword_documents', methods: ['GET'])]
-    public function keywordDocuments(int $id, int $keywordId): Response
+    public function keywordDocuments(int $id, int $keywordId, Request $request): Response
     {
         $project = $this->getProject($id);
-        
-        // Fetch all documents for this keyword inside this project
-        $documents = $this->conn->fetchAllAssociative(
-            'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
-                    d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn, d.abstract_text,
-                    (
-                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
-                        FROM document_author da2
-                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
-                        WHERE da2.document_id = d.id
-                    ) AS author_names
-             FROM document d
-             JOIN document_keyword dk ON d.id = dk.document_id
-             JOIN keyword k ON dk.keyword_id = k.id
-             WHERE d.project_id = ? AND IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) = ?
-             ORDER BY d.year DESC, d.title ASC',
-            [$project->getId(), $keywordId]
+
+        // O id efetivo identifica um conceito (negativo = conceito do tesauro). Primeiro os ids das
+        // palavras-chave do conceito; depois EXISTS no índice de document_keyword, sem duplicar o
+        // documento que tem duas variantes do mesmo conceito.
+        $keywordIds = $this->conn->fetchFirstColumn(
+            $keywordId < 0
+                ? 'SELECT k.id FROM keyword k WHERE k.thesaurus_concept_id = ?'
+                : 'SELECT k.id FROM keyword k WHERE k.thesaurus_concept_id IS NULL AND COALESCE(k.keyword_concept_id, k.id) = ?',
+            [abs($keywordId)]
         );
+
+        $documents = $keywordIds
+            ? $this->fetchWorkList(
+                $project->getId(),
+                'EXISTS (SELECT 1 FROM document_keyword dk WHERE dk.document_id = d.id AND dk.keyword_id IN (' . implode(',', array_map('intval', $keywordIds)) . '))',
+                [],
+                $request
+            )
+            : ['documents' => []];
 
         // Fetch keyword term (coalesced concept display label)
         $keywordTerm = $this->conn->fetchOne(
@@ -397,8 +444,7 @@ class ReportController extends AbstractController
 
         return $this->json([
             'keyword' => $keywordTerm ?: 'Palavra-chave desconhecida',
-            'documents' => $documents,
-        ]);
+        ] + $documents);
     }
 
     #[Route('/documents/search', name: 'app_report_documents_search', methods: ['GET'])]
@@ -433,26 +479,34 @@ class ReportController extends AbstractController
     public function countries(int $id): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getCountriesReport($project->getId());
-        
-        $continents = $this->conn->fetchAllAssociative(
-            // DISTINCT por (documento, continente): um artigo com 3 países europeus
-            // conta 1 documento e suas citações uma única vez para a Europa.
-            'SELECT label, COUNT(*) AS doc_count, SUM(cit) AS citation_count
-             FROM (
-                 SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
-                 FROM document d
-                 JOIN documento_paises dp ON dp.document_id = d.id
-                 JOIN paises co ON co.id = dp.country_id
-                 WHERE d.project_id = ? AND co.continente IS NOT NULL
-             ) t
-             GROUP BY label ORDER BY doc_count DESC',
-            [$project->getId()]
-        );
 
-        // Base do "% de documentos": todos os documentos do projeto (um documento com
-        // 2 países conta para os dois, por isso a coluna não soma 100%)
-        $totalDocs = (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document WHERE project_id = ?', [$project->getId()]);
+        $payload = $this->analyticsCache->get($project->getId(), 'report.countries', [], function () use ($project) {
+            $data = $this->reportService->getCountriesReport($project->getId());
+
+            $continents = $this->conn->fetchAllAssociative(
+                // DISTINCT por (documento, continente): um artigo com 3 países europeus
+                // conta 1 documento e suas citações uma única vez para a Europa.
+                'SELECT label, COUNT(*) AS doc_count, SUM(cit) AS citation_count
+                 FROM (
+                     SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
+                     FROM document d
+                     JOIN documento_paises dp ON dp.document_id = d.id
+                     JOIN paises co ON co.id = dp.country_id
+                     WHERE d.project_id = ? AND co.continente IS NOT NULL
+                 ) t
+                 GROUP BY label ORDER BY doc_count DESC, label ASC',
+                [$project->getId()]
+            );
+
+            // Base do "% de documentos": todos os documentos do projeto (um documento com
+            // 2 países conta para os dois, por isso a coluna não soma 100%)
+            $totalDocs = (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document WHERE project_id = ?', [$project->getId()]);
+
+            return ['data' => $data, 'continents' => $continents, 'total_docs' => $totalDocs];
+        });
+        $data       = $payload['data'];
+        $continents = $payload['continents'];
+        $totalDocs  = $payload['total_docs'];
 
         return $this->render('report/countries.html.twig', [
             'project'    => $project,
@@ -467,7 +521,8 @@ class ReportController extends AbstractController
     public function institutions(int $id): Response
     {
         $project = $this->getProject($id);
-        $data = $this->reportService->getInstitutionsReport($project->getId());
+        $data = $this->analyticsCache->get($project->getId(), 'report.institutions', [],
+            fn() => $this->reportService->getInstitutionsReport($project->getId()));
         return $this->render('report/institutions.html.twig', [
             'project' => $project,
             'list'    => $data['list'],
@@ -479,7 +534,8 @@ class ReportController extends AbstractController
     public function general(int $id): Response
     {
         $project = $this->getProject($id);
-        $data    = $this->reportService->getGeneralReport($project->getId());
+        $data    = $this->analyticsCache->get($project->getId(), 'report.general', [],
+            fn() => $this->reportService->getGeneralReport($project->getId()));
 
         return $this->render('report/general.html.twig', [
             'project'      => $project,
@@ -511,18 +567,39 @@ class ReportController extends AbstractController
                 $cachedData['theorists'] ?? [],
                 fn($t) => !array_key_exists('doc_match_count', $t)
             );
-            if (is_array($cachedData) && !$stale) {
+            // Vencido quando os dados do sistema mudaram desde a mineração (versão diferente) ou quando o
+            // arquivo não registra a versão (cache antigo ou gravado sem versão). Se a versão atual não pode
+            // ser lida (tabela de versões ainda não criada), não há como comparar: o arquivo vale, senão
+            // quem edita ficaria preso entre a tela de processamento e esta. Quem só visualiza continua vendo
+            // o último resultado: só quem edita pode refazer a mineração.
+            $currentVersion = $this->analyticsCache->currentVersion();
+            $expired = is_array($cachedData) && $currentVersion !== null
+                && ($cachedData['data_version'] ?? null) !== $currentVersion;
+            if (is_array($cachedData) && !$stale && (!$expired || !$this->isGranted('edit', $project))) {
                 return $this->render('report/theoretical_lenses.html.twig', [
                     'project'         => $project,
                     'theorists'       => $cachedData['theorists'],
                     'categories'      => $cachedData['categories'],
                     'total_docs'      => $cachedData['total_docs'],
                     'research_fields' => $cachedData['research_fields'],
+                    'no_result'       => false,
                 ]);
             }
         }
 
-        // Cache does not exist, redirect to the beautiful processing loading screen
+        // Sem resultado guardado: quem pode editar vai para a tela de processamento; quem só visualiza
+        // (projeto público) vê uma mensagem, em vez de um erro na mineração que não pode executar.
+        if (!$this->isGranted('edit', $project)) {
+            return $this->render('report/theoretical_lenses.html.twig', [
+                'project'         => $project,
+                'theorists'       => [],
+                'categories'      => [],
+                'total_docs'      => 0,
+                'research_fields' => [],
+                'no_result'       => true,
+            ]);
+        }
+
         return $this->redirectToRoute('app_report_theoretical_lenses_loading', ['id' => $id]);
     }
 
@@ -530,6 +607,10 @@ class ReportController extends AbstractController
     public function theoreticalLensesLoading(int $id): Response
     {
         $project = $this->getProject($id);
+        // A mineração grava o resultado do projeto: só quem pode editar a executa
+        if (!$this->isGranted('edit', $project)) {
+            return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $id]);
+        }
         return $this->render('report/theoretical_lenses_loading.html.twig', [
             'project' => $project,
         ]);
@@ -539,6 +620,7 @@ class ReportController extends AbstractController
     public function theoreticalLensesRecalculate(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
+        $this->denyAccessUnlessGranted('edit', $project);
         if (!$this->isCsrfTokenValid('lenses_recalculate_' . $id, $request->request->get('_token'))) {
             $this->addFlash('error', 'Token de segurança inválido.');
             return $this->redirectToRoute('app_report_theoretical_lenses', ['id' => $id]);
@@ -560,12 +642,17 @@ class ReportController extends AbstractController
     {
         ini_set('memory_limit', '512M');
         $project = $this->getProject($id);
-        
-        $payload = json_decode($request->getContent(), true) ?? [];
-        $step = (int) ($payload['step'] ?? 0);
-        $batchSize = (int) ($payload['batchSize'] ?? 200);
+        // A mineração grava o resultado do projeto e usa CPU: só quem pode editar, e com o token da tela
+        $this->denyAccessUnlessGranted('edit', $project);
+        if (!$this->isCsrfTokenValid('lenses_batch_' . $id, (string) $request->headers->get('X-CSRF-Token'))) {
+            return $this->json(['error' => 'Token de segurança inválido.'], 403);
+        }
 
-        
+        $payload = json_decode($request->getContent(), true) ?? [];
+        $step = max(0, (int) ($payload['step'] ?? 0));
+        // Teto do lote: um valor enorme leria o corpus inteiro numa requisição
+        $batchSize = min(self::LENS_MAX_BATCH, max(1, (int) ($payload['batchSize'] ?? 200)));
+
         $session = $request->getSession();
         
         if ($step === 0) {
@@ -591,11 +678,20 @@ class ReportController extends AbstractController
                     'doc_match_count' => 0,
                     'terms_lower' => array_map('strtolower', $terms),
                     'citations_lower' => array_map('strtolower', $citations),
+                    // Versões em minúsculas Unicode: o str_contains que antecede a expressão regular
+                    // (a regex ignora maiúsculas também em letras acentuadas)
+                    'terms_fold' => array_map('mb_strtolower', $terms),
+                    'citations_fold' => array_map('mb_strtolower', $citations),
                 ];
 
             }
             
             $session->set('theorists_batch_' . $id, $theorists);
+            // Paginação por id (WHERE id > último), não por OFFSET: cada lote custa o mesmo no fim do corpus
+            $session->set('theorists_cursor_' . $id, 0);
+            $session->set('theorists_done_' . $id, 0);
+            // Versão dos dados no começo da mineração: se algo mudar durante ela, o resultado já nasce vencido
+            $session->set('theorists_version_' . $id, $this->analyticsCache->currentVersion());
             
             $totalDocs = (int) $this->conn->fetchOne(
                 'SELECT COUNT(*) FROM document WHERE project_id = ?',
@@ -615,14 +711,14 @@ class ReportController extends AbstractController
             return $this->json(['error' => 'Not initialized'], 400);
         }
         
-        $offset = ($step - 1) * $batchSize;
+        $cursor = (int) $session->get('theorists_cursor_' . $id, 0);
         $documents = $this->conn->fetchAllAssociative(
             'SELECT d.id, d.title, d.abstract_text, d.year, d.references, d.doi, d.url
              FROM document d
-             WHERE d.project_id = ?
+             WHERE d.project_id = ? AND d.id > ?
              ORDER BY d.id
-             LIMIT ' . (int)$batchSize . ' OFFSET ' . (int)$offset,
-            [$id]
+             LIMIT ' . (int)$batchSize,
+            [$id, $cursor]
         );
 
         
@@ -675,6 +771,8 @@ class ReportController extends AbstractController
             
             // Merge details
             foreach ($displayTheorists as $key => &$t) {
+                // Auxiliares da pré-checagem: não vão para o resultado guardado
+                unset($t['terms_fold'], $t['citations_fold']);
                 if (isset($fullLensMap[$key])) {
                     $t['category'] = $fullLensMap[$key]['category'] ?? 'Geral';
                     $t['researchField'] = $fullLensMap[$key]['research_field'] ?? 'Geral';
@@ -766,6 +864,7 @@ class ReportController extends AbstractController
             $cacheFile = $cacheDir . '/project_' . $id . '.json';
             
             $cachedData = [
+                'data_version' => $session->get('theorists_version_' . $id),
                 'theorists' => $displayTheorists,
                 'categories' => $categories,
                 'total_docs' => $totalDocs,
@@ -776,6 +875,9 @@ class ReportController extends AbstractController
             
             // Clean up session
             $session->remove('theorists_batch_' . $id);
+            $session->remove('theorists_cursor_' . $id);
+            $session->remove('theorists_done_' . $id);
+            $session->remove('theorists_version_' . $id);
             
             return $this->json(['status' => 'completed']);
         }
@@ -783,6 +885,7 @@ class ReportController extends AbstractController
         // Match slice documents against theorists
         foreach ($documents as $doc) {
             $textLower = strtolower(($doc['title'] ?? '') . ' ' . ($doc['abstract_text'] ?? ''));
+            $textFold  = mb_strtolower($textLower);
             $allRefsText = '';
             if (!empty($doc['references'])) {
                 $refs = json_decode($doc['references'], true);
@@ -790,10 +893,13 @@ class ReportController extends AbstractController
                     $allRefsText = strtolower(implode(' || ', $refs));
                 }
             }
+            $refsFold = $allRefsText === '' ? '' : mb_strtolower($allRefsText);
             
             foreach ($theorists as &$t) {
                 $terms = $t['terms_lower'];
                 $citations = $t['citations_lower'];
+                $termsFold = $t['terms_fold'] ?? $terms;
+                $citationsFold = $t['citations_fold'] ?? $citations;
                 
                 if (empty($terms)) {
                     continue;
@@ -801,8 +907,8 @@ class ReportController extends AbstractController
                 
                 // 1. Direct match (Title/Abstract)
                 $directMatched = false;
-                foreach ($terms as $term) {
-                    if ($this->matchTerm($textLower, $term)) {
+                foreach ($terms as $i => $term) {
+                    if ($this->matchTerm($textLower, $term, $textFold, $termsFold[$i] ?? null)) {
                         $directMatched = true;
                         break;
                     }
@@ -825,8 +931,8 @@ class ReportController extends AbstractController
                 // 2. Cited References match
                 $refMatched = false;
                 if (!empty($citations)) {
-                    foreach ($citations as $cit) {
-                        if ($this->matchTerm($allRefsText, $cit)) {
+                    foreach ($citations as $i => $cit) {
+                        if ($this->matchTerm($allRefsText, $cit, $refsFold, $citationsFold[$i] ?? null)) {
                             $refMatched = true;
                             break;
                         }
@@ -834,8 +940,8 @@ class ReportController extends AbstractController
                 }
                 
                 if (!$refMatched) {
-                    foreach ($terms as $term) {
-                        if ($this->matchTerm($allRefsText, $term)) {
+                    foreach ($terms as $i => $term) {
+                        if ($this->matchTerm($allRefsText, $term, $refsFold, $termsFold[$i] ?? null)) {
                             $refMatched = true;
                             break;
                         }
@@ -865,10 +971,13 @@ class ReportController extends AbstractController
 
         
         $session->set('theorists_batch_' . $id, $theorists);
+        $done = (int) $session->get('theorists_done_' . $id, 0) + count($documents);
+        $session->set('theorists_cursor_' . $id, (int) end($documents)['id']);
+        $session->set('theorists_done_' . $id, $done);
         
         return $this->json([
             'status' => 'processing',
-            'processedDocs' => $offset + count($documents),
+            'processedDocs' => $done,
             'nextStep' => $step + 1
         ]);
     }
@@ -889,8 +998,10 @@ class ReportController extends AbstractController
         $researchField = trim($request->request->get('research_field', ''));
         $termsString = trim($request->request->get('terms', ''));
         $description = trim($request->request->get('description', ''));
-        $icon = trim($request->request->get('icon', 'bi-mortarboard'));
-        $color = trim($request->request->get('color', '#4f8ef7'));
+        // Cor e ícone entram em atributos de estilo e classe: só #RRGGBB e bi-nome (senão, o padrão)
+        $icon = preg_match('/^bi-[a-z0-9-]+$/', trim((string) $request->request->get('icon', ''))) === 1
+            ? trim((string) $request->request->get('icon')) : 'bi-mortarboard';
+        $color = ClassificationController::sanitizeColor((string) $request->request->get('color', ''));
 
         if ($name === '' || $category === '' || $description === '') {
             $this->addFlash('error', 'Nome, Categoria e Descrição são campos obrigatórios.');
@@ -933,7 +1044,8 @@ class ReportController extends AbstractController
     public function classificationReport(int $id): Response
     {
         $project = $this->getProject($id);
-        $data    = $this->reportService->getClassificationReport($project->getId());
+        $data    = $this->analyticsCache->get($project->getId(), 'report.classification', [],
+            fn() => $this->reportService->getClassificationReport($project->getId()));
 
         return $this->render('report/classification_report.html.twig', [
             'project' => $project,
@@ -945,75 +1057,71 @@ class ReportController extends AbstractController
 
     // ── Glossário de Termos ────────────────────────────────────────────────────
 
+    /** Conceitos por página no glossário. */
+    private const GLOSSARY_PER_PAGE = 60;
+
     #[Route('/glossary', name: 'app_report_glossary', methods: ['GET'])]
     public function glossary(int $id, Request $request): Response
     {
         $project = $this->getProject($id);
 
-        $search = trim($request->query->get('q', ''));
-        $letter = trim($request->query->get('letter', ''));
+        $search = trim((string) $request->query->get('q', ''));
+        $letter = trim((string) $request->query->get('letter', ''));
+        $page   = max(1, (int) $request->query->get('page', 1));
 
-        // Get all thesaurus concepts used in this project's keywords
-        // Citações: soma uma vez por (conceito, documento); somar sobre as linhas
-        // variante × documento contaria em dobro o documento com duas variantes.
-        $sql = "
-            SELECT 
-                tc.id,
-                tc.preferred_label,
-                tc.normalized_label,
-                COUNT(DISTINCT dk.document_id) AS doc_count,
-                COUNT(DISTINCT k.id) AS variant_count,
-                COALESCE(MAX(cc.total_citations), 0) AS total_citations
-            FROM thesaurus_concept tc
-            LEFT JOIN (
-                SELECT t.cid, SUM(t.cit) AS total_citations
-                FROM (
-                    SELECT DISTINCT k2.thesaurus_concept_id AS cid, d2.id, COALESCE(d2.cited_by, 0) AS cit
-                    FROM keyword k2
-                    JOIN document_keyword dk2 ON dk2.keyword_id = k2.id
-                    JOIN document d2 ON d2.id = dk2.document_id AND d2.project_id = ?
-                    WHERE k2.thesaurus_concept_id IS NOT NULL
-                ) t
-                GROUP BY t.cid
-            ) cc ON cc.cid = tc.id
-            JOIN keyword k ON k.thesaurus_concept_id = tc.id
-            JOIN document_keyword dk ON dk.keyword_id = k.id
-            JOIN document d ON d.id = dk.document_id AND d.project_id = ?
-            WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
-        ";
-        $params = [$id, $id];
+        // O resultado depende só do projeto, da busca, da letra e da página
+        $payload = ($search !== '' && mb_strlen($search) > 100) || mb_strlen($letter) > 3
+            ? $this->glossaryData($id, $search, $letter, $page)
+            : $this->analyticsCache->get($id, 'report.glossary', ['q' => $search, 'letter' => $letter, 'page' => $page],
+                fn() => $this->glossaryData($id, $search, $letter, $page));
+        $letters           = $payload['letters'];
+        $letter            = $payload['letter'];
+        $concepts          = $payload['concepts'];
+        $labelsByConceptId = $payload['labelsByConceptId'];
+        $totalConcepts     = $payload['totalConcepts'];
+        $totalVariants     = $payload['totalVariants'];
+        $page              = $payload['page'];
+        $totalPages        = $payload['totalPages'];
 
-        if ($search !== '') {
-            $sql .= " AND (tc.preferred_label LIKE ? OR tc.normalized_label LIKE ?)";
-            $params[] = '%' . $search . '%';
-            $params[] = '%' . strtolower($search) . '%';
+        return $this->render('report/glossary.html.twig', [
+            'project' => $project,
+            'concepts' => $concepts,
+            'labelsByConceptId' => $labelsByConceptId,
+            'letters' => $letters,
+            'currentLetter' => $letter,
+            'search' => $search,
+            'totalConcepts' => $totalConcepts,
+            'totalVariants' => $totalVariants,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'perPage' => self::GLOSSARY_PER_PAGE,
+        ]);
+    }
+
+    /**
+     * Cache de uma análise com busca de texto. Busca longa não vai para o cache: o texto é livre e cada
+     * valor distinto criaria uma entrada nova.
+     *
+     * @param array<string,mixed> $params
+     */
+    private function cachedSearch(int $projectId, string $name, array $params, string $search, callable $compute): mixed
+    {
+        $search = trim($search);
+        if (mb_strlen($search) > 100) {
+            return $compute();
         }
 
-        if ($letter !== '') {
-            $sql .= " AND tc.preferred_label LIKE ?";
-            $params[] = $letter . '%';
-        }
+        return $this->analyticsCache->get($projectId, $name, $params + ['q' => $search], $compute);
+    }
 
-        $sql .= " GROUP BY tc.id, tc.preferred_label, tc.normalized_label
-                   ORDER BY tc.preferred_label ASC";
-
-        $concepts = $this->conn->fetchAllAssociative($sql, $params);
-
-        // Get labels for each concept (batch)
-        $conceptIds = array_column($concepts, 'id');
-        $labelsByConceptId = [];
-        if (!empty($conceptIds)) {
-            $placeholders = implode(',', array_fill(0, count($conceptIds), '?'));
-            $labels = $this->conn->fetchAllAssociative(
-                "SELECT concept_id, label, type FROM thesaurus_label WHERE concept_id IN ($placeholders) ORDER BY type ASC, label ASC",
-                $conceptIds
-            );
-            foreach ($labels as $l) {
-                $labelsByConceptId[$l['concept_id']][] = $l;
-            }
-        }
-
-        // Get available letters
+    /**
+     * Cálculo do glossário (conceitos do tesauro do projeto, filtrados e paginados).
+     *
+     * @return array{letters: array, letter: string, concepts: array, labelsByConceptId: array, totalConcepts: int, totalVariants: int, page: int, totalPages: int}
+     */
+    private function glossaryData(int $id, string $search, string $letter, int $page): array
+    {
+        // Letras disponíveis (conceitos ligados a palavras-chave deste projeto)
         $letters = $this->conn->fetchFirstColumn(
             "SELECT DISTINCT UPPER(LEFT(tc.preferred_label, 1)) AS letter
              FROM thesaurus_concept tc
@@ -1025,20 +1133,100 @@ class ReportController extends AbstractController
             [$id]
         );
 
-        // Stats
-        $totalConcepts = count($concepts);
-        $totalVariants = array_sum(array_column($concepts, 'variant_count'));
+        // Abre na primeira letra: o projeto inteiro de uma vez só com "Todos" (letter=all) ou numa busca
+        if ($letter === '' && $search === '' && $letters) {
+            $letter = (string) $letters[0];
+        }
+        $allLetters = $letter === 'all';
 
-        return $this->render('report/glossary.html.twig', [
-            'project' => $project,
+        // 1. Só os ids dos conceitos que atendem ao filtro (com o nº de variações, para os totais)
+        $sql = "
+            SELECT tc.id, COUNT(DISTINCT k.id) AS variant_count
+            FROM thesaurus_concept tc
+            JOIN keyword k ON k.thesaurus_concept_id = tc.id
+            JOIN document_keyword dk ON dk.keyword_id = k.id
+            JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+            WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
+        ";
+        $params = [$id];
+
+        if ($search !== '') {
+            $sql .= " AND (tc.preferred_label LIKE ? OR tc.normalized_label LIKE ?)";
+            $params[] = '%' . $search . '%';
+            $params[] = '%' . strtolower($search) . '%';
+        }
+
+        if ($letter !== '' && !$allLetters) {
+            $sql .= " AND tc.preferred_label LIKE ?";
+            $params[] = $letter . '%';
+        }
+
+        $sql .= " GROUP BY tc.id ORDER BY tc.preferred_label ASC, tc.id ASC";
+        $matches = $this->conn->fetchAllAssociative($sql, $params);
+
+        $totalConcepts = count($matches);
+        $totalVariants = (int) array_sum(array_column($matches, 'variant_count'));
+        $totalPages    = max(1, (int) ceil($totalConcepts / self::GLOSSARY_PER_PAGE));
+        $page          = min($page, $totalPages);
+        $pageIds       = array_map(
+            fn($m) => (int) $m['id'],
+            array_slice($matches, ($page - 1) * self::GLOSSARY_PER_PAGE, self::GLOSSARY_PER_PAGE)
+        );
+
+        // 2. Os números e os rótulos só dos conceitos da página
+        $concepts = [];
+        $labelsByConceptId = [];
+        if ($pageIds) {
+            $idList = implode(',', $pageIds);
+            // Citações: soma uma vez por (conceito, documento); somar sobre as linhas
+            // variante × documento contaria em dobro o documento com duas variantes.
+            $concepts = $this->conn->fetchAllAssociative(
+                "SELECT
+                    tc.id,
+                    tc.preferred_label,
+                    tc.normalized_label,
+                    COUNT(DISTINCT dk.document_id) AS doc_count,
+                    COUNT(DISTINCT k.id) AS variant_count,
+                    COALESCE(MAX(cc.total_citations), 0) AS total_citations
+                FROM thesaurus_concept tc
+                LEFT JOIN (
+                    SELECT t.cid, SUM(t.cit) AS total_citations
+                    FROM (
+                        SELECT DISTINCT k2.thesaurus_concept_id AS cid, d2.id, COALESCE(d2.cited_by, 0) AS cit
+                        FROM keyword k2
+                        JOIN document_keyword dk2 ON dk2.keyword_id = k2.id
+                        JOIN document d2 ON d2.id = dk2.document_id AND d2.project_id = ?
+                        WHERE k2.thesaurus_concept_id IN ($idList)
+                    ) t
+                    GROUP BY t.cid
+                ) cc ON cc.cid = tc.id
+                JOIN keyword k ON k.thesaurus_concept_id = tc.id
+                JOIN document_keyword dk ON dk.keyword_id = k.id
+                JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                WHERE tc.id IN ($idList)
+                GROUP BY tc.id, tc.preferred_label, tc.normalized_label
+                ORDER BY tc.preferred_label ASC, tc.id ASC",
+                [$id, $id]
+            );
+
+            $labels = $this->conn->fetchAllAssociative(
+                "SELECT concept_id, label, type FROM thesaurus_label WHERE concept_id IN ($idList) ORDER BY type ASC, label ASC"
+            );
+            foreach ($labels as $l) {
+                $labelsByConceptId[$l['concept_id']][] = $l;
+            }
+        }
+
+        return [
+            'letters' => $letters,
+            'letter' => $letter,
             'concepts' => $concepts,
             'labelsByConceptId' => $labelsByConceptId,
-            'letters' => $letters,
-            'currentLetter' => $letter,
-            'search' => $search,
             'totalConcepts' => $totalConcepts,
             'totalVariants' => $totalVariants,
-        ]);
+            'page' => $page,
+            'totalPages' => $totalPages,
+        ];
     }
 
     private function getProject(int $id): BibliometricProject
@@ -1052,8 +1240,16 @@ class ReportController extends AbstractController
         return $project;
     }
 
-    private function matchTerm(string $text, string $term): bool
+    /**
+     * Palavra inteira (com acentos e hífen), sem diferenciar maiúsculas. O str_contains em minúsculas
+     * Unicode ($textFold/$termFold) descarta de graça a maioria dos pares antes da expressão regular;
+     * a regex continua decidindo, então o resultado é o mesmo de antes.
+     */
+    private function matchTerm(string $text, string $term, ?string $textFold = null, ?string $termFold = null): bool
     {
+        if ($textFold !== null && $termFold !== null && !str_contains($textFold, $termFold)) {
+            return false;
+        }
         $termEscaped = preg_quote($term, '/');
         // Match exact word boundary, supporting accented characters and hyphens
         $pattern = '/(?<=^|[^a-zA-Z0-9áéíóúâêôçãõà\-])' . $termEscaped . '(?=$|[^a-zA-Z0-9áéíóúâêôçãõà\-])/iu';

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\BibliometricProject;
 use App\Service\Analytics\IndicatorService;
+use App\Service\Cache\AnalyticsCache;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,13 +19,14 @@ class DashboardController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly IndicatorService $indicators,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'app_dashboard_index', methods: ['GET'])]
     public function index(int $id): Response
     {
         $project = $this->getProject($id);
-        $summary = $this->indicators->summary($project->getId());
+        $summary = $this->cache->get($project->getId(), 'dashboard.summary', [], fn() => $this->indicators->summary($project->getId()));
 
         return $this->render('dashboard/index.html.twig', [
             'project' => $project,
@@ -38,14 +40,14 @@ class DashboardController extends AbstractController
     public function annualProduction(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->annualProduction($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.annual_production', [], fn() => $this->indicators->annualProduction($project->getId())));
     }
 
     #[Route('/data/citations-per-year', name: 'app_dashboard_citations_per_year', methods: ['GET'])]
     public function citationsPerYear(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->citationsPerYear($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.citations_per_year', [], fn() => $this->indicators->citationsPerYear($project->getId())));
     }
 
     #[Route('/data/top-authors', name: 'app_dashboard_top_authors', methods: ['GET'])]
@@ -54,7 +56,7 @@ class DashboardController extends AbstractController
         $project = $this->getProject($id);
         $limit = min((int)($request->query->get('limit', 20)), 100);
         $sort = $request->query->get('sort') === 'citations' ? 'citations' : 'docs';
-        return $this->json($this->indicators->topAuthors($project->getId(), $limit, $sort));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.top_authors', ['limit' => $limit, 'sort' => $sort], fn() => $this->indicators->topAuthors($project->getId(), $limit, $sort)));
     }
 
     #[Route('/data/top-sources', name: 'app_dashboard_top_sources', methods: ['GET'])]
@@ -62,7 +64,7 @@ class DashboardController extends AbstractController
     {
         $project = $this->getProject($id);
         $limit = min((int)($request->query->get('limit', 20)), 100);
-        return $this->json($this->indicators->topSources($project->getId(), $limit));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.top_sources', ['limit' => $limit], fn() => $this->indicators->topSources($project->getId(), $limit)));
     }
 
     #[Route('/data/top-keywords', name: 'app_dashboard_top_keywords', methods: ['GET'])]
@@ -71,35 +73,35 @@ class DashboardController extends AbstractController
         $project = $this->getProject($id);
         $type  = in_array($request->query->get('type'), ['author', 'indexed']) ? $request->query->get('type') : 'author';
         $limit = min((int)($request->query->get('limit', 50)), 200);
-        return $this->json($this->indicators->topKeywords($project->getId(), $type, $limit));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.top_keywords', ['type' => $type, 'limit' => $limit], fn() => $this->indicators->topKeywords($project->getId(), $type, $limit)));
     }
 
     #[Route('/data/document-types', name: 'app_dashboard_document_types', methods: ['GET'])]
     public function documentTypes(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->documentTypeDistribution($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.document_types', [], fn() => $this->indicators->documentTypeDistribution($project->getId())));
     }
 
     #[Route('/data/open-access', name: 'app_dashboard_open_access', methods: ['GET'])]
     public function openAccess(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->openAccessStats($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.open_access', [], fn() => $this->indicators->openAccessStats($project->getId())));
     }
 
     #[Route('/data/collaboration-index', name: 'app_dashboard_collaboration_index', methods: ['GET'])]
     public function collaborationIndex(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->collaborationIndex($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.collaboration_index', [], fn() => $this->indicators->collaborationIndex($project->getId())));
     }
 
     #[Route('/data/growth-rate', name: 'app_dashboard_growth_rate', methods: ['GET'])]
     public function growthRate(int $id): Response
     {
         $project = $this->getProject($id);
-        return $this->json($this->indicators->productionGrowthRate($project->getId()));
+        return $this->json($this->cache->get($project->getId(), 'dashboard.growth_rate', [], fn() => $this->indicators->productionGrowthRate($project->getId())));
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

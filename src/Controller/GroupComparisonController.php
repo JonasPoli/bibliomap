@@ -4,6 +4,8 @@ namespace App\Controller;
 
 use App\Entity\BibliometricProject;
 use App\Repository\ClassificationGroupRepository;
+use App\Service\Analytics\CsvCell;
+use App\Service\Cache\AnalyticsCache;
 use App\Service\Classification\GroupComparisonService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,6 +23,7 @@ class GroupComparisonController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly ClassificationGroupRepository $groupRepo,
         private readonly GroupComparisonService $comparisonService,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -58,21 +61,30 @@ class GroupComparisonController extends AbstractController
             return new JsonResponse(['error' => 'Nenhum grupo selecionado para comparação.'], 400);
         }
 
-        $summary    = $this->comparisonService->getGroupSummaryComparison($project->getId(), $groupIds);
-        $temporal   = $this->comparisonService->getTemporalEvolutionComparison($project->getId(), $groupIds);
-        $overlap    = $this->comparisonService->getSharedKeywordOverlap($project->getId(), $groupIds);
-        $geographic = $this->comparisonService->getGeographicProfileComparison($project->getId(), $groupIds);
-        $institutions = $this->comparisonService->getInstitutionalProfileComparison($project->getId(), $groupIds);
-        $qualis     = $this->comparisonService->getQualisImpactComparison($project->getId(), $groupIds);
+        $groupIds = array_values(array_unique($groupIds));
+        sort($groupIds);
 
-        return new JsonResponse([
-            'summary'      => $summary,
-            'temporal'     => $temporal,
-            'overlap'      => $overlap,
-            'geographic'   => $geographic,
-            'institutions' => $institutions,
-            'qualis'       => $qualis,
-        ]);
+        // Só grupos deste projeto entram na chave do cache (ids de fora não mudam o resultado e,
+        // sem este filtro, cada combinação inventada criaria uma entrada nova)
+        $projectGroupIds = array_map(fn($g) => $g->getId(), $this->groupRepo->findByProject($project->getId()));
+        $cacheIds = array_values(array_intersect($groupIds, $projectGroupIds));
+        if ($cacheIds !== []) {
+            $groupIds = $cacheIds; // ids de outros projetos não somam nada nas consultas: mesmo resultado
+        }
+
+        // A comparação depende dos grupos escolhidos e dos resultados da classificação (gravados no
+        // banco, o que muda a versão dos dados e invalida o resultado guardado)
+        $compute = fn() => [
+            'summary'      => $this->comparisonService->getGroupSummaryComparison($project->getId(), $groupIds),
+            'temporal'     => $this->comparisonService->getTemporalEvolutionComparison($project->getId(), $groupIds),
+            'overlap'      => $this->comparisonService->getSharedKeywordOverlap($project->getId(), $groupIds, false),
+            'geographic'   => $this->comparisonService->getGeographicProfileComparison($project->getId(), $groupIds),
+            'institutions' => $this->comparisonService->getInstitutionalProfileComparison($project->getId(), $groupIds),
+            'qualis'       => $this->comparisonService->getQualisImpactComparison($project->getId(), $groupIds),
+        ];
+        $payload = $cacheIds === [] ? $compute() : $this->cache->get($project->getId(), 'group_comparison.data', ['groups' => $groupIds], $compute);
+
+        return new JsonResponse($payload);
     }
 
     #[Route('/export-csv', name: 'export_csv', methods: ['GET'])]
@@ -101,7 +113,7 @@ class GroupComparisonController extends AbstractController
             $csv .= sprintf(
                 '%d;"%s";"%s";%d;%.1f;%d;%.2f' . "\r\n",
                 $g['group_id'],
-                str_replace('"', '""', $g['group_name']),
+                str_replace('"', '""', CsvCell::escape($g['group_name'])),
                 $g['type'],
                 $g['doc_count'],
                 $g['percentage'],

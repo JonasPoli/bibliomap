@@ -8,32 +8,54 @@ class ReportService
 {
     public function __construct(private readonly Connection $conn) {}
 
+    /**
+     * Pares (autor, documento) distintos só do projeto: filtrar dentro da derivada evita varrer
+     * document_author inteira (o filtro de projeto no JOIN de fora não é empurrado para dentro).
+     */
+    private static function authorDocPairs(int $projectId): string
+    {
+        return 'SELECT DISTINCT dax.author_identity_id, dax.document_id
+                FROM document_author dax
+                JOIN document dd ON dd.id = dax.document_id
+                WHERE dd.project_id = ' . (int) $projectId;
+    }
+
     // ── 1. Authors Report ─────────────────────────────────────────────────────
 
     public function getAuthorsReport(int $projectId, int $limit = 100, ?string $search = null): array
     {
-        // 1. Fetch ALL authors for Lotka distribution & KPIs (always unfiltered)
-        $allAuthors = $this->conn->fetchAllAssociative(
-            'SELECT a.id, a.preferred_name AS name,
-                    COUNT(DISTINCT da.document_id) AS doc_count,
-                    SUM(COALESCE(d.cited_by, 0))   AS citation_count
-             FROM author_identity a
-             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
-             JOIN document d         ON d.id = da.document_id AND d.project_id = ?
-             GROUP BY a.id, a.preferred_name',
-            [$projectId]
-        );
+        $searching = $search !== null && trim($search) !== '';
+        $pairs = self::authorDocPairs($projectId);
 
-        // 2. Fetch the target authors list (for the table)
-        // If search is active, filter by name. Otherwise, just use all authors (and we will slice later).
+        // 1. Lotka e totais no banco: quantos autores têm n documentos (todos os autores, sem filtro de busca).
+        // Nada é trazido ao PHP além de uma linha por valor de n.
+        $lotkaObserved = [];
+        $totalAuthors = 0;
+        $lotkaRows = $this->conn->fetchAllAssociative(
+            'SELECT t.doc_count, COUNT(*) AS authors
+             FROM (
+                 SELECT da.author_identity_id, COUNT(*) AS doc_count
+                 FROM (' . $pairs . ') da
+                 GROUP BY da.author_identity_id
+             ) t
+             GROUP BY t.doc_count
+             ORDER BY t.doc_count ASC'
+        );
+        foreach ($lotkaRows as $row) {
+            $lotkaObserved[(int) $row['doc_count']] = (int) $row['authors'];
+            $totalAuthors += (int) $row['authors'];
+        }
+
+        // 2. Lista da tabela: só as linhas exibidas (LIMIT), na mesma ordem de sempre; empate: menor id.
         $params = [$projectId];
         $searchSql = '';
-        if ($search !== null && trim($search) !== '') {
+        if ($searching) {
             $searchSql = ' AND a.preferred_name LIKE ?';
             $params[] = '%' . trim($search) . '%';
         }
+        $rowLimit = $searching ? 250 : max(0, $limit);
 
-        $listAuthors = $this->conn->fetchAllAssociative(
+        $authorsList = $this->conn->fetchAllAssociative(
             'SELECT a.id, a.preferred_name AS name,
                     COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0))   AS citation_count,
@@ -41,19 +63,13 @@ class ReportService
                     MIN(d.year) AS first_year,
                     MAX(d.year) AS last_year
              FROM author_identity a
-             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
+             JOIN (' . $pairs . ') da ON a.id = da.author_identity_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?' . $searchSql . '
              GROUP BY a.id, a.preferred_name
-             ORDER BY doc_count DESC, citation_count DESC',
+             ORDER BY doc_count DESC, citation_count DESC, a.id ASC
+             LIMIT ' . (int) $rowLimit,
             $params
         );
-
-        // Limit the list only if we are NOT searching, or if searching we can set a higher limit like 250 just in case
-        if ($search !== null && trim($search) !== '') {
-            $authorsList = array_slice($listAuthors, 0, 250);
-        } else {
-            $authorsList = array_slice($listAuthors, 0, $limit);
-        }
 
         // 3. Fetch citation counts only for the displayed authors to calculate H/G-index
         if (!empty($authorsList)) {
@@ -63,8 +79,8 @@ class ReportService
             $citRows = $this->conn->fetchAllAssociative(
                 "SELECT da.author_identity_id AS author_id, COALESCE(d.cited_by, 0) AS cited_by
                  FROM document d
-                 JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON da.document_id = d.id
-                 WHERE d.project_id = ? AND da.author_identity_id IN ($placeholders)
+                 JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author WHERE author_identity_id IN ($placeholders)) da ON da.document_id = d.id
+                 WHERE d.project_id = ?
                  ORDER BY da.author_identity_id, d.cited_by DESC",
                 [$projectId]
             );
@@ -84,29 +100,28 @@ class ReportService
             unset($auth);
         }
 
-        // 4. Build Lotka distribution based on ALL authors (unfiltered)
-        $lotkaObserved = [];
-        $topAuthorDocs = 0;
+        // 4. Autor mais produtivo (sempre sem filtro de busca): sem busca é a primeira linha da lista
         $topAuthorName = 'N/A';
-        
-        // Sort allAuthors to easily find top author
-        usort($allAuthors, function($a, $b) {
-            if ($a['doc_count'] === $b['doc_count']) {
-                return $b['citation_count'] <=> $a['citation_count'];
-            }
-            return $b['doc_count'] <=> $a['doc_count'];
-        });
-
-        if (!empty($allAuthors)) {
-            $topAuthorName = $allAuthors[0]['name'];
-            $topAuthorDocs = (int) $allAuthors[0]['doc_count'];
+        $topAuthorDocs = 0;
+        if ($searching) {
+            $top = $this->conn->fetchAssociative(
+                'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
+                        SUM(COALESCE(d.cited_by, 0)) AS citation_count
+                 FROM author_identity a
+                 JOIN (' . $pairs . ') da ON a.id = da.author_identity_id
+                 JOIN document d ON d.id = da.document_id AND d.project_id = ?
+                 GROUP BY a.id, a.preferred_name
+                 ORDER BY doc_count DESC, citation_count DESC, a.id ASC
+                 LIMIT 1',
+                [$projectId]
+            );
+        } else {
+            $top = $authorsList[0] ?? null;
         }
-
-        foreach ($allAuthors as $auth) {
-            $n = (int) $auth['doc_count'];
-            $lotkaObserved[$n] = ($lotkaObserved[$n] ?? 0) + 1;
+        if ($top) {
+            $topAuthorName = $top['name'];
+            $topAuthorDocs = (int) $top['doc_count'];
         }
-        ksort($lotkaObserved);
 
         // Lotka expected: A₁ / n²
         $a1 = $lotkaObserved[1] ?? 0;
@@ -120,7 +135,7 @@ class ReportService
             'lotka_observed' => $lotkaObserved,
             'lotka_expected' => $lotkaExpected,
             'kpis'           => [
-                'total_authors'   => count($allAuthors),
+                'total_authors'   => $totalAuthors,
                 'top_author'      => $topAuthorName,
                 'top_author_docs' => $topAuthorDocs,
             ]
@@ -173,7 +188,7 @@ class ReportService
              FROM document
              WHERE project_id = ? AND source_title IS NOT NULL AND source_title != \'\'
              GROUP BY source_title
-             ORDER BY doc_count DESC, citation_count DESC',
+             ORDER BY doc_count DESC, citation_count DESC, source_title ASC',
             [$projectId]
         );
 
@@ -246,7 +261,7 @@ class ReportService
                      WHERE dp.document_id = d.id) AS country_names
               FROM document d
               WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
-              ORDER BY cited_by DESC
+              ORDER BY cited_by DESC, d.id ASC
               LIMIT {$limit}",
             [$projectId]
         );
@@ -309,7 +324,7 @@ class ReportService
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
              GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display){$searchSql}
-             ORDER BY freq DESC, term ASC
+             ORDER BY freq DESC, term ASC, id ASC
              LIMIT {$targetLimit}",
             $params
         );
@@ -352,7 +367,7 @@ class ReportService
              JOIN paises p ON p.id = dp.country_id
              WHERE d.project_id = ?
              GROUP BY p.id, p.common_name, p.sigla, p.continente
-             ORDER BY doc_count DESC, citation_count DESC',
+             ORDER BY doc_count DESC, citation_count DESC, p.id ASC',
             [$projectId]
         );
 
@@ -393,15 +408,18 @@ class ReportService
     public function getInstitutionsReport(int $projectId): array
     {
         $rows = $this->conn->fetchAllAssociative(
+            // Pares (documento, instituição) distintos: um vínculo repetido não soma a citação duas vezes
             'SELECT i.official_name AS institution,
                     COUNT(DISTINCT di.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM documento_instituicoes di
+             FROM (SELECT DISTINCT dix.document_id, dix.institution_id
+                   FROM documento_instituicoes dix
+                   JOIN document dd ON dd.id = dix.document_id
+                   WHERE dd.project_id = ?) di
              JOIN document d ON di.document_id = d.id
              JOIN instituicoes_ensino i ON di.institution_id = i.id
-             WHERE d.project_id = ?
              GROUP BY i.id, i.official_name
-             ORDER BY doc_count DESC, citation_count DESC',
+             ORDER BY doc_count DESC, citation_count DESC, i.id ASC',
             [$projectId]
         );
 
@@ -478,10 +496,10 @@ class ReportService
             'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0)) AS citation_count
              FROM author_identity a
-             JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
+             JOIN (' . self::authorDocPairs($projectId) . ') da ON a.id = da.author_identity_id
              JOIN document d ON d.id = da.document_id AND d.project_id = ?
              GROUP BY a.id, a.preferred_name
-             ORDER BY doc_count DESC LIMIT 10',
+             ORDER BY doc_count DESC, a.id ASC LIMIT 10',
             [$projectId]
         );
 
@@ -491,7 +509,7 @@ class ReportService
                     SUM(COALESCE(cited_by,0)) AS citation_count
              FROM document
              WHERE project_id = ? AND source_title IS NOT NULL AND source_title != ''
-             GROUP BY source_title ORDER BY doc_count DESC LIMIT 10",
+             GROUP BY source_title ORDER BY doc_count DESC, source_title ASC LIMIT 10",
             [$projectId]
         );
 
@@ -511,7 +529,7 @@ class ReportService
              JOIN document_keyword dk ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
              GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
-             ORDER BY freq DESC LIMIT 20",
+             ORDER BY freq DESC, term ASC LIMIT 20",
             [$projectId]
         );
 
@@ -524,7 +542,7 @@ class ReportService
                      WHERE da2.document_id = d.id) AS authors_str
              FROM document d
              WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
-             ORDER BY cited_by DESC LIMIT 10",
+             ORDER BY cited_by DESC, d.id ASC LIMIT 10",
             [$projectId]
         );
 
@@ -694,49 +712,67 @@ class ReportService
             ];
         }
 
-        // 3. Top 3 cited documents per group
-        $allDocsRows = $this->conn->fetchAllAssociative(
-            "SELECT dc.group_id, d.id, d.title, d.year, d.source_title,
-                    COALESCE(d.cited_by, 0) AS cited_by, COALESCE(d.doi, '') AS doi,
-                    COALESCE(d.abstract_text, '') AS abstract,
-                    (
-                        SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR '; ')
-                        FROM document_author da2
-                        JOIN author_identity a2 ON a2.id = da2.author_identity_id
-                        WHERE da2.document_id = d.id
-                    ) AS author_names,
-                    (
-                        SELECT GROUP_CONCAT(DISTINCT COALESCE(kc2.keyword_display, k2.keyword_display) ORDER BY COALESCE(kc2.keyword_display, k2.keyword_display) SEPARATOR '; ')
-                        FROM document_keyword dk2
-                        JOIN keyword k2 ON k2.id = dk2.keyword_id
-                        LEFT JOIN keyword kc2 ON k2.keyword_concept_id = kc2.id
-                        WHERE dk2.document_id = d.id
-                    ) AS keyword_terms
-             FROM document_classification dc
-             JOIN document d ON d.id = dc.document_id
-             WHERE dc.project_id = ? AND dc.group_id IN ($placeholders)
-             ORDER BY dc.group_id, COALESCE(d.cited_by, 0) DESC",
+        // 3. Top 3 cited documents per group: primeiro só os ids (ROW_NUMBER por grupo, empate: menor id do
+        // documento), depois resumo, autores e palavras-chave apenas desses documentos.
+        $topRows = $this->conn->fetchAllAssociative(
+            "SELECT t.group_id, t.doc_id
+             FROM (
+                 SELECT dc.group_id, d.id AS doc_id,
+                        ROW_NUMBER() OVER (PARTITION BY dc.group_id ORDER BY COALESCE(d.cited_by, 0) DESC, d.id ASC) AS rn
+                 FROM document_classification dc
+                 JOIN document d ON d.id = dc.document_id
+                 WHERE dc.project_id = ? AND dc.group_id IN ($placeholders)
+             ) t
+             WHERE t.rn <= 3
+             ORDER BY t.group_id, t.rn",
             array_merge([$projectId], $groupIds)
         );
+        $topDocIds = array_values(array_unique(array_map(fn($r) => (int) $r['doc_id'], $topRows)));
+        $docDetails = [];
+        if ($topDocIds) {
+            $docPlaceholders = implode(',', $topDocIds);
+            $detailRows = $this->conn->fetchAllAssociative(
+                "SELECT d.id, d.title, d.year, d.source_title,
+                        COALESCE(d.cited_by, 0) AS cited_by, COALESCE(d.doi, '') AS doi,
+                        COALESCE(d.abstract_text, '') AS abstract,
+                        (
+                            SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR '; ')
+                            FROM document_author da2
+                            JOIN author_identity a2 ON a2.id = da2.author_identity_id
+                            WHERE da2.document_id = d.id
+                        ) AS author_names,
+                        (
+                            SELECT GROUP_CONCAT(DISTINCT COALESCE(kc2.keyword_display, k2.keyword_display) ORDER BY COALESCE(kc2.keyword_display, k2.keyword_display) SEPARATOR '; ')
+                            FROM document_keyword dk2
+                            JOIN keyword k2 ON k2.id = dk2.keyword_id
+                            LEFT JOIN keyword kc2 ON k2.keyword_concept_id = kc2.id
+                            WHERE dk2.document_id = d.id
+                        ) AS keyword_terms
+                 FROM document d
+                 WHERE d.id IN ($docPlaceholders)"
+            );
+            foreach ($detailRows as $r) {
+                $docDetails[(int) $r['id']] = $r;
+            }
+        }
         $top3 = [];
-        foreach ($allDocsRows as $r) {
-            $gid = (int)$r['group_id'];
-            if (!isset($top3[$gid])) {
-                $top3[$gid] = [];
+        foreach ($topRows as $tr) {
+            $gid = (int) $tr['group_id'];
+            $r = $docDetails[(int) $tr['doc_id']] ?? null;
+            if ($r === null) {
+                continue;
             }
-            if (count($top3[$gid]) < 3) {
-                $top3[$gid][] = [
-                    'id'           => (int)$r['id'],
-                    'title'        => $r['title'],
-                    'year'         => (int)$r['year'],
-                    'source_title' => $r['source_title'],
-                    'cited_by'     => (int)$r['cited_by'],
-                    'doi'          => $r['doi'],
-                    'abstract'     => $r['abstract'],
-                    'authors'      => $r['author_names'] ?? 'Autores desconhecidos',
-                    'keywords'     => $r['keyword_terms'] ?? '',
-                ];
-            }
+            $top3[$gid][] = [
+                'id'           => (int)$r['id'],
+                'title'        => $r['title'],
+                'year'         => (int)$r['year'],
+                'source_title' => $r['source_title'],
+                'cited_by'     => (int)$r['cited_by'],
+                'doi'          => $r['doi'],
+                'abstract'     => $r['abstract'],
+                'authors'      => $r['author_names'] ?? 'Autores desconhecidos',
+                'keywords'     => $r['keyword_terms'] ?? '',
+            ];
         }
 
 
@@ -760,26 +796,25 @@ class ReportService
             $growth[$gid][(int)$r['year']] = (int)$r['n'];
         }
 
-        // 5. Top 5 journals per group
+        // 5. Top 5 journals per group (no banco: ROW_NUMBER por grupo; empate: título da revista)
         $journalRows = $this->conn->fetchAllAssociative(
-            "SELECT dc.group_id, d.source_title, COUNT(*) AS n
-             FROM document_classification dc
-             JOIN document d ON d.id = dc.document_id
-             WHERE dc.project_id = ? AND dc.group_id IN ($placeholders)
-               AND d.source_title IS NOT NULL AND d.source_title != ''
-             GROUP BY dc.group_id, d.source_title
-             ORDER BY dc.group_id, n DESC",
+            "SELECT t.group_id, t.source_title, t.n
+             FROM (
+                 SELECT dc.group_id, d.source_title, COUNT(*) AS n,
+                        ROW_NUMBER() OVER (PARTITION BY dc.group_id ORDER BY COUNT(*) DESC, d.source_title ASC) AS rn
+                 FROM document_classification dc
+                 JOIN document d ON d.id = dc.document_id
+                 WHERE dc.project_id = ? AND dc.group_id IN ($placeholders)
+                   AND d.source_title IS NOT NULL AND d.source_title != ''
+                 GROUP BY dc.group_id, d.source_title
+             ) t
+             WHERE t.rn <= 5
+             ORDER BY t.group_id, t.rn",
             array_merge([$projectId], $groupIds)
         );
         $journals = [];
         foreach ($journalRows as $r) {
-            $gid = (int)$r['group_id'];
-            if (!isset($journals[$gid])) {
-                $journals[$gid] = [];
-            }
-            if (count($journals[$gid]) < 5) {
-                $journals[$gid][] = ['name' => $r['source_title'], 'n' => (int)$r['n']];
-            }
+            $journals[(int)$r['group_id']][] = ['name' => $r['source_title'], 'n' => (int)$r['n']];
         }
 
         // 6. All distinct years in this project (for heatmap/growth x-axis)

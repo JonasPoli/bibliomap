@@ -47,7 +47,7 @@
 
 {% for label, messages in app.flashes %}
     {% for msg in messages %}
-    <div class="alert alert-{{ label == 'success' ? 'success' : 'danger' }} bm-alert mb-3">{{ msg|raw }}</div>
+    <div class="alert alert-{{ label == 'success' ? 'success' : 'danger' }} bm-alert mb-3">{{ msg }}</div>
     {% endfor %}
 {% endfor %}
 
@@ -190,7 +190,7 @@
 <div style="display:flex;flex-direction:column;gap:12px">
 {% for clf in documents %}
 {% set doc = clf.document %}
-{% set kws = doc.documentKeywords %}
+{% set kws = doc.keywordTerms %}
 {% set authorsStr = doc.authorsString %}
 <div class="bm-card doc-card" style="padding:16px 20px" data-id="{{ doc.id }}">
     <div class="d-flex align-items-start gap-3">
@@ -295,7 +295,6 @@
                         data-page-start="{{ doc.pageStart|escape('html_attr') }}"
                         data-page-end="{{ doc.pageEnd|escape('html_attr') }}"
                         data-publisher="{{ doc.publisher|escape('html_attr') }}"
-                        data-abstract="{{ doc.abstractText|escape('html_attr') }}"
                         style="font-size:11px;border-radius:4px" title="Gerar citação BibTeX para Zotero">
                     <i class="bi bi-journal-code me-1"></i> BibTeX
                 </button>
@@ -325,11 +324,8 @@
             {# 6. Keywords chips #}
             {% if kws|length > 0 %}
             <div class="d-flex flex-wrap gap-1 mb-2">
-                {% for dk in kws|slice(0, 20) %}
-                {% set kw = dk.keyword %}
-                {% if kw %}
-                <span class="kw-chip" style="font-size:10.5px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:4px;padding:2px 7px;color:#c084fc;cursor:default" title="{{ kw.term }}">{{ kw.term }}</span>
-                {% endif %}
+                {% for term in kws|slice(0, 20) %}
+                <span class="kw-chip" style="font-size:10.5px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:4px;padding:2px 7px;color:#c084fc;cursor:default" title="{{ term }}">{{ term }}</span>
                 {% endfor %}
                 {% if kws|length > 20 %}<span style="font-size:10.5px;color:var(--bm-text-muted)">+{{ kws|length - 20 }}</span>{% endif %}
             </div>
@@ -432,7 +428,9 @@ function showBibtexFromElement(btn) {
     const pageStart = btn.dataset.pageStart || '';
     const pageEnd = btn.dataset.pageEnd || '';
     const publisher = btn.dataset.publisher || '';
-    const abstractText = btn.dataset.abstract || '';
+    // O resumo já está na página (bloco "Resumo do Trabalho"): não é repetido em atributo do botão
+    const abstractEl = btn.closest('.doc-card')?.querySelector('.abstract-text');
+    const abstractText = abstractEl ? abstractEl.textContent.trim() : '';
 
     let firstAuthor = 'Unknown';
     if (authorsStr && authorsStr !== 'Autor desconhecido') {

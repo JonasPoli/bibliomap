@@ -12,7 +12,7 @@
 network.page:
   title: "Redes Bibliométricas"
   what: "Desenha, de forma interativa, quem se liga a quem no seu corpus: autores que publicam juntos, palavras-chave que aparecem nos mesmos artigos ou países que colaboram. Cada **bolinha (nó)** é um item e cada **linha** indica que os dois aparecem juntos em pelo menos um documento."
-  how: "Escolha o tipo de rede nas abas do canto superior direito, ajuste os filtros na coluna da esquerda e explore o desenho: arraste, dê zoom com a roda do mouse e clique num nó para destacar só os vizinhos dele. Exporte para Gephi ou VOSviewer se precisar de análises mais avançadas."
+  how: "Escolha o tipo de rede nas abas do canto superior direito, ajuste os filtros na coluna da esquerda e explore o desenho: arraste, dê zoom com a roda do mouse e clique num nó para destacar só os vizinhos dele. Exporte para Gephi ou VOSviewer se precisar de análises mais avançadas. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não é uma análise estatística completa (não calcula intermediação, PageRank etc.). Projetos com mais de 35.000 documentos não geram rede na web, por segurança."
   example: "Numa revisão sobre extensão universitária com 1.200 artigos do Scopus, a rede de coautoria mostrou três grupos que não se conectam: um da USP, um da UFMG e um de Portugal — indício de comunidades de pesquisa isoladas."
 
@@ -121,7 +121,7 @@ network.legend:
 thematic_map.page:
   title: "Mapa Temático"
   what: "Agrupa as palavras-chave em temas (clusters) e posiciona cada tema num gráfico de dois eixos, conforme Callon (1991) e Cobo et al. (2011): **centralidade** (quanto o tema se liga aos demais) e **densidade** (quanto ele é coeso internamente). O cálculo segue o thematicMap() do Bibliometrix: ligações pela força de associação, temas pelo algoritmo Louvain. As linhas tracejadas dividem os temas em quatro quadrantes: motores, nicho, básicos e emergentes/em declínio."
-  how: "Escolha o tipo de palavra-chave, ajuste a ocorrência mínima e o limite de palavras. Passe o mouse nas bolhas para ver os termos e use a tabela abaixo para ler os números de cada tema."
+  how: "Escolha o tipo de palavra-chave, ajuste a ocorrência mínima e o limite de palavras. Passe o mouse nas bolhas para ver os termos e use a tabela abaixo para ler os números de cada tema. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não mostra a evolução no tempo (use a Evolução Temática). Pode diferir do Bibliometrix em detalhes: aqui a ocorrência mínima é um número absoluto de documentos (lá é por mil documentos), o nome do tema é o termo mais frequente (lá combina frequência e PageRank) e os eixos usam os valores, não os postos — as posições relativas e os quadrantes são equivalentes."
   example: "Numa revisão sobre inteligência artificial na agricultura com 10 mil artigos, o tema “machine learning” caiu no quadrante motor e “computer vision” no quadrante de nicho, orientando a escolha do recorte da tese."
 
@@ -138,6 +138,13 @@ thematic_map.min_occur:
   how: "Em corpus pequenos (até 500 documentos) use 2 ou 3; em corpus grandes use 5 ou mais. Termos sem nenhuma ligação com os demais ficam fora do mapa."
   not: "Não remove termos irrelevantes como “study” ou “analysis”; para isso, normalize as palavras-chave antes."
   example: "Com 3.000 artigos sobre energia solar, subir de 2 para 5 tirou do mapa dezenas de termos raros e deixou os temas mais estáveis."
+
+thematic_map.period:
+  title: "Período (recorte por ano)"
+  what: "Limita o mapa aos documentos publicados entre o ano inicial e o ano final (inclusive). Os dois campos são opcionais: só o inicial vale “a partir de”, só o final vale “até”. Termos, ligações, temas, centralidade e densidade são recalculados só com esses documentos."
+  how: "Preencha os anos e o mapa é refeito sozinho. Apague os campos para voltar ao projeto inteiro. Os campos mostram, em cinza, o primeiro e o último ano do projeto."
+  not: "Não compara períodos entre si (para isso use a Evolução Temática). A ocorrência mínima continua valendo, agora sobre o recorte: num período curto, reduza-a."
+  example: "Com 2018 a 2022 num corpus que vai de 2000 a 2024, o tema “machine learning” sai do quadrante de nicho e passa a motor."
 
 thematic_map.max_keywords:
   title: "Limite de palavras"
@@ -237,7 +244,7 @@ thematic_map.export_csv:
 thematic_evo.page:
   title: "Evolução Temática"
   what: "Divide o corpus em dois períodos pelo ano de corte, monta o Mapa Temático de cada período (mesmo método: força de associação e Louvain) e mostra num diagrama de Sankey como os temas do Período 1 se ligam aos do Período 2. A largura de cada fluxo é o **índice de inclusão** dos termos que os dois temas compartilham, como no thematicEvolution() do Bibliometrix."
-  how: "Escolha o ano de corte, o tipo de palavra-chave e a ocorrência mínima. Leia o diagrama da esquerda (P1) para a direita (P2) e use a tabela para ver quais termos sustentam cada fluxo."
+  how: "Escolha o ano de corte, o tipo de palavra-chave e a ocorrência mínima. Leia o diagrama da esquerda (P1) para a direita (P2) e use a tabela para ver quais termos sustentam cada fluxo. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não usa a força de linhagem com PageRank das versões mais novas do Bibliometrix, só o índice de inclusão clássico (Cobo et al., 2011). Documentos sem ano ficam de fora. Só compara dois períodos."
   example: "Numa revisão sobre ensino de matemática (2010–2024) com corte em 2019, o tema “ensino a distância” (P1) alimentou “ensino remoto” e “tecnologias digitais” (P2), mostrando o efeito da pandemia."
 
@@ -304,7 +311,7 @@ thematic_evo.export_csv:
 three_fields.page:
   title: "Gráfico de Três Campos"
   what: "Diagrama de Sankey com três colunas que mostra como itens de três dimensões se ligam através dos documentos — por exemplo, **países → palavras-chave → periódicos**. Equivale ao Three-Fields Plot do Bibliometrix."
-  how: "Escolha o que vai em cada coluna, quantos itens por coluna e a frequência mínima das ligações. Passe o mouse nos fluxos para ver quantos documentos sustentam cada ligação."
+  how: "Escolha o que vai em cada coluna, quantos itens por coluna e a frequência mínima das ligações. Passe o mouse nos fluxos para ver quantos documentos sustentam cada ligação. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não liga diretamente a coluna da esquerda à da direita: as ligações são esquerda→centro e centro→direita, calculadas separadamente. Não segue um mesmo documento de ponta a ponta."
   example: "Numa revisão sobre agroecologia, Brasil → “segurança alimentar” → Revista de Economia e Sociologia Rural mostrou onde os autores brasileiros publicam esse tema."
 
@@ -371,7 +378,7 @@ three_fields.export_csv:
 matrix.page:
   title: "Matrizes Bibliométricas"
   what: "Monta uma tabela cruzando duas dimensões do corpus (ex.: palavras-chave × países, autores × anos). Cada célula conta **quantos documentos** têm ao mesmo tempo o item da linha e o da coluna. Se a mesma dimensão for usada nos dois eixos, vira uma matriz de co-ocorrência."
-  how: "Escolha linhas e colunas, a frequência mínima e o tamanho, e clique em **Gerar**. Exporte em CSV para Excel, R ou SPSS, ou salve a configuração para repetir depois."
+  how: "Escolha linhas e colunas, a frequência mínima e o tamanho, e clique em **Gerar**. Exporte em CSV para Excel, R ou SPSS, ou salve a configuração para repetir depois. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não desenha gráfico nem calcula testes estatísticos (qui-quadrado, correspondência). É a matéria-prima para essas análises em outro programa."
   example: "Numa revisão sobre políticas de permanência estudantil, a matriz “Grupo Temático × Ano” mostrou que o tema “assistência estudantil” cresceu a partir de 2012."
 
@@ -398,16 +405,16 @@ matrix.min_weight:
 
 matrix.limit:
   title: "Limite (linhas × colunas)"
-  what: "Quantidade máxima de linhas e de colunas. Entram os itens com mais ligações com a outra dimensão (soma das combinações por documento), não necessariamente os itens com mais documentos."
-  how: "30 × 30 é bom para ler na tela. Use 250 ou mais apenas para exportar em CSV e analisar em outro programa, pois tabelas grandes deixam o navegador lento."
-  not: "Não é amostragem aleatória; itens raros ficam de fora. Acima de 500 × 500 a exibição na tela pode travar o navegador."
+  what: "Quantidade máxima de linhas e de colunas. Entram os itens com mais ligações com a outra dimensão (soma das combinações por documento), não necessariamente os itens com mais documentos. Em caso de empate, vale a ordem alfabética do rótulo, então o mesmo corpus sempre dá a mesma matriz."
+  how: "30 × 30 é bom para ler na tela. A tela desenha no máximo 250 × 250; se você escolher 500, 1000 ou 2000, a tela mostra 250 × 250 (com um aviso) e o botão “Exportar CSV” traz o tamanho completo, até 2000 × 2000."
+  not: "Não é amostragem aleatória; itens raros ficam de fora. O CSV não desenha nada: abra-o no Excel, R ou SPSS."
   example: "Para uma análise de correspondência no R com todos os 400 termos, escolha 500 × 500 e use apenas “Exportar CSV”."
 
 matrix.thesaurus:
   title: "Tesauro Global"
   what: "Quando ligado, usa os nomes padronizados: o nome canônico do autor (após a desambiguação), o rótulo preferido do conceito no tesauro para palavras-chave e o nome oficial da instituição. Desligado, usa o nome original importado (e a sigla da instituição, quando houver)."
   how: "Deixe ligado para análises finais, pois variações do mesmo item são somadas. Desligue para auditar como os dados vieram da base."
-  not: "Não afeta ano, país, continente, estado, cidade, Qualis nem grupo temático. Para palavras-chave só muda algo se houver conceitos do tesauro vinculados."
+  not: "Não afeta ano, país, continente, estado, cidade, Qualis nem grupo temático. Nas palavras-chave, o rótulo segue a mesma regra dos relatórios, das redes e do mapa: o rótulo preferido do conceito do tesauro; sem tesauro, a forma da palavra-chave conceito; senão, a própria palavra-chave. Variantes ligadas só à palavra-chave conceito agora viram uma linha só."
   example: "Com o tesauro ligado, “Silva, J.”, “J. Silva” e “Silva, João” viraram uma linha só com 18 documentos; desligado, eram três linhas."
 
 matrix.generate:
@@ -426,8 +433,8 @@ matrix.save:
 
 matrix.export_csv:
   title: "Exportar CSV da matriz"
-  what: "Baixa a matriz com totais por linha, por coluna e Total Geral, em CSV com ponto e vírgula e acentos compatíveis com o Excel."
-  how: "O arquivo é recalculado no servidor com as opções que estão no formulário no momento do clique — gere antes para conferir o resultado."
+  what: "Baixa a matriz com totais por linha, por coluna e Total Geral, em CSV com ponto e vírgula e acentos compatíveis com o Excel. É o único jeito de receber tamanhos acima de 250 × 250, até 2000 × 2000."
+  how: "O arquivo é recalculado no servidor com as opções que estão no formulário no momento do clique — gere antes para conferir o resultado. Texto que começa com =, +, - ou @ recebe um apóstrofo na frente, para o Excel não tratá-lo como fórmula."
   not: "Não exporta as cores do mapa de calor nem o relatório de processamento."
   example: "Exporte a matriz palavras × anos e use-a no R (pacote FactoMineR) para uma análise de correspondência."
 

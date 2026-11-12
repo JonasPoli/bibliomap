@@ -9,7 +9,7 @@
 dashboard.page:
   title: "Dashboard de Indicadores"
   what: "Visão rápida do corpus do projeto: números gerais no topo e gráficos de produção, citações, autores, periódicos, palavras-chave, tipos de documento, acesso aberto e coautoria."
-  how: "Os números do topo são calculados ao abrir a página; cada gráfico carrega sozinho logo depois. Use os botões **CSV** de cada painel para levar os dados ao Excel. Para detalhes, abra os relatórios específicos (Autores, Fontes, Documentos, Produção Anual)."
+  how: "Os números do topo são calculados ao abrir a página; cada gráfico carrega sozinho logo depois. Use os botões **CSV** de cada painel para levar os dados ao Excel. Para detalhes, abra os relatórios específicos (Autores, Fontes, Documentos, Produção Anual). Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não tem filtros: sempre mostra o projeto inteiro. Não substitui os relatórios detalhados, que trazem tabelas completas, h-index por autor, Lei de Lotka e Lei de Bradford."
   example: "Logo depois de importar 1.800 registros da Web of Science sobre agricultura digital, abra o Dashboard para conferir se o período (ex.: 2000–2025) e o total de documentos batem com o que você exportou."
 
@@ -139,7 +139,7 @@ dashboard.collaboration:
 report.annual.page:
   title: "Produção Científica Anual"
   what: "Mostra como a produção e as citações do corpus evoluíram ano a ano, com crescimento percentual, média móvel e produção acumulada."
-  how: "Comece pelos indicadores do topo, depois veja o gráfico principal e a tabela. Exporte em **CSV** para montar a figura de produção anual da sua dissertação."
+  how: "Comece pelos indicadores do topo, depois veja o gráfico principal e a tabela. Exporte em **CSV** para montar a figura de produção anual da sua dissertação. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não considera documentos sem ano. O ano corrente ainda está incompleto e puxa para baixo o crescimento e a taxa média do final da série."
   example: "Numa revisão sistemática sobre ensino híbrido, a página mostra que 70% dos documentos foram publicados depois de 2020, coincidindo com a pandemia."
 
@@ -255,7 +255,7 @@ report.annual.col_share:
 report.authors.page:
   title: "Análise de Autores"
   what: "Mostra quem são os autores mais produtivos e citados do corpus, com h-index e g-index calculados dentro do projeto e a Lei de Lotka."
-  how: "Veja os indicadores do topo, o gráfico dos 10 primeiros e a Lei de Lotka; depois use a tabela para ordenar, buscar e abrir os trabalhos de cada autor."
+  how: "Veja os indicadores do topo, o gráfico dos 10 primeiros e a Lei de Lotka; depois use a tabela para ordenar, buscar e abrir os trabalhos de cada autor. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não usa dados externos de perfil (Scopus, Lattes, Google Scholar). Tudo é calculado só com os documentos deste projeto."
   example: "Numa tese sobre agricultura digital, a página mostra os 100 autores mais produtivos e permite abrir os 12 artigos do líder para leitura."
 
@@ -378,7 +378,7 @@ report.authors.bibtex:
 report.sources.page:
   title: "Análise de Fontes / Periódicos"
   what: "Mostra em quais fontes (periódicos, anais) o tema é publicado, com produção, citações, Qualis e a Lei de Bradford para identificar o núcleo de revistas."
-  how: "Veja o top 10, as zonas de Bradford e a lista do núcleo; depois use a tabela para filtrar por zona ou buscar uma revista."
+  how: "Veja o top 10, as zonas de Bradford e a lista do núcleo; depois use a tabela para filtrar por zona ou buscar uma revista. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não unifica variações de nome da mesma revista. Não traz fator de impacto (JCR/SJR)."
   example: "Numa revisão sobre educação a distância, a página revela que 9 revistas concentram um terço de todos os artigos: é por elas que vale começar a leitura."
 
@@ -501,7 +501,7 @@ report.sources.col_period:
 report.documents.page:
   title: "Análise de Documentos"
   what: "Mostra os documentos mais citados do corpus, com autores, países, Qualis, ano e fonte."
-  how: "Veja o gráfico dos 10 mais citados e use a tabela (100 mais citados) para abrir os artigos pelo link do título."
+  how: "Veja o gráfico dos 10 mais citados e use a tabela (100 mais citados) para abrir os artigos pelo link do título. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não lista todos os documentos do projeto. Para procurar qualquer documento, use a **Busca de Trabalhos**."
   example: "Numa revisão sobre extensão universitária, os 20 primeiros da lista viram a base do referencial teórico."
 
@@ -663,7 +663,7 @@ report.search.links:
 report.general.page:
   title: "Relatório Geral"
   what: "Resumo do projeto numa página só, pronta para imprimir ou salvar em PDF: dados do projeto, indicadores, produção anual, Qualis e rankings de autores, fontes, palavras-chave, países e documentos."
-  how: "Revise a página e use **Imprimir / PDF** no topo. Os links no final levam às análises detalhadas."
+  how: "Revise a página e use **Imprimir / PDF** no topo. Os links no final levam às análises detalhadas. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não tem filtros nem tabelas completas; é uma visão resumida (top 10/top 20)."
   example: "Anexe o PDF do Relatório Geral ao relatório de qualificação para mostrar o panorama do corpus em 2 páginas."
 

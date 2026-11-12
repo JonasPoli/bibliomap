@@ -42,7 +42,7 @@
     {% for msg in messages %}
     <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'danger' ? 'danger' : 'warning') }} bm-alert mb-3">
         <i class="bi bi-{{ label == 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill' }}"></i>
-        {{ msg|raw }}
+        {{ msg }}
     </div>
     {% endfor %}
 {% endfor %}

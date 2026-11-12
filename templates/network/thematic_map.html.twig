@@ -178,6 +178,19 @@ input[type="range"] {
                 <input type="range" id="param-max-keywords" min="20" max="300" step="10" value="100" oninput="updateKeywordsLabel(this.value)" onchange="loadThematicMap()">
                 <small class="text-muted" style="font-size:10px">Número máximo de termos para montar os agrupamentos.</small>
             </div>
+
+            <!-- Período (recorte por ano) -->
+            <div class="control-group">
+                <label class="control-label"><span>Período (anos) {{ help('thematic_map.period') }}</span></label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="number" id="param-year-from" class="control-input" style="width:50%" min="1000" max="2200" step="1"
+                           placeholder="{{ yearMin ?? 'de' }}" aria-label="Ano inicial" onchange="loadThematicMap()">
+                    <span style="color:var(--bm-text-muted)">a</span>
+                    <input type="number" id="param-year-to" class="control-input" style="width:50%" min="1000" max="2200" step="1"
+                           placeholder="{{ yearMax ?? 'até' }}" aria-label="Ano final" onchange="loadThematicMap()">
+                </div>
+                <small class="text-muted" style="font-size:10px">Deixe em branco para usar todos os anos do projeto.</small>
+            </div>
         </div>
 
         <div style="font-size:11px;color:var(--bm-text-muted);border-top:1px solid var(--bm-border);padding-top:16px">
@@ -343,7 +356,11 @@ async function loadThematicMap() {
     const minOccur = document.getElementById('param-min-occur').value;
     const limit    = document.getElementById('param-max-keywords').value;
 
-    const url = `${DATA_URL}?kwType=${kwType}&minOccur=${minOccur}&limit=${limit}`;
+    const yearFrom = document.getElementById('param-year-from').value;
+    const yearTo   = document.getElementById('param-year-to').value;
+
+    const url = `${DATA_URL}?kwType=${encodeURIComponent(kwType)}&minOccur=${minOccur}&limit=${limit}`
+              + `&yearFrom=${encodeURIComponent(yearFrom)}&yearTo=${encodeURIComponent(yearTo)}`;
 
     try {
         const response = await fetch(url);

@@ -17,21 +17,31 @@ class NetworkService
     {
         $conn = $this->em->getConnection();
 
-        // 1. Fetch raw nodes (authors) with their doc count and citations, limited to top 1000
-        $rawNodes = $conn->fetchAllAssociative('
+        // O teto de nós vai direto na consulta (no máximo 1.000). Empate de frequência: menor id,
+        // para o corte não depender do plano de execução.
+        $nodeLimit = max(0, min($maxNodes, 1000));
+        $pid = (int) $projectId;
+
+        // 1. Autores do projeto (a derivada já filtra pelo projeto: não varre document_author inteira)
+        $rawNodes = $conn->fetchAllAssociative("
             SELECT 
                 a.id, 
                 a.preferred_name AS label, 
                 COUNT(da.document_id) AS doc_count,
                 SUM(COALESCE(d.cited_by, 0)) AS total_citations
             FROM author_identity a
-            JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author) da ON a.id = da.author_identity_id
+            JOIN (
+                SELECT DISTINCT dax.author_identity_id, dax.document_id
+                FROM document_author dax
+                JOIN document dd ON dd.id = dax.document_id
+                WHERE dd.project_id = $pid
+            ) da ON a.id = da.author_identity_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
             GROUP BY a.id, a.preferred_name
-            ORDER BY doc_count DESC
-            LIMIT 1000
-        ', [$projectId]);
+            ORDER BY doc_count DESC, a.id ASC
+            LIMIT $nodeLimit
+        ", [$projectId]);
 
         if (empty($rawNodes)) {
             return $this->formatGraph([], [], $maxNodes);
@@ -40,7 +50,8 @@ class NetworkService
         $authorIds = array_column($rawNodes, 'id');
         $inList = implode(',', array_map('intval', $authorIds));
 
-        // 2. Fetch raw edges restricted only to top 1000 authors
+        // 2. Arestas só entre os autores escolhidos; ordem total (peso, origem, destino) para o
+        // resultado não variar entre execuções (a detecção de comunidades lê as arestas nessa ordem)
         $rawEdges = $conn->fetchAllAssociative("
             SELECT 
                 da1.author_identity_id AS source, 
@@ -54,7 +65,7 @@ class NetworkService
               AND da2.author_identity_id IN ($inList)
             GROUP BY da1.author_identity_id, da2.author_identity_id
             HAVING weight >= ?
-            ORDER BY weight DESC
+            ORDER BY weight DESC, da1.author_identity_id ASC, da2.author_identity_id ASC
         ", [$projectId, $minWeight]);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
@@ -68,7 +79,8 @@ class NetworkService
         $conn = $this->em->getConnection();
         $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
 
-        // 1. Fetch raw nodes (keywords grouped by concept) limited to top 1000 concepts
+        // 1. Conceitos mais frequentes, direto no teto pedido (no máximo 1.000); empate: menor id
+        $nodeLimit = max(0, min($maxNodes, 1000));
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
                 IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id, 
@@ -82,8 +94,8 @@ class NetworkService
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ?
             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
-            ORDER BY doc_count DESC
-            LIMIT 1000
+            ORDER BY doc_count DESC, id ASC
+            LIMIT ' . $nodeLimit . '
         ', [$projectId, $mappedType]);
 
         if (empty($rawNodes)) {
@@ -93,7 +105,8 @@ class NetworkService
         $conceptIds = array_column($rawNodes, 'id');
         $inList = implode(',', array_map('intval', $conceptIds));
 
-        // 2. Fetch raw edges (grouped by source and target concept IDs) restricted to top 1000 concepts
+        // 2. Arestas entre os conceitos escolhidos. Cada par de palavras-chave aparece uma vez (dk1.keyword_id < dk2.keyword_id):
+        // o par de conceitos é normalizado abaixo e COUNT(DISTINCT documento) não muda
         $rawEdges = $conn->fetchAllAssociative("
             SELECT 
                 CASE WHEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
@@ -106,7 +119,7 @@ class NetworkService
                 END AS tgt_kw,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
-            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
+            JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk1.keyword_id < dk2.keyword_id
             JOIN document d ON dk1.document_id = d.id
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
@@ -116,7 +129,7 @@ class NetworkService
               AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) != IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
             GROUP BY src_kw, tgt_kw
             HAVING weight >= ?
-            ORDER BY weight DESC
+            ORDER BY weight DESC, src_kw ASC, tgt_kw ASC
         ", [$projectId, $mappedType, $mappedType, $minWeight]);
 
         // Aliases src_kw/tgt_kw: com "AS source", o GROUP BY usava a coluna document.source
@@ -140,6 +153,7 @@ class NetworkService
             JOIN paises p ON dp.country_id = p.id
             JOIN document d ON dp.document_id = d.id
             WHERE d.project_id = ?
+            ORDER BY dp.document_id, p.id
         ', [$projectId]);
 
         $docCountries = [];
@@ -182,8 +196,9 @@ class NetworkService
         $idCounter  = 1;
         $nodes      = [];
 
-        // Sort countries by document count desc
-        arsort($countryCounts);
+        // Mais documentos primeiro; empate: ordem alfabética (os ids dos nós saem desta ordem e não
+        // podem depender da ordem em que o banco devolveu as linhas)
+        uksort($countryCounts, fn($a, $b) => [$countryCounts[$b], $a] <=> [$countryCounts[$a], $b]);
 
         foreach ($countryCounts as $name => $count) {
             $countryIds[$name] = $idCounter;

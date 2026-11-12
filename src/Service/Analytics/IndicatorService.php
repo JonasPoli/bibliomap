@@ -50,7 +50,11 @@ class IndicatorService
 
     public function topAuthors(int $projectId, int $limit = 20, string $sort = 'docs'): array
     {
+        // Último critério (id do autor): o corte do top N não depende do plano de execução
         $order = $sort === 'citations' ? 'total_citations DESC, doc_count DESC' : 'doc_count DESC, total_citations DESC';
+        $innerOrder = $order . ', da.author_identity_id ASC';
+        $outerOrder = $order . ', t.author_identity_id ASC';
+        $pid = (int) $projectId;
 
         return $this->conn->fetchAllAssociative(
             'SELECT a.preferred_name AS name, a.normalized_name, t.doc_count, t.total_citations
@@ -58,14 +62,17 @@ class IndicatorService
                  SELECT da.author_identity_id,
                         COUNT(DISTINCT da.document_id) AS doc_count,
                         SUM(d.cited_by)                AS total_citations
-                 FROM (SELECT DISTINCT author_identity_id, document_id FROM document_author) da
+                 FROM (SELECT DISTINCT dax.author_identity_id, dax.document_id
+                       FROM document_author dax
+                       JOIN document dd ON dd.id = dax.document_id
+                       WHERE dd.project_id = ' . $pid . ') da
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY da.author_identity_id
-                 ORDER BY ' . $order . '
+                 ORDER BY ' . $innerOrder . '
                  LIMIT ' . (int)$limit . '
              ) t
              JOIN author_identity a ON a.id = t.author_identity_id
-             ORDER BY ' . $order,
+             ORDER BY ' . $outerOrder,
             [$projectId]
         );
     }
@@ -82,7 +89,7 @@ class IndicatorService
              FROM document
              WHERE project_id = ? AND source_title IS NOT NULL AND source_title != \'\'
              GROUP BY source_title
-             ORDER BY doc_count DESC
+             ORDER BY doc_count DESC, source_title ASC
              LIMIT ' . (int)$limit,
             [$projectId]
         );
@@ -107,7 +114,7 @@ class IndicatorService
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc ON kc.id = k.keyword_concept_id
              GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)
-             ORDER BY doc_count DESC
+             ORDER BY doc_count DESC, term ASC
              LIMIT ' . (int)$limit,
             [$projectId, $mappedType]
         );
@@ -149,24 +156,18 @@ class IndicatorService
 
     public function hIndex(int $projectId): int
     {
-        // Fetch all citation counts sorted descending, compute h-index in PHP
-        $rows = $this->conn->fetchAllAssociative(
-            'SELECT cited_by FROM document
-             WHERE project_id = ? AND cited_by IS NOT NULL
-             ORDER BY cited_by DESC',
+        // Com as citações em ordem decrescente, "citações >= posição" vale num prefixo da lista:
+        // o h-index é a maior posição que ainda satisfaz. Calculado no banco, sem trazer as citações ao PHP.
+        return (int) $this->conn->fetchOne(
+            'SELECT COALESCE(MAX(t.rnk), 0)
+             FROM (
+                 SELECT cited_by, ROW_NUMBER() OVER (ORDER BY cited_by DESC) AS rnk
+                 FROM document
+                 WHERE project_id = ? AND cited_by IS NOT NULL
+             ) t
+             WHERE t.cited_by >= t.rnk',
             [$projectId]
         );
-
-        $h = 0;
-        foreach ($rows as $i => $row) {
-            $rank = $i + 1;
-            if ($row['cited_by'] >= $rank) {
-                $h = $rank;
-            } else {
-                break;
-            }
-        }
-        return $h;
     }
 
     // ── Open Access ───────────────────────────────────────────────────────────
@@ -265,13 +266,14 @@ class IndicatorService
     }
 
     // ── Collaboration index ───────────────────────────────────────────────────
+    // Autores distintos por documento: um vínculo (autor, documento) repetido não infla a média.
 
     public function collaborationIndex(int $projectId): array
     {
         return $this->conn->fetchAllAssociative(
             'SELECT year, AVG(author_count) AS avg_authors_per_doc
              FROM (
-               SELECT d.year, COUNT(da.author_identity_id) AS author_count
+               SELECT d.year, COUNT(DISTINCT da.author_identity_id) AS author_count
                FROM document d
                JOIN document_author da ON da.document_id = d.id
                WHERE d.project_id = ? AND d.year IS NOT NULL

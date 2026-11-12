@@ -5,12 +5,15 @@ namespace App\Controller;
 use App\Entity\BibliometricProject;
 use App\Entity\SavedMatrix;
 use App\Repository\SavedMatrixRepository;
+use App\Service\Analytics\CsvCell;
+use App\Service\Cache\AnalyticsCache;
 use App\Service\Matrix\MatrixEngineService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -18,10 +21,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 class MatrixController extends AbstractController
 {
+    /** Máximo de linhas e de colunas desenhadas na tela; tamanhos maiores só no CSV (em streaming). */
+    public const SCREEN_LIMIT = 250;
+    /** Máximo de linhas e de colunas no CSV. */
+    public const CSV_LIMIT = 2000;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SavedMatrixRepository $savedMatrixRepo,
         private readonly MatrixEngineService $matrixEngine,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -52,22 +61,38 @@ class MatrixController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
-        $rowKey       = $request->query->get('row', 'keyword_author');
-        $colKey       = $request->query->get('col', 'country');
+        $rowKey       = (string) $request->query->get('row', 'keyword_author');
+        $colKey       = (string) $request->query->get('col', 'country');
         $minWeight    = max(1, (int)$request->query->get('minWeight', 1));
-        $maxRows      = min(max(5, (int)$request->query->get('maxRows', 30)), 2000);
-        $maxCols      = min(max(5, (int)$request->query->get('maxCols', 30)), 2000);
+        $reqRows      = min(max(5, (int)$request->query->get('maxRows', 30)), self::CSV_LIMIT);
+        $reqCols      = min(max(5, (int)$request->query->get('maxCols', 30)), self::CSV_LIMIT);
         $useThesaurus = (bool)$request->query->get('useThesaurus', 1);
 
-        $data = $this->matrixEngine->generateMatrix(
+        // Na tela o teto é SCREEN_LIMIT: tabelas maiores travam o navegador (o CSV traz o tamanho pedido)
+        $maxRows = min($reqRows, self::SCREEN_LIMIT);
+        $maxCols = min($reqCols, self::SCREEN_LIMIT);
+
+        // sparse: só as células com valor entram na resposta (a tela trata célula ausente como zero).
+        // O tempo de processamento (processingTimeMs) vai junto no cache: é o do cálculo original.
+        $compute = fn() => $this->matrixEngine->generateMatrix(
             $project->getId(),
             $rowKey,
             $colKey,
             $minWeight,
             $maxRows,
             $maxCols,
-            $useThesaurus
+            $useThesaurus,
+            true
         );
+        // Dimensão fora da lista oficial não vai para o cache (parâmetro livre = entrada nova a cada texto)
+        $data = ($this->matrixEngine->getDimension($rowKey) !== null && $this->matrixEngine->getDimension($colKey) !== null)
+            ? $this->cache->get($project->getId(), 'matrix.generate', [
+                'row' => $rowKey, 'col' => $colKey, 'minWeight' => $minWeight,
+                'maxRows' => $maxRows, 'maxCols' => $maxCols, 'useThesaurus' => $useThesaurus,
+            ], $compute)
+            : $compute();
+        $data['screenLimit'] = self::SCREEN_LIMIT;
+        $data['limited']     = $maxRows < $reqRows || $maxCols < $reqCols;
 
         return new JsonResponse($data);
     }
@@ -82,8 +107,13 @@ class MatrixController extends AbstractController
         }
 
         $name   = trim($request->request->get('name', ''));
-        $rowKey = $request->request->get('rowDimension', 'keyword_author');
-        $colKey = $request->request->get('columnDimension', 'country');
+        $rowKey = (string) $request->request->get('rowDimension', 'keyword_author');
+        $colKey = (string) $request->request->get('columnDimension', 'country');
+
+        // As dimensões voltam à tela em atributos de HTML: só as da lista oficial são aceitas
+        if ($this->matrixEngine->getDimension($rowKey) === null || $this->matrixEngine->getDimension($colKey) === null) {
+            return new JsonResponse(['ok' => false, 'error' => 'Dimensão inválida.'], 400);
+        }
 
         if ($name === '') {
             return new JsonResponse(['ok' => false, 'error' => 'Nome da matriz é obrigatório.'], 400);
@@ -132,13 +162,14 @@ class MatrixController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
-        $rowKey       = $request->query->get('row', 'keyword_author');
-        $colKey       = $request->query->get('col', 'country');
+        $rowKey       = (string) $request->query->get('row', 'keyword_author');
+        $colKey       = (string) $request->query->get('col', 'country');
         $minWeight    = max(1, (int)$request->query->get('minWeight', 1));
-        $maxRows      = min(max(5, (int)$request->query->get('maxRows', 30)), 2000);
-        $maxCols      = min(max(5, (int)$request->query->get('maxCols', 30)), 2000);
+        $maxRows      = min(max(5, (int)$request->query->get('maxRows', 30)), self::CSV_LIMIT);
+        $maxCols      = min(max(5, (int)$request->query->get('maxCols', 30)), self::CSV_LIMIT);
         $useThesaurus = (bool)$request->query->get('useThesaurus', 1);
 
+        // sparse: a matriz de 2000 × 2000 não é montada inteira na memória; as linhas saem uma a uma
         $data = $this->matrixEngine->generateMatrix(
             $project->getId(),
             $rowKey,
@@ -146,44 +177,47 @@ class MatrixController extends AbstractController
             $minWeight,
             $maxRows,
             $maxCols,
-            $useThesaurus
+            $useThesaurus,
+            true
         );
 
-        $rows = $data['rows'];
-        $cols = $data['cols'];
-        $matrix = $data['matrix'];
-        $rowTotals = $data['rowTotals'];
-        $colTotals = $data['colTotals'];
+        $filename = 'matriz_' . preg_replace('/[^a-z0-9_]/i', '', $rowKey) . '_vs_' . preg_replace('/[^a-z0-9_]/i', '', $colKey) . '_' . date('Ymd') . '.csv';
+        $quote = static fn(string $v): string => '"' . str_replace('"', '""', CsvCell::escape($v)) . '"';
 
-        $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
+        $response = new StreamedResponse(function () use ($data, $quote): void {
+            $rows      = $data['rows'];
+            $cols      = $data['cols'];
+            $matrix    = $data['matrix'];
+            $rowTotals = $data['rowTotals'];
+            $colTotals = $data['colTotals'];
 
-        // Header line: RowDim / ColDim ; Col1 ; Col2 ; ... ; Total
-        $headerCols = array_map(fn($c) => '"' . str_replace('"', '""', $c) . '"', $cols);
-        $csv .= sprintf('"%s / %s";%s;"Total"' . "\r\n", $data['rowDimension'], $data['colDimension'], implode(';', $headerCols));
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM
 
-        // Data lines
-        foreach ($rows as $r) {
-            $line = '"' . str_replace('"', '""', $r) . '"';
-            foreach ($cols as $c) {
-                $line .= ';' . ($matrix[$r][$c] ?? 0);
+            // Header line: RowDim / ColDim ; Col1 ; Col2 ; ... ; Total
+            fwrite($out, sprintf('"%s / %s";%s;"Total"' . "\r\n", $data['rowDimension'], $data['colDimension'], implode(';', array_map($quote, $cols))));
+
+            // Data lines
+            foreach ($rows as $r) {
+                $line = $quote($r);
+                $cells = $matrix[$r] ?? [];
+                foreach ($cols as $c) {
+                    $line .= ';' . ($cells[$c] ?? 0);
+                }
+                fwrite($out, $line . ';' . ($rowTotals[$r] ?? 0) . "\r\n");
             }
-            $line .= ';' . ($rowTotals[$r] ?? 0);
-            $csv .= $line . "\r\n";
-        }
 
-        // Total Footer line
-        $footer = '"Total Geral"';
-        foreach ($cols as $c) {
-            $footer .= ';' . ($colTotals[$c] ?? 0);
-        }
-        $footer .= ';' . $data['totalPairs'];
-        $csv .= $footer . "\r\n";
+            // Total Footer line
+            $footer = '"Total Geral"';
+            foreach ($cols as $c) {
+                $footer .= ';' . ($colTotals[$c] ?? 0);
+            }
+            fwrite($out, $footer . ';' . $data['totalPairs'] . "\r\n");
+            fclose($out);
+        });
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
 
-        $filename = 'matriz_' . $rowKey . '_vs_' . $colKey . '_' . date('Ymd') . '.csv';
-
-        return new Response($csv, 200, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ]);
+        return $response;
     }
 }

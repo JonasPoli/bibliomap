@@ -79,7 +79,32 @@ class ThematicMapService
             ];
         }
 
-        $nodeIdPlaceholders = implode(',', array_keys($selectedNodeIds));
+        // Resolve antes os keyword.id dos conceitos escolhidos: a consulta de arestas filtra por
+        // dk.keyword_id (índice de document_keyword) em vez de calcular o conceito de cada vínculo.
+        $positiveIds = [];
+        $thesaurusIds = [];
+        foreach (array_keys($selectedNodeIds) as $nid) {
+            if ($nid < 0) {
+                $thesaurusIds[] = -$nid;
+            } else {
+                $positiveIds[] = $nid;
+            }
+        }
+        $conceptConds = [];
+        if ($positiveIds) {
+            $conceptConds[] = '(k.thesaurus_concept_id IS NULL AND COALESCE(k.keyword_concept_id, k.id) IN (' . implode(',', $positiveIds) . '))';
+        }
+        if ($thesaurusIds) {
+            $conceptConds[] = 'k.thesaurus_concept_id IN (' . implode(',', $thesaurusIds) . ')';
+        }
+        $keywordIds = $conn->fetchFirstColumn(
+            'SELECT k.id FROM keyword k WHERE k.keyword_type = ? AND (' . implode(' OR ', $conceptConds) . ')',
+            [$mappedType]
+        );
+        if (!$keywordIds) {
+            return $empty;
+        }
+        $keywordIdList = implode(',', array_map('intval', $keywordIds));
 
         // ── 2. Fetch co-occurrence edges between selected keywords ─────────────
         // Sem limite de peso: no Bibliometrix a frequência mínima vale só para os nós.
@@ -97,11 +122,11 @@ class ThematicMapService
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?{$yearSql}
+              AND dk1.keyword_id IN ($keywordIdList)
+              AND dk2.keyword_id IN ($keywordIdList)
               AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
-              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) IN ($nodeIdPlaceholders)
-              AND IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) IN ($nodeIdPlaceholders)
             GROUP BY src_kw, tgt_kw
-            ORDER BY weight DESC
+            ORDER BY weight DESC, src_kw ASC, tgt_kw ASC
         ", [$projectId, $mappedType, $mappedType, ...$yearParams]);
 
         // ── 3. Association strength edges; isolated nodes are dropped ─────────

@@ -511,6 +511,11 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 ### 💾 Backup do banco
 
+#### Cache das análises
+* Os relatórios, o painel, as redes, o mapa temático, o gráfico de três campos, as matrizes e a comparação de grupos reaproveitam o resultado enquanto os dados não mudam (validade de 12 h). Toda gravação feita pelo sistema sobe a versão dos dados e invalida o que foi calculado antes.
+* Depois de SQL manual ou da restauração de um dump (gravações fora do sistema), rode: `php bin/console cache:pool:clear cache.analytics --env=prod`.
+* O `build.sh --prod` já apaga o cache a cada deploy.
+
 #### `app:database:backup`
 * **Descrição:** Grava um backup completo do banco da `DATABASE_URL` (`mysqldump --single-transaction --no-tablespaces`, comprimido com `gzip`) em `bibliomap-AAAAMMDD-HHMM.sql.gz`. O arquivo nasce como `.part` e só recebe o nome final depois de o dump terminar sem erro e de passar no `gzip -t`. Só lê o banco: não muda nenhum número.
 * **Pasta:** variável `DATABASE_BACKUP_DIR`, declarada vazia no `.env` e definida **só no `.env.local`** do servidor: caminho absoluto fora do projeto e da pasta pública, com permissão `700`. O comando recusa a variável vazia, uma pasta dentro do projeto, uma pasta com acesso de grupo ou de outros e menos de 2 GB livres na partição.

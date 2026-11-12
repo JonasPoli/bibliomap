@@ -31,7 +31,7 @@ class GroupComparisonService
                 LEFT JOIN document d ON d.id = dc.document_id
                 WHERE g.project_id = ? AND g.id IN (?)
                 GROUP BY g.id
-                ORDER BY doc_count DESC';
+                ORDER BY doc_count DESC, g.position ASC, g.id ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,
@@ -84,7 +84,7 @@ class GroupComparisonService
                 JOIN classification_group g ON g.id = dc.group_id
                 WHERE dc.project_id = ? AND dc.group_id IN (?) AND d.year IS NOT NULL AND d.year > 1900
                 GROUP BY d.year, g.id
-                ORDER BY d.year ASC, g.position ASC';
+                ORDER BY d.year ASC, g.position ASC, g.id ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,
@@ -127,13 +127,15 @@ class GroupComparisonService
     /**
      * Keyword overlap and Jaccard similarity index between groups using Thesaurus
      */
-    public function getSharedKeywordOverlap(int $projectId, array $groupIds): array
+    public function getSharedKeywordOverlap(int $projectId, array $groupIds, bool $includeGroupKeywords = true): array
     {
         $conn = $this->em->getConnection();
 
-        // Top keywords / concepts per group
+        // Top keywords / concepts per group. O agrupamento ignora maiúsculas e acentos; sem escolher o
+        // representante, o rótulo devolvido (CROPS ou crops) variava com o plano de execução. O MIN em
+        // binário é fixo e igual em todos os grupos, então a interseção entre grupos não depende do plano.
         $sql = 'SELECT dc.group_id, g.name AS group_name,
-                       COALESCE(tc.preferred_label, k.keyword_display, dk.original_term) AS concept_label,
+                       CONVERT(MIN(CAST(COALESCE(tc.preferred_label, k.keyword_display, dk.original_term) AS BINARY)) USING utf8mb4) AS concept_label,
                        COUNT(DISTINCT dc.document_id) AS freq
                 FROM document_classification dc
                 JOIN classification_group g ON g.id = dc.group_id
@@ -141,9 +143,9 @@ class GroupComparisonService
                 LEFT JOIN keyword k ON k.id = dk.keyword_id
                 LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
-                GROUP BY dc.group_id, concept_label
+                GROUP BY dc.group_id, COALESCE(tc.preferred_label, k.keyword_display, dk.original_term)
                 HAVING freq >= 2
-                ORDER BY dc.group_id, freq DESC';
+                ORDER BY dc.group_id, freq DESC, concept_label ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,
@@ -152,8 +154,10 @@ class GroupComparisonService
         );
 
         $groupKeywords = [];
+        $groupNames = [];
         foreach ($rows as $r) {
             $gId = (int)$r['group_id'];
+            $groupNames[$gId] = $r['group_name'];
             $label = trim((string)$r['concept_label']);
             if ($label === '') continue;
 
@@ -181,12 +185,9 @@ class GroupComparisonService
 
                 $jaccard = !empty($union) ? round(count($intersection) / count($union), 3) : 0;
 
-                $gNameA = $conn->fetchOne('SELECT name FROM classification_group WHERE id = ?', [$idA]);
-                $gNameB = $conn->fetchOne('SELECT name FROM classification_group WHERE id = ?', [$idB]);
-
                 $pairs[] = [
-                    'groupA'       => $gNameA,
-                    'groupB'       => $gNameB,
+                    'groupA'       => $groupNames[$idA],
+                    'groupB'       => $groupNames[$idB],
                     'intersection' => count($intersection),
                     'union'        => count($union),
                     'jaccard'      => $jaccard,
@@ -195,10 +196,10 @@ class GroupComparisonService
             }
         }
 
-        return [
-            'pairwiseJaccard' => $pairs,
-            'groupKeywords'   => $groupKeywords,
-        ];
+        // groupKeywords (milhares de rótulos por grupo) só vai na resposta quando pedido: a tela lê só pairwiseJaccard
+        return $includeGroupKeywords
+            ? ['pairwiseJaccard' => $pairs, 'groupKeywords' => $groupKeywords]
+            : ['pairwiseJaccard' => $pairs];
     }
 
     /**
@@ -219,7 +220,7 @@ class GroupComparisonService
                 LEFT JOIN paises c ON c.id = i.country_id
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
                 GROUP BY dc.group_id, country_name, continente
-                ORDER BY dc.group_id, doc_count DESC';
+                ORDER BY dc.group_id, doc_count DESC, country_name ASC, continente ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,
@@ -256,7 +257,7 @@ class GroupComparisonService
              LEFT JOIN paises c ON c.id = i.country_id
              WHERE dc.project_id = ? AND dc.group_id IN (?)
              GROUP BY dc.group_id, continente
-             ORDER BY dc.group_id, doc_count DESC',
+             ORDER BY dc.group_id, doc_count DESC, continente ASC',
             [$projectId, $groupIds],
             [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
         );
@@ -287,7 +288,7 @@ class GroupComparisonService
                 JOIN instituicoes_ensino i ON i.id = di.institution_id
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
                 GROUP BY dc.group_id, inst_name, natureza
-                ORDER BY dc.group_id, doc_count DESC';
+                ORDER BY dc.group_id, doc_count DESC, inst_name ASC, natureza ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,
@@ -322,7 +323,7 @@ class GroupComparisonService
              JOIN instituicoes_ensino i ON i.id = di.institution_id
              WHERE dc.project_id = ? AND dc.group_id IN (?)
              GROUP BY dc.group_id, natureza
-             ORDER BY dc.group_id, doc_count DESC',
+             ORDER BY dc.group_id, doc_count DESC, natureza ASC',
             [$projectId, $groupIds],
             [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::INTEGER]
         );
@@ -353,7 +354,7 @@ class GroupComparisonService
                 JOIN document d ON d.id = dc.document_id
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
                 GROUP BY dc.group_id, estrato
-                ORDER BY dc.group_id, doc_count DESC';
+                ORDER BY dc.group_id, doc_count DESC, estrato ASC';
 
         $rows = $conn->fetchAllAssociative(
             $sql,

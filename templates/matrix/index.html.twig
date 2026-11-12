@@ -76,10 +76,10 @@
                 <option value="30" selected>30 x 30</option>
                 <option value="50">50 x 50</option>
                 <option value="100">100 x 100</option>
-                <option value="250">250 x 250</option>
-                <option value="500">500 x 500</option>
-                <option value="1000">1000 x 1000</option>
-                <option value="2000">2000 x 2000 (Máximo)</option>
+                <option value="250">250 x 250 (máximo na tela)</option>
+                <option value="500">500 x 500 (só no CSV)</option>
+                <option value="1000">1000 x 1000 (só no CSV)</option>
+                <option value="2000">2000 x 2000 (só no CSV)</option>
             </select>
         </div>
 
@@ -100,6 +100,12 @@
             {{ help('matrix.generate') }}
         </div>
     </div>
+</div>
+
+{# ── Aviso: a tela mostra no máximo 250 × 250 ───────────────────────────── #}
+<div id="matrixLimitNotice" class="alert alert-info bm-alert mb-3" style="display:none;font-size:13px">
+    <i class="bi bi-info-circle me-1"></i>
+    Na tela a matriz mostra no máximo <strong>250 × 250</strong>. O tamanho escolhido foi reduzido para isso; use <strong>Exportar CSV</strong> para receber o tamanho completo.
 </div>
 
 {# ── Initial Guidance Panel ──────────────────────────────────────────────── #}
@@ -223,7 +229,7 @@
                             <td>{{ m.useThesaurus ? '✅ Sim' : '❌ Não' }}</td>
                             <td class="text-muted">{{ m.createdAt|date('d/m/Y H:i') }}</td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-bm-secondary" onclick="loadSavedMatrix('{{ m.rowDimension }}', '{{ m.columnDimension }}', {{ m.minCellWeight }}, {{ m.maxRows }}, {{ m.useThesaurus ? 1 : 0 }})">
+                                <button class="btn btn-sm btn-bm-secondary" onclick="loadSavedMatrix('{{ m.rowDimension|e('js') }}', '{{ m.columnDimension|e('js') }}', {{ m.minCellWeight|default(1) }}, {{ m.maxRows|default(30) }}, {{ m.useThesaurus ? 1 : 0 }})">
                                     <i class="bi bi-play-fill me-1"></i> Carregar & Gerar
                                 </button>
                                 <form action="{{ path('app_matrix_delete', {id: project.id, matrixId: m.id}) }}" method="post" class="d-inline" onsubmit="return confirm('Deseja remover esta matriz salva?')">
@@ -341,6 +347,7 @@ function generateMatrix() {
         .then(data => {
             currentMatrixData = data;
             hideLoadingState();
+            document.getElementById('matrixLimitNotice').style.display = data.limited ? 'block' : 'none';
             renderMatrix(data);
         })
         .catch(err => {
@@ -385,7 +392,7 @@ function renderMatrix(data) {
     let maxWeight = 1;
     data.rows.forEach(r => {
         data.cols.forEach(c => {
-            const val = data.matrix[r][c] || 0;
+            const val = (data.matrix[r] || {})[c] || 0; // a resposta só traz as células com valor
             if (val > maxWeight) maxWeight = val;
         });
     });
@@ -409,7 +416,7 @@ function renderMatrix(data) {
         tr.innerHTML = `<td class="text-start fw-bold" style="background:var(--bm-bg)">${escapeHtml(r)}</td>`;
 
         data.cols.forEach(c => {
-            const val = data.matrix[r][c] || 0;
+            const val = (data.matrix[r] || {})[c] || 0;
             const td = document.createElement('td');
             if (val > 0) {
                 const alpha = Math.min(0.85, (val / maxWeight) * 0.7 + 0.15);

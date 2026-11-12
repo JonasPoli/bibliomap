@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Service\Cache\AnalyticsCache;
 use App\Service\Network\NetworkService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,6 +19,7 @@ class NetworkController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly NetworkService $networkService,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'app_networks_index', methods: ['GET'])]
@@ -51,12 +53,23 @@ class NetworkController extends AbstractController
         $limit     = min(max((int)$request->query->get('limit', 100), 10), 300);
         $kwType    = $request->query->get('kwType', 'author');
 
-        $data = match ($type) {
-            'coauthorship' => $this->networkService->coauthorship($project->getId(), $minWeight, $limit),
-            'keywords'     => $this->networkService->keywords($project->getId(), $kwType, $minWeight, $limit),
-            'countries'    => $this->networkService->countries($project->getId(), $minWeight, $limit),
+        $compute = match ($type) {
+            'coauthorship' => fn() => $this->networkService->coauthorship($project->getId(), $minWeight, $limit),
+            'keywords'     => fn() => $this->networkService->keywords($project->getId(), $kwType, $minWeight, $limit),
+            'countries'    => fn() => $this->networkService->countries($project->getId(), $minWeight, $limit),
             default        => throw $this->createNotFoundException('Tipo de rede inválido.')
         };
+        // Só keywords usa kwType; nas outras redes ele não muda o resultado. Valor fora da lista conhecida
+        // não vai para o cache (um parâmetro livre criaria uma entrada para cada texto enviado).
+        if ($type === 'keywords' && !in_array($kwType, ['author', 'indexed'], true)) {
+            $data = $compute();
+        } else {
+            $data = $this->cache->get($project->getId(), 'network.' . $type, [
+                'minWeight' => $minWeight,
+                'limit'     => $limit,
+                'kwType'    => $type === 'keywords' ? $kwType : '',
+            ], $compute);
+        }
 
         return $this->json($data);
     }

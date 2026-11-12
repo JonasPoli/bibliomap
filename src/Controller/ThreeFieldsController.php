@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\BibliometricProject;
 use App\Service\Analytics\ThreeFieldsService;
+use App\Service\Cache\AnalyticsCache;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,7 @@ class ThreeFieldsController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ThreeFieldsService $threeFieldsService,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'app_three_fields_plot', methods: ['GET'])]
@@ -45,14 +47,16 @@ class ThreeFieldsController extends AbstractController
             return $this->json(['error' => 'Campos inválidos especificados.'], 400);
         }
 
-        $data = $this->threeFieldsService->buildThreeFieldsPlot(
+        $data = $this->cache->get($project->getId(), 'three_fields', [
+            'left' => $left, 'middle' => $middle, 'right' => $right, 'limit' => $limit, 'minWeight' => $minWeight,
+        ], fn() => $this->threeFieldsService->buildThreeFieldsPlot(
             $project->getId(),
             $left,
             $middle,
             $right,
             $limit,
             $minWeight
-        );
+        ));
 
         return $this->json($data);
     }

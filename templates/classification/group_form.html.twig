@@ -16,7 +16,7 @@
 {% for label, messages in app.flashes %}
     {% for msg in messages %}
     <div class="alert alert-{{ label == 'success' ? 'success' : 'danger' }} bm-alert mb-3">
-        {{ msg|raw }}
+        {{ msg }}
     </div>
     {% endfor %}
 {% endfor %}
@@ -579,7 +579,7 @@ function addTerms(csv) {
     renderChips();
 }
 
-({{ group.terms|json_encode|raw }}).forEach(t => addSingleCleanTerm(t));
+({{ group.terms|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_UNESCAPED_UNICODE'))|raw }}).forEach(t => addSingleCleanTerm(t));
 renderChips();
 
 const termInput = document.getElementById('termInput');

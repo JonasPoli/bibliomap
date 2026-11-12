@@ -122,7 +122,7 @@
                 select.options[0].disabled = true;
                 return;
             }
-            const res = await fetch({{ path('app_admin_authors_search', {exclude: author.id})|json_encode|raw }} + '&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+            const res = await fetch({{ path('app_admin_authors_search', {exclude: author.id})|json_encode(constant("JSON_HEX_TAG") b-or constant("JSON_HEX_AMP") b-or constant("JSON_UNESCAPED_UNICODE"))|raw }} + '&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
             const items = res.ok ? await res.json() : [];
             if (!items.length) {
                 select.add(new Option('Nenhum resultado para "' + q + '"', '', false, false));

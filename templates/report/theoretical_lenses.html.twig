@@ -27,6 +27,7 @@
                 <i class="bi bi-cpu me-1"></i>Mineração de {{ total_docs }} Documentos
             </span>
             {{ help('report.lenses.total_docs') }}
+            {% if is_granted('edit', project) %}
             <form method="post" action="{{ path('app_report_theoretical_lenses_recalculate', {id: project.id}) }}" class="d-inline-flex m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('lenses_recalculate_' ~ project.id) }}">
                 <button type="submit" class="btn btn-sm btn-bm-secondary" style="height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;text-decoration:none;font-size:13px;padding:6px 14px;">
@@ -34,6 +35,7 @@
                 </button>
             </form>
             {{ help('report.lenses.recalculate') }}
+            {% endif %}
             {% if is_granted('edit', project) %}
             <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#addLensModal" style="color:white;height:34px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">
                 <i class="bi bi-plus-circle"></i> Nova Lente
@@ -62,6 +64,16 @@
         </div>
     {% endfor %}
 {% endfor %}
+
+{% if no_result|default(false) %}
+<div class="alert d-flex align-items-start gap-3 mb-4 border-bm" style="background:rgba(210,153,34,0.08);border-radius:12px;padding:16px;color:var(--bm-text)">
+    <i class="bi bi-hourglass-split text-warning fs-4" style="flex-shrink:0;margin-top:2px"></i>
+    <div style="font-size:13.5px;line-height:1.5">
+        <strong>As lentes teóricas ainda não foram calculadas para este projeto.</strong>
+        A mineração do corpus é feita pelo dono do projeto, que precisa abrir esta página uma vez; depois o resultado fica disponível para quem tem acesso ao projeto.
+    </div>
+</div>
+{% endif %}
 
 <!-- Academic Context Alert -->
 <div class="alert d-flex align-items-start gap-3 mb-4 border-bm" style="background:rgba(79,142,247,0.06);border-radius:12px;padding:16px;color:var(--bm-text)">

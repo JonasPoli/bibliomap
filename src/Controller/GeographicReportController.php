@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Service\Cache\AnalyticsCache;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,7 +16,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class GeographicReportController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'app_report_geography', methods: ['GET'])]
@@ -30,133 +32,138 @@ class GeographicReportController extends AbstractController
             $filteredCountry = $this->em->getRepository(\App\Entity\Country::class)->find((int)$countryId);
         }
 
-        // 1. Continents distribution
-        // Citações somadas uma vez por (documento, grupo) — ver distinctSum()
-        $continentsQuery = 'SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
-             FROM document d
-             JOIN documento_paises dp ON dp.document_id = d.id
-             JOIN paises co ON co.id = dp.country_id
-             WHERE d.project_id = ? AND co.continente IS NOT NULL';
-        $continentsParams = [$project->getId()];
-        if ($filteredCountry) {
-            $continentsQuery .= ' AND co.id = ?';
-            $continentsParams[] = $filteredCountry->getId();
-        }
-        $continents = $this->distinctSum($continentsQuery, $continentsParams);
+        // O resultado depende só do projeto e do país filtrado (nenhuma informação do usuário logado)
+        $data = $this->cache->get($project->getId(), 'report.geography', ['countryId' => $filteredCountry?->getId()], function () use ($project, $filteredCountry, $conn) {
+            // 1. Continents distribution
+            // Citações somadas uma vez por (documento, grupo) — ver distinctSum()
+            $continentsQuery = 'SELECT DISTINCT d.id, co.continente AS label, COALESCE(d.cited_by, 0) AS cit
+                 FROM document d
+                 JOIN documento_paises dp ON dp.document_id = d.id
+                 JOIN paises co ON co.id = dp.country_id
+                 WHERE d.project_id = ? AND co.continente IS NOT NULL';
+            $continentsParams = [$project->getId()];
+            if ($filteredCountry) {
+                $continentsQuery .= ' AND co.id = ?';
+                $continentsParams[] = $filteredCountry->getId();
+            }
+            $continents = $this->distinctSum($continentsQuery, $continentsParams);
 
-        // 2. Brazilian Regions distribution
-        $regionsQuery = 'SELECT DISTINCT d.id, r.name AS label, COALESCE(d.cited_by, 0) AS cit
-             FROM document d
-             JOIN documento_estados de ON de.document_id = d.id
-             JOIN estados s ON s.id = de.state_id
-             JOIN regioes r ON r.id = s.region_id
-             WHERE d.project_id = ?';
-        $regionsParams = [$project->getId()];
-        if ($filteredCountry) {
-            $regionsQuery .= ' AND s.country_id = ?';
-            $regionsParams[] = $filteredCountry->getId();
-        }
-        $regions = $this->distinctSum($regionsQuery, $regionsParams);
+            // 2. Brazilian Regions distribution
+            $regionsQuery = 'SELECT DISTINCT d.id, r.name AS label, COALESCE(d.cited_by, 0) AS cit
+                 FROM document d
+                 JOIN documento_estados de ON de.document_id = d.id
+                 JOIN estados s ON s.id = de.state_id
+                 JOIN regioes r ON r.id = s.region_id
+                 WHERE d.project_id = ?';
+            $regionsParams = [$project->getId()];
+            if ($filteredCountry) {
+                $regionsQuery .= ' AND s.country_id = ?';
+                $regionsParams[] = $filteredCountry->getId();
+            }
+            $regions = $this->distinctSum($regionsQuery, $regionsParams);
 
-        // 3. States distribution (Top 15)
-        $statesQuery = 'SELECT s.official_name AS label, s.sigla AS sigla, c.common_name AS country, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM document d
-             JOIN documento_estados de ON de.document_id = d.id
-             JOIN estados s ON s.id = de.state_id
-             JOIN paises c ON c.id = s.country_id
-             WHERE d.project_id = ?';
-        $statesParams = [$project->getId()];
-        if ($filteredCountry) {
-            $statesQuery .= ' AND s.country_id = ?';
-            $statesParams[] = $filteredCountry->getId();
-        }
-        $statesQuery .= ' GROUP BY s.id ORDER BY doc_count DESC LIMIT 15';
-        $states = $conn->fetchAllAssociative($statesQuery, $statesParams);
+            // 3. States distribution (Top 15)
+            $statesQuery = 'SELECT s.official_name AS label, s.sigla AS sigla, c.common_name AS country, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+                 FROM document d
+                 JOIN documento_estados de ON de.document_id = d.id
+                 JOIN estados s ON s.id = de.state_id
+                 JOIN paises c ON c.id = s.country_id
+                 WHERE d.project_id = ?';
+            $statesParams = [$project->getId()];
+            if ($filteredCountry) {
+                $statesQuery .= ' AND s.country_id = ?';
+                $statesParams[] = $filteredCountry->getId();
+            }
+            $statesQuery .= ' GROUP BY s.id ORDER BY doc_count DESC, s.id ASC LIMIT 15';
+            $states = $conn->fetchAllAssociative($statesQuery, $statesParams);
 
-        // 4. Cities distribution (Top 15)
-        $citiesQuery = 'SELECT ct.official_name AS label, s.sigla AS state_sigla, c.common_name AS country, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
-             FROM document d
-             JOIN documento_cidades dc ON dc.document_id = d.id
-             JOIN cidades ct ON ct.id = dc.city_id
-             JOIN paises c ON c.id = ct.country_id
-             LEFT JOIN estados s ON s.id = ct.state_id
-             WHERE d.project_id = ?';
-        $citiesParams = [$project->getId()];
-        if ($filteredCountry) {
-            $citiesQuery .= ' AND ct.country_id = ?';
-            $citiesParams[] = $filteredCountry->getId();
-        }
-        $citiesQuery .= ' GROUP BY ct.id ORDER BY doc_count DESC LIMIT 15';
-        $cities = $conn->fetchAllAssociative($citiesQuery, $citiesParams);
+            // 4. Cities distribution (Top 15)
+            $citiesQuery = 'SELECT ct.official_name AS label, s.sigla AS state_sigla, c.common_name AS country, COUNT(DISTINCT d.id) AS doc_count, SUM(COALESCE(d.cited_by, 0)) AS citation_count
+                 FROM document d
+                 JOIN documento_cidades dc ON dc.document_id = d.id
+                 JOIN cidades ct ON ct.id = dc.city_id
+                 JOIN paises c ON c.id = ct.country_id
+                 LEFT JOIN estados s ON s.id = ct.state_id
+                 WHERE d.project_id = ?';
+            $citiesParams = [$project->getId()];
+            if ($filteredCountry) {
+                $citiesQuery .= ' AND ct.country_id = ?';
+                $citiesParams[] = $filteredCountry->getId();
+            }
+            $citiesQuery .= ' GROUP BY ct.id ORDER BY doc_count DESC, ct.id ASC LIMIT 15';
+            $cities = $conn->fetchAllAssociative($citiesQuery, $citiesParams);
 
-        // 5. Institution Nature
-        $natureQuery = 'SELECT DISTINCT d.id, i.natureza AS label, COALESCE(d.cited_by, 0) AS cit
-             FROM document d
-             JOIN documento_instituicoes di ON di.document_id = d.id
-             JOIN instituicoes_ensino i ON i.id = di.institution_id
-             WHERE d.project_id = ? AND i.natureza IS NOT NULL';
-        $natureParams = [$project->getId()];
-        if ($filteredCountry) {
-            $natureQuery .= ' AND i.country_id = ?';
-            $natureParams[] = $filteredCountry->getId();
-        }
-        $nature = $this->distinctSum($natureQuery, $natureParams);
+            // 5. Institution Nature
+            $natureQuery = 'SELECT DISTINCT d.id, i.natureza AS label, COALESCE(d.cited_by, 0) AS cit
+                 FROM document d
+                 JOIN documento_instituicoes di ON di.document_id = d.id
+                 JOIN instituicoes_ensino i ON i.id = di.institution_id
+                 WHERE d.project_id = ? AND i.natureza IS NOT NULL';
+            $natureParams = [$project->getId()];
+            if ($filteredCountry) {
+                $natureQuery .= ' AND i.country_id = ?';
+                $natureParams[] = $filteredCountry->getId();
+            }
+            $nature = $this->distinctSum($natureQuery, $natureParams);
 
-        // 6. Institution Type
-        $typesQuery = 'SELECT DISTINCT d.id, i.institution_type AS label, COALESCE(d.cited_by, 0) AS cit
-             FROM document d
-             JOIN documento_instituicoes di ON di.document_id = d.id
-             JOIN instituicoes_ensino i ON i.id = di.institution_id
-             WHERE d.project_id = ? AND i.institution_type IS NOT NULL';
-        $typesParams = [$project->getId()];
-        if ($filteredCountry) {
-            $typesQuery .= ' AND i.country_id = ?';
-            $typesParams[] = $filteredCountry->getId();
-        }
-        $types = $this->distinctSum($typesQuery, $typesParams);
+            // 6. Institution Type
+            $typesQuery = 'SELECT DISTINCT d.id, i.institution_type AS label, COALESCE(d.cited_by, 0) AS cit
+                 FROM document d
+                 JOIN documento_instituicoes di ON di.document_id = d.id
+                 JOIN instituicoes_ensino i ON i.id = di.institution_id
+                 WHERE d.project_id = ? AND i.institution_type IS NOT NULL';
+            $typesParams = [$project->getId()];
+            if ($filteredCountry) {
+                $typesQuery .= ' AND i.country_id = ?';
+                $typesParams[] = $filteredCountry->getId();
+            }
+            $types = $this->distinctSum($typesQuery, $typesParams);
 
-        // Count mapped documents vs total
-        $totalDocs = (int) $conn->fetchOne(
-            'SELECT COUNT(*) FROM document WHERE project_id = ?',
-            [$project->getId()]
-        );
+            // Count mapped documents vs total
+            $totalDocs = (int) $conn->fetchOne(
+                'SELECT COUNT(*) FROM document WHERE project_id = ?',
+                [$project->getId()]
+            );
 
-        $mappedQuery = 'SELECT COUNT(DISTINCT d.id) FROM document d
-                        LEFT JOIN documento_instituicoes di ON di.document_id = d.id
-                        LEFT JOIN documento_paises dp ON dp.document_id = d.id
-                        WHERE d.project_id = ?';
-        $mappedParams = [$project->getId()];
-        if ($filteredCountry) {
-            $mappedQuery .= ' AND (di.institution_id IN (SELECT id FROM instituicoes_ensino WHERE country_id = ?) OR dp.country_id = ?)';
-            $mappedParams[] = $filteredCountry->getId();
-            $mappedParams[] = $filteredCountry->getId();
-        } else {
-            $mappedQuery .= ' AND (di.id IS NOT NULL OR dp.document_id IS NOT NULL)';
-        }
-        $mappedDocs = (int) $conn->fetchOne($mappedQuery, $mappedParams);
+            $mappedQuery = 'SELECT COUNT(DISTINCT d.id) FROM document d
+                            LEFT JOIN documento_instituicoes di ON di.document_id = d.id
+                            LEFT JOIN documento_paises dp ON dp.document_id = d.id
+                            WHERE d.project_id = ?';
+            $mappedParams = [$project->getId()];
+            if ($filteredCountry) {
+                $mappedQuery .= ' AND (di.institution_id IN (SELECT id FROM instituicoes_ensino WHERE country_id = ?) OR dp.country_id = ?)';
+                $mappedParams[] = $filteredCountry->getId();
+                $mappedParams[] = $filteredCountry->getId();
+            } else {
+                $mappedQuery .= ' AND (di.id IS NOT NULL OR dp.document_id IS NOT NULL)';
+            }
+            $mappedDocs = (int) $conn->fetchOne($mappedQuery, $mappedParams);
 
-        // Fetch all countries that have documents in this project to display in the filter dropdown
-        $allCountries = $conn->fetchAllAssociative(
-            'SELECT DISTINCT c.id, c.common_name
-             FROM documento_paises dp
-             JOIN paises c ON dp.country_id = c.id
-             JOIN document d ON dp.document_id = d.id
-             WHERE d.project_id = ?
-             ORDER BY c.common_name ASC',
-            [$project->getId()]
-        );
+            // Fetch all countries that have documents in this project to display in the filter dropdown
+            $allCountries = $conn->fetchAllAssociative(
+                'SELECT DISTINCT c.id, c.common_name
+                 FROM documento_paises dp
+                 JOIN paises c ON dp.country_id = c.id
+                 JOIN document d ON dp.document_id = d.id
+                 WHERE d.project_id = ?
+                 ORDER BY c.common_name ASC',
+                [$project->getId()]
+            );
+
+            return compact('continents', 'regions', 'states', 'cities', 'nature', 'types', 'totalDocs', 'mappedDocs', 'allCountries');
+        });
 
         return $this->render('report/geography_report.html.twig', [
             'project' => $project,
-            'continents' => $continents,
-            'regions' => $regions,
-            'states' => $states,
-            'cities' => $cities,
-            'nature' => $nature,
-            'types' => $types,
-            'total_docs' => $totalDocs,
-            'mapped_docs' => $mappedDocs,
-            'all_countries' => $allCountries,
+            'continents' => $data['continents'],
+            'regions' => $data['regions'],
+            'states' => $data['states'],
+            'cities' => $data['cities'],
+            'nature' => $data['nature'],
+            'types' => $data['types'],
+            'total_docs' => $data['totalDocs'],
+            'mapped_docs' => $data['mappedDocs'],
+            'all_countries' => $data['allCountries'],
             'selected_country_id' => $filteredCountry ? $filteredCountry->getId() : null,
         ]);
     }
@@ -183,11 +190,13 @@ class GeographicReportController extends AbstractController
              LEFT JOIN estados s ON s.id = ct.state_id
              WHERE d.project_id = ?' . $countrySql . '
              GROUP BY ct.id, s.id, c.id
-             ORDER BY doc_count DESC',
+             ORDER BY doc_count DESC, ct.id ASC',
             $params
         );
 
         $csv = \League\Csv\Writer::createFromString('');
+        // Texto que começa com = + - @ vira fórmula no Excel: o formatador põe um apóstrofo na frente
+        $csv->addFormatter(new \League\Csv\EscapeFormula());
         $csv->insertOne(['city', 'state', 'state_sigla', 'country', 'continent', 'document_count', 'citation_count']);
 
         foreach ($rows as $row) {
@@ -221,7 +230,7 @@ class GeographicReportController extends AbstractController
             'SELECT label, COUNT(*) AS doc_count, SUM(cit) AS citation_count
              FROM (' . $distinctQuery . ') t
              GROUP BY label
-             ORDER BY doc_count DESC',
+             ORDER BY doc_count DESC, label ASC',
             $params
         );
     }

@@ -9,11 +9,14 @@ use App\Entity\DocumentClassification;
 use App\Repository\ClassificationGroupRepository;
 use App\Repository\DocumentClassificationRepository;
 use App\Service\Classification\ClassificationEngine;
+use App\Service\Analytics\CsvCell;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -26,6 +29,7 @@ class ClassificationController extends AbstractController
         private readonly ClassificationGroupRepository    $groupRepo,
         private readonly DocumentClassificationRepository $classRepo,
         private readonly ClassificationEngine             $engine,
+        private readonly LoggerInterface                  $logger,
     ) {}
 
     // ─── Index ────────────────────────────────────────────────────────────────
@@ -182,7 +186,12 @@ class ClassificationController extends AbstractController
                 $multiMsg
             ));
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao executar classificação: ' . $e->getMessage());
+            // O detalhe técnico vai para o log; a tela mostra uma mensagem genérica
+            $this->logger->error('Falha ao executar a classificação do projeto {project}', [
+                'project'   => $project->getId(),
+                'exception' => $e,
+            ]);
+            $this->addFlash('danger', 'Não foi possível executar a classificação. Tente novamente; se o erro continuar, avise o administrador.');
         }
 
         return $this->redirectToRoute('app_classification_results', ['id' => $project->getId()]);
@@ -213,7 +222,7 @@ class ClassificationController extends AbstractController
                 $total      = $this->classRepo->countByProjectAndGroup($project->getId(), null);
                 $totalPages = max(1, (int) ceil($total / $limit));
                 $page       = min($page, $totalPages);
-                $documents  = $this->classRepo->findByProjectAndGroup($project->getId(), null, $page, $limit);
+                $documents  = $this->classRepo->findPageForDisplay($project->getId(), null, $page, $limit);
             } elseif ($activeGroupId !== null) {
                 $gid = (int) $activeGroupId;
                 foreach ($groups as $g) {
@@ -222,7 +231,7 @@ class ClassificationController extends AbstractController
                 $total      = $this->classRepo->countByProjectAndGroup($project->getId(), $gid);
                 $totalPages = max(1, (int) ceil($total / $limit));
                 $page       = min($page, $totalPages);
-                $documents  = $this->classRepo->findByProjectAndGroup($project->getId(), $gid, $page, $limit);
+                $documents  = $this->classRepo->findPageForDisplay($project->getId(), $gid, $page, $limit);
             } else {
                 // default: first group
                 $activeGroup = $groups[0] ?? null;
@@ -230,19 +239,16 @@ class ClassificationController extends AbstractController
                     $total      = $this->classRepo->countByProjectAndGroup($project->getId(), $activeGroup->getId());
                     $totalPages = max(1, (int) ceil($total / $limit));
                     $page       = min($page, $totalPages);
-                    $documents  = $this->classRepo->findByProjectAndGroup($project->getId(), $activeGroup->getId(), $page, $limit);
+                    $documents  = $this->classRepo->findPageForDisplay($project->getId(), $activeGroup->getId(), $page, $limit);
                 }
             }
         }
 
-        // Build a map of documentId => [group names] for multi-classification display
-        $docGroupNames = [];
-        foreach ($documents as $dc) {
-            $docId = $dc->getDocument()?->getId();
-            if ($docId && !isset($docGroupNames[$docId])) {
-                $docGroupNames[$docId] = $this->classRepo->findGroupNamesByDocument($docId, $project->getId());
-            }
-        }
+        // documentId => [nomes dos grupos] para os selos de multiclassificação (uma consulta para a página)
+        $docGroupNames = $this->classRepo->findGroupNamesByDocuments(
+            array_map(fn(array $dc) => $dc['document']['id'], $documents),
+            $project->getId()
+        );
 
         return $this->render('classification/results.html.twig', [
             'project'       => $project,
@@ -357,45 +363,51 @@ class ClassificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
-        // Fetch all classifications with groups, aggregating groups per document
-        $rows = $this->em->getConnection()->fetchAllAssociative(
-            'SELECT d.id AS doc_id, d.title, d.abstract_text, d.year, d.doi,
-                    GROUP_CONCAT(DISTINCT g.name ORDER BY g.position SEPARATOR "|") AS group_names,
-                    GROUP_CONCAT(DISTINCT g.type ORDER BY g.position SEPARATOR "|") AS group_types,
-                    GROUP_CONCAT(DISTINCT dc.matched_term SEPARATOR "|") AS matched_terms,
-                    MAX(dc.manual_override) AS manual_override,
-                    MAX(dc.run_at) AS run_at
-             FROM document_classification dc
-             JOIN document d ON d.id = dc.document_id
-             LEFT JOIN classification_group g ON g.id = dc.group_id
-             WHERE dc.project_id = ?
-             GROUP BY d.id
-             ORDER BY group_names, d.year DESC',
-            [$project->getId()]
-        );
+        $pid      = $project->getId();
+        $conn     = $this->em->getConnection();
+        $filename = 'classificacao_' . $pid . '_' . date('Ymd') . '.csv';
 
-        $csv = "\xEF\xBB\xBF"; // BOM UTF-8
-        $csv .= "Título;Ano;DOI;Grupos;Tipos;Termos Correspondidos;Override Manual;Data Classificação\r\n";
-        foreach ($rows as $r) {
-            $csv .= sprintf(
-                '"%s";%s;"%s";"%s";"%s";"%s";%s;"%s"' . "\r\n",
-                str_replace('"', '""', $r['title'] ?? ''),
-                $r['year'] ?? '',
-                $r['doi'] ?? '',
-                str_replace('"', '""', $r['group_names'] ?? 'Sem Classificação'),
-                $r['group_types'] ?? '',
-                str_replace('"', '""', $r['matched_terms'] ?? ''),
-                $r['manual_override'] ? 'Sim' : 'Não',
-                $r['run_at'] ?? '',
+        // Linha a linha, direto para a saída: o projeto inteiro nunca fica na memória (e o resumo,
+        // que não vai no CSV, nem é lido)
+        $response = new StreamedResponse(function () use ($conn, $pid): void {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8
+            fwrite($out, "Título;Ano;DOI;Grupos;Tipos;Termos Correspondidos;Override Manual;Data Classificação\r\n");
+
+            $rows = $conn->iterateAssociative(
+                'SELECT d.id AS doc_id, d.title, d.year, d.doi,
+                        GROUP_CONCAT(DISTINCT g.name ORDER BY g.position SEPARATOR "|") AS group_names,
+                        GROUP_CONCAT(DISTINCT g.type ORDER BY g.position SEPARATOR "|") AS group_types,
+                        GROUP_CONCAT(DISTINCT dc.matched_term SEPARATOR "|") AS matched_terms,
+                        MAX(dc.manual_override) AS manual_override,
+                        MAX(dc.run_at) AS run_at
+                 FROM document_classification dc
+                 JOIN document d ON d.id = dc.document_id
+                 LEFT JOIN classification_group g ON g.id = dc.group_id
+                 WHERE dc.project_id = ?
+                 GROUP BY d.id
+                 ORDER BY group_names, d.year DESC, d.id',
+                [$pid]
             );
-        }
+            foreach ($rows as $r) {
+                fwrite($out, sprintf(
+                    '"%s";%s;"%s";"%s";"%s";"%s";%s;"%s"' . "\r\n",
+                    str_replace('"', '""', CsvCell::escape($r['title'])),
+                    $r['year'] ?? '',
+                    str_replace('"', '""', CsvCell::escape($r['doi'])),
+                    str_replace('"', '""', CsvCell::escape($r['group_names'] ?? 'Sem Classificação')),
+                    $r['group_types'] ?? '',
+                    str_replace('"', '""', CsvCell::escape($r['matched_terms'])),
+                    $r['manual_override'] ? 'Sim' : 'Não',
+                    $r['run_at'] ?? '',
+                ));
+            }
+            fclose($out);
+        });
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', "attachment; filename=\"$filename\"");
 
-        $filename = 'classificacao_' . $project->getId() . '_' . date('Ymd') . '.csv';
-
-        return new Response($csv, 200, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ]);
+        return $response;
     }
 
     // ─── Export VOSviewer Categories ──────────────────────────────────────────
@@ -434,6 +446,25 @@ class ClassificationController extends AbstractController
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    public const DEFAULT_COLOR = '#4f8ef7';
+    public const DEFAULT_ICON  = 'bi-collection';
+
+    /** Cor do grupo: só #RRGGBB; qualquer outra coisa (inclusive HTML/CSS injetado) volta ao padrão. */
+    public static function sanitizeColor(string $color): string
+    {
+        $color = trim($color);
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $color) === 1 ? $color : self::DEFAULT_COLOR;
+    }
+
+    /** Ícone do grupo: só uma classe do Bootstrap Icons ("bi-" + letras minúsculas, números e hífen). */
+    public static function sanitizeIcon(string $icon): string
+    {
+        $icon = trim($icon);
+
+        return preg_match('/^bi-[a-z0-9-]+$/', $icon) === 1 ? $icon : self::DEFAULT_ICON;
+    }
 
     /** Continentes reais do cadastro de países (inclui "América Central" e "Europa/Ásia"). */
     private function continentOptions(): array
@@ -481,8 +512,8 @@ class ClassificationController extends AbstractController
         $group->setName(trim($request->request->get('name', '')));
         $group->setDescription(trim($request->request->get('description', '')) ?: null);
         $group->setType($request->request->get('type', ClassificationGroup::TYPE_NORMAL));
-        $group->setColor($request->request->get('color', '#4f8ef7'));
-        $group->setIcon($request->request->get('icon', 'bi-collection'));
+        $group->setColor(self::sanitizeColor((string) $request->request->get('color', '')));
+        $group->setIcon(self::sanitizeIcon((string) $request->request->get('icon', '')));
         $group->setPosition((int) $request->request->get('position', 0));
 
         $matchFields = $request->request->all('match_fields');
@@ -577,7 +608,8 @@ class ClassificationController extends AbstractController
             ];
 
             $escaped = array_map(function($val) {
-                $v = str_replace('"', '""', (string)$val);
+                // Texto que começa com = + - @ vira fórmula no Excel: recebe apóstrofo (desfeito na importação)
+                $v = str_replace('"', '""', CsvCell::escape($val));
                 return '"' . $v . '"';
             }, $fields);
 
@@ -640,6 +672,8 @@ class ClassificationController extends AbstractController
         $updatedCount  = 0;
         $invalidTypes  = [];
         while (($row = fgetcsv($handle, 0, ';')) !== false) {
+            // Desfaz o apóstrofo que a exportação põe antes de = + - @ (proteção contra fórmula)
+            $row = array_map(fn($cell) => CsvCell::unescape((string) $cell), $row);
             if (empty($row) || count($row) < 1 || trim($row[0]) === '') {
                 continue;
             }
@@ -701,8 +735,8 @@ class ClassificationController extends AbstractController
                 $type = ClassificationGroup::TYPE_NORMAL;
             }
             $group->setType($type);
-            $group->setColor($color ?: '#4f8ef7');
-            $group->setIcon($icon ?: 'bi-collection');
+            $group->setColor(self::sanitizeColor($color));
+            $group->setIcon(self::sanitizeIcon($icon));
             $group->setPosition($position);
 
             if ($matchRaw !== '') {

@@ -9,7 +9,7 @@
 report.keywords.page:
   title: "Análise de Palavras-Chave"
   what: "Mostra os termos mais frequentes do corpus, separados pela origem (palavra de autor ou indexada pela base), em gráfico de barras, nuvem, treemap e tabela."
-  how: "Leia os indicadores no topo, compare o gráfico **por origem** com o **consolidado** e use a tabela para buscar um termo e abrir os trabalhos que o usam. A tabela traz os 150 termos mais frequentes (até 300 quando há busca)."
+  how: "Leia os indicadores no topo, compare o gráfico **por origem** com o **consolidado** e use a tabela para buscar um termo e abrir os trabalhos que o usam. A tabela traz os 150 termos mais frequentes (até 300 quando há busca). Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Não analisa título nem resumo, só os campos de palavras-chave. Não mostra relações entre termos: para isso use a rede de coocorrência e o mapa temático."
   example: "Numa revisão sobre inteligência artificial na agricultura com 10.452 documentos, \"artificial intelligence\" aparece em 3.489 documentos como palavra de autor. Como é o próprio termo de busca, ele deve ser deixado de lado ao interpretar os temas."
 
@@ -227,7 +227,7 @@ report.kwevo.export_csv:
 report.glossary.page:
   title: "Glossário de termos"
   what: "Lista os conceitos do tesauro de palavras-chave usados neste projeto. Cada conceito reúne as variações de grafia, sinônimos e traduções de um mesmo termo."
-  how: "Navegue pelas letras ou busque um conceito. Cada cartão mostra o rótulo preferido, as variações, o número de documentos e de citações."
+  how: "Navegue pelas letras ou busque um conceito. Cada cartão mostra o rótulo preferido, as variações, o número de documentos e de citações. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Só mostra palavras-chave já ligadas ao tesauro pelo tratamento de palavras-chave feito pelo administrador. Não define o significado dos termos."
   example: "No glossário, \"Internet of Things\" agrupa \"IoT\" e \"internet das coisas\": use isso na seção de método para mostrar como os sinônimos foram unificados."
 
@@ -268,15 +268,15 @@ report.glossary.search:
 
 report.glossary.letters:
   title: "Filtro por letra"
-  what: "Mostra só os conceitos cujo rótulo preferido começa com a letra escolhida."
-  how: "Clique numa letra; clique em **Todos** para remover o filtro. A busca digitada é mantida."
+  what: "Mostra só os conceitos cujo rótulo preferido começa com a letra escolhida. O glossário abre na primeira letra disponível, para a página carregar rápido em projetos grandes."
+  how: "Clique numa letra; clique em **Todos** para ver o projeto inteiro (em páginas de 60 conceitos). A busca digitada é mantida."
   not: "Não considera a letra inicial das variações."
   example: "Clique em \"S\" para revisar \"smart farming\", \"soil moisture\" e \"sustainability\"."
 
 report.glossary.concepts:
   title: "Cartões de conceito"
   what: "Cada cartão mostra o rótulo preferido do conceito, as variações cadastradas no tesauro (em azul as do tipo preferido, em cinza sinônimos e variantes), o número de documentos do projeto, o número de variantes e a soma de citações."
-  how: "Use para conferir se as unificações fazem sentido antes de citar números de palavras-chave na pesquisa."
+  how: "Use para conferir se as unificações fazem sentido antes de citar números de palavras-chave na pesquisa. Com muitos conceitos, a lista é paginada (60 por página): use os botões no fim da página."
   not: "Não permite editar o tesauro; correções são feitas pelo administrador. A soma de citações conta cada documento uma vez por conceito, mesmo que ele tenha duas variantes do termo."
   example: "O cartão \"precision agriculture\" com 610 documentos e as variações \"precision farming\" e \"agricultura de precisão\"."
 
@@ -287,7 +287,7 @@ report.glossary.concepts:
 report.countries.page:
   title: "Análise de países"
   what: "Mostra quantos documentos e citações cada país tem no corpus, com mapas, gráfico e tabela. O país vem das afiliações dos autores e das instituições reconhecidas no sincronismo geográfico."
-  how: "Comece pelos indicadores, veja a distribuição por continente e use os mapas e a tabela para comparar países."
+  how: "Comece pelos indicadores, veja a distribuição por continente e use os mapas e a tabela para comparar países. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "A contagem é **inteira por documento**: um artigo com autores do Brasil e de Portugal conta 1 para cada país. Não é contagem fracionada, não usa só o autor correspondente e não calcula colaboração internacional (SCP/MCP)."
   example: "Numa revisão sobre IA na agricultura, a China aparece com 1.878 documentos e os Estados Unidos com 1.654, mas os EUA têm média maior de citações (24,2 contra 17)."
 
@@ -389,7 +389,7 @@ report.countries.col_share:
 report.institutions.page:
   title: "Análise de instituições"
   what: "Mostra quantos documentos e citações cada instituição tem no corpus. A instituição vem das afiliações dos autores reconhecidas no catálogo de instituições durante o sincronismo geográfico."
-  how: "Veja a instituição líder, compare no gráfico as 10 mais produtivas e procure qualquer instituição na tabela."
+  how: "Veja a instituição líder, compare no gráfico as 10 mais produtivas e procure qualquer instituição na tabela. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "A contagem é **inteira por documento**: um artigo com autores de três universidades conta 1 para cada. Não é contagem fracionada. Afiliações não reconhecidas no catálogo (ou reconhecidas só como organização) não aparecem."
   example: "Numa revisão sobre IA na agricultura, a China Agricultural University lidera com 124 documentos, mas a Univ Florida, com 120, tem média de 34 citações contra 19,8."
 
@@ -463,7 +463,7 @@ report.institutions.col_avg:
 report.geography.page:
   title: "Relatório geográfico e institucional"
   what: "Distribui os documentos por continente, região do Brasil, estado, cidade e perfil das instituições (natureza e tipo), a partir das afiliações reconhecidas no sincronismo geográfico."
-  how: "Confira primeiro a taxa de cobertura. Depois use o filtro de país para focar um país e leia os gráficos de cima para baixo."
+  how: "Confira primeiro a taxa de cobertura. Depois use o filtro de país para focar um país e leia os gráficos de cima para baixo. Os números ficam guardados e são reaproveitados até algum dado do sistema mudar (importação, normalização, tratamento de palavras-chave, classificação), então reabrir a tela é rápido."
   not: "Contagem inteira: um documento com autores de duas cidades conta para as duas. Não mostra colaboração entre locais."
   example: "Numa revisão sobre extensão rural, filtre \"Brasil\" para ver que o Sudeste concentra 80 documentos e quais cidades lideram."
 
@@ -565,7 +565,7 @@ report.geography.cities_export:
 report.lenses.page:
   title: "Lentes teóricas"
   what: "Procura, em cada documento, os termos associados a cada teórico cadastrado (Latour, Bourdieu, Foucault…): primeiro no título e resumo, depois na lista de referências. Mostra quais referenciais aparecem no seu corpus."
-  how: "Veja o ranking no topo, filtre pela sua área e abra cada cartão para ver até 5 documentos de exemplo em cada aba."
+  how: "Veja o ranking no topo, filtre pela sua área e abra cada cartão para ver até 5 documentos de exemplo em cada aba. A mineração é feita por quem edita o projeto, ao abrir a página; quem só visualiza (projeto público) vê o último resultado calculado, ou um aviso se ainda não houver."
   not: "É busca de palavras, não interpretação: um termo genérico (ex.: \"simetria\") pode gerar falsos positivos. Não substitui a leitura dos trabalhos nem a escolha fundamentada do referencial."
   example: "Numa dissertação sobre chatbots na extensão rural, a lente Bruno Latour aparece em 12 documentos pelo título/resumo (\"actor-network\") e em 30 pelas referências."
 
@@ -579,8 +579,8 @@ report.lenses.total_docs:
 report.lenses.recalculate:
   title: "Recalcular"
   what: "Apaga o resultado guardado e refaz a mineração de todos os documentos contra todas as lentes cadastradas."
-  how: "Use depois de importar documentos ou cadastrar uma nova lente. O processamento é feito em lotes e pode levar alguns minutos em corpus grandes."
-  not: "Não altera documentos nem lentes. O resultado não se atualiza sozinho: sem recalcular, a página mostra o cálculo anterior."
+  how: "Só aparece para quem edita o projeto. Use depois de importar documentos ou cadastrar uma nova lente. O processamento é feito em lotes e pode levar alguns minutos em corpus grandes."
+  not: "Não altera documentos nem lentes. O resultado guarda a versão dos dados do sistema: quando os dados mudam (importação, normalização, nova lente), a próxima abertura da página, por quem edita, refaz a mineração sozinha; quem só visualiza continua vendo o último resultado."
   example: "Após cadastrar a lente \"Paulo Freire\", clique em Recalcular para ver em quantos documentos ela aparece."
 
 report.lenses.add:

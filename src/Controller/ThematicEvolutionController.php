@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Service\Cache\AnalyticsCache;
 use App\Service\Network\ThematicEvolutionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,6 +19,7 @@ class ThematicEvolutionController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ThematicEvolutionService $evolutionService,
+        private readonly AnalyticsCache $cache,
     ) {}
 
     #[Route('', name: 'app_thematic_evolution_index', methods: ['GET'])]
@@ -66,7 +68,12 @@ class ThematicEvolutionController extends AbstractController
         $minOccur   = max((int)$request->query->get('minOccur', 2), 1);
         $limit      = min(max((int)$request->query->get('limit', 100), 10), 300);
 
-        $data = $this->evolutionService->buildThematicEvolution($project->getId(), $kwType, $cutoffYear, $minOccur, $limit);
+        $compute = fn() => $this->evolutionService->buildThematicEvolution($project->getId(), $kwType, $cutoffYear, $minOccur, $limit);
+        $data = in_array($kwType, ['author', 'indexed'], true)
+            ? $this->cache->get($project->getId(), 'thematic_evolution', [
+                'kwType' => $kwType, 'cutoffYear' => $cutoffYear, 'minOccur' => $minOccur, 'limit' => $limit,
+            ], $compute)
+            : $compute();
 
         return $this->json($data);
     }
