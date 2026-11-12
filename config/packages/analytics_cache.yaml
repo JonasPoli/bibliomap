@@ -1,0 +1,8 @@
+# Cache dos resultados das análises (App\Service\Cache\AnalyticsCache).
+# Fica em var/cache/{env}/pools: o build.sh --prod apaga a cada deploy.
+framework:
+    cache:
+        pools:
+            cache.analytics:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 43200
