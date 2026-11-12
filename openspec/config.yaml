@@ -28,7 +28,7 @@ context: |
   - .env.local tem APP_ENV=prod, DATABASE_URL, MAILER_DSN, EMAIL_FROM, EMAIL_CONTACT_TO e TINYMCE.
     Segredo de produção fica só no .env.local do servidor, nunca no .env versionado. Valores nunca exibidos.
   - Leitura livre; escrita só com aprovação do Jonas. Nunca fazer requisição HTTP que execute algo.
-  - Cerca de 104 mil documentos, 7 projetos e 8 usuários. As tabelas de autoridade (keyword,
+  - Cerca de 104 mil documentos, 7 projetos e 8 usuários. Em 12/11/2026 produção está no Symfony 7.4.23, com o cache das análises (src/Service/Cache, var/cache/prod/pools) e 17 comandos app:* (10 de uso único removidos). As tabelas de autoridade (keyword,
     palavra_chave_variacoes_nome, thesaurus_*, author_identity, instituicoes_ensino, paises, qualis_journal)
     são globais: mudar uma delas muda os números de todos os projetos.
   - A importação roda em segundo plano: o controller dispara nohup bin/console app:import:dataset (Process).
