@@ -7,6 +7,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: DocumentAuthorRepository::class)]
 #[ORM\Index(fields: ['document', 'authorIdentity'])]
+#[ORM\Index(name: 'idx_da_doc_effective', columns: ['document_id', 'effective_author_id'])]
+#[ORM\Index(name: 'idx_da_effective', columns: ['effective_author_id'])]
 class DocumentAuthor
 {
     #[ORM\Id]
@@ -28,6 +30,13 @@ class DocumentAuthor
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $originalName = null;
 
+    /**
+     * Identidade efetiva do autor (derivada, reconstruível por app:authority:rebuild). 0 = ainda não calculada.
+     * Hoje é igual a author_identity_id; com mapeamentos em authority_mapping passa a ser o alvo do mapeamento.
+     */
+    #[ORM\Column(name: 'effective_author_id', options: ['default' => 0])]
+    private int $effectiveAuthorId = 0;
+
     public function getId(): ?int { return $this->id; }
     public function getDocument(): ?Document { return $this->document; }
     public function setDocument(?Document $d): static { $this->document = $d; return $this; }
@@ -37,4 +46,6 @@ class DocumentAuthor
     public function setPosition(int $v): static { $this->position = $v; return $this; }
     public function getOriginalName(): ?string { return $this->originalName; }
     public function setOriginalName(?string $v): static { $this->originalName = $v; return $this; }
+    public function getEffectiveAuthorId(): int { return $this->effectiveAuthorId; }
+    public function setEffectiveAuthorId(int $v): static { $this->effectiveAuthorId = $v; return $this; }
 }

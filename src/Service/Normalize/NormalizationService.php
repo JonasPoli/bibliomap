@@ -3,6 +3,7 @@
 namespace App\Service\Normalize;
 
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 use Doctrine\ORM\EntityManagerInterface;
 
 class NormalizationService
@@ -10,7 +11,14 @@ class NormalizationService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AuthorityMergeLogger $mergeLogger,
+        private ?AuthorityResolver $authority = null,
     ) {}
+
+    /** Resolvedor do id efetivo (sem o rastreador quando o serviço é criado à mão, em testes e scripts). */
+    private function authority(): AuthorityResolver
+    {
+        return $this->authority ??= new AuthorityResolver($this->em->getConnection());
+    }
 
     // ── 1. Author Normalization Heuristics ──────────────────────────────────────
 
@@ -133,11 +141,14 @@ class NormalizationService
                AND document_id IN (SELECT document_id FROM (SELECT document_id FROM {$table} WHERE {$column} = ?) AS _keep)",
             [$discardId, $keepId]
         );
-        // 2. Os demais passam para o mantido
+        // 2. Os demais passam para o mantido; efetivo 0 = "recalcular", feito logo abaixo no mesmo comando de negócio
+        $entity = $table === 'document_author' ? AuthorityResolver::ENTITY_AUTHOR : AuthorityResolver::ENTITY_KEYWORD;
+        $effCol = $entity === AuthorityResolver::ENTITY_AUTHOR ? 'effective_author_id' : 'effective_keyword_id';
         $conn->executeStatement(
-            "UPDATE {$table} SET {$column} = ? WHERE {$column} = ?",
+            "UPDATE {$table} SET {$column} = ?, {$effCol} = 0 WHERE {$column} = ?",
             [$keepId, $discardId]
         );
+        $this->authority()->refreshPendingByRaw($entity, $keepId);
     }
 
     /**
@@ -286,9 +297,10 @@ class NormalizationService
 
                 // 2. Remap remaining rows
                 $conn->executeStatement(
-                    'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ?',
+                    'UPDATE document_author SET author_identity_id = ?, effective_author_id = 0 WHERE author_identity_id = ?',
                     [$keepId, $discardId]
                 );
+                $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_AUTHOR, $keepId);
 
                 // Fetch discard name and migrate to variation
                 $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
@@ -670,9 +682,10 @@ class NormalizationService
 
                 // 2. Remap the remaining document_keyword rows to keepId
                 $conn->executeStatement(
-                    'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?',
+                    'UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE keyword_id = ?',
                     [$keepId, $discardId]
                 );
+                $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_KEYWORD, $keepId);
 
                 // Fetch discard term and migrate to variation
                 $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
@@ -842,7 +855,7 @@ class NormalizationService
 
             // 3. Move document authors
             $discardAuthors = $conn->fetchAllAssociative(
-                'SELECT author_identity_id, position, original_name FROM document_author WHERE document_id = ?',
+                'SELECT author_identity_id, position, original_name, effective_author_id FROM document_author WHERE document_id = ?',
                 [$discardId]
             );
             foreach ($discardAuthors as $da) {
@@ -856,6 +869,7 @@ class NormalizationService
                         'author_identity_id' => $da['author_identity_id'],
                         'position'           => $da['position'],
                         'original_name'      => $da['original_name'],
+                        'effective_author_id' => (int) $da['effective_author_id'],
                     ]);
                 }
             }
@@ -863,7 +877,7 @@ class NormalizationService
 
             // 4. Move document keywords
             $discardKws = $conn->fetchAllAssociative(
-                'SELECT keyword_id, original_term FROM document_keyword WHERE document_id = ?',
+                'SELECT keyword_id, original_term, effective_keyword_id FROM document_keyword WHERE document_id = ?',
                 [$discardId]
             );
             foreach ($discardKws as $dk) {
@@ -876,10 +890,13 @@ class NormalizationService
                         'document_id'   => $keepId,
                         'keyword_id'    => $dk['keyword_id'],
                         'original_term' => $dk['original_term'], // NOT NULL: sem ele o merge falhava
+                        'effective_keyword_id' => (int) $dk['effective_keyword_id'],
                     ]);
                 }
             }
             $conn->executeStatement('DELETE FROM document_keyword WHERE document_id = ?', [$discardId]);
+            // O efetivo foi copiado do descartado; recalcula o do mantido (cobre projeto de dono ou escopo diferente)
+            $this->authority()->refreshDocuments([$keepId]);
 
             // 4b. Vínculos geográficos e institucionais: sem isto o CASCADE do DELETE abaixo os apagaria
             foreach (['documento_paises' => 'country_id', 'documento_estados' => 'state_id', 'documento_cidades' => 'city_id'] as $table => $col) {

@@ -4,6 +4,7 @@ namespace App\Service\Import;
 
 use App\DTO\BibliographicRecordDTO;
 use App\Entity\Dataset;
+use App\Service\Authority\AuthorityResolver;
 use App\Service\Import\StringNormalizer;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\ConnectionException;
@@ -36,7 +37,49 @@ class DocumentImportService
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
         private readonly DocumentEnrichmentService $enrichmentService,
+        private ?AuthorityResolver $authority = null,
     ) {}
+
+    private function authority(): AuthorityResolver
+    {
+        return $this->authority ??= new AuthorityResolver($this->conn());
+    }
+
+    /** @var array<int,?int> projeto => dono (para a camada de mapeamento do usuário) */
+    private array $projectOwner = [];
+
+    /**
+     * Efetivo dos vínculos do lote: uma consulta para os autores e outra para as palavras-chave distintas do lote.
+     *
+     * @param list<list<array>> $authorLinks
+     * @param list<list<array>> $kwLinks
+     * @return array{0: array<int,int>, 1: array<int,int>}  [autor bruto => efetivo, palavra bruta => efetivo]
+     */
+    private function effectiveMaps(array $authorLinks, array $kwLinks, int $projectId): array
+    {
+        if (!array_key_exists($projectId, $this->projectOwner)) {
+            $u = $this->conn()->fetchOne('SELECT user_id FROM bibliometric_project WHERE id = ?', [$projectId]);
+            $this->projectOwner[$projectId] = $u === false || $u === null ? null : (int) $u;
+        }
+        $a = [];
+        foreach ($authorLinks as $links) {
+            foreach ($links as $l) {
+                $a[] = $l['author_id'];
+            }
+        }
+        $k = [];
+        foreach ($kwLinks as $links) {
+            foreach ($links as $l) {
+                $k[] = $l['keyword_id'];
+            }
+        }
+        $owner = $this->projectOwner[$projectId];
+
+        return [
+            $a ? $this->authority()->effectiveMap(AuthorityResolver::ENTITY_AUTHOR, $projectId, $owner, $a) : [],
+            $k ? $this->authority()->effectiveMap(AuthorityResolver::ENTITY_KEYWORD, $projectId, $owner, $k) : [],
+        ];
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -462,19 +505,20 @@ class DocumentImportService
 
         $conn->beginTransaction();
         try {
+            [$effA, $effK] = $this->effectiveMaps($authorLinks, $kwLinks, $projectId);
             $authorRows = [];
             $kwRows = [];
             foreach ($docs as $i => $docRow) {
                 $docId = $this->insertDocumentRow($docRow);
                 foreach ($authorLinks[$i] as $link) {
-                    $authorRows[] = [$docId, $link['author_id'], $link['position'], $link['original_name']];
+                    $authorRows[] = [$docId, $link['author_id'], $link['position'], $link['original_name'], $effA[$link['author_id']] ?? $link['author_id']];
                 }
                 foreach ($kwLinks[$i] as $link) {
-                    $kwRows[] = [$docId, $link['keyword_id'], $link['original_term']];
+                    $kwRows[] = [$docId, $link['keyword_id'], $link['original_term'], $effK[$link['keyword_id']] ?? $link['keyword_id']];
                 }
             }
-            $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name'], $authorRows);
-            $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term'], $kwRows);
+            $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name', 'effective_author_id'], $authorRows);
+            $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term', 'effective_keyword_id'], $kwRows);
             $conn->commit();
 
             return ['inserted' => count($docs), 'skipped' => 0, 'errors' => 0];
@@ -504,10 +548,11 @@ class DocumentImportService
                 $conn->beginTransaction();
                 try {
                     $docId = $this->insertDocumentRow($docRow);
-                    $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name'],
-                        array_map(fn ($l) => [$docId, $l['author_id'], $l['position'], $l['original_name']], $authorLinks[$i]));
-                    $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term'],
-                        array_map(fn ($l) => [$docId, $l['keyword_id'], $l['original_term']], $kwLinks[$i]));
+                    [$effA, $effK] = $this->effectiveMaps([$authorLinks[$i]], [$kwLinks[$i]], $projectId);
+                    $this->insertRows('document_author', ['document_id', 'author_identity_id', 'position', 'original_name', 'effective_author_id'],
+                        array_map(fn ($l) => [$docId, $l['author_id'], $l['position'], $l['original_name'], $effA[$l['author_id']] ?? $l['author_id']], $authorLinks[$i]));
+                    $this->insertRows('document_keyword', ['document_id', 'keyword_id', 'original_term', 'effective_keyword_id'],
+                        array_map(fn ($l) => [$docId, $l['keyword_id'], $l['original_term'], $effK[$l['keyword_id']] ?? $l['keyword_id']], $kwLinks[$i]));
                     $conn->commit();
                     $inserted++;
                 } catch (ForeignKeyConstraintViolationException $e) {

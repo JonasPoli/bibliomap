@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\BibliometricProject;
 use App\Entity\Dataset;
 use App\Entity\User;
+use App\Service\Authority\AuthorityResolver;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\String\Slugger\SluggerInterface;
@@ -36,6 +37,7 @@ class ProjectCopyService
         private readonly SluggerInterface       $slugger,
         #[\Symfony\Component\DependencyInjection\Attribute\Autowire('%kernel.project_dir%')]
         private readonly string                 $projectDir,
+        private ?AuthorityResolver              $authority = null,
     ) {}
 
     /**
@@ -68,6 +70,11 @@ class ProjectCopyService
             if ($docCount > 0) {
                 $this->bulkCloneDocumentAuthors();
                 $this->bulkCloneDocumentKeywords();
+                // As colunas efetivas vão copiadas; o recálculo do projeto novo só grava onde diferem (mapeamentos
+                // do projeto de origem não acompanham a cópia, os do usuário dono e os globais valem para o destino)
+                $authority = $this->authority ??= new AuthorityResolver($this->dbal);
+                $authority->refreshLinks(AuthorityResolver::ENTITY_AUTHOR, 'd.project_id = ?', [$newProject->getId()]);
+                $authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'd.project_id = ?', [$newProject->getId()]);
 
                 // Vínculos gerados pela sincronização (mapas, instituições)
                 $this->bulkCloneDocumentLinks('documento_paises', ['country_id']);
@@ -298,8 +305,8 @@ class ProjectCopyService
     private function bulkCloneDocumentAuthors(): void
     {
         $this->dbal->executeStatement(
-            'INSERT INTO document_author (document_id, author_identity_id, position, original_name)
-             SELECT m.new_id, da.author_identity_id, da.position, da.original_name
+            'INSERT INTO document_author (document_id, author_identity_id, position, original_name, effective_author_id)
+             SELECT m.new_id, da.author_identity_id, da.position, da.original_name, da.effective_author_id
              FROM document_author da
              JOIN tmp_doc_map m ON m.old_id = da.document_id
              ORDER BY da.document_id, da.position, da.id'
@@ -309,8 +316,8 @@ class ProjectCopyService
     private function bulkCloneDocumentKeywords(): void
     {
         $this->dbal->executeStatement(
-            'INSERT INTO document_keyword (document_id, keyword_id, original_term)
-             SELECT m.new_id, dk.keyword_id, dk.original_term
+            'INSERT INTO document_keyword (document_id, keyword_id, original_term, effective_keyword_id)
+             SELECT m.new_id, dk.keyword_id, dk.original_term, dk.effective_keyword_id
              FROM document_keyword dk
              JOIN tmp_doc_map m ON m.old_id = dk.document_id
              ORDER BY dk.document_id, dk.id'

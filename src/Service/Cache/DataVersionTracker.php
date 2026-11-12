@@ -14,6 +14,16 @@ use Doctrine\DBAL\Driver\Connection as DriverConnection;
  * de invalidar. O contador sobe DEPOIS que a gravação está confirmada (fora de transação), no
  * máximo uma vez a cada BUMP_INTERVAL segundos durante o processo e uma última vez no fim
  * (DataVersionSubscriber e função de encerramento).
+ *
+ * Também marca "autoridade suja" (tarefa 1.5 do change tesauro-em-camadas): UPDATE ou DELETE em `keyword`,
+ * qualquer escrita em `authority_mapping`, DELETE em `thesaurus_concept` (a FK zera keyword.thesaurus_concept_id)
+ * e UPDATE de `thesaurus_label` que mexa em concept_id. INSERT em `keyword` NÃO marca (palavra nova não muda
+ * o efetivo de vínculo existente). No fim da requisição/comando o DataVersionSubscriber dispara o recálculo
+ * incremental das colunas effective_* (AuthorityResolver::rebuildAll) quando está sujo. As gravações do
+ * próprio recálculo ficam sob suspend()/resume() e não marcam nada (sem laço).
+ *
+ * LIMITE: só enxerga o que passa pela conexão desta aplicação. Gravação feita fora dela (SQL direto no MySQL,
+ * restauração de backup, outro sistema) NÃO é vista: depois dela rode `php bin/console app:authority:rebuild`.
  */
 final class DataVersionTracker
 {
@@ -43,6 +53,8 @@ final class DataVersionTracker
     private float $lastBump = 0.0;
     private ?DriverConnection $connection = null;
     private bool $shutdownRegistered = false;
+    private bool $authorityDirty = false;
+    private int $suspended = 0;
 
     /**
      * Diz se o comando grava dados e em qual tabela.
@@ -118,6 +130,33 @@ final class DataVersionTracker
         }
     }
 
+    /**
+     * A instrução pode mudar o id efetivo calculado (keyword, authority_mapping, vínculo de conceito do tesauro)?
+     * INSERT em keyword não conta. Instrução com junção (tabela '') conta se UPDATE/DELETE citar essas tabelas.
+     */
+    public static function isAuthoritySensitiveWrite(string $sql): bool
+    {
+        $table = self::writtenTable($sql);
+        if ($table === null) {
+            return false;
+        }
+        // Primeiro verbo, sem comentários nem parênteses iniciais
+        $body = preg_replace('/^(?:\s|\(|\/\*.*?\*\/|--[^\n]*\n|#[^\n]*\n)+/s', '', $sql) ?? $sql;
+        $verb = preg_match('/^([A-Za-z]+)/', $body, $m) ? strtoupper($m[1]) : '';
+        $changesOrRemoves = in_array($verb, ['UPDATE', 'DELETE', 'TRUNCATE', 'REPLACE'], true)
+            || ($verb === 'WITH' && preg_match('/\b(UPDATE|DELETE)\b/i', $sql) === 1);
+
+        return match ($table) {
+            'keyword' => $changesOrRemoves,
+            'authority_mapping' => true,
+            // A FK ON DELETE SET NULL zera keyword.thesaurus_concept_id sem passar pela aplicação
+            'thesaurus_concept' => in_array($verb, ['DELETE', 'TRUNCATE', 'REPLACE'], true),
+            'thesaurus_label' => $verb !== 'INSERT' && $changesOrRemoves && preg_match('/\bconcept_id\b/i', $sql) === 1,
+            '' => $changesOrRemoves && preg_match('/\b(keyword|authority_mapping|thesaurus_concept)\b/i', $sql) === 1,
+            default => false,
+        };
+    }
+
     public static function isRelevantWrite(string $sql): bool
     {
         $table = self::writtenTable($sql);
@@ -152,10 +191,24 @@ final class DataVersionTracker
             return;
         }
 
+        if ($this->suspended > 0) {
+            return;
+        }
+
+        if (self::isAuthoritySensitiveWrite($sql)) {
+            $this->authorityDirty = true;
+        }
+
         if (!self::isRelevantWrite($sql)) {
             return;
         }
 
+        $this->markDataChanged();
+    }
+
+    /** Marca que os dados mudaram (sobe a versão); usado também pelo recálculo, que grava só se algo mudou. */
+    public function markDataChanged(): void
+    {
         $this->dirty = true;
         if (!$this->shutdownRegistered) {
             // Última chance quando o processo termina por erro fatal, sem passar pelos eventos
@@ -163,6 +216,32 @@ final class DataVersionTracker
             $this->shutdownRegistered = true;
         }
         $this->bumpIfDue();
+    }
+
+    /** Enquanto suspenso, gravações não marcam dado nem autoridade sujos (recálculo das colunas efetivas). */
+    public function suspend(): void
+    {
+        $this->suspended++;
+    }
+
+    public function resume(): void
+    {
+        $this->suspended = max(0, $this->suspended - 1);
+    }
+
+    public function isAuthorityDirty(): bool
+    {
+        return $this->authorityDirty;
+    }
+
+    public function clearAuthorityDirty(): void
+    {
+        $this->authorityDirty = false;
+    }
+
+    public function isInTransaction(): bool
+    {
+        return $this->inTransaction;
     }
 
     public function isDirty(): bool

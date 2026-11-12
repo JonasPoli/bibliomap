@@ -19,6 +19,7 @@ use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use App\Service\Authority\AuthorityLinkGuard;
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 
 #[Route('/admin/authors')]
 #[IsGranted('ROLE_ADMIN')]
@@ -30,7 +31,14 @@ class AdminAuthorController extends AbstractController
         private readonly EntityMergeService $mergeService,
         private readonly AuthorityLinkGuard $linkGuard,
         private readonly AuthorityMergeLogger $mergeLogger,
+        private ?AuthorityResolver $authority = null,
     ) {}
+
+    /** Resolvedor do id efetivo; criado sob demanda quando o controlador é montado à mão (testes). */
+    private function authority(): AuthorityResolver
+    {
+        return $this->authority ??= new AuthorityResolver($this->em->getConnection());
+    }
 
     #[Route('', name: 'app_admin_authors_index', methods: ['GET'])]
     public function index(Request $request): Response
@@ -536,9 +544,11 @@ class AdminAuthorController extends AbstractController
             ]);
             $this->mergeLogger->logLinks($logId, 'document_author', (int) $parent->getId(), null, $varName);
             $conn->executeStatement(
-                'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ? AND original_name = ?',
+                'UPDATE document_author SET author_identity_id = ?, effective_author_id = 0 WHERE author_identity_id = ? AND original_name = ?',
                 [$newAuthor->getId(), $parent->getId(), $varName]
             );
+            // Efetivo dos vínculos que mudaram de identidade (0 = recalcular), na mesma transação
+            $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_AUTHOR, (int) $newAuthor->getId());
         });
 
         // Remove variation from old parent

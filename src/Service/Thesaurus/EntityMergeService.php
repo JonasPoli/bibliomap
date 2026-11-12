@@ -18,6 +18,7 @@ use App\Entity\JournalVariation;
 use App\Entity\State;
 use App\Entity\StateVariation;
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 use App\Service\Import\StringNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -26,7 +27,14 @@ class EntityMergeService
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AuthorityMergeLogger $mergeLogger,
+        private ?AuthorityResolver $authority = null,
     ) {}
+
+    /** Resolvedor do id efetivo (sem o rastreador quando o serviço é criado à mão, em testes e scripts). */
+    private function authority(): AuthorityResolver
+    {
+        return $this->authority ??= new AuthorityResolver($this->em->getConnection());
+    }
 
     /**
      * Merge multiple Institutions into one Master Institution
@@ -606,7 +614,20 @@ class EntityMergeService
              WHERE l1.{$column} = ? AND l2.{$column} = ?",
             [$sourceId, $masterId]
         );
-        $conn->executeStatement("UPDATE {$table} SET {$column} = ? WHERE {$column} = ?", [$masterId, $sourceId]);
+        // Autor e palavra-chave levam o efetivo junto: 0 = "recalcular", feito logo em seguida no mesmo comando
+        $effCol = match ($table) {
+            'document_author' => 'effective_author_id',
+            'document_keyword' => 'effective_keyword_id',
+            default => null,
+        };
+        $set = $effCol ? "{$column} = ?, {$effCol} = 0" : "{$column} = ?";
+        $conn->executeStatement("UPDATE {$table} SET {$set} WHERE {$column} = ?", [$masterId, $sourceId]);
+        if ($effCol) {
+            $this->authority()->refreshPendingByRaw(
+                $table === 'document_author' ? AuthorityResolver::ENTITY_AUTHOR : AuthorityResolver::ENTITY_KEYWORD,
+                $masterId
+            );
+        }
     }
 
     public function remapAuthorLinks(int $sourceId, int $masterId, ?string $origin = null, ?int $projectId = null): void
@@ -621,8 +642,12 @@ class EntityMergeService
         $this->mergeLogger->logKeywordMerge($origin ?? $this->mergeLogger->defaultOrigin(), 'merge', $sourceId, $masterId, null, $projectId);
         $conn = $this->em->getConnection();
         $this->remapDocumentLinks('document_keyword', 'keyword_id', $sourceId, $masterId);
-        // Termos agrupados sob o secundário passam para o conceito do master
+        // Termos agrupados sob o secundário passam para o conceito do master: o efetivo dos vínculos deles muda junto
+        $regrouped = array_map('intval', $conn->fetchFirstColumn('SELECT id FROM keyword WHERE keyword_concept_id = ? AND id <> ?', [$sourceId, $sourceId]));
         $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ? AND id <> ?', [$masterId, $sourceId, $sourceId]);
+        foreach (array_chunk($regrouped, 1000) as $chunk) {
+            $this->authority()->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.keyword_id IN (' . implode(',', $chunk) . ')');
+        }
         $conn->executeStatement('UPDATE thesaurus_match SET keyword_id = ? WHERE keyword_id = ?', [$masterId, $sourceId]);
         $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [$masterId, $sourceId]);
     }

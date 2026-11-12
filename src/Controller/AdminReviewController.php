@@ -10,6 +10,7 @@ use App\Entity\KeywordVariation;
 use App\Service\Import\TextNormalizer;
 use App\Service\Authority\AuthorityLinkGuard;
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,7 +29,14 @@ class AdminReviewController extends AbstractController
         private readonly EntityMergeService $mergeService,
         private readonly AuthorityLinkGuard $linkGuard,
         private readonly AuthorityMergeLogger $mergeLogger,
+        private ?AuthorityResolver $authority = null,
     ) {}
+
+    /** Resolvedor do id efetivo; criado sob demanda quando o controlador é montado à mão (testes). */
+    private function authority(): AuthorityResolver
+    {
+        return $this->authority ??= new AuthorityResolver($this->em->getConnection());
+    }
 
     #[Route('', name: 'app_admin_review_index', methods: ['GET'])]
     public function index(): Response
@@ -320,9 +328,11 @@ class AdminReviewController extends AbstractController
                     'document_id'   => $da['document_id'],
                     'keyword_id'    => $kwId,
                     'original_term' => $da['original_name'],
+                    'effective_keyword_id' => 0, // recalculado logo abaixo (a palavra pode já ter conceito do tesauro)
                 ]);
             }
         }
+        $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_KEYWORD, (int) $kwId);
 
         // 3. Delete the old author identity (diário antes: os vínculos do autor somem com ele)
         $authorId = (int) $author->getId();

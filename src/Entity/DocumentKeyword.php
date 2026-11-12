@@ -7,6 +7,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: DocumentKeywordRepository::class)]
 #[ORM\Index(name: 'idx_dk_document_keyword', columns: ['document_id', 'keyword_id'])]
+#[ORM\Index(name: 'idx_dk_doc_effective', columns: ['document_id', 'keyword_id', 'effective_keyword_id'])]
+#[ORM\Index(name: 'idx_dk_effective', columns: ['effective_keyword_id'])]
 class DocumentKeyword
 {
     #[ORM\Id]
@@ -25,6 +27,13 @@ class DocumentKeyword
     #[ORM\Column(length: 255)]
     private string $originalTerm = '';
 
+    /**
+     * Identidade efetiva da palavra-chave (derivada, reconstruível por app:authority:rebuild). 0 = ainda não
+     * calculada. Positivo = keyword.id efetivo; negativo = -thesaurus_concept.id.
+     */
+    #[ORM\Column(name: 'effective_keyword_id', options: ['default' => 0])]
+    private int $effectiveKeywordId = 0;
+
     public function getId(): ?int { return $this->id; }
     public function getDocument(): ?Document { return $this->document; }
     public function setDocument(?Document $d): static { $this->document = $d; return $this; }
@@ -32,4 +41,6 @@ class DocumentKeyword
     public function setKeyword(?Keyword $k): static { $this->keyword = $k; return $this; }
     public function getOriginalTerm(): string { return $this->originalTerm; }
     public function setOriginalTerm(string $v): static { $this->originalTerm = $v; return $this; }
+    public function getEffectiveKeywordId(): int { return $this->effectiveKeywordId; }
+    public function setEffectiveKeywordId(int $v): static { $this->effectiveKeywordId = $v; return $this; }
 }

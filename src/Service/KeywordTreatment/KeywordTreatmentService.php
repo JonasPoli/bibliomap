@@ -10,6 +10,7 @@ use App\Entity\ThesaurusConcept;
 use App\Entity\ThesaurusScheme;
 use App\Entity\ThesaurusLabel;
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 use App\Service\Cache\AnalyticsCache;
 use App\Service\Import\TextNormalizer;
 use App\Service\Keyword\KeywordThesaurusMatcherService;
@@ -30,8 +31,32 @@ class KeywordTreatmentService
         private readonly KeywordThesaurusMatcherService $thesaurusMatcher,
         private readonly ?AnalyticsCache $cache = null,
         private ?AuthorityMergeLogger $mergeLogger = null,
+        private ?AuthorityResolver $authority = null,
     ) {
         $this->normalizer = new TextNormalizer();
+    }
+
+    /** @var array<int,true> palavras-chave cujo conceito (ou grupo) mudou e cujos vínculos precisam de novo efetivo */
+    private array $effectiveDirty = [];
+
+    private function markEffective(int ...$keywordIds): void
+    {
+        foreach ($keywordIds as $id) {
+            $this->effectiveDirty[$id] = true;
+        }
+    }
+
+    /** Recalcula o efetivo dos vínculos das palavras marcadas; chamado depois do flush e antes do commit do lote. */
+    private function refreshEffective(): void
+    {
+        if (!$this->effectiveDirty) {
+            return;
+        }
+        $authority = $this->authority ??= new AuthorityResolver($this->em->getConnection());
+        foreach (array_chunk(array_keys($this->effectiveDirty), 1000) as $chunk) {
+            $authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.keyword_id IN (' . implode(',', array_map('intval', $chunk)) . ')');
+        }
+        $this->effectiveDirty = [];
     }
 
     private function mergeLogger(): AuthorityMergeLogger
@@ -315,7 +340,9 @@ class KeywordTreatmentService
                                     }
 
                                     // 2. Re-point remaining document_keyword rows to the canonical keyword
-                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
+                                    // (efetivo 0 = recalcular: refreshEffective() grava o valor certo antes do commit do lote)
+                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE keyword_id = ?', [(int)$existingId, $kwId]);
+                                    $this->markEffective((int)$existingId);
 
                                     // 3. Re-point keyword variations e guarda a grafia original do termo apagado como variação
                                     $conn->executeStatement('UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
@@ -331,6 +358,7 @@ class KeywordTreatmentService
                                     $conn->executeStatement('UPDATE thesaurus_match SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
 
                                     // 5. Agrupamentos legados e conceito do tesauro não se perdem com a exclusão
+                                    $this->markEffective(...array_map('intval', $conn->fetchFirstColumn('SELECT id FROM keyword WHERE keyword_concept_id = ? AND id != ?', [$kwId, (int)$existingId])));
                                     $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ? AND id != ?', [(int)$existingId, $kwId, (int)$existingId]);
                                     if ($kw->getThesaurusConcept() !== null) {
                                         $conn->executeStatement(
@@ -436,6 +464,7 @@ class KeywordTreatmentService
                                 $exactMatchedCount++;
                                 if (!$options->dryRun) {
                                     $member->setThesaurusConcept($tc);
+                                    $this->markEffective((int)$member->getId());
                                 }
                                 $this->logAction($job, $member, 'exact_label_matched', $member->getKeywordDisplay(), $member->getKeywordDisplay(), $member->getKeywordNormalized(), $member->getKeywordNormalized(), null, $tc, 100.0, 'exact_normalized_match', $options->dryRun, 'exact_label');
                             } else {
@@ -446,6 +475,7 @@ class KeywordTreatmentService
                                 $exactMatchedCount++;
                                 if (!$options->dryRun && $canonical instanceof Keyword) {
                                     $member->setKeywordConcept($canonical);
+                                    $this->markEffective((int)$member->getId());
                                 }
                                 $this->logAction($job, $member, 'exact_concept_matched', $member->getKeywordDisplay(), $member->getKeywordDisplay(), $member->getKeywordNormalized(), $member->getKeywordNormalized(), null, null, 100.0, 'exact_normalized_group_legacy', $options->dryRun, 'exact_concept', $canonical);
                             }
@@ -470,6 +500,7 @@ class KeywordTreatmentService
                             $concept = $this->thesaurusMatcher->getConceptEntity($result['conceptId']);
                             if (!$options->dryRun && $concept) {
                                 $kw->setThesaurusConcept($concept);
+                                $this->markEffective((int)$kw->getId());
                                 $this->thesaurusMatcher->recordMatch($kw, $concept, $result['method'], 100.0, 'automatic');
                             }
                             $this->logAction($job, $kw, 'exact_label_matched', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, 100.0, $result['method'] . ': ' . $result['conceptLabel'], $options->dryRun, $result['method']);
@@ -479,8 +510,10 @@ class KeywordTreatmentService
 
                 // Fim das etapas 1 a 3: grava e confirma antes da comparação aproximada
                 $this->em->flush();
+                $this->refreshEffective();
                 $conn->commit();
                 } catch (\Throwable $e) {
+                    $this->effectiveDirty = [];
                     $this->rollbackQuietly($conn);
                     throw $e;
                 }
@@ -512,6 +545,7 @@ class KeywordTreatmentService
                             $fuzzyAutoMatchedCount++;
                             if (!$options->dryRun && $concept) {
                                 $kw->setThesaurusConcept($concept);
+                                $this->markEffective((int)$kw->getId());
                                 $this->thesaurusMatcher->recordMatch($kw, $concept, 'fuzzy', $result['score'] / 100.0, 'automatic');
                             }
                             $this->logAction($job, $kw, 'fuzzy_auto_matched', $kw->getKeywordDisplay(), $kw->getKeywordDisplay(), $kw->getKeywordNormalized(), $kw->getKeywordNormalized(), null, $concept, $result['score'], 'fuzzy_score: ' . round($result['score'], 1) . '% → ' . $result['conceptLabel'], $options->dryRun, 'fuzzy');
@@ -535,8 +569,10 @@ class KeywordTreatmentService
 
                     // Flush batch (both modes: logs need to be persisted too)
                     $this->em->flush();
+                    $this->refreshEffective();
                     $conn->commit();
                 } catch (\Throwable $e) {
+                    $this->effectiveDirty = [];
                     $this->rollbackQuietly($conn);
                     throw $e;
                 }

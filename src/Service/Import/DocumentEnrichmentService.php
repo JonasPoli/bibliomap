@@ -3,6 +3,7 @@
 namespace App\Service\Import;
 
 use App\Service\Authority\AuthorityMergeLogger;
+use App\Service\Authority\AuthorityResolver;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -27,8 +28,10 @@ class DocumentEnrichmentService
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
         private ?AuthorityMergeLogger $mergeLogger = null,
+        private ?AuthorityResolver $authority = null,
     ) {
         $this->mergeLogger ??= new AuthorityMergeLogger($em);
+        $this->authority ??= new AuthorityResolver($em->getConnection());
     }
 
     /**
@@ -331,6 +334,16 @@ class DocumentEnrichmentService
         $this->registerAndLinkAcademicDatabases($projectId, $conn);
 
         // ── 6. Automatically apply Thesaurus Concepts to Keywords ──
+        // As palavras que vão ganhar conceito mudam de efetivo (positivo -> -conceito) em todos os projetos:
+        // guarda os ids antes para recalcular os vínculos delas logo depois do UPDATE.
+        $keywordsToLink = array_map('intval', $conn->fetchFirstColumn("
+            SELECT DISTINCT k.id
+            FROM keyword k
+            JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            JOIN thesaurus_concept tc ON tc.id = tl.concept_id
+            JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id AND ts.slug = 'keyword'
+            WHERE k.thesaurus_concept_id IS NULL
+        "));
         $conn->executeStatement("
             UPDATE keyword k
             JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
@@ -340,6 +353,9 @@ class DocumentEnrichmentService
             SET k.thesaurus_concept_id = tl.concept_id
             WHERE k.thesaurus_concept_id IS NULL
         ");
+        foreach (array_chunk($keywordsToLink, 1000) as $chunk) {
+            $this->authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.keyword_id IN (' . implode(',', $chunk) . ')');
+        }
 
         if (!$withReport) {
             $executionTime = round(microtime(true) - $startTime, 2);
@@ -618,6 +634,7 @@ class DocumentEnrichmentService
             // Cada bloco numa transação: o diário e a troca de vínculos andam juntos
             $conn->beginTransaction();
             try {
+            $touched = false;
             foreach ($docAuthors as $da) {
                 if (!$da['original_name']) continue;
                 $norm = self::normalize($da['original_name']);
@@ -639,10 +656,15 @@ class DocumentEnrichmentService
                         if ($isDuplicate) {
                             $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
                         } else {
-                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
+                            // efetivo 0 = "recalcular": o refresh logo abaixo, na mesma transação, grava o valor certo
+                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ?, effective_author_id = 0 WHERE id = ?', [$targetAuthorId, $da['id']]);
+                            $touched = true;
                         }
                     }
                 }
+            }
+            if ($touched) {
+                $this->authority->refreshLinks(AuthorityResolver::ENTITY_AUTHOR, 'da.document_id IN (' . implode(',', $docIds) . ') AND da.effective_author_id = 0');
             }
             $conn->commit();
             } catch (\Throwable $e) {
@@ -683,6 +705,7 @@ class DocumentEnrichmentService
 
             $conn->beginTransaction();
             try {
+            $touched = false;
             foreach ($docKeywords as $dk) {
                 if (!$dk['original_term']) continue;
                 $norm = self::normalize($dk['original_term']);
@@ -705,10 +728,14 @@ class DocumentEnrichmentService
                         if ($isDuplicate) {
                             $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
                         } else {
-                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
+                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE id = ?', [$targetKeywordId, $dk['id']]);
+                            $touched = true;
                         }
                     }
                 }
+            }
+            if ($touched) {
+                $this->authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.document_id IN (' . implode(',', $docIds) . ') AND dk.effective_keyword_id = 0');
             }
             $conn->commit();
             } catch (\Throwable $e) {
