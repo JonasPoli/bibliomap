@@ -7,6 +7,7 @@ use App\Entity\QualisJournal;
 use App\Entity\JournalVariation;
 use App\Service\Import\DocumentEnrichmentService;
 use App\Service\Import\StringNormalizer;
+use App\Service\Qualis\QualisImporterService;
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -264,6 +265,12 @@ class AdminJournalController extends AbstractController
 
             $this->em->flush();
 
+            // Os relatórios leem document.qualis: o estrato editado vai para os documentos da revista (todos os projetos)
+            $this->em->getConnection()->executeStatement(
+                'UPDATE document SET qualis = ? WHERE qualis_journal_id = ? AND NOT (qualis <=> ?)',
+                [$journal->getQualis(), $journal->getId(), $journal->getQualis()]
+            );
+
             $this->addFlash('success', 'Periódico atualizado com sucesso!');
             return $this->redirectToRoute('app_admin_journals_index');
         }
@@ -480,6 +487,9 @@ class AdminJournalController extends AbstractController
                     $imported += $stats['imported'];
                     $updated += $stats['updated'];
                 }
+
+                // Os relatórios leem document.qualis: os documentos já ligados recebem o estrato importado
+                $conn->executeStatement(QualisImporterService::SQL_SYNC_DOCUMENT_QUALIS);
 
                 $conn->commit();
                 $this->addFlash('success', "Importação concluída! Cadastrados: {$imported}, Atualizados: {$updated}.");

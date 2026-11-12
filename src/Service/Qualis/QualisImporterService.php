@@ -10,6 +10,15 @@ class QualisImporterService
 {
     private const BULK_SIZE = 1000;
 
+    /**
+     * Leva o estrato da revista aos documentos já ligados a ela (document.qualis é o que os
+     * relatórios leem). Só toca as linhas cujo estrato difere.
+     */
+    public const SQL_SYNC_DOCUMENT_QUALIS = 'UPDATE document d
+        JOIN qualis_journal q ON q.id = d.qualis_journal_id
+        SET d.qualis = q.qualis
+        WHERE NOT (d.qualis <=> q.qualis)';
+
     public function __construct(
         private readonly Connection $conn,
         private readonly LoggerInterface $logger,
@@ -95,6 +104,9 @@ class QualisImporterService
                 $updated += $upd;
                 $imported += count($batch);
             }
+
+            // Documentos já ligados recebem o estrato atualizado
+            $this->conn->executeStatement(self::SQL_SYNC_DOCUMENT_QUALIS);
 
             $this->conn->commit();
             

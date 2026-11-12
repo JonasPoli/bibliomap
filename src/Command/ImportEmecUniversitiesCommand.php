@@ -24,9 +24,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class ImportEmecUniversitiesCommand extends Command
 {
-    private const DEFAULT_FILE_PATH = '/Volumes/Dados/work/bibliomap/docs/roniberto/E-mec -  dados UNIVERSIDADES FEDERAIS.xlsx';
-    private const DEFAULT_THESAURUS_PATH = '/Volumes/Dados/work/bibliomap/docs/roniberto/thesauro_Instituicoes_2020.the';
-
     public function __construct(
         private readonly EntityManagerInterface $em
     ) {
@@ -35,13 +32,14 @@ class ImportEmecUniversitiesCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('filePath', InputArgument::OPTIONAL, 'Path to the e-MEC Excel (.xlsx) file', self::DEFAULT_FILE_PATH)
-             ->addOption('thesaurusFile', null, InputOption::VALUE_OPTIONAL, 'Path to the .the thesaurus file', self::DEFAULT_THESAURUS_PATH);
+        $this->addArgument('filePath', InputArgument::REQUIRED, 'Path to the e-MEC Excel (.xlsx) file')
+             ->addOption('thesaurusFile', null, InputOption::VALUE_REQUIRED, 'Path to the .the thesaurus file (optional)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        ini_set('memory_limit', '2048M');
+        // A planilha inteira é carregada pelo PhpSpreadsheet; 512M é o teto num servidor de 2 GB compartilhado
+        ini_set('memory_limit', '512M');
         set_time_limit(1800);
 
         $io = new SymfonyStyle($input, $output);

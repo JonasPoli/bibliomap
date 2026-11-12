@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Service\Import\TextNormalizer;
 use App\Service\Thesaurus\EntityMergeService;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -49,30 +50,53 @@ class RenormalizeAuthorsCommand extends Command
             'SELECT author_identity_id, COUNT(DISTINCT document_id) FROM document_author GROUP BY author_identity_id'
         ));
 
-        $authors = [];
+        // Uma passada com cursor: guarda só as chaves (para achar duplicados) e as alterações
+        // necessárias, e não a linha de cada um dos ~150 mil autores (estourava os 256 MB do CLI).
         $groups = [];
+        $updates = [];
+        $total = 0;
+        $keyChanges = 0;
+        $legacyCount = 0;
+        $legacyOk = 0;
         foreach ($this->conn->iterateAssociative('SELECT id, preferred_name, normalized_name, status, review_reasons FROM author_identity') as $row) {
             $res = $normalizer->normalizeAuthor((string) $row['preferred_name']);
             $key = $res['valid'] ? mb_substr($res['normalized'], 0, 255) : (string) $row['normalized_name'];
             $id = (int) $row['id'];
-            $authors[$id] = $row + ['new_key' => $key, 'res' => $res, 'docs' => $docCounts[$id] ?? 0];
+            $total++;
             $groups[$key][] = $id;
+
+            $set = [];
+            if ($key !== $row['normalized_name']) {
+                $keyChanges++;
+                $set['normalized_name'] = $key;
+            }
+            if ((int) $row['status'] === 0 && $row['review_reasons'] === null) {
+                $legacyCount++;
+                if ($res['valid']) {
+                    if (!$res['needs_review']) {
+                        $legacyOk++;
+                    }
+                    $set['status'] = $res['needs_review'] ? 0 : 1;
+                    $set['review_reasons'] = $res['review_reasons'] ? implode(',', $res['review_reasons']) : null;
+                }
+            }
+            if ($set) {
+                $updates[$id] = $set;
+            }
         }
 
         $dupGroups = array_filter($groups, fn($ids) => count($ids) > 1);
+        unset($groups);
         $toMerge = array_sum(array_map(fn($ids) => count($ids) - 1, $dupGroups));
-        $keyChanges = count(array_filter($authors, fn($a) => $a['new_key'] !== $a['normalized_name']));
-        $legacy = array_filter($authors, fn($a) => (int) $a['status'] === 0 && $a['review_reasons'] === null);
-        $legacyOk = count(array_filter($legacy, fn($a) => $a['res']['valid'] && !$a['res']['needs_review']));
 
         $io->table(['', 'Quantidade'], [
-            ['Autores', count($authors)],
+            ['Autores', $total],
             ['Nomes com mesma chave (grupos)', count($dupGroups)],
             ['Cadastros que serão fundidos', $toMerge],
             ['Chaves normalizadas a atualizar', $keyChanges],
-            ['Pendentes legados (sem motivo)', count($legacy)],
+            ['Pendentes legados (sem motivo)', $legacyCount],
             ['  → passam a validados', $legacyOk],
-            ['  → continuam pendentes, com motivo', count($legacy) - $legacyOk],
+            ['  → continuam pendentes, com motivo', $legacyCount - $legacyOk],
         ]);
 
         if (!$execute) {
@@ -83,12 +107,28 @@ class RenormalizeAuthorsCommand extends Command
         $now = date('Y-m-d H:i:s');
         $deleted = [];
         $io->progressStart(count($dupGroups));
-        foreach ($dupGroups as $ids) {
+        foreach ($dupGroups as $key => $ids) {
+            // Só os autores do grupo são lidos de novo (nome e situação)
+            $authors = [];
+            foreach ($this->conn->fetchAllAssociative(
+                'SELECT id, preferred_name, status FROM author_identity WHERE id IN (?)',
+                [$ids],
+                [ArrayParameterType::INTEGER]
+            ) as $row) {
+                $authors[(int) $row['id']] = $row + ['docs' => $docCounts[(int) $row['id']] ?? 0];
+            }
+            $ids = array_keys($authors);
+            if (count($ids) < 2) {
+                $io->progressAdvance();
+                continue;
+            }
+
             // Master: mais documentos; empate → validado; depois o id mais antigo
             usort($ids, fn($a, $b) => [$authors[$b]['docs'], (int) $authors[$b]['status'], -$b] <=> [$authors[$a]['docs'], (int) $authors[$a]['status'], -$a]);
             $masterId = array_shift($ids);
+            $newKey = (string) $key;
 
-            $this->conn->transactional(function () use ($ids, $masterId, $authors, $now, &$deleted) {
+            $this->conn->transactional(function () use ($ids, $masterId, $authors, $newKey, $now, &$deleted) {
                 foreach ($ids as $sourceId) {
                     $this->mergeService->remapAuthorLinks($sourceId, $masterId);
                     $this->conn->executeStatement('UPDATE author_name_variant SET author_identity_id = ? WHERE author_identity_id = ?', [$masterId, $sourceId]);
@@ -106,7 +146,7 @@ class RenormalizeAuthorsCommand extends Command
                             'author_identity_id' => $masterId,
                             'original_name'      => $name,
                             'display_name'       => $name,
-                            'normalized_name'    => $authors[$sourceId]['new_key'],
+                            'normalized_name'    => $newKey,
                             'source'             => 'merge',
                             'confidence'         => 1.0,
                             'created_at'         => $now,
@@ -122,25 +162,14 @@ class RenormalizeAuthorsCommand extends Command
         $io->progressFinish();
 
         $updated = 0;
-        foreach (array_chunk(array_keys($authors), 2000) as $chunk) {
-            $this->conn->transactional(function () use ($chunk, $authors, $deleted, $now, &$updated) {
+        foreach (array_chunk(array_keys($updates), 2000) as $chunk) {
+            $this->conn->transactional(function () use ($chunk, $updates, $deleted, $now, &$updated) {
                 foreach ($chunk as $id) {
                     if (isset($deleted[$id])) {
                         continue;
                     }
-                    $a = $authors[$id];
-                    $set = [];
-                    if ($a['new_key'] !== $a['normalized_name']) {
-                        $set['normalized_name'] = $a['new_key'];
-                    }
-                    if ((int) $a['status'] === 0 && $a['review_reasons'] === null && $a['res']['valid']) {
-                        $set['status'] = $a['res']['needs_review'] ? 0 : 1;
-                        $set['review_reasons'] = $a['res']['review_reasons'] ? implode(',', $a['res']['review_reasons']) : null;
-                    }
-                    if ($set) {
-                        $this->conn->update('author_identity', $set + ['updated_at' => $now], ['id' => $id]);
-                        $updated++;
-                    }
+                    $this->conn->update('author_identity', $updates[$id] + ['updated_at' => $now], ['id' => $id]);
+                    $updated++;
                 }
             });
         }

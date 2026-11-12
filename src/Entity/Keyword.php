@@ -11,6 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'keyword')]
 #[ORM\Index(fields: ['keywordNormalized'], name: 'IDX_kw_normalized')]
 #[ORM\Index(fields: ['keywordType'], name: 'IDX_kw_type')]
+#[ORM\Index(fields: ['keywordOriginal'], name: 'IDX_kw_original')]
+#[ORM\Index(fields: ['status', 'keywordOriginal'], name: 'IDX_kw_status_original')]
 class Keyword
 {
     public const TYPE_AUTHOR = 'author_keyword';

@@ -413,6 +413,7 @@ class EntityMergeService
         foreach ($countryMap as $c) {
             if ($c->getCommonName()) $allVariationStrings[] = $c->getCommonName();
             if ($c->getOfficialName()) $allVariationStrings[] = $c->getOfficialName();
+            if ($c->getSigla()) $allVariationStrings[] = $c->getSigla();
             foreach ($c->getVariations() as $var) {
                 if ($var->getVariationName()) $allVariationStrings[] = $var->getVariationName();
             }
@@ -448,6 +449,115 @@ class EntityMergeService
 
         $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapCountryLinks($sourceId, $masterId));
         return $master;
+    }
+
+    /**
+     * Merge States: as grafias dos secundários (nome, sigla e variações) viram variações do master.
+     */
+    public function mergeStates(int $masterId, array $sourceIds): State
+    {
+        $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
+        $stateMap = [];
+        foreach ($this->em->getRepository(State::class)->findBy(['id' => $allIds]) as $s) {
+            $stateMap[$s->getId()] = $s;
+        }
+        if (!isset($stateMap[$masterId])) {
+            throw new \InvalidArgumentException("Estado principal #{$masterId} não encontrado.");
+        }
+
+        $master = $stateMap[$masterId];
+        $sources = array_filter($stateMap, fn($s) => $s->getId() !== $masterId);
+
+        $strings = [];
+        foreach ($stateMap as $s) {
+            if ($s->getOfficialName()) $strings[] = $s->getOfficialName();
+            if ($s->getSigla()) $strings[] = $s->getSigla();
+            foreach ($s->getVariations() as $var) {
+                if ($var->getVariationName()) $strings[] = $var->getVariationName();
+            }
+        }
+
+        $existing = [];
+        foreach ($master->getVariations() as $var) {
+            $existing[$var->getNormalizedName()] = true;
+        }
+        foreach ($this->newVariationStrings($strings, $existing) as $norm => $raw) {
+            $varObj = new StateVariation();
+            $varObj->setState($master);
+            $varObj->setVariationName($raw);
+            $varObj->setNormalizedName($norm);
+            $varObj->setVariationType('alternative');
+            $varObj->setStatus(true);
+            $this->em->persist($varObj);
+        }
+
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapStateLinks($sourceId, $masterId));
+        return $master;
+    }
+
+    /**
+     * Merge Cities: as grafias dos secundários (nome e variações) viram variações do master.
+     */
+    public function mergeCities(int $masterId, array $sourceIds): City
+    {
+        $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
+        $cityMap = [];
+        foreach ($this->em->getRepository(City::class)->findBy(['id' => $allIds]) as $c) {
+            $cityMap[$c->getId()] = $c;
+        }
+        if (!isset($cityMap[$masterId])) {
+            throw new \InvalidArgumentException("Cidade principal #{$masterId} não encontrada.");
+        }
+
+        $master = $cityMap[$masterId];
+        $sources = array_filter($cityMap, fn($c) => $c->getId() !== $masterId);
+
+        $strings = [];
+        foreach ($cityMap as $c) {
+            if ($c->getOfficialName()) $strings[] = $c->getOfficialName();
+            foreach ($c->getVariations() as $var) {
+                if ($var->getVariationName()) $strings[] = $var->getVariationName();
+            }
+        }
+
+        $existing = [];
+        foreach ($master->getVariations() as $var) {
+            $existing[$var->getNormalizedName()] = true;
+        }
+        foreach ($this->newVariationStrings($strings, $existing) as $norm => $raw) {
+            $varObj = new CityVariation();
+            $varObj->setCity($master);
+            $varObj->setVariationName($raw);
+            $varObj->setNormalizedName($norm);
+            $varObj->setVariationType('alternative');
+            $varObj->setStatus(true);
+            $this->em->persist($varObj);
+        }
+
+        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapCityLinks($sourceId, $masterId));
+        return $master;
+    }
+
+    /**
+     * Grafias que ainda não são variação do master, sem repetição: forma normalizada => grafia.
+     * As variações são recriadas a partir do texto: mover o objeto da variação para o master
+     * e depois remover o secundário apagaria a variação junto (cascade remove da coleção de origem).
+     *
+     * @param string[] $strings
+     * @param array<string, true> $existing formas normalizadas que o master já tem
+     * @return array<string, string>
+     */
+    public static function newVariationStrings(array $strings, array $existing): array
+    {
+        $new = [];
+        foreach ($strings as $raw) {
+            $raw = trim($raw);
+            if ($raw === '') continue;
+            $norm = StringNormalizer::normalizeString($raw, true);
+            if ($norm === '' || isset($existing[$norm]) || isset($new[$norm])) continue;
+            $new[$norm] = $raw;
+        }
+        return $new;
     }
 
     public static function normalizeIssn(string $issn): string

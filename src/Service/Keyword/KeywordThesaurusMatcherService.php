@@ -30,6 +30,14 @@ class KeywordThesaurusMatcherService
     /** @var array<string, string> normalizedLabel → grafia original (para detectar siglas no fuzzy) */
     private array $displayByNorm = [];
 
+    /**
+     * Candidatos da comparação aproximada por letra inicial, na ordem rótulos → conceitos:
+     * letra => lista de [forma normalizada, concept_id]. Montado uma vez em loadMaps().
+     *
+     * @var array<string, list<array{string, int}>>
+     */
+    private array $candidatesByFirstChar = [];
+
     private bool $mapsLoaded = false;
 
     public function __construct(
@@ -47,6 +55,7 @@ class KeywordThesaurusMatcherService
         $this->conceptMap = [];
         $this->conceptById = [];
         $this->displayByNorm = [];
+        $this->candidatesByFirstChar = [];
 
         $conn = $this->em->getConnection();
 
@@ -80,7 +89,46 @@ class KeywordThesaurusMatcherService
             $this->displayByNorm[$row['normalized_label']] ??= $row['label'];
         }
 
+        // Mesma ordem e mesmo conceito por forma que a lista única anterior (rótulo tem prioridade)
+        foreach ($this->labelMap + $this->conceptMap as $norm => $cid) {
+            $norm = (string) $norm;
+            $this->candidatesByFirstChar[mb_substr($norm, 0, 1)][] = [$norm, $cid];
+        }
+
         $this->mapsLoaded = true;
+    }
+
+    /**
+     * Só a correspondência exata (rótulo, depois conceito), sem a comparação aproximada.
+     * É o que a etapa 3 do tratamento usa; a aproximada fica para a etapa 4.
+     *
+     * @return array{conceptId: int, conceptLabel: string, method: string, score: float, ambiguous: bool}|null
+     */
+    public function matchExact(Keyword $keyword): ?array
+    {
+        if (!$this->mapsLoaded) {
+            $this->loadMaps();
+        }
+
+        $normalized = $keyword->getKeywordNormalized();
+        if ($normalized === '') {
+            return null;
+        }
+
+        foreach (['exact_label' => $this->labelMap, 'exact_concept' => $this->conceptMap] as $method => $map) {
+            if (isset($map[$normalized])) {
+                $cid = $map[$normalized];
+                return [
+                    'conceptId' => $cid,
+                    'conceptLabel' => $this->conceptById[$cid]['preferred_label'] ?? '',
+                    'method' => $method,
+                    'score' => 100.0,
+                    'ambiguous' => false,
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -99,54 +147,25 @@ class KeywordThesaurusMatcherService
             return ['conceptId' => null, 'conceptLabel' => null, 'method' => 'skipped', 'score' => 0.0, 'ambiguous' => false];
         }
 
-        // 1. Exact match on label
-        if (isset($this->labelMap[$normalized])) {
-            $cid = $this->labelMap[$normalized];
-            return [
-                'conceptId' => $cid,
-                'conceptLabel' => $this->conceptById[$cid]['preferred_label'] ?? '',
-                'method' => 'exact_label',
-                'score' => 100.0,
-                'ambiguous' => false
-            ];
-        }
-
-        // 2. Exact match on concept normalizedLabel
-        if (isset($this->conceptMap[$normalized])) {
-            $cid = $this->conceptMap[$normalized];
-            return [
-                'conceptId' => $cid,
-                'conceptLabel' => $this->conceptById[$cid]['preferred_label'] ?? '',
-                'method' => 'exact_concept',
-                'score' => 100.0,
-                'ambiguous' => false
-            ];
+        // 1 e 2. Rótulo exato, depois conceito exato
+        $exact = $this->matchExact($keyword);
+        if ($exact !== null) {
+            return $exact;
         }
 
         // 3. Fuzzy matching against all labels and concept labels
         // Melhor score por conceito: dois rótulos do MESMO conceito não configuram empate
         $scoreByConcept = [];
+        $display = $keyword->getKeywordDisplay() ?? $keyword->getKeywordOriginal();
 
-        $allCandidates = array_unique(array_merge(
-            array_keys($this->labelMap),
-            array_keys($this->conceptMap)
-        ));
-
-        $firstChar = mb_substr($normalized, 0, 1);
-
-        foreach ($allCandidates as $candidateNorm) {
-            if (mb_substr($candidateNorm, 0, 1) !== $firstChar) {
-                continue;
-            }
-
+        foreach ($this->candidatesByFirstChar[mb_substr($normalized, 0, 1)] ?? [] as [$candidateNorm, $cid]) {
             $score = $this->fuzzyMatcher->getSimilarityScore(
                 $normalized,
                 $candidateNorm,
-                $keyword->getKeywordDisplay() ?? $keyword->getKeywordOriginal(),
+                $display,
                 $this->displayByNorm[$candidateNorm] ?? null
             );
-            $cid = $this->labelMap[$candidateNorm] ?? $this->conceptMap[$candidateNorm] ?? null;
-            if ($cid !== null && $score > ($scoreByConcept[$cid] ?? 0.0)) {
+            if ($score > ($scoreByConcept[$cid] ?? 0.0)) {
                 $scoreByConcept[$cid] = $score;
             }
         }

@@ -492,66 +492,14 @@ class AdminAuthorController extends AbstractController
             return $this->redirectToRoute('app_admin_authors_edit', ['id' => $author->getId()]);
         }
 
-        // Remap document_author records (vínculo duplicado no mesmo documento é descartado)
-        $this->mergeService->remapAuthorLinks($author->getId(), $target->getId());
-
-        // Move existing variations
-        foreach ($author->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setAuthorIdentity($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
-        }
-
-        // Add author's name as variation of target
+        // Pelo serviço de fusão: remapeia os vínculos e recria grafias e identificadores no destino, numa transação
         $name = $author->getPreferredName();
-        $norm = $author->getNormalizedName();
-        $exists = false;
-        foreach ($target->getVariations() as $tv) {
-            if ($tv->getNormalizedName() === $norm) {
-                $exists = true;
-                break;
-            }
+        try {
+            $this->mergeService->mergeAuthors($target->getId(), [$author->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_authors_index');
         }
-        if (!$exists) {
-            $v = new AuthorNameVariant();
-            $v->setOriginalName($name);
-            $v->setDisplayName($name);
-            $v->setNormalizedName($norm);
-            $v->setSource('alternative');
-            $v->setConfidence(1.0);
-            $v->setAuthorIdentity($target);
-            $this->em->persist($v);
-        }
-
-        // Move identifiers
-        foreach ($author->getIdentifiers() as $ident) {
-            $exists = false;
-            foreach ($target->getIdentifiers() as $tident) {
-                if ($tident->getProvider() === $ident->getProvider() && $tident->getIdentifier() === $ident->getIdentifier()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $ident->setAuthorIdentity($target);
-                $target->addIdentifier($ident);
-            } else {
-                $this->em->remove($ident);
-            }
-        }
-
-        $this->em->remove($author);
-        $this->em->flush();
 
         $this->addFlash('success', "Autor '{$name}' mesclado em '{$target->getPreferredName()}' com sucesso!");
         return $this->redirectToRoute('app_admin_authors_index');

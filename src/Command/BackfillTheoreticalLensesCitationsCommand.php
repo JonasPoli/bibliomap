@@ -12,7 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'app:backfill:theoretical-lenses-citations',
-    description: 'Backfill citation formats for all theoretical lenses to ensure 10+ formats each',
+    description: 'Backfill default citation formats (10+) for theoretical lenses that have none',
 )]
 class BackfillTheoreticalLensesCitationsCommand extends Command
 {
@@ -25,15 +25,18 @@ class BackfillTheoreticalLensesCitationsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('Backfilling citation formats for all theoretical lenses');
+        $io->title('Backfilling citation formats for theoretical lenses without any');
 
         $conn = $this->em->getConnection();
         $io->text('Fetching all lenses from database...');
 
-        $lenses = $conn->fetchAllAssociative('SELECT id, name FROM theoretical_lens');
+        // Só as lentes sem formato: os formatos editados pelo administrador não são sobrescritos
+        $lenses = $conn->fetchAllAssociative(
+            'SELECT id, name FROM theoretical_lens WHERE citation_formats IS NULL OR JSON_LENGTH(citation_formats) = 0'
+        );
         $total = count($lenses);
 
-        $io->text(sprintf('Found %d lenses. Starting update...', $total));
+        $io->text(sprintf('Found %d lenses without citation formats. Starting update...', $total));
 
         $updated = 0;
         $batchSize = 200;
@@ -99,7 +102,7 @@ class BackfillTheoreticalLensesCitationsCommand extends Command
                 $conn->commit();
             }
 
-            $io->success(sprintf('Successfully updated citation formats for all %d theoretical lenses!', $updated));
+            $io->success(sprintf('Successfully updated citation formats for %d theoretical lenses!', $updated));
         } catch (\Throwable $e) {
             if ($conn->isTransactionActive()) {
                 $conn->rollBack();

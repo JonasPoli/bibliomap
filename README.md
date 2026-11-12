@@ -428,9 +428,11 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 #### `app:admin:create`
 * **Descrição:** Cria um novo usuário administrador no sistema ou promove um usuário existente.
+* **Argumentos:** o e-mail é obrigatório. A senha (mínimo de 10 caracteres) pode vir como segundo argumento; sem ela, o comando pergunta no terminal, sem exibir.
 * **Opções:**
   * `--super`: Atribui permissão de Super Administrador (`ROLE_SUPER_ADMIN`) ao usuário criado/promovido.
-* **Exemplo:** `php bin/console app:admin:create`
+  * `--reset-password`: Troca a senha de um usuário que já existe (sem a opção, a senha existente é mantida).
+* **Exemplo:** `php bin/console app:admin:create voce@exemplo.org --super`
 
 ---
 
@@ -452,10 +454,6 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 ### 📝 Tratamento e Normalização de Palavras-chave
 
-#### `app:keywords:clear`
-* **Descrição:** Limpa por completo todas as palavras-chave (tabelas `keyword` e `document_keyword`) do banco de dados. Útil para reiniciar o dicionário do sistema antes de novos testes ou importações limpas.
-* **Exemplo:** `php bin/console app:keywords:clear`
-
 #### `app:keywords:diagnose`
 * **Descrição:** Exibe um relatório diagnóstico completo sobre o estado da base de palavras-chave no banco de dados.
 * **Exemplo:** `php bin/console app:keywords:diagnose`
@@ -475,14 +473,6 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
   * `php bin/console app:keywords:treat --dry-run --limit=1000`
   * `php bin/console app:keywords:treat --execute --require-backup`
 
-#### `app:keywords:normalize-casing`
-* **Descrição:** Normaliza a capitalização (casing) das palavras-chave para evitar duplicados por diferenças de caixa alta/baixa, consolidando as referências e limpando dados órfãos.
-* **Exemplo:** `php bin/console app:keywords:normalize-casing`
-
-#### `app:keywords:migrate-keyword-concepts-to-thesaurus`
-* **Descrição:** Migra associações de conceitos legados do sistema antigo para a estrutura nova baseada em `ThesaurusConcept`.
-* **Exemplo:** `php bin/console app:keywords:migrate-keyword-concepts-to-thesaurus`
-
 ---
 
 ### 🗺️ Dados Geográficos e Institucionais
@@ -490,13 +480,6 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 #### `app:geography:seed`
 * **Descrição:** Alimenta o banco de dados com a estrutura geográfica padrão (países do mundo, estados e cidades brasileiras) e suas variações linguísticas e siglas de uso comum.
 * **Exemplo:** `php bin/console app:geography:seed`
-
-#### `app:geography:apply-corrections-v6`
-* **Descrição:** Executa as correções de auditoria avançadas para instituições e países (Fase 3 / V6) com base nos CSVs da pasta `docs/ajustes/`.
-* **Exemplo:** `php bin/console app:geography:apply-corrections-v6`
-
-> [!NOTE]
-> Existem variações deste comando para projetos específicos e fases anteriores, como `app:apply-corrections`, `app:apply-corrections-v4`, `app:geography:apply-corrections` e `app:geography:apply-corrections-p5`.
 
 ---
 
@@ -519,7 +502,8 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 * **Exemplo:** `php bin/console app:qualis:import`
 
 #### `app:qualis:resolve-missing`
-* **Descrição:** Liga os documentos de **todos os projetos** às revistas já cadastradas em `qualis_journal` pelo ISSN e, para os ISSN que ainda não têm revista, consulta o título no Crossref e o estrato na Sucupira e cadastra a revista (mesmo sem estrato). Muda o relatório por estrato e a lista "Revistas sem Qualis" de todos os projetos. Um ISSN que o Crossref não conhece é consultado de novo na execução seguinte.
+* **Descrição:** Liga os documentos de **todos os projetos** às revistas já cadastradas em `qualis_journal` pelo ISSN e, para os ISSN que ainda não têm revista, consulta o título no Crossref e o estrato na Sucupira e cadastra a revista (mesmo sem estrato). Muda o relatório por estrato e a lista "Revistas sem Qualis" de todos os projetos. Um ISSN que o Crossref não conhece é consultado de novo na execução seguinte. As chamadas à Sucupira verificam o certificado HTTPS do servidor.
+* **Revistas sem estrato:** a cada execução, até `--retry-qualis-limit` revistas (padrão 100; 0 desliga) que estão sem estrato e têm documentos são consultadas de novo na Sucupira: primeiro as que ela nunca respondeu, depois as conferidas há mais de 30 dias (coluna `qualis_checked_at`). O estrato encontrado vai para a revista e para `document.qualis` dos documentos dela, em todos os projetos.
 * **Rotina noturna (produção):** às 06:00 UTC (03:00 em Brasília), com `--env=prod`, antes do backup e do tratamento de palavras-chave. Saída da última noite em `var/log/cron_qualis_resolve_missing.log`.
 * **Exemplo:** `php bin/console app:qualis:resolve-missing`
 
@@ -542,20 +526,14 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 
 ---
 
-### 🧪 Testes e Backfill
-
-#### `app:run-heavy-test-routine`
-* **Descrição:** Roda a rotina pesada de testes automáticos. Limpa projetos antigos de teste, cria o projeto de teste atual, importa os arquivos de dados fornecidos de forma concorrente e realiza a auditoria e validação comparativa detalhada de métricas e arquivos de exportação CSV.
-* **Argumentos:**
-  * `files` (Obrigatório, múltiplos): Caminho dos arquivos TXT/CSV a serem importados e testados.
-* **Exemplo:** `php bin/console app:run-heavy-test-routine savedrecs.txt savedrecs02.txt savedrecs03.txt`
+### 🧪 Backfill
 
 #### `app:backfill:countries` / `app:backfill:institutions`
 * **Descrição:** Re-processa e atualiza colunas JSON de países/instituições em documentos existentes no banco de dados a partir dos arquivos Scopus CSV originais.
 * **Exemplo:** `php bin/console app:backfill:countries`
 
 #### `app:backfill:theoretical-lenses-citations`
-* **Descrição:** Atualiza formatos de citação de lentes teóricas registradas no sistema, garantindo pelo menos 10 formatos por lente.
+* **Descrição:** Gera os formatos de citação padrão (pelo menos 10) das lentes teóricas que ainda não têm nenhum. Lentes com formatos já cadastrados ou editados pelo administrador não são tocadas.
 * **Exemplo:** `php bin/console app:backfill:theoretical-lenses-citations`
 
 ---

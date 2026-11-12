@@ -179,6 +179,13 @@ class ThesaurusController extends AbstractController
 
             $conceptNorm = $normalizer->normalizeForComparison($preferredLabel);
 
+            // Formas que hoje ligam palavras-chave a este conceito por igualdade (antes da edição)
+            $oldNorms = [$concept->getNormalizedLabel() => true];
+            foreach ($labels as $l) {
+                $oldNorms[$l->getNormalizedLabel()] = true;
+            }
+            $newNorms = [$conceptNorm => true];
+
             // Update Concept preferred label
             $concept->setPreferredLabel($preferredLabel);
             $concept->setNormalizedLabel($conceptNorm);
@@ -219,6 +226,7 @@ class ThesaurusController extends AbstractController
                 $processedSynonyms[] = $synonym;
 
                 $synNorm = $normalizer->normalizeForComparison($synonym);
+                $newNorms[$synNorm] = true;
                 $altLabel = new ThesaurusLabel();
                 $altLabel->setConcept($concept);
                 $altLabel->setLabel($synonym);
@@ -229,7 +237,7 @@ class ThesaurusController extends AbstractController
             }
 
             $this->em->flush();
-            $this->applyThesaurusMappings($concept->getId());
+            $this->applyThesaurusMappings($concept->getId(), array_keys(array_diff_key($oldNorms, $newNorms)));
             $this->addFlash('success', 'Conceito e sinônimos atualizados com sucesso.');
             return $this->redirectToRoute('app_admin_thesaurus_scheme_show', ['id' => $concept->getScheme()->getId()]);
         }
@@ -484,20 +492,33 @@ class ThesaurusController extends AbstractController
         return $this->redirectToRoute('app_admin_thesaurus_index');
     }
 
-    private function applyThesaurusMappings(?int $conceptId = null): void
+    /**
+     * @param string[] $removedNorms formas normalizadas de rótulos retirados do conceito nesta edição
+     */
+    private function applyThesaurusMappings(?int $conceptId = null, array $removedNorms = []): void
     {
         $conn = $this->em->getConnection();
         
         if ($conceptId !== null) {
-            // Reset keywords that were matched to this concept but are no longer in the thesaurus_label
-            // (ou que nunca deveriam estar ligados: conceito fora do esquema 'keyword')
+            // Desliga só as palavras-chave ligadas pelo rótulo que acabou de sair do conceito.
+            // As ligadas por comparação aproximada ou aprovadas na fila de revisão não são rótulo
+            // exato e continuam ligadas (antes, qualquer edição do conceito as desligava).
+            $removedNorms = array_values(array_filter(array_map('strval', $removedNorms), fn(string $n) => $n !== ''));
+            if ($removedNorms !== []) {
+                $conn->executeStatement(
+                    'UPDATE keyword SET thesaurus_concept_id = NULL WHERE thesaurus_concept_id = ? AND keyword_normalized IN (?)',
+                    [$conceptId, $removedNorms],
+                    [\Doctrine\DBAL\ParameterType::INTEGER, \Doctrine\DBAL\ArrayParameterType::STRING]
+                );
+            }
+
+            // Conceito fora do esquema 'keyword' nunca deveria ter palavras-chave ligadas
             $conn->executeStatement("
                 UPDATE keyword k
                 JOIN thesaurus_concept tc ON tc.id = :conceptId
                 JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id
-                LEFT JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label AND tl.concept_id = :conceptId
                 SET k.thesaurus_concept_id = NULL
-                WHERE k.thesaurus_concept_id = :conceptId AND (tl.id IS NULL OR ts.slug <> 'keyword')
+                WHERE k.thesaurus_concept_id = :conceptId AND ts.slug <> 'keyword'
             ", ['conceptId' => $conceptId]);
         }
 

@@ -26,12 +26,13 @@ class TestProjectSyncCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('projectId', InputArgument::OPTIONAL, 'Project ID to sync', 5);
+        $this->addArgument('projectId', InputArgument::REQUIRED, 'Project ID to sync');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        ini_set('memory_limit', '1024M');
+        // O enriquecimento carrega os vínculos do projeto; 512M é o teto num servidor de 2 GB compartilhado
+        ini_set('memory_limit', '512M');
         $io = new SymfonyStyle($input, $output);
         $projectId = (int) $input->getArgument('projectId');
 

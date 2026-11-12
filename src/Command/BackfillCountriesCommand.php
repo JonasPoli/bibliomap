@@ -33,7 +33,6 @@ class BackfillCountriesCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        ini_set('memory_limit', '1024M');
         $io = new SymfonyStyle($input, $output);
         $projectId = (int) $input->getArgument('projectId');
 

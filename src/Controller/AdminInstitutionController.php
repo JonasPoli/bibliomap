@@ -465,9 +465,17 @@ class AdminInstitutionController extends AbstractController
                 $inst->setCodigoIes($codigoIes);
                 $inst->setInstitutionType($instType);
                 $inst->setNatureza($natureza);
-                $inst->setCountry($country);
-                $inst->setState($state);
-                $inst->setCity($city);
+                // País, estado e cidade só mudam quando o nome do arquivo casa com o cadastro:
+                // nome vazio ou desconhecido não apaga a localização que a instituição já tem.
+                if ($country !== null) {
+                    $inst->setCountry($country);
+                }
+                if ($state !== null) {
+                    $inst->setState($state);
+                }
+                if ($city !== null) {
+                    $inst->setCity($city);
+                }
                 $inst->setOfficialWebsite($website);
                 $inst->setInstitutionalEmail($email);
                 $inst->setStatus($status);
@@ -476,7 +484,7 @@ class AdminInstitutionController extends AbstractController
 
                 $rawVariations = $variationsStr !== '' ? explode(';', $variationsStr) : [];
                 $variationsText = implode("\n", $rawVariations);
-                $this->syncVariations($inst, $variationsText, false);
+                $this->syncVariations($inst, $variationsText, false, false);
 
                 if ((++$i % $batchSize) === 0) {
                     $this->em->flush();
@@ -509,49 +517,16 @@ class AdminInstitutionController extends AbstractController
             return $this->redirectToRoute('app_admin_institutions_edit', ['id' => $institution->getId()]);
         }
 
-        // Documentos e unidades vinculadas vão para o destino
-        $this->mergeService->remapInstitutionLinks($institution->getId(), $target->getId());
-
-        foreach ($institution->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setInstitution($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
+        // Pelo serviço de fusão: remapeia os vínculos e recria as grafias no destino, numa transação
+        $sourceName = $institution->getOfficialName();
+        try {
+            $this->mergeService->mergeInstitutions($target->getId(), [$institution->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar instituições: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_institutions_index');
         }
 
-        $names = array_filter([$institution->getOfficialName(), $institution->getShortName(), $institution->getSigla(), $institution->getRazaoSocial()]);
-        foreach ($names as $name) {
-            $norm = DocumentEnrichmentService::normalize($name);
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $norm) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v = new InstitutionVariation();
-                $v->setVariationName($name);
-                $v->setNormalizedName($norm);
-                $v->setVariationType('alternative');
-                $v->setInstitution($target);
-                $this->em->persist($v);
-            }
-        }
-
-        $this->em->remove($institution);
-        $this->em->flush();
-
-        $this->addFlash('success', "Instituição '{$institution->getOfficialName()}' mesclada com sucesso em '{$target->getOfficialName()}'!");
+        $this->addFlash('success', "Instituição '{$sourceName}' mesclada com sucesso em '{$target->getOfficialName()}'!");
         return $this->redirectToRoute('app_admin_institutions_index');
     }
 
@@ -601,7 +576,7 @@ class AdminInstitutionController extends AbstractController
         return $this->redirectToRoute('app_admin_institutions_edit', ['id' => $newInst->getId()]);
     }
 
-    private function syncVariations(Institution $institution, string $variationsText, bool $flush = true): void
+    private function syncVariations(Institution $institution, string $variationsText, bool $flush = true, bool $removeMissing = true): void
     {
         $lines = explode("\n", $variationsText);
         $validMap = [];
@@ -658,7 +633,9 @@ class AdminInstitutionController extends AbstractController
             }
         }
 
-        foreach ($existingMap as $norm => $v) {
+        // Na importação de CSV ($removeMissing = false) só se acrescenta: arquivo sem a coluna
+        // "variations" não pode apagar as grafias já cadastradas (cadastro global).
+        foreach ($removeMissing ? $existingMap : [] as $norm => $v) {
             if (!isset($validMap[$norm])) {
                 $institution->removeVariation($v);
                 $this->em->remove($v);

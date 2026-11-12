@@ -427,9 +427,10 @@ class KeywordTreatmentService
                         if (isset($deletedInBatch[$kw->getId()])) continue;
                         if (!$kw->isStatus() || $kw->getThesaurusConcept() !== null) continue;
 
-                        $result = $this->thesaurusMatcher->match($kw, $options->minAutoScore, $options->minReviewScore);
+                        // Só a correspondência exata: a comparação aproximada é calculada uma vez, na etapa 4
+                        $result = $this->thesaurusMatcher->matchExact($kw);
 
-                        if ($result['conceptId'] === null) continue;
+                        if ($result === null) continue;
 
                         if ($result['method'] === 'exact_label' || $result['method'] === 'exact_concept') {
                             $thesaurusMatchedCount++;

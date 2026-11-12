@@ -614,7 +614,7 @@ class AdminGeographyController extends AbstractController
 
                     $rawVariations = $variationsStr !== '' ? explode(';', $variationsStr) : [];
                     $variationsText = implode("\n", $rawVariations);
-                    $this->syncCountryVariations($country, $variationsText, false);
+                    $this->syncCountryVariations($country, $variationsText, false, false);
 
                 } elseif ($type === 'states') {
                     $officialName = trim($record['official_name'] ?? '');
@@ -663,13 +663,16 @@ class AdminGeographyController extends AbstractController
                     $state->setOfficialName($officialName);
                     $state->setSigla($sigla);
                     $state->setCountry($country);
-                    $state->setRegion($region);
+                    // Região vazia no arquivo não apaga a região já cadastrada
+                    if ($region !== null) {
+                        $state->setRegion($region);
+                    }
                     $state->setOfficialCode($officialCode);
                     $state->setStatus($status);
 
                     $rawVariations = $variationsStr !== '' ? explode(';', $variationsStr) : [];
                     $variationsText = implode("\n", $rawVariations);
-                    $this->syncStateVariations($state, $variationsText, false);
+                    $this->syncStateVariations($state, $variationsText, false, false);
 
                 } elseif ($type === 'cities') {
                     $officialName = trim($record['official_name'] ?? '');
@@ -711,7 +714,7 @@ class AdminGeographyController extends AbstractController
 
                     $rawVariations = $variationsStr !== '' ? explode(';', $variationsStr) : [];
                     $variationsText = implode("\n", $rawVariations);
-                    $this->syncCityVariations($city, $variationsText, false);
+                    $this->syncCityVariations($city, $variationsText, false, false);
                 }
 
                 if ((++$i % $batchSize) === 0) {
@@ -745,49 +748,16 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        // Documentos, regiões, estados, cidades e instituições vão para o destino antes de excluir (FK em cascata)
-        $this->mergeService->remapCountryLinks($country->getId(), $target->getId());
-
-        foreach ($country->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setCountry($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
+        // Pelo serviço de fusão: remapeia os vínculos e recria as grafias no destino, numa transação
+        $sourceName = $country->getCommonName();
+        try {
+            $this->mergeService->mergeCountries($target->getId(), [$country->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar países: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $names = array_filter([$country->getOfficialName(), $country->getCommonName(), $country->getSigla()]);
-        foreach ($names as $name) {
-            $norm = DocumentEnrichmentService::normalize($name);
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $norm) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v = new CountryVariation();
-                $v->setVariationName($name);
-                $v->setNormalizedName($norm);
-                $v->setVariationType('alternative');
-                $v->setCountry($target);
-                $this->em->persist($v);
-            }
-        }
-
-        $this->em->remove($country);
-        $this->em->flush();
-
-        $this->addFlash('success', "País '{$country->getCommonName()}' mesclado com sucesso em '{$target->getCommonName()}'!");
+        $this->addFlash('success', "País '{$sourceName}' mesclado com sucesso em '{$target->getCommonName()}'!");
         return $this->redirectToRoute('app_admin_geography_index');
     }
 
@@ -807,49 +777,16 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        // Documentos, cidades e instituições vão para o destino (senão ficariam sem estado)
-        $this->mergeService->remapStateLinks($state->getId(), $target->getId());
-
-        foreach ($state->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setState($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
+        // Pelo serviço de fusão: remapeia os vínculos e recria as grafias no destino, numa transação
+        $sourceName = $state->getOfficialName();
+        try {
+            $this->mergeService->mergeStates($target->getId(), [$state->getId()]);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar estados: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $names = array_filter([$state->getOfficialName(), $state->getSigla()]);
-        foreach ($names as $name) {
-            $norm = DocumentEnrichmentService::normalize($name);
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $norm) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v = new StateVariation();
-                $v->setVariationName($name);
-                $v->setNormalizedName($norm);
-                $v->setVariationType('alternative');
-                $v->setState($target);
-                $this->em->persist($v);
-            }
-        }
-
-        $this->em->remove($state);
-        $this->em->flush();
-
-        $this->addFlash('success', "Estado '{$state->getOfficialName()}' mesclado em '{$target->getOfficialName()}' com sucesso!");
+        $this->addFlash('success', "Estado '{$sourceName}' mesclado em '{$target->getOfficialName()}' com sucesso!");
         return $this->redirectToRoute('app_admin_geography_index');
     }
 
@@ -869,49 +806,16 @@ class AdminGeographyController extends AbstractController
             return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        // Documentos e instituições vão para o destino (senão ficariam sem cidade)
-        $this->mergeService->remapCityLinks($city->getId(), $target->getId());
-
-        foreach ($city->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setCity($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
+        // Pelo serviço de fusão: remapeia os vínculos e recria as grafias no destino, numa transação
+        $sourceName = $city->getOfficialName();
+        try {
+            $this->mergeService->mergeCities($target->getId(), [$city->getId()]);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar cidades: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_geography_index');
         }
 
-        $names = array_filter([$city->getOfficialName()]);
-        foreach ($names as $name) {
-            $norm = DocumentEnrichmentService::normalize($name);
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $norm) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v = new CityVariation();
-                $v->setVariationName($name);
-                $v->setNormalizedName($norm);
-                $v->setVariationType('alternative');
-                $v->setCity($target);
-                $this->em->persist($v);
-            }
-        }
-
-        $this->em->remove($city);
-        $this->em->flush();
-
-        $this->addFlash('success', "Cidade '{$city->getOfficialName()}' mesclada em '{$target->getOfficialName()}' com sucesso!");
+        $this->addFlash('success', "Cidade '{$sourceName}' mesclada em '{$target->getOfficialName()}' com sucesso!");
         return $this->redirectToRoute('app_admin_geography_index');
     }
 
@@ -1050,7 +954,7 @@ class AdminGeographyController extends AbstractController
         return $variation ? $variation->getCountry() : null;
     }
 
-    private function syncCountryVariations(Country $country, string $variationsText, bool $flush = true): void
+    private function syncCountryVariations(Country $country, string $variationsText, bool $flush = true, bool $removeMissing = true): void
     {
         $lines = explode("\n", $variationsText);
         $validVariationNames = [];
@@ -1085,7 +989,9 @@ class AdminGeographyController extends AbstractController
             }
         }
 
-        foreach ($existingMap as $name => $v) {
+        // Na importação de CSV ($removeMissing = false) só se acrescenta: arquivo sem a coluna
+        // "variations" não pode apagar as grafias já cadastradas (cadastro global).
+        foreach ($removeMissing ? $existingMap : [] as $name => $v) {
             if (!isset($validVariationNames[$name])) {
                 $country->removeVariation($v);
                 $this->em->remove($v);
@@ -1097,7 +1003,7 @@ class AdminGeographyController extends AbstractController
         }
     }
 
-    private function syncStateVariations(State $state, string $variationsText, bool $flush = true): void
+    private function syncStateVariations(State $state, string $variationsText, bool $flush = true, bool $removeMissing = true): void
     {
         $lines = explode("\n", $variationsText);
         $validVariationNames = [];
@@ -1131,7 +1037,9 @@ class AdminGeographyController extends AbstractController
             }
         }
 
-        foreach ($existingMap as $name => $v) {
+        // Na importação de CSV ($removeMissing = false) só se acrescenta: arquivo sem a coluna
+        // "variations" não pode apagar as grafias já cadastradas (cadastro global).
+        foreach ($removeMissing ? $existingMap : [] as $name => $v) {
             if (!isset($validVariationNames[$name])) {
                 $state->removeVariation($v);
                 $this->em->remove($v);
@@ -1143,7 +1051,7 @@ class AdminGeographyController extends AbstractController
         }
     }
 
-    private function syncCityVariations(City $city, string $variationsText, bool $flush = true): void
+    private function syncCityVariations(City $city, string $variationsText, bool $flush = true, bool $removeMissing = true): void
     {
         $lines = explode("\n", $variationsText);
         $validVariationNames = [];
@@ -1174,7 +1082,9 @@ class AdminGeographyController extends AbstractController
             }
         }
 
-        foreach ($existingMap as $name => $v) {
+        // Na importação de CSV ($removeMissing = false) só se acrescenta: arquivo sem a coluna
+        // "variations" não pode apagar as grafias já cadastradas (cadastro global).
+        foreach ($removeMissing ? $existingMap : [] as $name => $v) {
             if (!isset($validVariationNames[$name])) {
                 $city->removeVariation($v);
                 $this->em->remove($v);

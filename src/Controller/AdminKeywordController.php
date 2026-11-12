@@ -415,47 +415,14 @@ class AdminKeywordController extends AbstractController
             return $this->redirectToRoute('app_admin_keywords_edit', ['id' => $keyword->getId()]);
         }
 
-        // Ocorrências nos documentos, termos agrupados (conceito), matches e log de tratamento vão para o destino
-        $this->mergeService->remapKeywordLinks($keyword->getId(), $target->getId());
-
-        // Move existing variations
-        foreach ($keyword->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setKeyword($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
-        }
-
-        // Add keyword's term as variation of target
+        // Pelo serviço de fusão: remapeia vínculos, conceito, matches e log e recria as grafias no destino, numa transação
         $name = $keyword->getKeywordOriginal();
-        $norm = $keyword->getKeywordNormalized();
-        $exists = false;
-        foreach ($target->getVariations() as $tv) {
-            if ($tv->getNormalizedName() === $norm) {
-                $exists = true;
-                break;
-            }
+        try {
+            $this->mergeService->mergeKeywords($target->getId(), [$keyword->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_keywords_index');
         }
-        if (!$exists) {
-            $v = new KeywordVariation();
-            $v->setVariationName($name);
-            $v->setNormalizedName($norm);
-            $v->setVariationType('alternative');
-            $v->setKeyword($target);
-            $this->em->persist($v);
-        }
-
-        $this->em->remove($keyword);
-        $this->em->flush();
 
         $this->addFlash('success', "Palavra-chave '{$name}' mesclada em '{$target->getKeywordOriginal()}' com sucesso!");
         return $this->redirectToRoute('app_admin_keywords_index');

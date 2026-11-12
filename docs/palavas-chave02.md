@@ -682,7 +682,6 @@ Enquanto keyword.keyword_concept_id existir:
 * Criar comando para migrar associações antigas para thesaurusConcept, quando possível.
 
 Criar comando:
-php bin/console app:keywords:migrate-keyword-concepts-to-thesaurus
 
 Esse comando deve:
 

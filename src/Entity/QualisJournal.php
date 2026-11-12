@@ -43,6 +43,21 @@ class QualisJournal
     #[ORM\Column(length: 10, nullable: true)]
     private ?string $qualis = null;
 
+    /** Última vez em que a Sucupira respondeu sobre o estrato (com ou sem resultado). */
+    #[ORM\Column(name: 'qualis_checked_at', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $qualisCheckedAt = null;
+
+    public function getQualisCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->qualisCheckedAt;
+    }
+
+    public function setQualisCheckedAt(?\DateTimeImmutable $at): self
+    {
+        $this->qualisCheckedAt = $at;
+        return $this;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

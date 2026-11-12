@@ -4,10 +4,12 @@ namespace App\Command;
 
 use App\Entity\QualisJournal;
 use App\Service\Qualis\SucupiraScraperService;
+use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -22,6 +24,42 @@ class QualisResolveMissingCommand extends Command
         private readonly SucupiraScraperService $scraperService
     ) {
         parent::__construct();
+    }
+
+    /** Dias até consultar de novo, na Sucupira, uma revista que ela informou não ter estrato. */
+    public const RETRY_DAYS = 30;
+
+    protected function configure(): void
+    {
+        $this->addOption(
+            'retry-qualis-limit',
+            null,
+            InputOption::VALUE_REQUIRED,
+            'Máximo de revistas sem estrato (e com documentos) consultadas de novo na Sucupira por execução; 0 desliga',
+            100
+        );
+    }
+
+    /**
+     * ISSN distintos a consultar: chave sem hífen, sem espaço e em minúsculas (a mesma forma de
+     * qualis_journal.normalized_issn no resto do sistema) => grafia do documento.
+     * "1234-567X" e "1234567x" são o mesmo ISSN e viram uma entrada só (vale a primeira grafia).
+     *
+     * @param iterable<string|null> $rawIssns
+     * @return array<string, string>
+     */
+    public static function collectIssns(iterable $rawIssns): array
+    {
+        $issns = [];
+        foreach ($rawIssns as $raw) {
+            $raw = trim((string) $raw);
+            $key = EntityMergeService::normalizeIssn($raw);
+            if (strlen($key) >= 7 && !isset($issns[$key])) {
+                $issns[$key] = $raw;
+            }
+        }
+
+        return $issns;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -46,6 +84,9 @@ class QualisResolveMissingCommand extends Command
             $io->info("Successfully linked {$initialLinked} documents to existing journals in database.");
         }
 
+        // 1b. Revistas já cadastradas que ficaram sem estrato (Sucupira fora do ar ou sem resultado na época)
+        $this->retryMissingQualis((int) $input->getOption('retry-qualis-limit'), $io);
+
         // 2. Find distinct ISSNs that remain unresolved
         $io->comment('Searching for remaining unresolved ISSNs in documents database...');
         $rows = $conn->fetchAllAssociative('
@@ -59,14 +100,7 @@ class QualisResolveMissingCommand extends Command
             return Command::SUCCESS;
         }
 
-        $issns = [];
-        foreach ($rows as $row) {
-            $raw = trim($row['issn']);
-            $clean = str_replace([' ', '-'], '', $raw);
-            if (strlen($clean) >= 7) {
-                $issns[$clean] = $raw;
-            }
-        }
+        $issns = self::collectIssns(array_column($rows, 'issn'));
 
         $total = count($issns);
         $io->info("Found {$total} distinct unresolved ISSNs to crawl from Crossref API.");
@@ -110,8 +144,12 @@ class QualisResolveMissingCommand extends Command
                     $journal->setNormalizedIssn($normalizedIssn);
                     
                     // Fetch Qualis classification from Sucupira
-                    $qualis = $this->scraperService->fetchQualis($originalIssn);
-                    $journal->setQualis($qualis);
+                    $lookup = $this->scraperService->lookupQualis($originalIssn);
+                    $journal->setQualis($lookup['qualis']);
+                    // Sem resposta da Sucupira a data fica vazia e a revista entra na próxima reconsulta
+                    if ($lookup['reached']) {
+                        $journal->setQualisCheckedAt(new \DateTimeImmutable());
+                    }
 
                     $this->em->persist($journal);
                     $resolved++;
@@ -144,5 +182,52 @@ class QualisResolveMissingCommand extends Command
         ]);
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Consulta de novo o estrato das revistas sem Qualis que têm documentos: primeiro as que a
+     * Sucupira nunca respondeu, depois as conferidas há mais de RETRY_DAYS dias. O estrato achado
+     * vai também para os documentos da revista (document.qualis), em todos os projetos.
+     */
+    private function retryMissingQualis(int $limit, SymfonyStyle $io): void
+    {
+        if ($limit <= 0) {
+            return;
+        }
+
+        $conn = $this->em->getConnection();
+        $journals = $conn->fetchAllAssociative(
+            'SELECT q.id, q.issn FROM qualis_journal q
+             WHERE q.qualis IS NULL AND q.issn IS NOT NULL AND q.issn <> ""
+               AND (q.qualis_checked_at IS NULL OR q.qualis_checked_at < ?)
+               AND EXISTS (SELECT 1 FROM document d WHERE d.qualis_journal_id = q.id)
+             ORDER BY q.qualis_checked_at IS NOT NULL, q.qualis_checked_at, q.id
+             LIMIT ' . $limit,
+            [(new \DateTimeImmutable('-' . self::RETRY_DAYS . ' days'))->format('Y-m-d H:i:s')]
+        );
+        if ($journals === []) {
+            return;
+        }
+
+        $io->comment(sprintf('Re-checking Qualis on Sucupira for %d journal(s) without classification...', count($journals)));
+        $found = 0;
+        $unreachable = 0;
+        foreach ($journals as $journal) {
+            $lookup = $this->scraperService->lookupQualis((string) $journal['issn']);
+            if (!$lookup['reached']) {
+                $unreachable++;
+            } else {
+                $conn->executeStatement(
+                    'UPDATE qualis_journal SET qualis = ?, qualis_checked_at = ? WHERE id = ?',
+                    [$lookup['qualis'], date('Y-m-d H:i:s'), $journal['id']]
+                );
+                if ($lookup['qualis'] !== null) {
+                    $found++;
+                    $conn->executeStatement('UPDATE document SET qualis = ? WHERE qualis_journal_id = ?', [$lookup['qualis'], $journal['id']]);
+                }
+            }
+            usleep(200000);
+        }
+        $io->info(sprintf('Qualis re-check: %d found, %d still without classification, %d without answer from Sucupira.', $found, count($journals) - $found - $unreachable, $unreachable));
     }
 }

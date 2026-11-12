@@ -8,6 +8,7 @@ use App\Entity\AuthorExternalIdentifier;
 use App\Entity\Keyword;
 use App\Entity\KeywordVariation;
 use App\Service\Import\TextNormalizer;
+use App\Service\Thesaurus\EntityMergeService;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,7 +22,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AdminReviewController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em
+        private readonly EntityManagerInterface $em,
+        private readonly EntityMergeService $mergeService,
     ) {}
 
     #[Route('', name: 'app_admin_review_index', methods: ['GET'])]
@@ -239,77 +241,14 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $conn = $this->em->getConnection();
-
-        // 1. Remap document links
-        $conn->executeStatement(
-            'DELETE da1 FROM document_author da1
-             JOIN document_author da2 ON da1.document_id = da2.document_id
-             WHERE da1.author_identity_id = ? AND da2.author_identity_id = ?',
-            [$author->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE document_author SET author_identity_id = ? WHERE author_identity_id = ?',
-            [$target->getId(), $author->getId()]
-        );
-
-        // 2. Move existing variations
-        foreach ($author->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setAuthorIdentity($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
-        }
-
-        // Add author's name as variant of target
+        // Pelo serviço de fusão (o mesmo do cadastro de autores)
         $name = $author->getPreferredName();
-        $norm = $author->getNormalizedName();
-        $exists = false;
-        foreach ($target->getVariations() as $tv) {
-            if ($tv->getNormalizedName() === $norm) {
-                $exists = true;
-                break;
-            }
+        try {
+            $this->mergeService->mergeAuthors($target->getId(), [$author->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_review_index');
         }
-        if (!$exists) {
-            $v = new AuthorNameVariant();
-            $v->setOriginalName($name);
-            $v->setDisplayName($name);
-            $v->setNormalizedName($norm);
-            $v->setSource('alternative');
-            $v->setConfidence(1.0);
-            $v->setAuthorIdentity($target);
-            $this->em->persist($v);
-        }
-
-        // 3. Move identifiers
-        foreach ($author->getIdentifiers() as $ident) {
-            $exists = false;
-            foreach ($target->getIdentifiers() as $tident) {
-                if ($tident->getProvider() === $ident->getProvider() && $tident->getIdentifier() === $ident->getIdentifier()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $ident->setAuthorIdentity($target);
-                $target->addIdentifier($ident);
-            } else {
-                $this->em->remove($ident);
-            }
-        }
-
-        $this->em->remove($author);
-        $this->em->flush();
 
         $this->addFlash('success', "Autor '{$name}' mesclado em '{$target->getPreferredName()}' com sucesso!");
         return $this->redirectToRoute('app_admin_review_index');
@@ -532,64 +471,14 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $conn = $this->em->getConnection();
-
-        // 1. Remap document links
-        $conn->executeStatement(
-            'DELETE dk1 FROM document_keyword dk1
-             JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id
-             WHERE dk1.keyword_id = ? AND dk2.keyword_id = ?',
-            [$keyword->getId(), $target->getId()]
-        );
-        $conn->executeStatement(
-            'UPDATE document_keyword SET keyword_id = ? WHERE keyword_id = ?',
-            [$target->getId(), $keyword->getId()]
-        );
-
-        // 2. Remap concept_id in keyword table
-        $conn->executeStatement(
-            'UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ?',
-            [$target->getId(), $keyword->getId()]
-        );
-
-        // 3. Move variations
-        foreach ($keyword->getVariations() as $v) {
-            $exists = false;
-            foreach ($target->getVariations() as $tv) {
-                if ($tv->getNormalizedName() === $v->getNormalizedName()) {
-                    $exists = true;
-                    break;
-                }
-            }
-            if (!$exists) {
-                $v->setKeyword($target);
-                $target->addVariation($v);
-            } else {
-                $this->em->remove($v);
-            }
-        }
-
-        // Add keyword's term as variant of target
+        // Pelo serviço de fusão (o mesmo do cadastro de palavras-chave: também leva matches e log do tratamento)
         $name = $keyword->getKeywordOriginal();
-        $norm = $keyword->getKeywordNormalized();
-        $exists = false;
-        foreach ($target->getVariations() as $tv) {
-            if ($tv->getNormalizedName() === $norm) {
-                $exists = true;
-                break;
-            }
+        try {
+            $this->mergeService->mergeKeywords($target->getId(), [$keyword->getId()], []);
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
+            return $this->redirectToRoute('app_admin_review_index');
         }
-        if (!$exists) {
-            $v = new KeywordVariation();
-            $v->setVariationName($name);
-            $v->setNormalizedName($norm);
-            $v->setVariationType('alternative');
-            $v->setKeyword($target);
-            $this->em->persist($v);
-        }
-
-        $this->em->remove($keyword);
-        $this->em->flush();
 
         $this->addFlash('success', "Palavra-chave '{$name}' mesclada em '{$target->getTerm()}'!");
         return $this->redirectToRoute('app_admin_review_index');
