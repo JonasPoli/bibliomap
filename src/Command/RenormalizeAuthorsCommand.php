@@ -3,7 +3,8 @@
 namespace App\Command;
 
 use App\Service\Import\TextNormalizer;
-use App\Service\Thesaurus\EntityMergeService;
+use App\Service\Authority\AuthorityMappingException;
+use App\Service\Authority\AuthorityMappingService;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,18 +20,19 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * A importação atual não os reconhece e cria um segundo cadastro para o mesmo nome,
  * dividindo documentos, citações e h-index do autor.
  *
- * Recalcula a chave com a regra atual da importação, funde cadastros que passam a ter
- * a mesma chave (no que tiver mais documentos) e reavalia o status dos legados.
+ * Recalcula a chave com a regra atual da importação, agrupa cadastros que passam a ter
+ * a mesma chave no que tiver mais documentos (AuthorityMappingService, escopo global, origem 'command':
+ * nada é apagado nem repontuado) e reavalia o status dos legados.
  */
 #[AsCommand(
     name: 'app:authors:renormalize',
-    description: 'Recalcula nomes normalizados de autores, funde duplicados e reavalia pendências legadas',
+    description: 'Recalcula nomes normalizados de autores, agrupa duplicados e reavalia pendências legadas',
 )]
 class RenormalizeAuthorsCommand extends Command
 {
     public function __construct(
         private readonly Connection $conn,
-        private readonly EntityMergeService $mergeService,
+        private readonly AuthorityMappingService $mappingService,
     ) {
         parent::__construct();
     }
@@ -105,7 +107,8 @@ class RenormalizeAuthorsCommand extends Command
         }
 
         $now = date('Y-m-d H:i:s');
-        $deleted = [];
+        $grouped = [];
+        $refused = 0;
         $io->progressStart(count($dupGroups));
         foreach ($dupGroups as $key => $ids) {
             // Só os autores do grupo são lidos de novo (nome e situação)
@@ -128,44 +131,34 @@ class RenormalizeAuthorsCommand extends Command
             $masterId = array_shift($ids);
             $newKey = (string) $key;
 
-            $this->conn->transactional(function () use ($ids, $masterId, $authors, $newKey, $now, &$deleted) {
-                foreach ($ids as $sourceId) {
-                    $this->mergeService->remapAuthorLinks($sourceId, $masterId);
-                    $this->conn->executeStatement('UPDATE author_name_variant SET author_identity_id = ? WHERE author_identity_id = ?', [$masterId, $sourceId]);
-                    // Identificadores externos que o master ainda não tem
-                    $this->conn->executeStatement(
-                        'UPDATE author_external_identifier s SET s.author_identity_id = ?
-                         WHERE s.author_identity_id = ? AND NOT EXISTS (
-                             SELECT 1 FROM (SELECT provider, identifier FROM author_external_identifier WHERE author_identity_id = ?) m
-                             WHERE m.provider = s.provider AND m.identifier = s.identifier)',
-                        [$masterId, $sourceId, $masterId]
+            // Agrupa cada duplicado no principal (global, origem 'command'), sem apagar identidade, variação,
+            // identificador externo nem vínculo: o principal passa a valer nas análises e o desfazer fica no admin.
+            foreach ($ids as $sourceId) {
+                try {
+                    $this->mappingService->merge(
+                        AuthorityMappingService::ENTITY_AUTHOR,
+                        $sourceId,
+                        $masterId,
+                        AuthorityMappingService::SCOPE_GLOBAL,
+                        0,
+                        'command',
+                        null,
+                        'app:authors:renormalize'
                     );
-                    $name = (string) $authors[$sourceId]['preferred_name'];
-                    if ($name !== (string) $authors[$masterId]['preferred_name']) {
-                        $this->conn->insert('author_name_variant', [
-                            'author_identity_id' => $masterId,
-                            'original_name'      => $name,
-                            'display_name'       => $name,
-                            'normalized_name'    => $newKey,
-                            'source'             => 'merge',
-                            'confidence'         => 1.0,
-                            'created_at'         => $now,
-                            'updated_at'         => $now,
-                        ]);
-                    }
-                    $this->conn->delete('author_identity', ['id' => $sourceId]);
-                    $deleted[$sourceId] = true;
+                    $grouped[$sourceId] = true;
+                } catch (AuthorityMappingException $e) {
+                    $refused++;
                 }
-            });
+            }
             $io->progressAdvance();
         }
         $io->progressFinish();
 
         $updated = 0;
         foreach (array_chunk(array_keys($updates), 2000) as $chunk) {
-            $this->conn->transactional(function () use ($chunk, $updates, $deleted, $now, &$updated) {
+            $this->conn->transactional(function () use ($chunk, $updates, $grouped, $now, &$updated) {
                 foreach ($chunk as $id) {
-                    if (isset($deleted[$id])) {
+                    if (isset($grouped[$id])) {
                         continue;
                     }
                     $this->conn->update('author_identity', $updates[$id] + ['updated_at' => $now], ['id' => $id]);
@@ -174,7 +167,8 @@ class RenormalizeAuthorsCommand extends Command
             });
         }
 
-        $io->success(sprintf('%d cadastros fundidos; %d autores atualizados.', count($deleted), $updated));
+        $io->success(sprintf('%d cadastros agrupados (nenhum apagado); %d autores atualizados.', count($grouped), $updated)
+            . ($refused > 0 ? sprintf(' %d agrupamento(s) recusado(s) pelo serviço (laço ou já agrupado em outro destino).', $refused) : ''));
 
         return Command::SUCCESS;
     }

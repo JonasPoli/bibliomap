@@ -17,6 +17,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMappingException;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 
@@ -31,7 +33,14 @@ class AdminKeywordController extends AbstractController
         private readonly AuthorityLinkGuard $linkGuard,
         private readonly AuthorityMergeLogger $mergeLogger,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mappingService = null,
     ) {}
+
+    /** Agrupador de autoridades; criado sob demanda quando o controlador é montado à mão (testes). */
+    private function mappings(): AuthorityMappingService
+    {
+        return $this->mappingService ??= new AuthorityMappingService($this->em, $this->authority(), $this->mergeLogger, null);
+    }
 
     /** Resolvedor do id efetivo; criado sob demanda quando o controlador é montado à mão (testes). */
     private function authority(): AuthorityResolver
@@ -69,6 +78,13 @@ class AdminKeywordController extends AbstractController
         if ($type !== 'all' && in_array($type, [Keyword::TYPE_AUTHOR, Keyword::TYPE_INDEXED, Keyword::TYPE_MESH])) {
             $qb->andWhere('k.keywordType = :type')
                ->setParameter('type', $type);
+        }
+
+        // Só principais: esconde as palavras que já estão agrupadas em outra (conceito agrupador ou mapeamento global)
+        $onlyMain = $request->query->getBoolean('only_main');
+        if ($onlyMain) {
+            $qb->andWhere('(k.keywordConcept IS NULL OR IDENTITY(k.keywordConcept) = k.id OR k.thesaurusConcept IS NOT NULL)')
+               ->andWhere('NOT EXISTS (SELECT 1 FROM App\\Entity\\AuthorityMapping gm WHERE gm.entityType = \'keyword\' AND gm.scope = \'global\' AND gm.sourceId = k.id)');
         }
 
         $totalItems = (int) (clone $qb)->select('COUNT(DISTINCT k.id)')->getQuery()->getSingleScalarResult();
@@ -112,11 +128,46 @@ class AdminKeywordController extends AbstractController
             'search' => $search,
             'status' => $status,
             'type' => $type,
+            'onlyMain' => $onlyMain,
+            // Palavras da página que já estão agrupadas em outra: "agrupada em X"
+            'groupings' => $this->mappings()->globalGroupings('keyword', $ids),
             'currentPage' => $page,
             'totalPages' => $totalPages,
             'totalItems' => $totalItems,
             'limit' => $limit,
         ]);
+    }
+
+    /** Aba "Agrupamentos": mesclagens globais de palavras-chave, com o botão Desfazer. */
+    #[Route('/agrupamentos', name: 'app_admin_keywords_groupings', methods: ['GET'])]
+    public function groupings(Request $request): Response
+    {
+        $list = $this->mappings()->list('keyword', 'global', 0, max(1, $request->query->getInt('page', 1)), AuthorityMappingService::PER_PAGE);
+
+        return $this->render('admin/keywords/groupings.html.twig', [
+            'list' => $list,
+            'entity' => 'keyword',
+            'undoRoute' => 'app_admin_keywords_grouping_undo',
+            'backRoute' => 'app_admin_keywords_index',
+            'listRoute' => 'app_admin_keywords_groupings',
+        ]);
+    }
+
+    #[Route('/agrupamentos/{sourceId}/desfazer', name: 'app_admin_keywords_grouping_undo', requirements: ['sourceId' => '\\d+'], methods: ['POST'])]
+    public function undoGrouping(int $sourceId, Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('undo_grouping_keyword_' . $sourceId, $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_keywords_groupings');
+        }
+        try {
+            $r = $this->mappings()->undo('keyword', 'global', 0, $sourceId);
+            $this->addFlash('success', sprintf('Agrupamento desfeito: a palavra-chave #%d volta a contar por conta própria (%d vínculos recalculados).', $sourceId, $r['affected_links']));
+        } catch (AuthorityMappingException $e) {
+            $this->addFlash('warning', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_keywords_groupings', ['page' => max(1, $request->query->getInt('page', 1))]);
     }
 
     #[Route('/export', name: 'app_admin_keywords_export', methods: ['GET'])]
@@ -501,16 +552,16 @@ class AdminKeywordController extends AbstractController
             return $this->redirectToRoute('app_admin_keywords_edit', ['id' => $keyword->getId()]);
         }
 
-        // Pelo serviço de fusão: remapeia vínculos, conceito, matches e log e recria as grafias no destino, numa transação
+        // Pelo serviço de fusão: grava o agrupamento global (nada é apagado nem repontuado), numa transação
         $name = $keyword->getKeywordOriginal();
         try {
             $this->mergeService->mergeKeywords($target->getId(), [$keyword->getId()], []);
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar as palavras-chave: ' . $e->getMessage());
             return $this->redirectToRoute('app_admin_keywords_index');
         }
 
-        $this->addFlash('success', "Palavra-chave '{$name}' mesclada em '{$target->getKeywordOriginal()}' com sucesso!");
+        $this->addFlash('success', "Palavra-chave '{$name}' agrupada em '{$target->getKeywordOriginal()}'. Nada foi apagado; para voltar atrás, use Desfazer na aba Agrupamentos.");
         return $this->redirectToRoute('app_admin_keywords_index');
     }
 
@@ -713,9 +764,9 @@ class AdminKeywordController extends AbstractController
 
         try {
             $master = $this->mergeService->mergeKeywords($masterId, $sourceIds, $fields);
-            $this->addFlash('success', "Palavra-chave '{$master->getKeywordOriginal()}' (#{$master->getId()}) mesclada e consolidada no Tesauro com sucesso!");
+            $this->addFlash('success', "Palavra-chave '{$master->getKeywordOriginal()}' (#{$master->getId()}) agrupada com as selecionadas (nada foi apagado; Desfazer na aba Agrupamentos).");
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar as palavras-chave: ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_keywords_index');

@@ -18,6 +18,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\Thesaurus\ThesaurusFileService;
 use App\Service\Thesaurus\EntityMergeService;
 use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMappingException;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 
@@ -32,7 +34,14 @@ class AdminAuthorController extends AbstractController
         private readonly AuthorityLinkGuard $linkGuard,
         private readonly AuthorityMergeLogger $mergeLogger,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mappingService = null,
     ) {}
+
+    /** Agrupador de autoridades; criado sob demanda quando o controlador é montado à mão (testes). */
+    private function mappings(): AuthorityMappingService
+    {
+        return $this->mappingService ??= new AuthorityMappingService($this->em, $this->authority(), $this->mergeLogger, null);
+    }
 
     /** Resolvedor do id efetivo; criado sob demanda quando o controlador é montado à mão (testes). */
     private function authority(): AuthorityResolver
@@ -64,6 +73,12 @@ class AdminAuthorController extends AbstractController
             $qb->andWhere('a.status = 1');
         } elseif ($status === 'inactive') {
             $qb->andWhere('a.status = 0');
+        }
+
+        // Só principais: esconde as identidades que já estão agrupadas em outra (agrupamento global)
+        $onlyMain = $request->query->getBoolean('only_main');
+        if ($onlyMain) {
+            $qb->andWhere('NOT EXISTS (SELECT 1 FROM App\\Entity\\AuthorityMapping gm WHERE gm.entityType = \'author\' AND gm.scope = \'global\' AND gm.sourceId = a.id)');
         }
 
         $totalItems = (int) (clone $qb)->select('COUNT(DISTINCT a.id)')->getQuery()->getSingleScalarResult();
@@ -110,11 +125,46 @@ class AdminAuthorController extends AbstractController
             'docCounts' => $this->linkGuard->documentCounts('author', $ids),
             'search' => $search,
             'status' => $status,
+            'onlyMain' => $onlyMain,
+            // Identidades da página que já estão agrupadas em outra: "agrupada em X"
+            'groupings' => $this->mappings()->globalGroupings('author', $ids),
             'currentPage' => $page,
             'totalPages' => $totalPages,
             'totalItems' => $totalItems,
             'limit' => $limit,
         ]);
+    }
+
+    /** Aba "Agrupamentos": mesclagens globais de autores, com o botão Desfazer. */
+    #[Route('/agrupamentos', name: 'app_admin_authors_groupings', methods: ['GET'])]
+    public function groupings(Request $request): Response
+    {
+        $list = $this->mappings()->list('author', 'global', 0, max(1, $request->query->getInt('page', 1)), AuthorityMappingService::PER_PAGE);
+
+        return $this->render('admin/authors/groupings.html.twig', [
+            'list' => $list,
+            'entity' => 'author',
+            'undoRoute' => 'app_admin_authors_grouping_undo',
+            'backRoute' => 'app_admin_authors_index',
+            'listRoute' => 'app_admin_authors_groupings',
+        ]);
+    }
+
+    #[Route('/agrupamentos/{sourceId}/desfazer', name: 'app_admin_authors_grouping_undo', requirements: ['sourceId' => '\\d+'], methods: ['POST'])]
+    public function undoGrouping(int $sourceId, Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('undo_grouping_author_' . $sourceId, $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('app_admin_authors_groupings');
+        }
+        try {
+            $r = $this->mappings()->undo('author', 'global', 0, $sourceId);
+            $this->addFlash('success', sprintf('Agrupamento desfeito: o autor #%d volta a contar por conta própria (%d vínculos recalculados).', $sourceId, $r['affected_links']));
+        } catch (AuthorityMappingException $e) {
+            $this->addFlash('warning', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_admin_authors_groupings', ['page' => max(1, $request->query->getInt('page', 1))]);
     }
 
     #[Route('/export', name: 'app_admin_authors_export', methods: ['GET'])]
@@ -576,16 +626,16 @@ class AdminAuthorController extends AbstractController
             return $this->redirectToRoute('app_admin_authors_edit', ['id' => $author->getId()]);
         }
 
-        // Pelo serviço de fusão: remapeia os vínculos e recria grafias e identificadores no destino, numa transação
+        // Pelo serviço de fusão: grava o agrupamento global (nada é apagado nem repontuado), numa transação
         $name = $author->getPreferredName();
         try {
             $this->mergeService->mergeAuthors($target->getId(), [$author->getId()], []);
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar os autores: ' . $e->getMessage());
             return $this->redirectToRoute('app_admin_authors_index');
         }
 
-        $this->addFlash('success', "Autor '{$name}' mesclado em '{$target->getPreferredName()}' com sucesso!");
+        $this->addFlash('success', "Autor '{$name}' agrupado em '{$target->getPreferredName()}'. Nada foi apagado; para voltar atrás, use Desfazer na aba Agrupamentos.");
         return $this->redirectToRoute('app_admin_authors_index');
     }
 
@@ -779,9 +829,9 @@ class AdminAuthorController extends AbstractController
 
         try {
             $master = $this->mergeService->mergeAuthors($masterId, $sourceIds, $fields);
-            $this->addFlash('success', "Autor '{$master->getPreferredName()}' (#{$master->getId()}) mesclado e consolidado no Tesauro com sucesso!");
+            $this->addFlash('success', "Autor '{$master->getPreferredName()}' (#{$master->getId()}) agrupado com os selecionados (nada foi apagado; Desfazer na aba Agrupamentos).");
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar os autores: ' . $e->getMessage());
         }
 
         return $this->redirectToRoute('app_admin_authors_index');

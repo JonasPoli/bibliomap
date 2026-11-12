@@ -338,12 +338,7 @@ class ReportController extends AbstractController
         $sql = 'SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.cited_by, d.document_type,
                        d.volume, d.issue, d.page_start, d.page_end, d.publisher, d.issn, d.isbn'
              . ($withAbstract ? ', d.abstract_text' : '') . ',
-                       (
-                           SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR \'; \')
-                           FROM document_author da2
-                           JOIN author_identity a2 ON a2.id = da2.author_identity_id
-                           WHERE da2.document_id = d.id
-                       ) AS author_names
+                       ' . \App\Service\Analytics\ReportService::effectiveAuthorNamesSql('d.id') . ' AS author_names
                 FROM document d
                 WHERE d.project_id = ? AND ' . $filterSql . '
                 ORDER BY d.year DESC, d.title ASC, d.id ASC';
@@ -789,10 +784,11 @@ class ReportController extends AbstractController
             if (!empty($docIds)) {
                 $placeholders = implode(',', array_fill(0, count($docIds), '?'));
                 $authorRows = $this->conn->fetchAllAssociative(
-                    "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position SEPARATOR ', ') AS author_names
+                    "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position, da.id SEPARATOR ', ') AS author_names
                      FROM document_author da
-                     JOIN author_identity a ON a.id = da.author_identity_id
-                     WHERE da.document_id IN ($placeholders)
+                     JOIN author_identity a ON a.id = da.effective_author_id
+                     WHERE da.document_id IN ($placeholders) AND " . \App\Service\Analytics\ReportService::firstEffectiveAuthorFilter('da') . "
+
                      GROUP BY da.document_id",
                     $docIds
                 );

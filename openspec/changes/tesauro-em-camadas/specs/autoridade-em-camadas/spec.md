@@ -36,9 +36,9 @@ Depois da importação, `document_author.author_identity_id`, `document_keyword.
 - **AND** as análises passam a contar esses vínculos como A
 
 ### Requirement: Mapeamento por escopo
-O sistema SHALL guardar as decisões de agrupamento em `authority_mapping` (tipo, escopo `global`, `user` ou `project`, id bruto, id efetivo, origem, autor e data), e a identidade efetiva de um vínculo SHALL ser resolvida nesta ordem: mapeamento do projeto, mapeamento do usuário dono do projeto, mapeamento global, o próprio id bruto. O alvo de um mapeamento MUST ser final (sem encadeamento). Quem vê um projeto público SHALL ver o resultado com o tesauro do dono do projeto.
+O sistema SHALL guardar as decisões de agrupamento em `authority_mapping` (tipo, escopo `global`, `user` ou `project`, id bruto, id efetivo, origem, autor e data) e resolver a identidade efetiva de um vínculo pela ordem projeto, usuário dono do projeto, global e, por último, o próprio id bruto. O alvo de um mapeamento MUST ser final, e quem vê um projeto público SHALL ver o resultado com o tesauro do dono. Nenhuma tela grava o escopo `user` neste change.
 
-#### Scenario: Exceção do usuário sobre o padrão global
+#### Scenario: Exceção do projeto sobre o padrão global
 - **WHEN** o administrador mapeia "Silva J" para "Silva, João" no global e o dono de um projeto mapeia "Silva J" para "Silva, José" no seu projeto
 - **THEN** nesse projeto "Silva J" conta como "Silva, José"
 - **AND** nos demais projetos conta como "Silva, João"
@@ -48,11 +48,42 @@ O sistema SHALL guardar as decisões de agrupamento em `authority_mapping` (tipo
 - **THEN** a identidade efetiva volta à do nível seguinte e nenhum vínculo bruto precisou ser restaurado
 
 ### Requirement: Quem pode gravar em cada escopo
-Somente administradores SHALL gravar mapeamentos de escopo `global`. Um usuário comum SHALL gravar apenas mapeamentos dos seus próprios projetos (escopo `project`) ou do seu tesauro pessoal (escopo `user`), e MUST NOT alterar o tesauro global nem os dados de outro usuário.
+Somente administradores SHALL gravar mapeamentos de escopo `global`. Um usuário comum SHALL gravar apenas mapeamentos dos seus próprios projetos (escopo `project`), e MUST NOT alterar o tesauro global nem os dados de outro usuário. Um administrador que mescla pela tela de normalização de um projeto SHALL gravar no global.
 
 #### Scenario: Usuário comum mescla na tela do projeto
 - **WHEN** um usuário comum mescla dois autores na tela de normalização do seu projeto
 - **THEN** é gravado um mapeamento de escopo `project` e os outros projetos não mudam
+- **AND** nenhuma identidade nem vínculo é apagado
+
+#### Scenario: Administrador mescla na tela de administração
+- **WHEN** um administrador mescla dois autores pela tela de administração
+- **THEN** é gravado um mapeamento global e todos os projetos passam a ver os dois como um
+
+### Requirement: Mesclar agrupa sem apagar
+As mesclagens de autores e de palavras-chave (telas de administração, tela de normalização do projeto, importação de CSV de normalização), a colisão de formas normalizadas do tratamento de palavras-chave e o remapeamento pelas variações no enriquecimento SHALL gravar o agrupamento (mapeamento ou `keyword_concept_id`) e recalcular a identidade efetiva, e MUST NOT apagar identidades, apagar vínculos nem alterar o id bruto dos vínculos. As variações da identidade de origem SHALL permanecer com ela.
+
+#### Scenario: Mesclar autores
+- **WHEN** o administrador mescla o autor B no autor A
+- **THEN** B continua existindo com as suas variações e os vínculos de B continuam apontando para B
+- **AND** as análises contam esses vínculos como A
+
+#### Scenario: Tratamento noturno
+- **WHEN** o tratamento de palavras-chave encontra duas palavras com a mesma forma normalizada
+- **THEN** a segunda passa a ser agrupada na primeira sem que nenhum vínculo ou palavra-chave seja apagado
+
+### Requirement: Desfazer um agrupamento
+A tela de administração (agrupamentos globais) e a tela de normalização do projeto (agrupamentos do projeto) SHALL listar os agrupamentos gravados e permitir desfazer cada um, o que SHALL apagar a linha de mapeamento (ou restaurar o `keyword_concept_id` da palavra à própria palavra) e recalcular a identidade efetiva dos vínculos afetados.
+
+#### Scenario: Desfazer uma mesclagem global
+- **WHEN** o administrador desfaz a mesclagem de B em A
+- **THEN** as análises voltam a contar os vínculos de B como B
+
+### Requirement: Cópia de projeto leva os agrupamentos do projeto
+A cópia de um projeto SHALL copiar os mapeamentos de escopo `project` do projeto de origem para o projeto novo, de modo que os números da cópia sejam iguais aos do original.
+
+#### Scenario: Copiar um projeto com exceções
+- **WHEN** o administrador copia um projeto que tem 3 agrupamentos próprios para outro usuário
+- **THEN** o projeto novo tem os mesmos 3 agrupamentos e os mesmos números
 
 ### Requirement: Análises leem a identidade efetiva
 Relatórios, painel, redes, mapa e evolução temática, três campos, matriz, comparação de grupos e classificação SHALL agrupar pela identidade efetiva do vínculo e contar documentos distintos, de modo que dois vínculos do mesmo documento com a mesma identidade efetiva contem uma vez. Com o tesauro vazio e nenhuma mesclagem anterior, os números MUST ser iguais aos obtidos antes da mudança.

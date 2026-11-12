@@ -19,6 +19,8 @@ A análise de arquitetura (Fable 5.2, 12/11/2026, somente leitura, com mediçõe
 
 ## Fases (cada uma publicável sozinha)
 
+Este change cobre as fases 0 a 3. As fases 4 a 6 foram para o change `tesauro-do-usuario-e-historico`.
+
 | Fase | Entrega | Risco | Esforço | Decisão necessária |
 |---|---|---|---|---|
 | 0 | Diário das fusões, bloqueio ou inativação de Excluir/Descartar, correção do cron segurada | Baixo | Pequeno | O que "inativar" significa nas análises |

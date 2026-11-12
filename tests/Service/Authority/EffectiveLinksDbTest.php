@@ -54,11 +54,13 @@ class EffectiveLinksDbTest extends LocalDbTestCase
     }
 
     /** Equivalente ao `app:authority:rebuild --check` (tabela inteira) mais as contagens de efetivo velho. */
-    private function assertEffectiveConsistent(string $when): void
+    private function assertEffectiveConsistent(string $when, bool $withMappings = false): void
     {
         $this->assertSame(0, $this->resolver()->process('author', false)['changed'], "autores divergentes {$when}");
         $this->assertSame(0, $this->resolver()->process('keyword', false)['changed'], "palavras-chave divergentes {$when}");
-        $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_author WHERE effective_author_id <> author_identity_id'), "autor efetivo != bruto {$when}");
+        if (!$withMappings) {
+            $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_author WHERE effective_author_id <> author_identity_id'), "autor efetivo != bruto {$when}");
+        }
         $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE effective_keyword_id = 0'), "palavra com efetivo 0 {$when}");
         $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_author WHERE effective_author_id = 0'), "autor com efetivo 0 {$when}");
     }
@@ -162,11 +164,14 @@ class EffectiveLinksDbTest extends LocalDbTestCase
 
         (new \ReflectionMethod($service, 'remapAuthorsAndKeywords'))->invoke($service, $projectId, $this->conn);
 
-        $this->assertNotSame($wrong, (int) $this->conn->fetchOne('SELECT author_identity_id FROM document_author WHERE id = ?', [$row['id']]), 'o autor foi remapeado');
+        // Agrupa sem trocar o id bruto: o efetivo do vínculo passa a ser o do cadastro do texto original
+        $this->assertSame($wrong, (int) $this->conn->fetchOne('SELECT author_identity_id FROM document_author WHERE id = ?', [$row['id']]), 'o id bruto não muda');
+        $this->assertSame((int) $row['author_identity_id'], (int) $this->conn->fetchOne('SELECT effective_author_id FROM document_author WHERE id = ?', [$row['id']]), 'o autor foi agrupado');
         if ($kw) {
-            $this->assertNotSame($kwWrong, (int) $this->conn->fetchOne('SELECT keyword_id FROM document_keyword WHERE id = ?', [$kw['id']]), 'a palavra foi remapeada');
+            $this->assertSame($kwWrong, (int) $this->conn->fetchOne('SELECT keyword_id FROM document_keyword WHERE id = ?', [$kw['id']]), 'o id bruto não muda');
+            $this->assertNotSame($kwWrong, (int) $this->conn->fetchOne('SELECT effective_keyword_id FROM document_keyword WHERE id = ?', [$kw['id']]), 'a palavra foi agrupada');
         }
-        $this->assertEffectiveConsistent('logo depois do remapeamento');
+        $this->assertEffectiveConsistent('logo depois do remapeamento', true);
     }
 
     // ── 2. Cópia de projeto ──────────────────────────────────────────────────────
@@ -264,9 +269,10 @@ class EffectiveLinksDbTest extends LocalDbTestCase
         $service = new EntityMergeService($this->em, $this->logger());
 
         $service->mergeAuthors($keepA, [$discardA], []);
-        $this->assertEffectiveConsistent('logo depois de EntityMergeService::mergeAuthors');
+        $this->assertEffectiveConsistent('logo depois de EntityMergeService::mergeAuthors', true);
+        $this->assertGreaterThan(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_author WHERE author_identity_id = ? AND effective_author_id = ?', [$discardA, $keepA]));
         $service->mergeKeywords($keepK, [$discardK], []);
-        $this->assertEffectiveConsistent('logo depois de EntityMergeService::mergeKeywords');
+        $this->assertEffectiveConsistent('logo depois de EntityMergeService::mergeKeywords', true);
         $this->assertGreaterThan(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE keyword_id = ? AND effective_keyword_id = ?', [$groupedK, $keepK]), 'o grupo mudou de conceito e o efetivo acompanhou');
     }
 
@@ -298,8 +304,8 @@ class EffectiveLinksDbTest extends LocalDbTestCase
         };
         $service->executeJob(new KeywordTreatmentOptions(dryRun: false, limit: 10, processInvalids: true, processExact: false, processThesaurus: false, processFuzzy: false), 'teste');
 
-        $this->assertSame(3, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE keyword_id = ? AND effective_keyword_id = ?', [$canonicalId, $canonicalId]));
-        $this->assertEffectiveConsistent('logo depois da fusão do tratamento');
+        $this->assertSame(3, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE keyword_id = ? AND effective_keyword_id = ?', [$dupId, $canonicalId]));
+        $this->assertEffectiveConsistent('logo depois do agrupamento do tratamento', true);
     }
 
     // ── 6. Telas administrativas com SQL próprio ─────────────────────────────────

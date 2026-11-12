@@ -48,10 +48,15 @@
     <p class="bm-page-subtitle">Gerencie o cadastro de autores oficiais e suas variações de nome.</p>
 </div>
 
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" href="#">Cadastro</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ path('app_admin_authors_groupings') }}"><i class="bi bi-diagram-2 me-1"></i>Agrupamentos</a></li>
+</ul>
+
 <!-- Search Bar & Filters -->
 <div class="bm-card mb-4">
     <form method="GET" action="{{ path('app_admin_authors_index') }}" class="row g-2">
-        <div class="col-md-7">
+        <div class="col-md-5">
             <label class="form-label mb-1" style="font-size:12px">Busca {{ help('admin.authors.search') }}</label>
             <input type="text" name="search" class="form-control" placeholder="Nome, grafia alternativa ou ORCID..." value="{{ search }}">
         </div>
@@ -62,6 +67,12 @@
                 <option value="active" {% if status == 'active' %}selected{% endif %}>Ativos (Registrados)</option>
                 <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inativos (Brutos)</option>
             </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="only_main" value="1" id="onlyMain" {% if onlyMain %}checked{% endif %}>
+                <label class="form-check-label" for="onlyMain" style="font-size:12px">Só principais {{ help('admin.authors.only_main') }}</label>
+            </div>
         </div>
         <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn-bm-secondary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
@@ -102,6 +113,11 @@
                             </td>
                             <td>
                                 <div style="font-weight:600">{{ auth.preferredName }}</div>
+                                {% if groupings[auth.id] is defined %}
+                                    <small class="d-block" style="font-size:11.5px;color:var(--bm-warning)" title="Agrupado: nas análises conta como o destino. Desfaça na aba Agrupamentos.">
+                                        <i class="bi bi-diagram-2 me-1"></i>agrupado em {{ groupings[auth.id].target_label }} <span class="text-muted-bm">#{{ groupings[auth.id].target_id }}</span>
+                                    </small>
+                                {% endif %}
                             </td>
                             <td class="font-monospace text-muted-bm">{{ auth.normalizedName ?? '—' }}</td>
                             <td>
@@ -162,10 +178,10 @@
                 <nav aria-label="Navegação de autores">
                     <ul class="pagination pagination-sm mb-0">
                         <li class="page-item {% if currentPage <= 1 %}disabled{% endif %}">
-                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: 1, search: search, status: status}) }}" title="Primeira Página">&laquo;&laquo;</a>
+                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: 1, search: search, status: status, only_main: onlyMain ? 1 : null}) }}" title="Primeira Página">&laquo;&laquo;</a>
                         </li>
                         <li class="page-item {% if currentPage <= 1 %}disabled{% endif %}">
-                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: currentPage - 1, search: search, status: status}) }}">&laquo; Anterior</a>
+                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: currentPage - 1, search: search, status: status, only_main: onlyMain ? 1 : null}) }}">&laquo; Anterior</a>
                         </li>
                         
                         {% set startPage = max(1, currentPage - 2) %}
@@ -173,15 +189,15 @@
                         
                         {% for p in startPage..endPage %}
                             <li class="page-item {% if p == currentPage %}active{% endif %}">
-                                <a class="page-link" href="{{ path('app_admin_authors_index', {page: p, search: search, status: status}) }}">{{ p }}</a>
+                                <a class="page-link" href="{{ path('app_admin_authors_index', {page: p, search: search, status: status, only_main: onlyMain ? 1 : null}) }}">{{ p }}</a>
                             </li>
                         {% endfor %}
 
                         <li class="page-item {% if currentPage >= totalPages %}disabled{% endif %}">
-                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: currentPage + 1, search: search, status: status}) }}">Próxima &raquo;</a>
+                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: currentPage + 1, search: search, status: status, only_main: onlyMain ? 1 : null}) }}">Próxima &raquo;</a>
                         </li>
                         <li class="page-item {% if currentPage >= totalPages %}disabled{% endif %}">
-                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: totalPages, search: search, status: status}) }}" title="Última Página">&raquo;&raquo;</a>
+                            <a class="page-link" href="{{ path('app_admin_authors_index', {page: totalPages, search: search, status: status, only_main: onlyMain ? 1 : null}) }}" title="Última Página">&raquo;&raquo;</a>
                         </li>
                     </ul>
                 </nav>

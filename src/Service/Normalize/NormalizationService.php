@@ -2,6 +2,8 @@
 
 namespace App\Service\Normalize;
 
+use App\Service\Authority\AuthorityMappingException;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 use Doctrine\ORM\EntityManagerInterface;
@@ -12,7 +14,11 @@ class NormalizationService
         private readonly EntityManagerInterface $em,
         private readonly AuthorityMergeLogger $mergeLogger,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mapping = null,
     ) {}
+
+    /** @var list<string> */
+    private array $lastRefusals = [];
 
     /** Resolvedor do id efetivo (sem o rastreador quando o serviço é criado à mão, em testes e scripts). */
     private function authority(): AuthorityResolver
@@ -31,15 +37,16 @@ class NormalizationService
     {
         $conn = $this->em->getConnection();
 
-        // Get all authors associated with this project
+        // Autores do projeto pela identidade EFETIVA do vínculo: quem já foi agrupado (no projeto ou no global)
+        // aparece uma vez, com o nome e a contagem do alvo, e o par já agrupado não volta como sugestão.
         $authors = $conn->fetchAllAssociative('
             SELECT 
                 a.id, 
                 a.preferred_name AS name, 
                 a.normalized_name, 
-                COUNT(da.document_id) AS doc_count
+                COUNT(DISTINCT da.document_id) AS doc_count
             FROM author_identity a
-            JOIN document_author da ON a.id = da.author_identity_id
+            JOIN document_author da ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
             GROUP BY a.id, a.preferred_name, a.normalized_name
@@ -124,243 +131,197 @@ class NormalizationService
         return mb_substr($surname, 0, 4) . '|' . mb_substr($given, 0, 1);
     }
 
-    /**
-     * Passa os vínculos documento -> autor/palavra-chave do descartado para o mantido, com o mesmo
-     * resultado do laço por documento de antes (e dos mesmos dois comandos da mesclagem em lote):
-     * se o mantido já está no documento, o vínculo do descartado some; senão, o vínculo passa a ser
-     * do mantido.
-     */
-    private function remapDocumentLinks(string $table, string $column, int $keepId, int $discardId): void
-    {
-        $conn = $this->em->getConnection();
+    // ── Agrupar (nada é apagado nem repontuado) ───────────────────────────────
 
-        // 1. Documentos em que o mantido já aparece
-        $conn->executeStatement(
-            "DELETE FROM {$table}
-             WHERE {$column} = ?
-               AND document_id IN (SELECT document_id FROM (SELECT document_id FROM {$table} WHERE {$column} = ?) AS _keep)",
-            [$discardId, $keepId]
-        );
-        // 2. Os demais passam para o mantido; efetivo 0 = "recalcular", feito logo abaixo no mesmo comando de negócio
-        $entity = $table === 'document_author' ? AuthorityResolver::ENTITY_AUTHOR : AuthorityResolver::ENTITY_KEYWORD;
-        $effCol = $entity === AuthorityResolver::ENTITY_AUTHOR ? 'effective_author_id' : 'effective_keyword_id';
-        $conn->executeStatement(
-            "UPDATE {$table} SET {$column} = ?, {$effCol} = 0 WHERE {$column} = ?",
-            [$keepId, $discardId]
-        );
-        $this->authority()->refreshPendingByRaw($entity, $keepId);
+    /** Agrupador de autoridades; criado sob demanda em testes e scripts que montam o serviço à mão. */
+    private function mapping(): AuthorityMappingService
+    {
+        return $this->mapping ??= new AuthorityMappingService($this->em, $this->authority(), $this->mergeLogger);
     }
 
     /**
-     * Execute author merge. Grava no diário (authority_merge_log) antes de repontuar os vínculos.
+     * Escopo e origem do agrupamento: o administrador grava no escopo global; os demais usuários, só no do projeto.
+     * Sem projeto (comando, script), vale o global.
      *
-     * @param array $logExtra dados extras do diário (por exemplo ['via' => 'csv'])
+     * @return array{0:string,1:int,2:string} [escopo, id do escopo, origem]
      */
-    public function mergeAuthors(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = []): void
+    private function scopeFor(?int $projectId, bool $asAdmin): array
     {
-        $conn = $this->em->getConnection();
-        $conn->beginTransaction();
-
-        try {
-            $this->mergeLogger->logAuthorMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, $logExtra);
-            // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
-            $this->remapDocumentLinks('document_author', 'author_identity_id', $keepId, $discardId);
-
-            // Create variation for the kept author with the name of the discarded author
-            $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
-            if ($discardName) {
-                $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardName);
-                $existsVar = $conn->fetchOne(
-                    'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
-                    [$keepId, $norm]
-                );
-                $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
-                if (!$existsVar) {
-                    $conn->insert('author_name_variant', [
-                        'author_identity_id' => $keepId,
-                        'original_name'      => $discardName,
-                        'display_name'       => $discardName,
-                        'normalized_name'    => $norm,
-                        'source'             => 'alternative',
-                        'confidence'         => 1.0,
-                        'created_at'         => $now,
-                        'updated_at'         => $now,
-                    ]);
-                }
-            }
-
-            // Move variations of the discarded author to point to the kept author
-            $discardVars = $conn->fetchAllAssociative(
-                'SELECT id, original_name AS variation_name, normalized_name FROM author_name_variant WHERE author_identity_id = ?',
-                [$discardId]
-            );
-            foreach ($discardVars as $v) {
-                $existsVar = $conn->fetchOne(
-                    'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
-                    [$keepId, $v['normalized_name']]
-                );
-                if (!$existsVar) {
-                    $conn->executeStatement(
-                        'UPDATE author_name_variant SET author_identity_id = ? WHERE id = ?',
-                        [$keepId, $v['id']]
-                    );
-                } else {
-                    $conn->executeStatement(
-                        'DELETE FROM author_name_variant WHERE id = ?',
-                        [$v['id']]
-                    );
-                }
-            }
-
-            // Finally, delete the discarded author
-            $conn->executeStatement('DELETE FROM author_identity WHERE id = ?', [$discardId]);
-
-            $conn->commit();
-        } catch (\Throwable $e) {
-            $conn->rollBack();
-            throw $e;
+        if ($asAdmin || $projectId === null) {
+            return [AuthorityMappingService::SCOPE_GLOBAL, 0, 'admin'];
         }
+
+        return [AuthorityMappingService::SCOPE_PROJECT, $projectId, 'project'];
+    }
+
+    /** Recusas do agrupamento (laço, já agrupada, auto-mapeamento) da última mesclagem em lote ou por CSV, em pt-BR. */
+    public function lastRefusals(): array
+    {
+        return $this->lastRefusals;
+    }
+
+    /** Alvo final da identidade no escopo, quando é uma identidade própria (positivo); senão, o id como veio. */
+    private function finalOrRaw(string $entity, int $id, string $scope, int $scopeId): int
+    {
+        $final = $this->mapping()->resolveFinalTarget($entity, $id, $scope, $scopeId);
+
+        return $final > 0 ? $final : $id;
+    }
+
+    private function note(array $logExtra): ?string
+    {
+        return isset($logExtra['via']) ? 'via ' . $logExtra['via'] : null;
     }
 
     /**
-     * Batch merge authors — all pairs in one transaction, with chain resolution.
+     * Agrupa o autor $discardId no autor $keepId (nada é apagado, nem o id bruto dos vínculos muda).
+     * Administrador: escopo global; usuário comum: escopo do projeto $projectId.
+     *
+     * @param array $logExtra dados extras (por exemplo ['via' => 'csv']), guardados na nota do agrupamento
+     * @return bool false quando o par já estava agrupado (nada a fazer)
+     * @throws AuthorityMappingException quando o agrupamento é recusado (mensagem em pt-BR)
      */
-    public function mergeAuthorsBatch(array $pairs, ?int $projectId = null): int
+    public function mergeAuthors(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = [], bool $asAdmin = false): bool
     {
-        $conn   = $this->em->getConnection();
+        [$scope, $scopeId, $origin] = $this->scopeFor($projectId, $asAdmin);
+        $r = $this->mapping()->merge(AuthorityMappingService::ENTITY_AUTHOR, $discardId, $keepId, $scope, $scopeId, $origin, null, $this->note($logExtra));
+
+        return !$r['noop'];
+    }
+
+    /**
+     * Agrupa vários autores (um par por vez, cada um numa transação do serviço). Pares repetidos na origem são
+     * ignorados e os recusados (laço, já agrupado em outro destino) ficam em lastRefusals(); o encadeamento
+     * (C em B, B em A) é resolvido pelo serviço, que aponta C direto para o alvo final.
+     *
+     * @return int quantidade de pares agrupados
+     */
+    public function mergeAuthorsBatch(array $pairs, ?int $projectId = null, bool $asAdmin = false): int
+    {
+        return $this->mergeBatch(AuthorityMappingService::ENTITY_AUTHOR, $pairs, $projectId, $asAdmin);
+    }
+
+    private function mergeBatch(string $entity, array $pairs, ?int $projectId, bool $asAdmin): int
+    {
+        [$scope, $scopeId, $origin] = $this->scopeFor($projectId, $asAdmin);
+        $this->lastRefusals = [];
         $merged = 0;
-        $conn->beginTransaction();
+        $seen = [];
 
-        try {
-            // Resolve transitive chains
-            $discardToKeep = [];
-            foreach ($pairs as $pair) {
-                $k = (int)($pair['keepId']    ?? 0);
-                $d = (int)($pair['discardId'] ?? 0);
-                if ($k > 0 && $d > 0 && $k !== $d) {
-                    $discardToKeep[$d] = $k;
-                }
+        foreach ($pairs as $pair) {
+            $keepId    = (int) ($pair['keepId'] ?? 0);
+            $discardId = (int) ($pair['discardId'] ?? 0);
+            if ($keepId <= 0 || $discardId <= 0 || $keepId === $discardId || isset($seen[$discardId])) {
+                continue;
             }
+            $seen[$discardId] = true;
 
-            $changed = true;
-            while ($changed) {
-                $changed = false;
-                foreach ($discardToKeep as $d => &$k) {
-                    if (isset($discardToKeep[$k]) && $discardToKeep[$k] !== $d) {
-                        $k       = $discardToKeep[$k];
-                        $changed = true;
-                    }
+            try {
+                $r = $this->mapping()->merge($entity, $discardId, $keepId, $scope, $scopeId, $origin, null, 'via batch');
+                if (!$r['noop']) {
+                    $merged++;
                 }
-                unset($k);
+            } catch (AuthorityMappingException $e) {
+                $this->lastRefusals[] = $e->getMessage();
             }
-
-            $seen = [];
-
-            foreach ($pairs as $pair) {
-                $rawKeepId = (int)($pair['keepId']    ?? 0);
-                $discardId = (int)($pair['discardId'] ?? 0);
-
-                if ($rawKeepId <= 0 || $discardId <= 0 || $rawKeepId === $discardId) {
-                    continue;
-                }
-                if (isset($seen[$discardId])) {
-                    continue;
-                }
-
-                $keepId = $discardToKeep[$rawKeepId] ?? $rawKeepId;
-
-                if ($keepId === $discardId) {
-                    continue;
-                }
-
-                $seen[$discardId] = true;
-
-                $exists = $conn->fetchOne('SELECT COUNT(*) FROM author_identity WHERE id = ?', [$discardId]);
-                if (!$exists) {
-                    continue;
-                }
-
-                // Diário: vínculos do descartado, antes de apagar os repetidos e repontuar
-                $this->mergeLogger->logAuthorMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, ['via' => 'batch']);
-
-                // 1. Remove conflicting document_author rows
-                $conn->executeStatement(
-                    'DELETE FROM document_author
-                     WHERE author_identity_id = ?
-                       AND document_id IN (
-                           SELECT document_id FROM (
-                               SELECT document_id FROM document_author WHERE author_identity_id = ?
-                           ) AS _tmp
-                       )',
-                     [$discardId, $keepId]
-                 );
-
-                // 2. Remap remaining rows
-                $conn->executeStatement(
-                    'UPDATE document_author SET author_identity_id = ?, effective_author_id = 0 WHERE author_identity_id = ?',
-                    [$keepId, $discardId]
-                );
-                $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_AUTHOR, $keepId);
-
-                // Fetch discard name and migrate to variation
-                $discardName = $conn->fetchOne('SELECT preferred_name FROM author_identity WHERE id = ?', [$discardId]);
-                $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
-                if ($discardName) {
-                    $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardName);
-                    $existsVar = $conn->fetchOne(
-                        'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
-                        [$keepId, $norm]
-                    );
-                    if (!$existsVar) {
-                        $conn->insert('author_name_variant', [
-                            'author_identity_id' => $keepId,
-                            'original_name'      => $discardName,
-                            'display_name'       => $discardName,
-                            'normalized_name'    => $norm,
-                            'source'             => 'alternative',
-                            'confidence'         => 1.0,
-                            'created_at'         => $now,
-                            'updated_at'         => $now,
-                        ]);
-                    }
-                }
-
-                // Move variations of the discarded author to point to the kept author
-                $discardVars = $conn->fetchAllAssociative(
-                    'SELECT id, original_name AS variation_name, normalized_name FROM author_name_variant WHERE author_identity_id = ?',
-                    [$discardId]
-                );
-                foreach ($discardVars as $v) {
-                    $existsVar = $conn->fetchOne(
-                        'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
-                        [$keepId, $v['normalized_name']]
-                    );
-                    if (!$existsVar) {
-                        $conn->executeStatement(
-                            'UPDATE author_name_variant SET author_identity_id = ? WHERE id = ?',
-                            [$keepId, $v['id']]
-                        );
-                    } else {
-                        $conn->executeStatement(
-                            'DELETE FROM author_name_variant WHERE id = ?',
-                            [$v['id']]
-                        );
-                    }
-                }
-
-                // 3. Delete the discarded author record
-                $conn->executeStatement('DELETE FROM author_identity WHERE id = ?', [$discardId]);
-
-                $merged++;
-            }
-
-            $conn->commit();
-        } catch (\Throwable $e) {
-            $conn->rollBack();
-            throw $e;
         }
 
         return $merged;
+    }
+
+
+    // ── Agrupamentos do projeto (lista, desfazer, globais em uso) ───────────────
+
+    /** Agrupamentos do projeto (escopo 'project') de autores ou palavras-chave, para a aba "Agrupamentos do projeto". */
+    public function projectGroupings(string $entity, int $projectId, int $page = 1, int $perPage = 100): array
+    {
+        return $this->mapping()->list($entity, AuthorityMappingService::SCOPE_PROJECT, $projectId, $page, $perPage);
+    }
+
+    /**
+     * Desfaz um agrupamento do PROJETO. A linha precisa ser do escopo 'project' deste projeto: agrupamento de outro
+     * projeto, de usuário ou global é recusado (o global se desfaz nas telas de administração).
+     *
+     * @throws AuthorityMappingException quando a linha não existe, é de outro escopo ou já foi desfeita
+     */
+    public function undoProjectGrouping(int $projectId, int $mappingId): array
+    {
+        $row = $this->em->getConnection()->fetchAssociative(
+            'SELECT scope, scope_id FROM authority_mapping WHERE id = ?',
+            [$mappingId]
+        );
+        if (!$row) {
+            throw new AuthorityMappingException('O agrupamento já foi desfeito ou não existe.');
+        }
+        if ($row['scope'] !== AuthorityMappingService::SCOPE_PROJECT || (int) $row['scope_id'] !== $projectId) {
+            throw new AuthorityMappingException('Este agrupamento não pertence a este projeto: só dá para desfazer os do próprio projeto.');
+        }
+
+        return $this->mapping()->undoMappingId($mappingId, null, 'project');
+    }
+
+    /**
+     * Agrupamentos GLOBAIS que afetam documentos do projeto (somente leitura), com a contagem de documentos do
+     * projeto em que a identidade agrupada aparece. Palavra-chave inclui os gravados no conceito agrupador
+     * (keyword_concept_id). Os mais usados primeiro, no máximo $limit linhas.
+     *
+     * @return array{items:list<array<string,mixed>>,total:int}
+     */
+    public function globalGroupingsInUse(string $entity, int $projectId, int $limit = 200): array
+    {
+        $conn = $this->em->getConnection();
+        $limit = max(1, $limit);
+
+        if ($entity === AuthorityMappingService::ENTITY_AUTHOR) {
+            $sql = "SELECT m.source_id, m.target_id, s.preferred_name AS source_label, t.preferred_name AS target_label,
+                           COUNT(DISTINCT da.document_id) AS documents
+                    FROM authority_mapping m
+                    JOIN document_author da ON da.author_identity_id = m.source_id
+                    JOIN document d ON d.id = da.document_id AND d.project_id = ?
+                    LEFT JOIN author_identity s ON s.id = m.source_id
+                    LEFT JOIN author_identity t ON t.id = m.target_id
+                    WHERE m.entity_type = 'author' AND m.scope = 'global' AND m.scope_id = 0
+                    GROUP BY m.id, m.source_id, m.target_id, s.preferred_name, t.preferred_name";
+            $params = [$projectId];
+        } else {
+            $label = 'COALESCE(%s.keyword_display, %s.keyword_original)';
+            $sl = sprintf($label, 's', 's');
+            $tl = sprintf($label, 't', 't');
+            $sql = "SELECT u.source_id, u.target_id, u.source_label, u.target_label, u.documents FROM (
+                        SELECT m.source_id, m.target_id, {$sl} AS source_label, {$tl} AS target_label,
+                               COUNT(DISTINCT dk.document_id) AS documents
+                        FROM authority_mapping m
+                        JOIN document_keyword dk ON dk.keyword_id = m.source_id
+                        JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                        LEFT JOIN keyword s ON s.id = m.source_id
+                        LEFT JOIN keyword t ON t.id = m.target_id
+                        WHERE m.entity_type = 'keyword' AND m.scope = 'global' AND m.scope_id = 0
+                        GROUP BY m.id, m.source_id, m.target_id, s.keyword_display, s.keyword_original, t.keyword_display, t.keyword_original
+                        UNION ALL
+                        SELECT s.id AS source_id, s.keyword_concept_id AS target_id, {$sl} AS source_label, {$tl} AS target_label,
+                               COUNT(DISTINCT dk.document_id) AS documents
+                        FROM keyword s
+                        JOIN document_keyword dk ON dk.keyword_id = s.id
+                        JOIN document d ON d.id = dk.document_id AND d.project_id = ?
+                        LEFT JOIN keyword t ON t.id = s.keyword_concept_id
+                        WHERE s.keyword_concept_id IS NOT NULL AND s.keyword_concept_id <> s.id AND s.thesaurus_concept_id IS NULL
+                        GROUP BY s.id, s.keyword_concept_id, s.keyword_display, s.keyword_original, t.keyword_display, t.keyword_original
+                    ) u";
+            $params = [$projectId, $projectId];
+        }
+
+        $rows = $conn->fetchAllAssociative("SELECT * FROM ({$sql}) x ORDER BY documents DESC, source_label ASC, source_id ASC", $params);
+
+        return [
+            'total' => count($rows),
+            'items' => array_map(fn ($r) => [
+                'source_id'    => (int) $r['source_id'],
+                'source_label' => (string) ($r['source_label'] ?? ''),
+                'target_id'    => (int) $r['target_id'],
+                'target_label' => (string) ($r['target_label'] ?? ('#' . (int) $r['target_id'])),
+                'documents'    => (int) $r['documents'],
+            ], array_slice($rows, 0, $limit)),
+        ];
     }
 
     // ── 2. Keyword Normalization Heuristics ─────────────────────────────────────
@@ -374,14 +335,15 @@ class NormalizationService
 
         $mappedType = $type === 'author' ? 'author_keyword' : ($type === 'indexed' ? 'indexed_keyword' : $type);
 
-        // Fetch keywords in the project (only the selected type and not mapped to thesaurus)
+        // Palavras-chave do projeto pela identidade EFETIVA do vínculo (só do tipo escolhido e fora do tesauro:
+        // o efetivo negativo é conceito de tesauro e não casa com nenhuma keyword)
         $keywords = $conn->fetchAllAssociative('
             SELECT
                 k.id,
                 k.keyword_display AS term,
-                COUNT(dk.document_id) AS doc_count
+                COUNT(DISTINCT dk.document_id) AS doc_count
             FROM keyword k
-            JOIN document_keyword dk ON k.id = dk.keyword_id
+            JOIN document_keyword dk ON k.id = dk.effective_keyword_id
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
             GROUP BY k.id, k.keyword_display
@@ -455,9 +417,9 @@ class NormalizationService
         $current = $conn->fetchAllAssociative(
             'SELECT k.id, k.keyword_display AS term,
                     CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' ELSE k.keyword_type END AS type,
-                    COUNT(dk.document_id) AS doc_count
+                    COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+             JOIN document_keyword dk ON k.id = dk.effective_keyword_id
              JOIN document d ON dk.document_id = d.id
              WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
              GROUP BY k.id, k.keyword_display, k.keyword_type
@@ -469,9 +431,9 @@ class NormalizationService
         $other = $conn->fetchAllAssociative(
             'SELECT k.id, k.keyword_display AS term,
                     CASE WHEN k.keyword_type = \'author_keyword\' THEN \'author\' WHEN k.keyword_type = \'indexed_keyword\' THEN \'indexed\' ELSE k.keyword_type END AS type,
-                    COUNT(dk.document_id) AS doc_count
+                    COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+             JOIN document_keyword dk ON k.id = dk.effective_keyword_id
              JOIN document d ON dk.document_id = d.id
              WHERE d.project_id = ? AND k.keyword_type = ? AND k.thesaurus_concept_id IS NULL
              GROUP BY k.id, k.keyword_display, k.keyword_type
@@ -531,9 +493,9 @@ class NormalizationService
         return $conn->fetchAllAssociative(
             "SELECT k.id, k.keyword_display AS term,
                     CASE WHEN k.keyword_type = 'author_keyword' THEN 'author' WHEN k.keyword_type = 'indexed_keyword' THEN 'indexed' ELSE k.keyword_type END AS type,
-                    COUNT(dk.document_id) AS doc_count
+                    COUNT(DISTINCT dk.document_id) AS doc_count
              FROM keyword k
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+             JOIN document_keyword dk ON k.id = IF(dk.effective_keyword_id > 0, dk.effective_keyword_id, dk.keyword_id)
              JOIN document d ON dk.document_id = d.id
              WHERE {$where}
              GROUP BY k.id, k.keyword_display, k.keyword_type
@@ -545,203 +507,24 @@ class NormalizationService
     }
 
     /**
-     * Execute keyword merge.
+     * Agrupa a palavra-chave $discardId na palavra-chave $keepId (nada é apagado, nem o id bruto dos vínculos muda).
+     * Administrador: escopo global; usuário comum: escopo do projeto $projectId.
+     *
+     * @return bool false quando o par já estava agrupado (nada a fazer)
+     * @throws AuthorityMappingException quando o agrupamento é recusado (mensagem em pt-BR)
      */
-    public function mergeKeywords(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = []): void
+    public function mergeKeywords(int $keepId, int $discardId, ?int $projectId = null, array $logExtra = [], bool $asAdmin = false): bool
     {
-        $conn = $this->em->getConnection();
-        $conn->beginTransaction();
+        [$scope, $scopeId, $origin] = $this->scopeFor($projectId, $asAdmin);
+        $r = $this->mapping()->merge(AuthorityMappingService::ENTITY_KEYWORD, $discardId, $keepId, $scope, $scopeId, $origin, null, $this->note($logExtra));
 
-        try {
-            $this->mergeLogger->logKeywordMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, $logExtra);
-            // Vínculos com os documentos, em comandos de conjunto (antes: 2 a 3 consultas por documento)
-            $this->remapDocumentLinks('document_keyword', 'keyword_id', $keepId, $discardId);
-
-            // Create variation for the kept keyword with the term of the discarded keyword
-            $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
-            if ($discardTerm) {
-                $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardTerm);
-                $existsVar = $conn->fetchOne(
-                    'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
-                    [$keepId, $norm]
-                );
-                if (!$existsVar) {
-                    $conn->insert('palavra_chave_variacoes_nome', [
-                        'keyword_id' => $keepId,
-                        'variation_name' => $discardTerm,
-                        'normalized_name' => $norm,
-                        'variation_type' => 'alternative',
-                        'status' => 1
-                    ]);
-                }
-            }
-
-            // Move variations of the discarded keyword to point to the kept keyword
-            $discardVars = $conn->fetchAllAssociative(
-                'SELECT id, variation_name, normalized_name, variation_type FROM palavra_chave_variacoes_nome WHERE keyword_id = ?',
-                [$discardId]
-            );
-            foreach ($discardVars as $v) {
-                $existsVar = $conn->fetchOne(
-                    'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
-                    [$keepId, $v['normalized_name']]
-                );
-                if (!$existsVar) {
-                    $conn->executeStatement(
-                        'UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE id = ?',
-                        [$keepId, $v['id']]
-                    );
-                } else {
-                    $conn->executeStatement(
-                        'DELETE FROM palavra_chave_variacoes_nome WHERE id = ?',
-                        [$v['id']]
-                    );
-                }
-            }
-
-            $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$discardId]);
-
-            $conn->commit();
-        } catch (\Throwable $e) {
-            $conn->rollBack();
-            throw $e;
-        }
+        return !$r['noop'];
     }
 
-    /**
-     * Batch merge keywords — all pairs in one transaction, 2 SQL statements per pair.
-     */
-    public function mergeKeywordsBatch(array $pairs, ?int $projectId = null): int
+    /** Agrupa várias palavras-chave (um par por vez); ver mergeAuthorsBatch. */
+    public function mergeKeywordsBatch(array $pairs, ?int $projectId = null, bool $asAdmin = false): int
     {
-        $conn   = $this->em->getConnection();
-        $merged = 0;
-        $conn->beginTransaction();
-
-        try {
-            $discardToKeep = [];
-            foreach ($pairs as $pair) {
-                $k = (int)($pair['keepId']    ?? 0);
-                $d = (int)($pair['discardId'] ?? 0);
-                if ($k > 0 && $d > 0 && $k !== $d) {
-                    $discardToKeep[$d] = $k;
-                }
-            }
-
-            $changed = true;
-            while ($changed) {
-                $changed = false;
-                foreach ($discardToKeep as $d => &$k) {
-                    if (isset($discardToKeep[$k]) && $discardToKeep[$k] !== $d) {
-                        $k       = $discardToKeep[$k];
-                        $changed = true;
-                    }
-                }
-                unset($k);
-            }
-
-            $seen = [];
-
-            foreach ($pairs as $pair) {
-                $rawKeepId = (int)($pair['keepId']    ?? 0);
-                $discardId = (int)($pair['discardId'] ?? 0);
-
-                if ($rawKeepId <= 0 || $discardId <= 0 || $rawKeepId === $discardId) {
-                    continue;
-                }
-                if (isset($seen[$discardId])) {
-                    continue;
-                }
-
-                $keepId = $discardToKeep[$rawKeepId] ?? $rawKeepId;
-
-                if ($keepId === $discardId) {
-                    continue;
-                }
-
-                $seen[$discardId] = true;
-
-                $exists = $conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE id = ?', [$discardId]);
-                if (!$exists) {
-                    continue;
-                }
-
-                // Diário: vínculos do descartado, antes de apagar os repetidos e repontuar
-                $this->mergeLogger->logKeywordMerge('screen_project', 'merge', $discardId, $keepId, null, $projectId, ['via' => 'batch']);
-
-                // 1. Remove conflicting rows
-                $conn->executeStatement(
-                    'DELETE FROM document_keyword
-                     WHERE keyword_id = ?
-                       AND document_id IN (
-                           SELECT document_id FROM (
-                               SELECT document_id FROM document_keyword WHERE keyword_id = ?
-                           ) AS _tmp
-                       )',
-                    [$discardId, $keepId]
-                );
-
-                // 2. Remap the remaining document_keyword rows to keepId
-                $conn->executeStatement(
-                    'UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE keyword_id = ?',
-                    [$keepId, $discardId]
-                );
-                $this->authority()->refreshPendingByRaw(AuthorityResolver::ENTITY_KEYWORD, $keepId);
-
-                // Fetch discard term and migrate to variation
-                $discardTerm = $conn->fetchOne('SELECT keyword_original FROM keyword WHERE id = ?', [$discardId]);
-                if ($discardTerm) {
-                    $norm = \App\Service\Import\DocumentEnrichmentService::normalize($discardTerm);
-                    $existsVar = $conn->fetchOne(
-                        'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
-                        [$keepId, $norm]
-                    );
-                    if (!$existsVar) {
-                        $conn->insert('palavra_chave_variacoes_nome', [
-                            'keyword_id' => $keepId,
-                            'variation_name' => $discardTerm,
-                            'normalized_name' => $norm,
-                            'variation_type' => 'alternative',
-                            'status' => 1
-                        ]);
-                    }
-                }
-
-                // Move variations of the discarded keyword to point to the kept keyword
-                $discardVars = $conn->fetchAllAssociative(
-                    'SELECT id, variation_name, normalized_name, variation_type FROM palavra_chave_variacoes_nome WHERE keyword_id = ?',
-                    [$discardId]
-                );
-                foreach ($discardVars as $v) {
-                    $existsVar = $conn->fetchOne(
-                        'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',
-                        [$keepId, $v['normalized_name']]
-                    );
-                    if (!$existsVar) {
-                        $conn->executeStatement(
-                            'UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE id = ?',
-                            [$keepId, $v['id']]
-                        );
-                    } else {
-                        $conn->executeStatement(
-                            'DELETE FROM palavra_chave_variacoes_nome WHERE id = ?',
-                            [$v['id']]
-                        );
-                    }
-                }
-
-                // 3. Delete the now-orphaned keyword record
-                $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$discardId]);
-
-                $merged++;
-            }
-
-            $conn->commit();
-        } catch (\Throwable $e) {
-            $conn->rollBack();
-            throw $e;
-        }
-
-        return $merged;
+        return $this->mergeBatch(AuthorityMappingService::ENTITY_KEYWORD, $pairs, $projectId, $asAdmin);
     }
 
     // ── 3. Document Deduplication Heuristics ───────────────────────────────────
@@ -1077,10 +860,16 @@ class NormalizationService
         ', [$projectId]);
     }
 
-    public function importAuthorNormalization(int $projectId, array $records): int
+    /**
+     * Importa o CSV de normalização de autores: cada par vira um agrupamento (administrador: global; usuário
+     * comum: do projeto), sem apagar nem repontuar nada. Pares recusados ficam em lastRefusals().
+     */
+    public function importAuthorNormalization(int $projectId, array $records, bool $asAdmin = false): int
     {
         $conn = $this->em->getConnection();
         $appliedCount = 0;
+        $this->lastRefusals = [];
+        [$scope, $scopeId] = $this->scopeFor($projectId, $asAdmin);
 
         $authors = $conn->fetchAllAssociative('
             SELECT ai.id, ai.preferred_name, ai.normalized_name
@@ -1139,15 +928,29 @@ class NormalizationService
             }
 
             $discardId = $authorMap[$normVariant] ?? null;
-            if ($discardId && $discardId !== $keepId) {
-                $this->mergeAuthors($keepId, $discardId, $projectId, ['via' => 'csv']);
-                // O descartado deixou de existir: os nomes dele passam a apontar para o mantido
+            // Compara as identidades EFETIVAS: quem já foi agrupado conta como o alvo dele
+            $finalKeep    = $keepId ? $this->finalOrRaw(AuthorityMappingService::ENTITY_AUTHOR, $keepId, $scope, $scopeId) : 0;
+            $finalDiscard = $discardId ? $this->finalOrRaw(AuthorityMappingService::ENTITY_AUTHOR, $discardId, $scope, $scopeId) : 0;
+            if ($discardId && $finalDiscard !== $finalKeep) {
+                try {
+                    if ($this->mergeAuthors($finalKeep, $finalDiscard, $projectId, ['via' => 'csv'], $asAdmin)) {
+                        $appliedCount++;
+                    }
+                } catch (AuthorityMappingException $e) {
+                    $this->lastRefusals[] = $e->getMessage();
+                    continue;
+                }
+                // O descartado foi agrupado: os nomes dele passam a apontar para o mantido
                 foreach ($authorMap as $mapKey => $mapId) {
-                    if ($mapId === $discardId) {
-                        $authorMap[$mapKey] = $keepId;
+                    if ($mapId === $discardId || $mapId === $finalDiscard) {
+                        $authorMap[$mapKey] = $finalKeep;
                     }
                 }
-                $appliedCount++;
+            } elseif (!$asAdmin) {
+                // Cadastrar variação de nome altera a identidade para todos os projetos: só o administrador
+                if (!$discardId) {
+                    $this->lastRefusals[] = sprintf('"%s" não aparece neste projeto; só o administrador cadastra variações de nome.', $variantName);
+                }
             } else {
                 $existsVar = $conn->fetchOne(
                     'SELECT id FROM author_name_variant WHERE author_identity_id = ? AND normalized_name = ?',
@@ -1192,10 +995,16 @@ class NormalizationService
         ', [$projectId]);
     }
 
-    public function importKeywordNormalization(int $projectId, array $records): int
+    /**
+     * Importa o CSV de normalização de palavras-chave: cada par vira um agrupamento (administrador: global;
+     * usuário comum: do projeto), sem apagar nem repontuar nada. Pares recusados ficam em lastRefusals().
+     */
+    public function importKeywordNormalization(int $projectId, array $records, bool $asAdmin = false): int
     {
         $conn = $this->em->getConnection();
         $appliedCount = 0;
+        $this->lastRefusals = [];
+        [$scope, $scopeId] = $this->scopeFor($projectId, $asAdmin);
         $textNormalizer = new \App\Service\Import\TextNormalizer();
 
         $keywords = $conn->fetchAllAssociative('
@@ -1277,15 +1086,28 @@ class NormalizationService
 
             $discardId = $keywordMap[$kwType . '_' . $normVariant] ?? $keywordMap['all_' . $normVariant] ?? null;
 
-            if ($discardId && $discardId !== $keepId) {
-                $this->mergeKeywords($keepId, $discardId, $projectId, ['via' => 'csv']);
-                // O descartado deixou de existir: as chaves dele passam a apontar para o mantido
+            $finalKeep    = $this->finalOrRaw(AuthorityMappingService::ENTITY_KEYWORD, (int) $keepId, $scope, $scopeId);
+            $finalDiscard = $discardId ? $this->finalOrRaw(AuthorityMappingService::ENTITY_KEYWORD, (int) $discardId, $scope, $scopeId) : 0;
+            if ($discardId && $finalDiscard !== $finalKeep) {
+                try {
+                    if ($this->mergeKeywords($finalKeep, $finalDiscard, $projectId, ['via' => 'csv'], $asAdmin)) {
+                        $appliedCount++;
+                    }
+                } catch (AuthorityMappingException $e) {
+                    $this->lastRefusals[] = $e->getMessage();
+                    continue;
+                }
+                // O descartado foi agrupado: as chaves dele passam a apontar para o mantido
                 foreach ($keywordMap as $mapKey => $mapId) {
-                    if ($mapId === $discardId) {
-                        $keywordMap[$mapKey] = $keepId;
+                    if ($mapId === $discardId || $mapId === $finalDiscard) {
+                        $keywordMap[$mapKey] = $finalKeep;
                     }
                 }
-                $appliedCount++;
+            } elseif (!$asAdmin) {
+                // Cadastrar variação altera a palavra-chave para todos os projetos: só o administrador
+                if (!$discardId) {
+                    $this->lastRefusals[] = sprintf('"%s" não aparece neste projeto; só o administrador cadastra variações de palavra-chave.', $variantTerm);
+                }
             } else {
                 $existsVar = $conn->fetchOne(
                     'SELECT id FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND normalized_name = ?',

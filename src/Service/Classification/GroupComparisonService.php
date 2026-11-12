@@ -134,16 +134,19 @@ class GroupComparisonService
         // Top keywords / concepts per group. O agrupamento ignora maiúsculas e acentos; sem escolher o
         // representante, o rótulo devolvido (CROPS ou crops) variava com o plano de execução. O MIN em
         // binário é fixo e igual em todos os grupos, então a interseção entre grupos não depende do plano.
+        // O rótulo é o da identidade EFETIVA da palavra (mesmo padrão dos demais relatórios): palavras agrupadas
+        // contam como uma só, com o nome do agrupador; sem agrupamentos o resultado é o de antes.
         $sql = 'SELECT dc.group_id, g.name AS group_name,
-                       CONVERT(MIN(CAST(COALESCE(tc.preferred_label, k.keyword_display, dk.original_term) AS BINARY)) USING utf8mb4) AS concept_label,
+                       CONVERT(MIN(CAST(COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display, dk.original_term) AS BINARY)) USING utf8mb4) AS concept_label,
                        COUNT(DISTINCT dc.document_id) AS freq
                 FROM document_classification dc
                 JOIN classification_group g ON g.id = dc.group_id
                 JOIN document_keyword dk ON dk.document_id = dc.document_id
                 LEFT JOIN keyword k ON k.id = dk.keyword_id
-                LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
+                LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+                LEFT JOIN keyword ke ON ke.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
                 WHERE dc.project_id = ? AND dc.group_id IN (?)
-                GROUP BY dc.group_id, COALESCE(tc.preferred_label, k.keyword_display, dk.original_term)
+                GROUP BY dc.group_id, COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display, dk.original_term)
                 HAVING freq >= 2
                 ORDER BY dc.group_id, freq DESC, concept_label ASC';
 

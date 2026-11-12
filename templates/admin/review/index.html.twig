@@ -200,7 +200,7 @@
                                                         <div class="modal-body">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ item.id) }}">
                                                             <p style="font-size:12px;color:var(--bm-text-muted)">
-                                                                Move documentos, variações de nome e identificadores (ORCID) para o autor de destino e <strong>exclui este registro permanentemente</strong>. Afeta todos os projetos e não pode ser desfeito.
+                                                                Agrupa este autor no autor de destino: nas análises de todos os projetos os documentos dele contam como o destino. <strong>Nada é apagado</strong> e dá para desfazer na aba Agrupamentos de Autores.
                                                             </p>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Autor Oficial de Destino (Deduplicação)</label>
@@ -218,7 +218,7 @@
                                                         </div>
                                                         <div class="modal-footer border-bm">
                                                             <button type="button" class="btn btn-bm-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Mesclar e Excluir</button>
+                                                            <button type="submit" class="btn btn-bm-primary btn-sm">Mesclar (agrupar)</button>
                                                         </div>
                                                     </form>
                                                 </div>
@@ -377,7 +377,7 @@
                                                         <div class="modal-body">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('merge_keyword_' ~ item.id) }}">
                                                             <p style="font-size:12px;color:var(--bm-text-muted)">
-                                                                Move os vínculos com documentos e as variações deste termo para a palavra-chave de destino e <strong>exclui este registro permanentemente</strong>. Afeta todos os projetos e não pode ser desfeito.
+                                                                Agrupa este termo na palavra-chave de destino: nas análises de todos os projetos os documentos dele contam como o destino. <strong>Nada é apagado</strong> e dá para desfazer na aba Agrupamentos de Palavras-chave.
                                                             </p>
                                                             <div class="mb-3">
                                                                 <label class="form-label">Palavra-chave Oficial de Destino</label>

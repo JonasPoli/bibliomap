@@ -172,16 +172,25 @@ class ClassificationEngine
 
             // Palavras de autor (DE) e indexadas (ID / Keywords Plus) separadas pelo keyword_type,
             // com a forma tratada e a original. "; " evita casar um termo juntando duas palavras-chave.
+            // UNIÃO com a identidade EFETIVA: se o vínculo foi agrupado (mapeamento ou conceito agrupador) e a
+            // identidade efetiva difere da natural da palavra, o nome do agrupador entra no texto além dos dois
+            // acima (nada que casava deixa de casar). Sem agrupamentos as duas junções ficam nulas e o texto é igual.
+            // A "natural" é a própria palavra ou o conceito de tesauro dela (como em buildSqlCoalesceId sem agrupar).
             $docKeywords = [];
             $kwRows = $conn->fetchAllAssociative(
                 'SELECT d.id,
                         GROUP_CONCAT(DISTINCT CASE WHEN k.keyword_type = "author_keyword"
-                            THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term) END SEPARATOR " ; ") AS author_keywords,
+                            THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term, COALESCE(tc.preferred_label, ke.keyword_display)) END SEPARATOR " ; ") AS author_keywords,
                         GROUP_CONCAT(DISTINCT CASE WHEN k.keyword_type = "indexed_keyword"
-                            THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term) END SEPARATOR " ; ") AS indexed_keywords
+                            THEN CONCAT_WS(" ; ", k.keyword_display, dk.original_term, COALESCE(tc.preferred_label, ke.keyword_display)) END SEPARATOR " ; ") AS indexed_keywords
                  FROM document d
                  JOIN document_keyword dk ON dk.document_id = d.id
                  JOIN keyword k ON k.id = dk.keyword_id
+                 LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0
+                        AND dk.effective_keyword_id <> IF(k.thesaurus_concept_id IS NULL, k.id, -k.thesaurus_concept_id),
+                        -dk.effective_keyword_id, NULL)
+                 LEFT JOIN keyword ke ON ke.id = IF(dk.effective_keyword_id > 0 AND dk.effective_keyword_id <> dk.keyword_id,
+                        dk.effective_keyword_id, NULL)
                  WHERE d.project_id = ? AND d.id BETWEEN ? AND ?
                  GROUP BY d.id',
                 [$pid, $firstId, $lastId]

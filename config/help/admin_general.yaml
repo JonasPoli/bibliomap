@@ -302,17 +302,17 @@ admin.review.edit:
 
 admin.review.merge_author:
   title: "Mesclar autor (deduplicar)"
-  what: "Funde este autor no autor de destino: os documentos passam a apontar para o destino, as grafias e identificadores (ORCID etc.) são transferidos, o nome vira uma variação do destino e **este registro é apagado**."
-  how: "Clique em **Mesclar**, confirme a sugestão ou informe o ID do autor de destino e clique em Mesclar e Excluir."
-  not: "**Não tem desfazer**: o registro apagado não volta e não há como separar os documentos de novo automaticamente. Afeta todos os projetos que usam o autor."
-  example: "“SANTOS, M” (12 documentos) é a mesma pessoa que “Santos, Maria” (ID 4512): mescle; os 12 documentos passam a contar para Maria Santos."
+  what: "Agrupa este autor no autor de destino: nas análises de todos os projetos os documentos dele contam como o destino. **Nada é apagado**: o registro, as grafias e os identificadores continuam com ele."
+  how: "Clique em **Mesclar**, confirme a sugestão ou informe o ID do autor de destino e confirme."
+  not: "Afeta todos os projetos que usam o autor. Dá para **desfazer** em Administração > Autores > Agrupamentos. Um autor que já está agrupado em outro destino, ou que formaria um laço, é recusado com aviso."
+  example: "“SANTOS, M” (12 documentos) é a mesma pessoa que “Santos, Maria” (ID 4512): mescle; os 12 documentos passam a contar para Maria Santos (e “SANTOS, M” continua cadastrado)."
 
 admin.review.merge_manual_id:
   title: "Destino da fusão por ID"
-  what: "Na janela Mesclar, o destino é o registro que sobrevive e recebe documentos e variações. Vem preenchido com a sugestão (★) quando existe; o campo “Buscar outro por ID” permite escolher outro pelo número (ID)."
+  what: "Na janela Mesclar, o destino é o registro principal, em que o outro fica agrupado. Vem preenchido com a sugestão (★) quando existe; o campo “Buscar outro por ID” permite escolher outro pelo número (ID)."
   how: "Descubra o ID na administração de autores ou de palavras-chave e digite-o no campo; ele passa a ser o destino selecionado."
   not: "Não pesquisa por nome; é preciso saber o número. O próprio registro não pode ser destino e um ID inexistente cancela a fusão com aviso."
-  example: "Digite 4512 para fundir no autor “Santos, Maria”."
+  example: "Digite 4512 para agrupar no autor “Santos, Maria”."
 
 admin.review.move_to_keyword:
   title: "Mover para palavras-chave"
@@ -372,9 +372,9 @@ admin.review.kw_suggestion:
 
 admin.review.kw_merge:
   title: "Mesclar palavra-chave"
-  what: "Move os vínculos com documentos para a palavra-chave de destino, transfere as variações, registra este termo como variação do destino e **apaga este registro**."
+  what: "Agrupa este termo na palavra-chave de destino: nas análises de todos os projetos os documentos dele contam como o destino. **Nada é apagado**: o termo, as variações e os vínculos continuam com ele."
   how: "Clique em **Mesclar**, confirme a sugestão ou informe o ID do termo de destino e confirme."
-  not: "**Não tem desfazer** e afeta todos os projetos. Não cria conceito no tesauro; é uma fusão direta de registros."
+  not: "Afeta todos os projetos. Dá para **desfazer** em Administração > Palavras-chave > Agrupamentos. Não cria conceito no tesauro; é um agrupamento direto entre palavras."
   example: "Funda “Higher-education” em “Higher education”: os documentos passam a ser contados juntos na análise de coocorrência."
 
 admin.review.kw_edit:
@@ -466,8 +466,8 @@ admin.kwtreat.run:
 admin.kwtreat.mode:
   title: "Modo de operação"
   what: "**Simulação**: calcula e registra o relatório sem alterar palavras-chave. **Real**: grava as mudanças na base."
-  how: "Sempre rode uma simulação antes. No modo Real, termos que após a limpeza ficam idênticos a outro do mesmo tipo são **fundidos**: os documentos passam ao termo existente e o duplicado é apagado."
-  not: "O modo Real **não tem desfazer**: fusões apagam registros. A grafia original do termo apagado fica guardada como variação do termo existente e a fusão aparece no relatório (ação “merged”)."
+  how: "Sempre rode uma simulação antes. No modo Real, termos que após a limpeza ficam idênticos a outro do mesmo tipo são **agrupados** no termo existente: contam como ele nas análises, sem que nenhum termo ou vínculo seja apagado."
+  not: "O agrupamento aparece no relatório (ação “merged”) e pode ser desfeito em Administração > Palavras-chave > Agrupamentos. A limpeza do rótulo de exibição continua sendo gravada; a forma normalizada original do termo agrupado é mantida (é a chave que a importação usa para achá-lo)."
   example: "A simulação mostra 1.200 termos a limpar; após conferir o CSV, rode em Real."
 
 admin.kwtreat.min_score:
@@ -502,7 +502,7 @@ admin.kwtreat.export_csv:
   title: "Exportar relatório CSV"
   what: "Baixa uma linha por ação registrada: ID e termo original, ação, exibição antiga e nova, conceito, score, motivo e situação."
   how: "Abra no Excel ou LibreOffice (separador ponto e vírgula, UTF-8) e filtre pela coluna Action."
-  not: "Termos fundidos e apagados na limpeza aparecem com Action = merged na linha do termo que sobreviveu (o ID apagado está no motivo). Na simulação a coluna Status mostra “simulated”: nada foi aplicado."
+  not: "Termos agrupados na limpeza aparecem com Action = merged na linha do termo principal (o ID do termo agrupado está no motivo). Na simulação a coluna Status mostra “simulated”: nada foi aplicado."
   example: "Filtre Action = invalid para conferir os 85 termos invalidados antes de descartá-los na Fila de Revisão."
 
 admin.kwtreat.report_total:
@@ -514,7 +514,7 @@ admin.kwtreat.report_total:
 
 admin.kwtreat.report_cleaned:
   title: "Higienizados"
-  what: "Termos cuja exibição ou forma normalizada mudou com a limpeza (no modo Real, incluem os fundidos com um termo existente)."
+  what: "Termos cuja exibição ou forma normalizada mudou com a limpeza (incluem os agrupados num termo existente)."
   how: "Compare com “Com sujeiras” do diagnóstico."
   not: "Não inclui termos invalidados."
   example: "“ e-learning.” → “E-learning”."
@@ -551,7 +551,7 @@ admin.kwtreat.report_affected:
   title: "Vínculos e documentos afetados"
   what: "Vínculos documento-palavra-chave, e documentos distintos, cujas palavras-chave este processamento alterou: limpeza, fusão, invalidação ou ligação a conceito/agrupamento. Na simulação, os que **seriam** afetados."
   how: "Use para medir o alcance do processamento antes de rodar em modo Real."
-  not: "Não inclui termos apenas suspeitos nem sugestões que aguardam revisão. Nas fusões contam os vínculos do termo apagado (os que são movidos para o termo existente)."
+  not: "Não inclui termos apenas suspeitos nem sugestões que aguardam revisão. Nos agrupamentos contam os vínculos do termo agrupado (que passam a contar como o termo existente)."
   example: "Simulação: 1.300 vínculos em 820 documentos seriam afetados."
 
 admin.kwtreat.report_groupings:

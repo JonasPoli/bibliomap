@@ -18,7 +18,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class AuthorityMergeLogger
 {
     public const ORIGINS = ['screen_project', 'screen_admin', 'treatment', 'enrichment', 'command'];
-    public const ACTIONS = ['merge', 'delete', 'discard', 'remap'];
+    /** 'undo' (fase 2) desfaz um agrupamento; a coluna action é VARCHAR(30), sem migration. */
+    public const ACTIONS = ['merge', 'delete', 'discard', 'remap', 'undo'];
     public const ENTITY_TYPES = ['author', 'keyword', 'institution'];
 
     /** tabela de vínculo => [coluna do id da entidade, coluna do texto original ou null, coluna da posição ou null] */

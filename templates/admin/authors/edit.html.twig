@@ -90,9 +90,9 @@
         <div class="bm-card">
             <h5 style="font-weight:700" class="mb-2 text-danger">Mesclar Autor {{ help('admin.authors.edit.merge') }}</h5>
             <p style="font-size:12px;color:var(--bm-text-muted)" class="mb-3">
-                Move documentos, variações e ORCID deste autor para o destino e exclui este registro. Não pode ser desfeito.
+                Agrupa este autor no destino: nas análises os documentos dele contam como o destino. Nada é apagado e dá para desfazer na aba Agrupamentos.
             </p>
-            <form action="{{ path('app_admin_authors_merge', {id: author.id}) }}" method="POST" onsubmit="return confirm('Deseja realmente mesclar e excluir este autor? A ação não poderá ser desfeita.');">
+            <form action="{{ path('app_admin_authors_merge', {id: author.id}) }}" method="POST" onsubmit="return confirm('Agrupar este autor no destino? Nada é apagado e dá para desfazer na aba Agrupamentos.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('merge_author_' ~ author.id) }}">
                 <div class="mb-3">
                     <label class="form-label" style="font-size:12px" for="authorMergeSearch">Autor de Destino</label>
@@ -101,7 +101,7 @@
                         <option value="" disabled>Digite ao menos 2 letras (ou o ID) para buscar...</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar e Excluir</button>
+                <button type="submit" class="btn btn-sm btn-danger w-100"><i class="bi bi-shuffle me-1"></i> Mesclar (agrupar)</button>
             </form>
         </div>
     </div>

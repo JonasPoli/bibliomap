@@ -140,6 +140,10 @@
        class="norm-tab-link {% if tab == 'duplicates' %}active{% endif %}">
         <i class="bi bi-file-earmark-text"></i> Documentos Duplicados
     </a>
+    <a href="{{ path('app_normalize_index', {id: project.id, tab: 'groupings'}) }}"
+       class="norm-tab-link {% if tab == 'groupings' %}active{% endif %}">
+        <i class="bi bi-diagram-2"></i> Agrupamentos do projeto
+    </a>
 </div>
 
 <!-- Tab-Specific Description Bar -->
@@ -148,8 +152,12 @@
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
             Autores com nomes quase iguais, mesmo início de sobrenome e mesma inicial do prenome (ex.: <b>WILSON, PN</b> e <b>Wilson, PN</b>; <b>Alexander, B</b> e <b>Alexander, BH</b>).
-            A mesclagem passa os artigos do autor da direita para o da esquerda e remove o cadastro duplicado — sem desfazer.
-            <br><b style="color:var(--bm-warning)">O cadastro de autores é compartilhado por todos os projetos do BiblioMap:</b> a mesclagem também vale para outros projetos (inclusive de outros usuários) que tenham esses autores.
+            Mesclar agrupa o autor da direita no da esquerda: os artigos passam a contar como um só autor nas análises, e <b>nenhum cadastro é apagado</b>; dá para desfazer.
+            {% if isAdmin %}
+                <br><b style="color:var(--bm-warning)">Como administrador, o agrupamento vale para todos os projetos</b> que tenham esses autores (o Desfazer fica em Admin &gt; Autores &gt; Agrupamentos).
+            {% else %}
+                <br><b style="color:var(--bm-accent)">O agrupamento vale só para este projeto</b>: os outros projetos não mudam. O Desfazer fica na aba "Agrupamentos do projeto".
+            {% endif %}
             {{ help('normalize.authors.about') }}
         </div>
     </div>
@@ -158,8 +166,12 @@
         <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
         <div>
             Palavras-chave redundantes, plurais ou com pequenas variações de escrita.
-            A mesclagem unifica as ocorrências em todos os artigos, melhorando rankings, nuvens e redes de coocorrência.
-            <br><b style="color:var(--bm-warning)">O cadastro de palavras-chave é compartilhado por todos os projetos do BiblioMap:</b> a mesclagem também vale para outros projetos (inclusive de outros usuários) que usem esses termos.
+            Mesclar agrupa a palavra-chave da direita na da esquerda: as ocorrências passam a contar como uma só em todos os artigos, melhorando rankings, nuvens e redes de coocorrência. <b>Nenhum cadastro é apagado</b>; dá para desfazer.
+            {% if isAdmin %}
+                <br><b style="color:var(--bm-warning)">Como administrador, o agrupamento vale para todos os projetos</b> que usem esses termos (o Desfazer fica em Admin &gt; Palavras-chave &gt; Agrupamentos).
+            {% else %}
+                <br><b style="color:var(--bm-accent)">O agrupamento vale só para este projeto</b>: os outros projetos não mudam. O Desfazer fica na aba "Agrupamentos do projeto".
+            {% endif %}
             {{ help('normalize.keywords.about') }}
         </div>
     </div>
@@ -185,6 +197,9 @@
     </div>
 {% endif %}
 
+{% if tab == 'groupings' %}
+    {% include 'normalize/_groupings.html.twig' %}
+{% else %}
 <!-- Suggested Duplicates List -->
 <div class="dup-list">
     {% if suggestions is empty %}
@@ -280,7 +295,7 @@
 
                 <!-- Right (Candidate to Discard) -->
                 <div class="entity-side">
-                    <span class="entity-role role-discard">Mesclar & Apagar</span>
+                    <span class="entity-role role-discard">{{ tab == 'duplicates' ? 'Mesclar & Apagar' : 'Agrupar no da esquerda' }}</span>
                     {% if tab == 'authors' %}
                         <span class="entity-name">{{ sug.discard.name }}</span>
                         <span class="entity-meta"><i class="bi bi-file-earmark-text me-1"></i>{{ sug.discard.doc_count }} artigos</span>
@@ -318,6 +333,7 @@
         {% endfor %}
     {% endif %}
 </div>
+{% endif %}
 
 <!-- Floating Custom Toast Notification -->
 <div class="toast-container">
@@ -512,7 +528,7 @@ async function mergeAllPerfect() {
         return;
     }
 
-    if (!confirm(`Mesclar automaticamente ${count} par(es) com 100% de similaridade?\n\nEsta ação não pode ser desfeita e vale para todos os projetos que usam esses itens.`)) {
+    if (!confirm(`Mesclar automaticamente ${count} par(es) com 100% de similaridade?\n\n{{ isAdmin ? 'O agrupamento vale para todos os projetos que usam esses itens; nada é apagado e dá para desfazer na administração.' : 'O agrupamento vale só para este projeto; nada é apagado e dá para desfazer na aba Agrupamentos do projeto.' }}`)) {
         // Deselect all if user cancels
         selectAllSuggestions(false);
         return;
@@ -539,7 +555,7 @@ async function runBatchMerge() {
     const checkedBoxes = Array.from(document.querySelectorAll('.merge-select-check:checked'));
     if (checkedBoxes.length === 0) return;
 
-    if (!confirm(`Deseja realmente mesclar os ${checkedBoxes.length} itens selecionados?\n\nAutores e palavras-chave são compartilhados: a mesclagem também vale para os outros projetos que os usam.`)) {
+    if (!confirm(`Deseja realmente mesclar os ${checkedBoxes.length} itens selecionados?\n\n{{ isAdmin ? 'Como administrador, o agrupamento vale para todos os projetos; nada é apagado.' : 'O agrupamento vale só para este projeto; nada é apagado e dá para desfazer.' }}`)) {
         return;
     }
 
@@ -638,7 +654,7 @@ function checkEmptyState() {
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_author_normalization') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione um arquivo CSV com as colunas <code>preferred_name</code> (nome correto/mantido) e <code>variant_name</code> (nome descartado/variação). O sistema mesclará automaticamente os autores e registrará as variações no projeto.
+                        Selecione um arquivo CSV com as colunas <code>preferred_name</code> (nome correto/mantido) e <code>variant_name</code> (nome descartado/variação). O sistema agrupará os autores (sem apagar nenhum cadastro) {% if isAdmin %}para todos os projetos{% else %}só neste projeto{% endif %}; só o administrador cadastra variações de nome.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>
@@ -666,7 +682,7 @@ function checkEmptyState() {
                 <div class="modal-body">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_keyword_normalization') }}">
                     <p style="font-size:13px;color:var(--bm-text-muted)">
-                        Selecione um arquivo CSV com as colunas <code>preferred_keyword</code> (termo correto/mantido), <code>variant_keyword</code> (termo descartado/variação) e opcionalmente <code>keyword_type</code>. O sistema unificará as ocorrências nos artigos do projeto.
+                        Selecione um arquivo CSV com as colunas <code>preferred_keyword</code> (termo correto/mantido), <code>variant_keyword</code> (termo descartado/variação) e opcionalmente <code>keyword_type</code>. O sistema agrupará as palavras-chave (sem apagar nenhum cadastro) {% if isAdmin %}para todos os projetos{% else %}só neste projeto{% endif %}.
                     </p>
                     <div class="mb-3">
                         <label class="form-label">Arquivo CSV *</label>

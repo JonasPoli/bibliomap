@@ -241,16 +241,32 @@ class ReportService
         return array_merge($zones, ['target_per_zone' => $target]);
     }
 
+    /**
+     * Filtro "primeiro vínculo da identidade efetiva no documento" (alias do vínculo: $da). Dois vínculos de um
+     * documento agrupados na mesma identidade aparecem uma vez nas listas de autores, na posição do primeiro.
+     */
+    public static function firstEffectiveAuthorFilter(string $da = 'da'): string
+    {
+        return "NOT EXISTS (SELECT 1 FROM document_author dx WHERE dx.document_id = {$da}.document_id"
+            . " AND dx.effective_author_id = {$da}.effective_author_id"
+            . " AND (dx.position < {$da}.position OR (dx.position = {$da}.position AND dx.id < {$da}.id)))";
+    }
+
+    /** Subconsulta com os nomes EFETIVOS dos autores do documento (ordem de posição, sem repetir a identidade). */
+    public static function effectiveAuthorNamesSql(string $docIdExpr, string $separator = '; '): string
+    {
+        return "(SELECT GROUP_CONCAT(ae.preferred_name ORDER BY dae.position ASC, dae.id ASC SEPARATOR '{$separator}')"
+            . " FROM document_author dae JOIN author_identity ae ON ae.id = dae.effective_author_id"
+            . " WHERE dae.document_id = {$docIdExpr} AND " . self::firstEffectiveAuthorFilter('dae') . ')';
+    }
+
     // ── 3. Documents Report ───────────────────────────────────────────────────
 
     public function getDocumentsReport(int $projectId, int $limit = 100): array
     {
         $documents = $this->conn->fetchAllAssociative(
             "SELECT d.id, d.title, d.year, d.source_title, d.doi, d.url, d.qualis, COALESCE(d.cited_by, 0) AS cited_by,
-                    (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ')
-                     FROM author_identity a
-                     JOIN document_author da ON a.id = da.author_identity_id
-                     WHERE da.document_id = d.id) AS authors_str,
+                    " . self::effectiveAuthorNamesSql('d.id') . " AS authors_str,
                     (SELECT GROUP_CONCAT(p.sigla ORDER BY p.common_name ASC SEPARATOR ',')
                      FROM paises p
                      JOIN documento_paises dp ON p.id = dp.country_id
@@ -536,9 +552,7 @@ class ReportService
         $topDocs = $this->conn->fetchAllAssociative(
             "SELECT d.title, d.year, d.source_title, d.doi,
                     COALESCE(d.cited_by, 0) AS cited_by,
-                    (SELECT GROUP_CONCAT(a.preferred_name ORDER BY da2.position ASC SEPARATOR '; ')
-                     FROM author_identity a JOIN document_author da2 ON a.id = da2.author_identity_id
-                     WHERE da2.document_id = d.id) AS authors_str
+                    " . self::effectiveAuthorNamesSql('d.id') . " AS authors_str
              FROM document d
              WHERE d.project_id = ? AND d.title IS NOT NULL AND d.title != ''
              ORDER BY cited_by DESC, d.id ASC LIMIT 10",
@@ -592,7 +606,7 @@ class ReportService
         if (!empty($filters['author'])) {
             $qb->andWhere('EXISTS (
                 SELECT 1 FROM document_author da
-                JOIN author_identity a ON a.id = da.author_identity_id
+                JOIN author_identity a ON a.id = da.effective_author_id
                 WHERE da.document_id = d.id AND a.preferred_name LIKE :author
             )')
             ->setParameter('author', '%' . trim($filters['author']) . '%');
@@ -637,10 +651,10 @@ class ReportService
         $placeholders = implode(',', $docIds);
 
         $authorsRows = $this->conn->fetchAllAssociative(
-            "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC SEPARATOR '; ') AS authors_str
+            "SELECT da.document_id, GROUP_CONCAT(a.preferred_name ORDER BY da.position ASC, da.id ASC SEPARATOR '; ') AS authors_str
              FROM document_author da
-             JOIN author_identity a ON a.id = da.author_identity_id
-             WHERE da.document_id IN ($placeholders)
+             JOIN author_identity a ON a.id = da.effective_author_id
+             WHERE da.document_id IN ($placeholders) AND " . self::firstEffectiveAuthorFilter('da') . "
              GROUP BY da.document_id"
         );
 
@@ -734,12 +748,7 @@ class ReportService
                 "SELECT d.id, d.title, d.year, d.source_title,
                         COALESCE(d.cited_by, 0) AS cited_by, COALESCE(d.doi, '') AS doi,
                         COALESCE(d.abstract_text, '') AS abstract,
-                        (
-                            SELECT GROUP_CONCAT(a2.preferred_name ORDER BY da2.position SEPARATOR '; ')
-                            FROM document_author da2
-                            JOIN author_identity a2 ON a2.id = da2.author_identity_id
-                            WHERE da2.document_id = d.id
-                        ) AS author_names,
+                        " . self::effectiveAuthorNamesSql('d.id') . " AS author_names,
                         (
                             SELECT GROUP_CONCAT(DISTINCT COALESCE(kc2.keyword_display, k2.keyword_display) ORDER BY COALESCE(kc2.keyword_display, k2.keyword_display) SEPARATOR '; ')
                             FROM document_keyword dk2

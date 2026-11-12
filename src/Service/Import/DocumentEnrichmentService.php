@@ -2,6 +2,8 @@
 
 namespace App\Service\Import;
 
+use App\Service\Authority\AuthorityMappingException;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 use Doctrine\DBAL\Connection;
@@ -29,30 +31,10 @@ class DocumentEnrichmentService
         private readonly LoggerInterface $logger,
         private ?AuthorityMergeLogger $mergeLogger = null,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mapping = null,
     ) {
         $this->mergeLogger ??= new AuthorityMergeLogger($em);
         $this->authority ??= new AuthorityResolver($em->getConnection());
-    }
-
-    /**
-     * Id do cabeçalho do diário para o par (id anterior -> id novo) de autor ou palavra-chave, criado na
-     * primeira vez que o par aparece no processo (origem enrichment, sem usuário). Uma linha de link por
-     * vínculo remapeado ou apagado.
-     *
-     * @param array<string,int> $cache
-     */
-    private function remapLogId(array &$cache, string $entityType, int $from, int $to, Connection $conn, int $projectId): int
-    {
-        $key = $entityType . ':' . $from . ':' . $to;
-        if (!isset($cache[$key])) {
-            $label = (string) $conn->fetchOne(
-                $entityType === 'author' ? 'SELECT preferred_name FROM author_identity WHERE id = ?' : 'SELECT keyword_original FROM keyword WHERE id = ?',
-                [$from]
-            );
-            $cache[$key] = $this->mergeLogger->begin('enrichment', 'remap', $entityType, $from, $to, $label, ['project_id' => $projectId], null, $projectId);
-        }
-
-        return $cache[$key];
     }
 
     /**
@@ -377,21 +359,23 @@ class DocumentEnrichmentService
         arsort($unresolvedCountries);
 
         // ── 7. Relatório: unresolved and resolved stats for Authors & Keywords ──
+        // Pela identidade efetiva (agrupamentos incluídos). O vínculo que só repete, no mesmo documento, uma identidade efetiva
+        // já presente por outro id bruto (efeito de um agrupamento) não conta: é o que o remapeamento antigo obtinha apagando-o.
         $unresolvedAuthorsCount = (int)$conn->fetchOne('
             SELECT COUNT(DISTINCT a.preferred_name)
             FROM document_author da
-            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN author_identity a ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
-            WHERE d.project_id = ? AND a.status = 0
+            WHERE d.project_id = ? AND a.status = 0 AND NOT EXISTS (SELECT 1 FROM document_author x WHERE x.document_id = da.document_id AND x.effective_author_id = da.effective_author_id AND x.author_identity_id <> da.author_identity_id AND x.id < da.id)
         ', [$projectId]);
 
         $unresolvedAuthors = [];
         $rawUnresolvedAuthors = $conn->fetchAllAssociative('
             SELECT a.preferred_name AS name, COUNT(da.document_id) AS count
             FROM document_author da
-            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN author_identity a ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
-            WHERE d.project_id = ? AND a.status = 0
+            WHERE d.project_id = ? AND a.status = 0 AND NOT EXISTS (SELECT 1 FROM document_author x WHERE x.document_id = da.document_id AND x.effective_author_id = da.effective_author_id AND x.author_identity_id <> da.author_identity_id AND x.id < da.id)
             GROUP BY a.preferred_name
             ORDER BY count DESC
             LIMIT 100
@@ -403,18 +387,18 @@ class DocumentEnrichmentService
         $unresolvedKeywordsCount = (int)$conn->fetchOne('
             SELECT COUNT(DISTINCT k.keyword_display)
             FROM document_keyword dk
-            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN keyword k ON k.id = IF(dk.effective_keyword_id > 0, dk.effective_keyword_id, dk.keyword_id)
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.status = 0
+            WHERE d.project_id = ? AND k.status = 0 AND NOT EXISTS (SELECT 1 FROM document_keyword x WHERE x.document_id = dk.document_id AND x.effective_keyword_id = dk.effective_keyword_id AND x.keyword_id <> dk.keyword_id AND x.id < dk.id)
         ', [$projectId]);
 
         $unresolvedKeywords = [];
         $rawUnresolvedKeywords = $conn->fetchAllAssociative('
             SELECT k.keyword_display AS term, COUNT(dk.document_id) AS count
             FROM document_keyword dk
-            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN keyword k ON k.id = IF(dk.effective_keyword_id > 0, dk.effective_keyword_id, dk.keyword_id)
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.status = 0
+            WHERE d.project_id = ? AND k.status = 0 AND NOT EXISTS (SELECT 1 FROM document_keyword x WHERE x.document_id = dk.document_id AND x.effective_keyword_id = dk.effective_keyword_id AND x.keyword_id <> dk.keyword_id AND x.id < dk.id)
             GROUP BY k.keyword_display
             ORDER BY count DESC
             LIMIT 100
@@ -426,18 +410,18 @@ class DocumentEnrichmentService
         $matchedAuthorsCount = (int)$conn->fetchOne('
             SELECT COUNT(da.document_id)
             FROM document_author da
-            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN author_identity a ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
-            WHERE d.project_id = ? AND a.status = 1
+            WHERE d.project_id = ? AND a.status = 1 AND NOT EXISTS (SELECT 1 FROM document_author x WHERE x.document_id = da.document_id AND x.effective_author_id = da.effective_author_id AND x.author_identity_id <> da.author_identity_id AND x.id < da.id)
         ', [$projectId]);
 
         $matchedAuthorsList = [];
         $rawMatchedAuthors = $conn->fetchAllAssociative('
             SELECT a.id, a.preferred_name AS name, COUNT(da.document_id) AS count
             FROM document_author da
-            JOIN author_identity a ON da.author_identity_id = a.id
+            JOIN author_identity a ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
-            WHERE d.project_id = ? AND a.status = 1
+            WHERE d.project_id = ? AND a.status = 1 AND NOT EXISTS (SELECT 1 FROM document_author x WHERE x.document_id = da.document_id AND x.effective_author_id = da.effective_author_id AND x.author_identity_id <> da.author_identity_id AND x.id < da.id)
             GROUP BY a.id, a.preferred_name
             ORDER BY count DESC
             LIMIT 100
@@ -454,18 +438,18 @@ class DocumentEnrichmentService
         $matchedKeywordsCount = (int)$conn->fetchOne('
             SELECT COUNT(dk.document_id)
             FROM document_keyword dk
-            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN keyword k ON k.id = IF(dk.effective_keyword_id > 0, dk.effective_keyword_id, dk.keyword_id)
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.status = 1
+            WHERE d.project_id = ? AND k.status = 1 AND NOT EXISTS (SELECT 1 FROM document_keyword x WHERE x.document_id = dk.document_id AND x.effective_keyword_id = dk.effective_keyword_id AND x.keyword_id <> dk.keyword_id AND x.id < dk.id)
         ', [$projectId]);
 
         $matchedKeywordsList = [];
         $rawMatchedKeywords = $conn->fetchAllAssociative('
             SELECT k.id, k.keyword_display AS term, k.keyword_type AS type, COUNT(dk.document_id) AS count
             FROM document_keyword dk
-            JOIN keyword k ON dk.keyword_id = k.id
+            JOIN keyword k ON k.id = IF(dk.effective_keyword_id > 0, dk.effective_keyword_id, dk.keyword_id)
             JOIN document d ON dk.document_id = d.id
-            WHERE d.project_id = ? AND k.status = 1
+            WHERE d.project_id = ? AND k.status = 1 AND NOT EXISTS (SELECT 1 FROM document_keyword x WHERE x.document_id = dk.document_id AND x.effective_keyword_id = dk.effective_keyword_id AND x.keyword_id <> dk.keyword_id AND x.id < dk.id)
             GROUP BY k.id, k.keyword_display, k.keyword_type
             ORDER BY count DESC
             LIMIT 100
@@ -597,175 +581,113 @@ class DocumentEnrichmentService
     }
 
     /**
-     * Passos 4 e 5 do enriquecimento: troca o id de autor/palavra-chave do vínculo pelo cadastro que casa com o
-     * texto original, apagando a linha que repetiria um vínculo do documento. Cada troca vai para o diário.
+     * Passos 4 e 5 do enriquecimento: agrupa o autor/palavra-chave do vínculo na identidade que casa com o texto
+     * original (nome oficial ou variação ativa). O agrupamento é gravado (autor: authority_mapping global, origem
+     * 'variation'; palavra-chave: keyword_concept_id, ou mapeamento global quando há conceito de tesauro no caminho) e o
+     * efetivo é recalculado; o id bruto do vínculo e o texto original não mudam e nenhum vínculo é apagado (o documento
+     * com os dois vínculos conta uma vez, pelo id efetivo). O diário (origem enrichment) é gravado pelo serviço.
+     *
+     * Diferenças para o remapeamento antigo, que trocava o id de UM vínculo: o agrupamento vale para a identidade inteira
+     * (todos os vínculos dela, em todos os projetos, como qualquer agrupamento global) e a primeira correspondência por
+     * identidade (ordem de documento e de vínculo) é a que vale; identidade já agrupada em outro destino é mantida.
      */
     private function remapAuthorsAndKeywords(int $projectId, Connection $conn): void
     {
-        // ── 4. Re-map Authors ──────────────────────────────────────────
-        $rawNames = $conn->fetchFirstColumn(
-            'SELECT DISTINCT da.original_name 
+        $grouped = ['author' => 0, 'keyword' => 0];
+        $kept = ['author' => 0, 'keyword' => 0];
+
+        // ── 4. Autores ─────────────────────────────────────────────────
+        $pairs = $conn->fetchAllAssociative(
+            'SELECT da.author_identity_id AS id, da.original_name AS txt
              FROM document_author da
              JOIN document d ON da.document_id = d.id
-             WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name != ""',
+             WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name != ""
+             GROUP BY da.author_identity_id, da.original_name
+             ORDER BY MIN(da.document_id), MIN(da.id)',
             [$projectId]
         );
-        $normalizedNames = [];
-        foreach ($rawNames as $name) {
-            $normalizedNames[] = self::normalize($name);
+        $normalized = [];
+        foreach ($pairs as $i => $pair) {
+            $pairs[$i]['norm'] = $normalized[$i] = self::normalize($pair['txt']);
         }
-        $normalizedNames = array_unique(array_filter($normalizedNames));
+        $lookup = $this->loadAuthorsLookup($conn, array_values(array_unique(array_filter($normalized))));
+        unset($normalized);
 
-        unset($rawNames);
-
-        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
-        unset($normalizedNames);
-
-        $remapLogIds = [];
-        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
-            // Dentro do documento, na ordem do id: é ela que decide qual linha repetida sai
-            $docAuthors = $conn->fetchAllAssociative(
-                'SELECT da.id, da.document_id, da.author_identity_id, da.original_name
-                 FROM document_author da
-                 WHERE da.document_id IN (' . implode(',', $docIds) . ')
-                 ORDER BY da.document_id, da.id'
-            );
-
-            // Cada bloco numa transação: o diário e a troca de vínculos andam juntos
-            $conn->beginTransaction();
-            try {
-            $touched = false;
-            foreach ($docAuthors as $da) {
-                if (!$da['original_name']) continue;
-                $norm = self::normalize($da['original_name']);
-                if (isset($authorsLookup[$norm])) {
-                    $targetAuthorId = $authorsLookup[$norm];
-                    if ($targetAuthorId !== (int)$da['author_identity_id']) {
-                        // Check if duplicate exists on document
-                        $isDuplicate = $conn->fetchOne(
-                            'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
-                            [$da['document_id'], $targetAuthorId, $da['id']]
-                        );
-                        // Diário antes de trocar ou apagar o vínculo
-                        $this->mergeLogger->logLinks(
-                            $this->remapLogId($remapLogIds, 'author', (int)$da['author_identity_id'], $targetAuthorId, $conn, $projectId),
-                            'document_author',
-                            (int)$da['author_identity_id'],
-                            (int)$da['id']
-                        );
-                        if ($isDuplicate) {
-                            $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
-                        } else {
-                            // efetivo 0 = "recalcular": o refresh logo abaixo, na mesma transação, grava o valor certo
-                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ?, effective_author_id = 0 WHERE id = ?', [$targetAuthorId, $da['id']]);
-                            $touched = true;
-                        }
-                    }
-                }
-            }
-            if ($touched) {
-                $this->authority->refreshLinks(AuthorityResolver::ENTITY_AUTHOR, 'da.document_id IN (' . implode(',', $docIds) . ') AND da.effective_author_id = 0');
-            }
-            $conn->commit();
-            } catch (\Throwable $e) {
-                $conn->rollBack();
-                throw $e;
+        $targets = []; // identidade de origem => destino (a primeira correspondência vale)
+        foreach ($pairs as $pair) {
+            $source = (int) $pair['id'];
+            if ($pair['norm'] !== '' && isset($lookup[$pair['norm']]) && $lookup[$pair['norm']] !== $source && !isset($targets[$source])) {
+                $targets[$source] = $lookup[$pair['norm']];
             }
         }
-        unset($authorsLookup, $docAuthors);
+        unset($pairs, $lookup);
+        $this->groupAll('author', $targets, $grouped, $kept);
 
-        // ── 5. Re-map Keywords ─────────────────────────────────────────
-        $rawTerms = $conn->fetchFirstColumn(
-            'SELECT DISTINCT dk.original_term 
+        // ── 5. Palavras-chave ──────────────────────────────────────────
+        $pairs = $conn->fetchAllAssociative(
+            'SELECT dk.keyword_id AS id, dk.original_term AS txt, k.keyword_type AS type
              FROM document_keyword dk
              JOIN document d ON dk.document_id = d.id
-             WHERE d.project_id = ? AND dk.original_term IS NOT NULL AND dk.original_term != ""',
+             JOIN keyword k ON dk.keyword_id = k.id
+             WHERE d.project_id = ? AND dk.original_term IS NOT NULL AND dk.original_term != ""
+             GROUP BY dk.keyword_id, dk.original_term, k.keyword_type
+             ORDER BY MIN(dk.document_id), MIN(dk.id)',
             [$projectId]
         );
-        $normalizedTerms = [];
-        foreach ($rawTerms as $term) {
-            $normalizedTerms[] = self::normalize($term);
+        $normalized = [];
+        foreach ($pairs as $i => $pair) {
+            $pairs[$i]['norm'] = $normalized[$i] = self::normalize($pair['txt']);
         }
-        $normalizedTerms = array_unique(array_filter($normalizedTerms));
+        $lookup = $this->loadKeywordsLookup($conn, array_values(array_unique(array_filter($normalized))));
+        unset($normalized);
 
-        unset($rawTerms);
-
-        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
-        unset($normalizedTerms);
-        $remapLogIds = [];
-
-        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
-            $docKeywords = $conn->fetchAllAssociative(
-                'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
-                 FROM document_keyword dk
-                 JOIN keyword k ON dk.keyword_id = k.id
-                 WHERE dk.document_id IN (' . implode(',', $docIds) . ')
-                 ORDER BY dk.document_id, dk.id'
-            );
-
-            $conn->beginTransaction();
-            try {
-            $touched = false;
-            foreach ($docKeywords as $dk) {
-                if (!$dk['original_term']) continue;
-                $norm = self::normalize($dk['original_term']);
-                $key = $norm . '|' . $dk['type'];
-                if (isset($keywordsLookup[$key])) {
-                    $targetKeywordId = $keywordsLookup[$key];
-                    if ($targetKeywordId !== (int)$dk['keyword_id']) {
-                        // Check duplicate
-                        $isDuplicate = $conn->fetchOne(
-                            'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
-                            [$dk['document_id'], $targetKeywordId, $dk['id']]
-                        );
-                        // Diário antes de trocar ou apagar o vínculo
-                        $this->mergeLogger->logLinks(
-                            $this->remapLogId($remapLogIds, 'keyword', (int)$dk['keyword_id'], $targetKeywordId, $conn, $projectId),
-                            'document_keyword',
-                            (int)$dk['keyword_id'],
-                            (int)$dk['id']
-                        );
-                        if ($isDuplicate) {
-                            $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
-                        } else {
-                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE id = ?', [$targetKeywordId, $dk['id']]);
-                            $touched = true;
-                        }
-                    }
-                }
-            }
-            if ($touched) {
-                $this->authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.document_id IN (' . implode(',', $docIds) . ') AND dk.effective_keyword_id = 0');
-            }
-            $conn->commit();
-            } catch (\Throwable $e) {
-                $conn->rollBack();
-                throw $e;
+        $targets = [];
+        foreach ($pairs as $pair) {
+            $source = (int) $pair['id'];
+            $key = $pair['norm'] . '|' . $pair['type'];
+            if ($pair['norm'] !== '' && isset($lookup[$key]) && $lookup[$key] !== $source && !isset($targets[$source])) {
+                $targets[$source] = $lookup[$key];
             }
         }
-        unset($keywordsLookup, $docKeywords);
+        unset($pairs, $lookup);
+        $this->groupAll('keyword', $targets, $grouped, $kept);
+
+        if ($grouped['author'] || $grouped['keyword'] || $kept['author'] || $kept['keyword']) {
+            $this->logger->info('Enriquecimento: agrupamentos gravados', ['project_id' => $projectId, 'agrupados' => $grouped, 'mantidos' => $kept]);
+        }
     }
 
     /**
-     * Blocos de ids de documentos do projeto, em ordem crescente.
+     * Grava os agrupamentos origem => destino pelo AuthorityMappingService (uma transação curta por par).
+     * Origem que já está no mesmo grupo do destino não é regravada; origem já agrupada em outro destino ou laço
+     * são mantidos como estão (contados em $kept).
      *
-     * @return \Generator<int, int[]>
+     * @param array<int,int>    $targets
+     * @param array<string,int> $grouped
+     * @param array<string,int> $kept
      */
-    private function iterateDocIdChunks(int $projectId, Connection $conn): \Generator
+    private function groupAll(string $entity, array $targets, array &$grouped, array &$kept): void
     {
-        $lastId = 0;
-        while (true) {
-            $ids = $conn->fetchFirstColumn(
-                'SELECT id FROM document WHERE project_id = ? AND id > ? ORDER BY id LIMIT ' . self::DOC_CHUNK,
-                [$projectId, $lastId]
-            );
-            if (!$ids) {
-                return;
+        $mapping = $this->mapping();
+        foreach ($targets as $source => $target) {
+            if ($mapping->resolveFinalTarget($entity, $source, AuthorityMappingService::SCOPE_GLOBAL, 0)
+                === $mapping->resolveFinalTarget($entity, $target, AuthorityMappingService::SCOPE_GLOBAL, 0)) {
+                continue;
             }
-            $ids = array_map('intval', $ids);
-            $lastId = end($ids);
-            yield $ids;
+            try {
+                $result = $mapping->merge($entity, $source, $target, AuthorityMappingService::SCOPE_GLOBAL, 0, 'variation');
+                if (!$result['noop']) {
+                    $grouped[$entity]++;
+                }
+            } catch (AuthorityMappingException) {
+                $kept[$entity]++;
+            }
         }
+    }
+
+    private function mapping(): AuthorityMappingService
+    {
+        return $this->mapping ??= new AuthorityMappingService($this->em, $this->authority, $this->mergeLogger);
     }
 
     /**

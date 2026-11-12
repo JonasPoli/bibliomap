@@ -1,0 +1,112 @@
+{# Aba "Agrupamentos do projeto": agrupamentos gravados neste projeto (com Desfazer) e, só para leitura,
+   os globais que afetam documentos dele. Variáveis: project, groupings, isAdmin. #}
+<div class="info-card">
+    <i class="bi bi-info-circle-fill" style="font-size:18px;color:var(--bm-accent)"></i>
+    <div>
+        Aqui estão as mesclagens feitas <b>neste projeto</b>. Nada foi apagado: a identidade agrupada continua cadastrada e só passa a contar como o destino nas análises <b>deste projeto</b>. <b>Desfazer</b> devolve a identidade ao que era.
+        {{ help('normalize.groupings.about') }}
+    </div>
+</div>
+
+{% set originLabels = {admin: 'Administração', project: 'Projeto', treatment: 'Tratamento', variation: 'Sincronização', command: 'Comando'} %}
+
+{% for entity, title in {author: 'Autores', keyword: 'Palavras-chave'} %}
+    {% set g = groupings[entity] %}
+    {% set list = g.project %}
+    <h5 style="font-weight:700;margin:24px 0 10px">
+        <i class="bi {{ entity == 'author' ? 'bi-people' : 'bi-tags' }} me-1" style="color:var(--bm-accent)"></i>
+        {{ title }} agrupados neste projeto ({{ list.total|number_format(0, ',', '.') }}) {{ help('normalize.groupings.project') }}
+    </h5>
+    <div class="bm-card">
+        {% if list.items is empty %}
+            <div class="text-center py-4 text-muted-bm">
+                <i class="bi bi-inbox fs-2 mb-2 d-block"></i>
+                Nenhum agrupamento de {{ title|lower }} gravado neste projeto.
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                    <thead>
+                        <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                            <th>{{ entity == 'author' ? 'Autor agrupado' : 'Palavra-chave agrupada' }}</th>
+                            <th>Agrupado em</th>
+                            <th style="text-align:right">Documentos</th>
+                            <th>Quem e quando</th>
+                            <th style="width:120px;text-align:right">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for it in list.items %}
+                            <tr class="border-bm">
+                                <td><div style="font-weight:600">{{ it.source_label }}</div><small class="text-muted-bm">#{{ it.source_id }}</small></td>
+                                <td>{{ it.target_label }}{% if it.target_id > 0 %} <small class="text-muted-bm">#{{ it.target_id }}</small>{% endif %}</td>
+                                <td style="text-align:right">{{ it.documents|number_format(0, ',', '.') }}</td>
+                                <td style="font-size:12.5px">
+                                    {% if it.user_name %}{{ it.user_name }}{% else %}<span class="text-muted-bm">não registrado</span>{% endif %}
+                                    {% if it.created_at %}<br><span class="text-muted-bm">{{ it.created_at|date('d/m/Y H:i') }}</span>{% endif %}
+                                    {% if it.note %}<br><small class="text-muted-bm">{{ it.note }}</small>{% endif %}
+                                </td>
+                                <td style="text-align:right">
+                                    {% if it.mapping_id %}
+                                    <form action="{{ path('app_normalize_undo_grouping', {id: project.id, mappingId: it.mapping_id}) }}" method="POST" style="display:inline"
+                                          onsubmit="return confirm('Desfazer este agrupamento? {{ entity == 'author' ? 'O autor' : 'A palavra-chave' }} volta a contar por conta própria neste projeto.');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('normalize_undo_' ~ it.mapping_id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning px-2 py-1" style="font-size:12px" title="Desfazer o agrupamento">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i> Desfazer
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if list.pages > 1 %}
+                <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top border-bm gap-2">
+                    <div style="font-size:13px;color:var(--bm-text-muted)">
+                        Página <b>{{ list.page }}</b> de <b>{{ list.pages }}</b>
+                    </div>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if list.page <= 1 %}disabled{% endif %}"><a class="page-link" href="{{ path('app_normalize_index', {id: project.id, tab: 'groupings', (entity ~ 'Page'): list.page - 1}) }}">&laquo; Anterior</a></li>
+                        <li class="page-item {% if list.page >= list.pages %}disabled{% endif %}"><a class="page-link" href="{{ path('app_normalize_index', {id: project.id, tab: 'groupings', (entity ~ 'Page'): list.page + 1}) }}">Próxima &raquo;</a></li>
+                    </ul>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endfor %}
+
+<h4 style="font-weight:700;margin:36px 0 6px">Agrupamentos globais em uso neste projeto <span class="text-muted-bm" style="font-size:12px;font-weight:500">(somente leitura)</span> {{ help('normalize.groupings.global') }}</h4>
+<p class="text-muted-bm" style="font-size:13px">
+    Mesclagens feitas pela administração que valem para todos os projetos e afetam documentos deste.
+    {% if isAdmin %}Como administrador, você desfaz em <a href="{{ path('app_admin_authors_groupings') }}">Admin &gt; Autores &gt; Agrupamentos</a> e <a href="{{ path('app_admin_keywords_groupings') }}">Admin &gt; Palavras-chave &gt; Agrupamentos</a>.{% else %}Só a administração desfaz; para ter outro resultado só aqui, agrupe de outro jeito neste projeto.{% endif %}
+</p>
+{% for entity, title in {author: 'Autores', keyword: 'Palavras-chave'} %}
+    {% set gl = groupings[entity].global %}
+    <div class="bm-card" style="margin-bottom:16px">
+        <div style="padding:12px 16px 0;font-weight:600">{{ title }} ({{ gl.total|number_format(0, ',', '.') }}){% if gl.total > gl.items|length %} <span class="text-muted-bm" style="font-weight:400;font-size:12px">— mostrando os {{ gl.items|length }} com mais documentos</span>{% endif %}</div>
+        {% if gl.items is empty %}
+            <div class="text-center py-3 text-muted-bm" style="font-size:13px">Nenhum agrupamento global afeta documentos deste projeto.</div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table align-middle border-bm mb-0" style="color:var(--bm-text);font-size:13.5px">
+                    <thead>
+                        <tr class="bg-bm-card border-bottom border-bm text-muted-bm" style="font-size:12px">
+                            <th>Agrupado</th><th>Agrupado em</th><th style="text-align:right">Documentos do projeto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for it in gl.items %}
+                            <tr class="border-bm">
+                                <td><span style="font-weight:600">{{ it.source_label }}</span> <small class="text-muted-bm">#{{ it.source_id }}</small></td>
+                                <td>{{ it.target_label }}{% if it.target_id > 0 %} <small class="text-muted-bm">#{{ it.target_id }}</small>{% endif %}</td>
+                                <td style="text-align:right">{{ it.documents|number_format(0, ',', '.') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}

@@ -9,6 +9,7 @@ use App\Entity\KeywordTreatmentLog;
 use App\Entity\ThesaurusConcept;
 use App\Entity\ThesaurusScheme;
 use App\Entity\ThesaurusLabel;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 use App\Service\Cache\AnalyticsCache;
@@ -32,6 +33,7 @@ class KeywordTreatmentService
         private readonly ?AnalyticsCache $cache = null,
         private ?AuthorityMergeLogger $mergeLogger = null,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mapping = null,
     ) {
         $this->normalizer = new TextNormalizer();
     }
@@ -57,6 +59,22 @@ class KeywordTreatmentService
             $authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'dk.keyword_id IN (' . implode(',', array_map('intval', $chunk)) . ')');
         }
         $this->effectiveDirty = [];
+    }
+
+    private function mapping(): AuthorityMappingService
+    {
+        $this->authority ??= new AuthorityResolver($this->em->getConnection());
+
+        return $this->mapping ??= new AuthorityMappingService($this->em, $this->authority, $this->mergeLogger());
+    }
+
+    /** O termo já está no mesmo agrupamento global do existente (conceito agrupador, mapeamento ou conceito do tesauro). */
+    private function isAlreadyGrouped(int $keywordId, int $existingId): bool
+    {
+        $m = $this->mapping();
+
+        return $m->resolveFinalTarget(AuthorityMappingService::ENTITY_KEYWORD, $keywordId, AuthorityMappingService::SCOPE_GLOBAL, 0)
+            === $m->resolveFinalTarget(AuthorityMappingService::ENTITY_KEYWORD, $existingId, AuthorityMappingService::SCOPE_GLOBAL, 0);
     }
 
     private function mergeLogger(): AuthorityMergeLogger
@@ -292,7 +310,6 @@ class KeywordTreatmentService
 
                         // If dirty
                         if ($normRes['display'] !== $oldDisplay || $normRes['normalized'] !== $oldNorm) {
-                            $cleanedCount++;
                             $targetNorm = $normRes['normalized'];
                             $targetType = $kw->getKeywordType();
                             $mapKey = $targetNorm . '||' . $targetType;
@@ -308,7 +325,15 @@ class KeywordTreatmentService
                                 $existingId = $assignedInBatch[$mapKey];
                             }
 
-                            if ($existingId) {
+                            // O termo que colide não é mais apagado: fica agrupado no existente. Numa rodada seguinte ele
+                            // continua com a forma normalizada antiga e colidindo; já agrupado, só o rótulo é limpo, sem
+                            // contar nem registrar de novo (como acontecia quando o termo sumia depois da fusão).
+                            if ($existingId && $this->isAlreadyGrouped((int)$kw->getId(), (int)$existingId)) {
+                                if (!$options->dryRun && $normRes['display'] !== $oldDisplay) {
+                                    $kw->setKeywordDisplay($normRes['display']);
+                                }
+                            } elseif ($existingId) {
+                                $cleanedCount++;
                                 $kwId = $kw->getId();
                                 $canonical = $this->em->getReference(Keyword::class, (int)$existingId);
 
@@ -322,75 +347,42 @@ class KeywordTreatmentService
                                 }
 
                                 if (!$options->dryRun) {
-                                    // Duplicate collision! Merge via raw SQL and detach from Doctrine.
+                                    // Colisão de forma normalizada: o termo passa a ser AGRUPADO no existente (conceito agrupador,
+                                    // ou mapeamento global quando há conceito de tesauro no caminho). Nada é apagado nem
+                                    // repontuado: o termo, as variações, os vínculos e os logs dele ficam como estão, e o
+                                    // serviço grava o diário (origem treatment, sem usuário) e recalcula o efetivo.
 
-                                    // Diário (origem treatment, sem usuário): vínculos do termo que será fundido, antes de mudar
-                                    $this->mergeLogger()->logKeywordMerge('treatment', 'merge', $kwId, (int)$existingId, null, null, ['job_id' => $job->getId()]);
-
-                                    // 1. Delete matching pairs in document_keyword to avoid unique key constraint violation
-                                    $dupDkIds = $conn->fetchFirstColumn('
-                                        SELECT dk1.id
-                                        FROM document_keyword dk1
-                                        JOIN document_keyword dk2 ON dk1.document_id = dk2.document_id AND dk2.keyword_id = ?
-                                        WHERE dk1.keyword_id = ?
-                                    ', [(int)$existingId, $kwId]);
-
-                                    if (!empty($dupDkIds)) {
-                                        $conn->executeStatement('DELETE FROM document_keyword WHERE id IN (' . implode(',', $dupDkIds) . ')');
-                                    }
-
-                                    // 2. Re-point remaining document_keyword rows to the canonical keyword
-                                    // (efetivo 0 = recalcular: refreshEffective() grava o valor certo antes do commit do lote)
-                                    $conn->executeStatement('UPDATE document_keyword SET keyword_id = ?, effective_keyword_id = 0 WHERE keyword_id = ?', [(int)$existingId, $kwId]);
-                                    $this->markEffective((int)$existingId);
-
-                                    // 3. Re-point keyword variations e guarda a grafia original do termo apagado como variação
-                                    $conn->executeStatement('UPDATE palavra_chave_variacoes_nome SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
-                                    $conn->executeStatement('
-                                        INSERT INTO palavra_chave_variacoes_nome (keyword_id, variation_name, normalized_name, variation_type, status)
-                                        SELECT ?, ?, ?, \'alternative\', 1 FROM DUAL
-                                        WHERE NOT EXISTS (SELECT 1 FROM palavra_chave_variacoes_nome WHERE keyword_id = ? AND variation_name = BINARY ?)
-                                          AND NOT EXISTS (SELECT 1 FROM keyword WHERE id = ? AND keyword_original = BINARY ?)
-                                    ', [(int)$existingId, $original, $targetNorm, (int)$existingId, $original, (int)$existingId, $original]);
-
-                                    // 4. Re-point keyword treatment logs to preserve logs history
-                                    $conn->executeStatement('UPDATE keyword_treatment_log SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
-                                    $conn->executeStatement('UPDATE thesaurus_match SET keyword_id = ? WHERE keyword_id = ?', [(int)$existingId, $kwId]);
-
-                                    // 5. Agrupamentos legados e conceito do tesauro não se perdem com a exclusão
-                                    $this->markEffective(...array_map('intval', $conn->fetchFirstColumn('SELECT id FROM keyword WHERE keyword_concept_id = ? AND id != ?', [$kwId, (int)$existingId])));
-                                    $conn->executeStatement('UPDATE keyword SET keyword_concept_id = ? WHERE keyword_concept_id = ? AND id != ?', [(int)$existingId, $kwId, (int)$existingId]);
+                                    // O conceito do tesauro do termo agrupado não se perde: o existente o herda se não tiver um
                                     if ($kw->getThesaurusConcept() !== null) {
                                         $conn->executeStatement(
                                             'UPDATE keyword SET thesaurus_concept_id = COALESCE(thesaurus_concept_id, ?) WHERE id = ?',
                                             [$kw->getThesaurusConcept()->getId(), (int)$existingId]
                                         );
+                                        $this->markEffective((int)$existingId);
                                     }
-                                    // Objetos em memória que apontam para o termo apagado (senão o flush falha)
-                                    foreach ($keywords as $other) {
-                                        if ($other !== $kw && $other->getKeywordConcept() === $kw) {
-                                            $other->setKeywordConcept($canonical);
-                                        }
-                                    }
-                                    foreach ($this->batchLogs as $pendingLog) {
-                                        if ($pendingLog->getKeyword() === $kw) {
-                                            $pendingLog->setKeyword($canonical);
-                                        }
-                                        if ($pendingLog->getNewConcept() === $kw) {
-                                            $pendingLog->setNewConcept($canonical);
-                                        }
-                                    }
+                                    $this->em->flush();
+                                    $result = $this->mapping()->merge(
+                                        AuthorityMappingService::ENTITY_KEYWORD, (int)$kwId, (int)$existingId,
+                                        AuthorityMappingService::SCOPE_GLOBAL, 0, 'treatment', null, 'job #' . $job->getId()
+                                    );
 
-                                    // 6. Delete the duplicate keyword via raw SQL and detach from Doctrine
-                                    $deletedInBatch[$kwId] = true;
-                                    $this->em->detach($kw);
-                                    $conn->executeStatement('DELETE FROM keyword WHERE id = ?', [$kwId]);
+                                    // Objetos em memória cujo conceito agrupador mudou por SQL (senão um flush ou o passo 2 usaria o antigo)
+                                    $stale = array_flip(array_merge([$kwId], $result['dependents']));
+                                    foreach ($keywords as $other) {
+                                        if (isset($stale[$other->getId()])) {
+                                            $this->em->refresh($other);
+                                        }
+                                    }
+                                    // Limpeza do rótulo continua; a forma normalizada fica (é a chave que a importação usa para achar o termo)
+                                    $kw->setKeywordDisplay($normRes['display']);
+                                    $deletedInBatch[$kwId] = true; // já agrupado: fora das etapas seguintes deste lote
                                 }
 
                                 // Registrado no termo que sobrevive; o motivo guarda o ID apagado
                                 $survivor = $canonical;
                                 $this->logAction($job, $canonical, 'merged', $oldDisplay, $normRes['display'], $oldNorm, $targetNorm, null, null, null, sprintf('merged_duplicate: #%d "%s" → #%d', $kwId, $original, (int)$existingId), $options->dryRun, 'normalizer');
                             } else {
+                                $cleanedCount++;
                                 if (!$options->dryRun) {
                                     // Safely update display name and normalized name
                                     $kw->setKeywordDisplay($normRes['display']);

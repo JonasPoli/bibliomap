@@ -9,6 +9,7 @@ use App\Entity\Keyword;
 use App\Entity\KeywordVariation;
 use App\Service\Import\TextNormalizer;
 use App\Service\Authority\AuthorityLinkGuard;
+use App\Service\Authority\AuthorityMappingException;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 use App\Service\Thesaurus\EntityMergeService;
@@ -260,16 +261,16 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        // Pelo serviço de fusão (o mesmo do cadastro de autores)
+        // Pelo serviço de fusão (o mesmo do cadastro de autores): agrupa, não apaga
         $name = $author->getPreferredName();
         try {
             $this->mergeService->mergeAuthors($target->getId(), [$author->getId()], []);
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar autores: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar os autores: ' . $e->getMessage());
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $this->addFlash('success', "Autor '{$name}' mesclado em '{$target->getPreferredName()}' com sucesso!");
+        $this->addFlash('success', "Autor '{$name}' agrupado em '{$target->getPreferredName()}'. Nada foi apagado; Desfazer na aba Agrupamentos de Autores.");
         return $this->redirectToRoute('app_admin_review_index');
     }
 
@@ -521,16 +522,16 @@ class AdminReviewController extends AbstractController
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        // Pelo serviço de fusão (o mesmo do cadastro de palavras-chave: também leva matches e log do tratamento)
+        // Pelo serviço de fusão (o mesmo do cadastro de palavras-chave): agrupa, não apaga
         $name = $keyword->getKeywordOriginal();
         try {
             $this->mergeService->mergeKeywords($target->getId(), [$keyword->getId()], []);
         } catch (\Throwable $e) {
-            $this->addFlash('danger', 'Erro ao mesclar palavras-chave: ' . $e->getMessage());
+            $this->addFlash($e instanceof AuthorityMappingException ? 'warning' : 'danger', 'Não foi possível agrupar as palavras-chave: ' . $e->getMessage());
             return $this->redirectToRoute('app_admin_review_index');
         }
 
-        $this->addFlash('success', "Palavra-chave '{$name}' mesclada em '{$target->getTerm()}'!");
+        $this->addFlash('success', "Palavra-chave '{$name}' agrupada em '{$target->getTerm()}'. Nada foi apagado; Desfazer na aba Agrupamentos de Palavras-chave.");
         return $this->redirectToRoute('app_admin_review_index');
     }
 

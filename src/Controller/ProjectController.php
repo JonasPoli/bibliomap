@@ -177,6 +177,12 @@ class ProjectController extends AbstractController
                     [$projectId]
                 );
 
+                // 2.3b Agrupamentos de autores e palavras-chave que valiam só para este projeto
+                $conn->executeStatement(
+                    "DELETE FROM authority_mapping WHERE scope = 'project' AND scope_id = ?",
+                    [$projectId]
+                );
+
                 // 2.4 Delete documents
                 $conn->executeStatement(
                     'DELETE FROM document WHERE project_id = ?',

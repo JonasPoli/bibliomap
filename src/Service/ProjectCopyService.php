@@ -19,6 +19,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
  *  3. DBAL – bulk INSERT documents with CASE WHEN dataset remapping
  *  4. DBAL – tabela temporária old_doc_id → new_doc_id (posição na ordem de id, como a inserção é feita)
  *  5. DBAL – INSERT … SELECT … JOIN da tabela temporária para document_author e document_keyword
+ *     (e os agrupamentos do projeto, authority_mapping scope 'project', para o projeto novo)
  *  6. DBAL – vínculos geográficos/institucionais, classificação temática,
  *            matrizes salvas e duplicados ignorados (sem eles os relatórios da cópia saem vazios)
  *
@@ -67,11 +68,15 @@ class ProjectCopyService
             );
 
             // ── 4. Bulk clone document_author + document_keyword ──────────────
+            // Os agrupamentos do projeto de origem (scope 'project') acompanham a cópia, com o id do projeto novo;
+            // vêm antes do recálculo do efetivo abaixo
+            $this->cloneProjectMappings($source->getId(), $newProject->getId());
             if ($docCount > 0) {
                 $this->bulkCloneDocumentAuthors();
                 $this->bulkCloneDocumentKeywords();
-                // As colunas efetivas vão copiadas; o recálculo do projeto novo só grava onde diferem (mapeamentos
-                // do projeto de origem não acompanham a cópia, os do usuário dono e os globais valem para o destino)
+                // As colunas efetivas vão copiadas; o recálculo do projeto novo só grava onde diferem (os agrupamentos
+                // do projeto já foram copiados acima: o efetivo da cópia sai igual ao do original; os do usuário dono
+                // do projeto novo e os globais valem para ele)
                 $authority = $this->authority ??= new AuthorityResolver($this->dbal);
                 $authority->refreshLinks(AuthorityResolver::ENTITY_AUTHOR, 'd.project_id = ?', [$newProject->getId()]);
                 $authority->refreshLinks(AuthorityResolver::ENTITY_KEYWORD, 'd.project_id = ?', [$newProject->getId()]);
@@ -300,6 +305,21 @@ class ProjectCopyService
         );
 
         return $copied;
+    }
+
+    /**
+     * Copia os agrupamentos de autores e palavras-chave do projeto (authority_mapping, scope 'project') para o projeto
+     * novo, com autoria, data e nota originais. O projeto novo ainda não tem linha própria (a chave única é por escopo).
+     */
+    private function cloneProjectMappings(int $oldProjectId, int $newProjectId): int
+    {
+        return (int) $this->dbal->executeStatement(
+            "INSERT INTO authority_mapping (entity_type, scope, scope_id, source_id, target_id, origin, created_by, created_at, note)
+             SELECT entity_type, scope, ?, source_id, target_id, origin, created_by, created_at, note
+             FROM authority_mapping
+             WHERE scope = 'project' AND scope_id = ?",
+            [$newProjectId, $oldProjectId]
+        );
     }
 
     private function bulkCloneDocumentAuthors(): void

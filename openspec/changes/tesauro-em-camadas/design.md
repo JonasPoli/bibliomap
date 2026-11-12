@@ -25,7 +25,16 @@ Decisões do Jonas (12/11/2026):
 6. **Cache das análises**: a chave não muda enquanto todos veem o projeto com o tesauro do dono; cada mapeamento gravado sobe a versão global (versão por projeto fica para a fase 6).
 7. **Instituições, países e revistas** não ganham exceção por projeto agora: já são derivados de `document` pelo enriquecimento; só deixam de ser apagados (fase 6).
 
-## Fases 0 a 2 (detalhe em tasks.md)
+## Mesclar sem apagar (fases 2 e 3)
+
+- **Autor**: o agrupamento é uma linha de `authority_mapping` (global quando feito por administrador, `project` quando feito por usuário comum na tela do projeto). A identidade de origem continua existindo, com as suas variações; o alvo de um mapeamento é sempre final (ao gravar B→A, todo mapeamento com alvo B passa a ter alvo A).
+- **Palavra-chave global**: continua pelo mecanismo existente `keyword.keyword_concept_id` (conceito agrupador, final), que o resto do sistema já lê; a palavra de origem não é apagada. **Palavra-chave de projeto**: linha de `authority_mapping`.
+- **Tratamento noturno e enriquecimento**: a colisão de forma normalizada e o remapeamento pelas variações passam a gravar o agrupamento (`keyword_concept_id` ou mapeamento) e a recalcular o efetivo.
+- **Desfazer**: apaga a linha de mapeamento (ou devolve `keyword_concept_id` à própria palavra) e recalcula o efetivo dos vínculos afetados.
+- **Cópia de projeto** copia os mapeamentos `project` do projeto de origem.
+- Fica fora (de propósito): a mesclagem de **documentos duplicados** (`mergeDocuments`) e a exclusão de projeto, que removem registros de um projeto e não são agrupamento de autoridade.
+
+## Fases 0 a 3 (detalhe em tasks.md)
 
 - **Fase 0**: diário, bloqueio de Excluir/Descartar, nenhuma consulta muda. Os 49 casos do retrato saem idênticos.
 - **Fase 1**: colunas efetivas e índices, preenchimento com o valor de hoje, relatórios lendo a coluna, conferência. Importação, cópia, fusão de documentos e enriquecimento passam a manter a coluna.

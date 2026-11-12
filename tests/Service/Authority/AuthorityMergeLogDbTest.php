@@ -38,13 +38,12 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         $this->assertSame(77, (int) $log['project_id']);
         $this->assertNull($log['user_id']);
         $this->assertSame($name, $log['source_label']);
-        $payload = json_decode($log['payload'], true);
-        $this->assertSame('teste', $payload['via']);
-        $this->assertArrayHasKey('variations', $payload);
+        // Fase 3: a tela do projeto agrupa (escopo project); a nota do agrupamento guarda o "via"
+        $this->assertSame('via teste', $this->conn->fetchOne("SELECT note FROM authority_mapping WHERE entity_type = 'author' AND scope = 'project' AND scope_id = 77 AND source_id = ?", [$discard]));
         $this->assertNotEmpty($before);
         $this->assertSame($this->normalizeRows($before), $this->normalizeRows($this->linksOf((int) $log['id'])));
-        // A identidade foi mesclada de verdade e o diário sobrevive à exclusão dela
-        $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM author_identity WHERE id = ?', [$discard]));
+        // Agrupar não apaga: a identidade continua cadastrada (e o diário guarda os vínculos de antes)
+        $this->assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM author_identity WHERE id = ?', [$discard]));
     }
 
     public function testNormalizationMergeKeywordsLogsHeaderAndEveryLink(): void
@@ -55,7 +54,8 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         (new NormalizationService($this->em, new AuthorityMergeLogger($this->em)))->mergeKeywords($keep, $discard);
 
         $log = $this->logsFor('keyword', $discard)[0];
-        $this->assertSame(['screen_project', 'merge', $keep], [$log['origin'], $log['action'], (int) $log['target_id']]);
+        // Sem projeto informado (chamada de comando/script) o agrupamento é global, origem administração
+        $this->assertSame(['screen_admin', 'merge', $keep], [$log['origin'], $log['action'], (int) $log['target_id']]);
         $links = $this->linksOf((int) $log['id']);
         $this->assertSame($this->normalizeRows($before), $this->normalizeRows($links));
         $this->assertNull($links[0]['position']);
@@ -67,15 +67,17 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         $snapB = $this->authorSnapshot($b);
         $snapC = $this->authorSnapshot($c);
 
-        // c -> b e b -> a: o alvo final de c é a
+        // c -> b e b -> a: o alvo final de c é a (o diário de c guarda o destino do momento, b; o efetivo vai a a)
         $n = (new NormalizationService($this->em, new AuthorityMergeLogger($this->em)))
             ->mergeAuthorsBatch([['keepId' => $b, 'discardId' => $c], ['keepId' => $a, 'discardId' => $b]], 5);
         $this->assertSame(2, $n);
 
         $logC = $this->logsFor('author', $c)[0];
         $logB = $this->logsFor('author', $b)[0];
-        $this->assertSame($a, (int) $logC['target_id']);
+        $this->assertSame($b, (int) $logC['target_id']);
         $this->assertSame($a, (int) $logB['target_id']);
+        // o mapeamento de c (projeto 5) foi reapontado para o alvo final
+        $this->assertSame($a, (int) $this->conn->fetchOne("SELECT target_id FROM authority_mapping WHERE entity_type = 'author' AND scope = 'project' AND scope_id = 5 AND source_id = ?", [$c]));
         $this->assertSame(5, (int) $logC['project_id']);
         $this->assertSame($this->normalizeRows($snapC), $this->normalizeRows($this->linksOf((int) $logC['id'])));
         $this->assertSame($this->normalizeRows($snapB), $this->normalizeRows($this->linksOf((int) $logB['id'])));
@@ -108,7 +110,9 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         $this->assertSame(['command', 'merge', $keepA], [$la['origin'], $la['action'], (int) $la['target_id']]);
         $this->assertSame($this->normalizeRows($snapA), $this->normalizeRows($this->linksOf((int) $la['id'])));
         $lk = $this->logsFor('keyword', $discardK)[0];
-        $this->assertSame(['screen_admin', $keepK, 3], [$lk['origin'], (int) $lk['target_id'], (int) $lk['project_id']]);
+        // A mesclagem administrativa é global (agrupa sem apagar): o projeto informado não entra no diário
+        $this->assertSame(['screen_admin', $keepK], [$lk['origin'], (int) $lk['target_id']]);
+        $this->assertNull($lk['project_id']);
         $this->assertSame($this->normalizeRows($snapK), $this->normalizeRows($this->linksOf((int) $lk['id'])));
     }
 
@@ -189,8 +193,10 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         $links = $this->linksOf((int) $logs[0]['id']);
         $this->assertCount(3, $links);
         $this->assertSame($dirty, $links[0]['original_text']);
-        $this->assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE id = ?', [$dupId]));
-        $this->assertSame(3, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE keyword_id = ?', [$canonicalId]));
+        // Agrupa sem apagar: o termo e os vínculos dele continuam como estão; o efetivo é o do canônico
+        $this->assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM keyword WHERE id = ?', [$dupId]));
+        $this->assertSame(3, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM document_keyword WHERE keyword_id = ? AND effective_keyword_id = ?', [$dupId, $canonicalId]));
+        $this->assertSame($canonicalId, (int) $this->conn->fetchOne('SELECT keyword_concept_id FROM keyword WHERE id = ?', [$dupId]));
     }
 
     public function testEnrichmentRemapLogsOneHeaderPerPairAndOneLinkPerChangedLink(): void
@@ -199,7 +205,7 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
         $projectId = (int) $this->conn->fetchOne(
             'SELECT d.project_id FROM document d JOIN document_author da ON da.document_id = d.id GROUP BY d.project_id ORDER BY COUNT(*) ASC LIMIT 1'
         );
-        // Um vínculo de autor com o id errado: o enriquecimento o devolve ao cadastro do nome original
+        // Um vínculo de autor com o id errado: o enriquecimento agrupa a identidade errada no cadastro do nome original
         $row = $this->conn->fetchAssociative(
             'SELECT da.id, da.document_id, da.author_identity_id, da.original_name, da.position FROM document_author da JOIN document d ON d.id = da.document_id
              WHERE d.project_id = ? AND da.original_name IS NOT NULL AND da.original_name <> "" ORDER BY da.id LIMIT 1',
@@ -209,18 +215,19 @@ class AuthorityMergeLogDbTest extends LocalDbTestCase
             'SELECT id FROM author_identity WHERE id <> ? AND id NOT IN (SELECT author_identity_id FROM document_author WHERE document_id = ?) ORDER BY id LIMIT 1',
             [$row['author_identity_id'], $row['document_id']]
         );
-        $this->conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$wrong, $row['id']]);
+        $this->conn->executeStatement('UPDATE document_author SET author_identity_id = ?, effective_author_id = ? WHERE id = ?', [$wrong, $wrong, $row['id']]);
+        $wrongLinks = $this->authorSnapshot($wrong);
 
         (new \ReflectionMethod($service, 'remapAuthorsAndKeywords'))->invoke($service, $projectId, $this->conn);
 
-        $now = (int) $this->conn->fetchOne('SELECT author_identity_id FROM document_author WHERE id = ?', [$row['id']]);
-        $this->assertNotSame($wrong, $now, 'o vínculo foi devolvido ao cadastro do nome original');
+        // O id bruto do vínculo não muda; o efetivo passa a ser o do cadastro do nome original
+        $now = $this->conn->fetchAssociative('SELECT author_identity_id, effective_author_id FROM document_author WHERE id = ?', [$row['id']]);
+        $this->assertSame($wrong, (int) $now['author_identity_id']);
+        $this->assertSame((int) $row['author_identity_id'], (int) $now['effective_author_id'], 'agrupado no cadastro do nome original');
         $logs = $this->logsFor('author', $wrong);
         $this->assertCount(1, $logs);
-        $this->assertSame(['enrichment', 'remap', $now, $projectId], [$logs[0]['origin'], $logs[0]['action'], (int) $logs[0]['target_id'], (int) $logs[0]['project_id']]);
+        $this->assertSame(['enrichment', 'merge', (int) $row['author_identity_id']], [$logs[0]['origin'], $logs[0]['action'], (int) $logs[0]['target_id']]);
         $this->assertNull($logs[0]['user_id']);
-        $links = $this->linksOf((int) $logs[0]['id']);
-        $this->assertCount(1, $links);
-        $this->assertSame([(int) $row['document_id'], 'document_author', $wrong, $row['original_name'], (int) $row['position']], [(int) $links[0]['document_id'], $links[0]['link_table'], (int) $links[0]['old_entity_id'], $links[0]['original_text'], (int) $links[0]['position']]);
+        $this->assertSame($this->normalizeRows($wrongLinks), $this->normalizeRows($this->linksOf((int) $logs[0]['id'])));
     }
 }

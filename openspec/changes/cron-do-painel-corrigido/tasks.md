@@ -51,3 +51,11 @@
 ## Workflow follow-up
 
 - Arquivar a mudança (`openspec archive cron-do-painel-corrigido`) depois da conferência da 5.5 e conferir que `openspec/specs/rotinas-agendadas/spec.md` foi criado e que `openspec/specs/tesauro-de-palavras-chave/spec.md` ficou com os requisitos novos.
+
+## 6. Acompanhamento da revisão de 12/11/2026 (veio de revisao-seguranca-desempenho-2026-11)
+
+- [ ] 6.1 Avisar o responsável pelo app vizinho (cache `public_pages` chegou a 26 GB e encheu o disco em 12/11/2026) para criar limite ou limpeza periódica.
+- [ ] 6.2 Cron do painel: acrescentar `app:authority:rebuild --check --env=prod` (semanal) depois das linhas já previstas.
+- [ ] 6.3 Decidir o OPcache do pool no painel RunCloud (`validate_timestamps=0` e preload): ganho de velocidade, mas exige reiniciar o PHP a cada deploy.
+- [ ] 6.4 Uma semana depois do deploy de 12/11/2026: `du -sh var/cache/prod/pools`, `df -h /` e erros 5xx.
+

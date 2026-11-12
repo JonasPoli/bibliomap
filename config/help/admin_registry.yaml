@@ -11,7 +11,7 @@ admin.authors.page:
   title: "Cadastro de autores (tesauro de autores)"
   what: "Lista as **identidades de autor** usadas por todos os projetos. Cada identidade tem um nome preferido e várias **variações** (grafias) que os arquivos do WoS, Scopus, Lens e PubMed trazem para a mesma pessoa."
   how: "Busque o autor, abra o lápis para corrigir nome, ORCID e grafias, ou marque de 2 a 5 linhas e use **Mesclar** para unir duplicatas. Depois de alterar grafias, rode a **Sincronização** do projeto para que os documentos passem a apontar para a identidade correta."
-  not: "Não é a lista de autores de um projeto específico: o cadastro é global e uma alteração aqui afeta todos os projetos que usam esse autor. Também não busca dados no ORCID nem no Lattes. **Excluir** só funciona para autor sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**."
+  not: "Não é a lista de autores de um projeto específico: o cadastro é global e uma alteração aqui afeta todos os projetos que usam esse autor. Também não busca dados no ORCID nem no Lattes. **Excluir** só funciona para autor sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**, que agrupa sem apagar (aba **Agrupamentos**, com Desfazer)."
   example: "Numa revisão sobre extensão universitária, “Silva, M. A.”, “Silva MA” e “Maria Aparecida da Silva” aparecem como três autores no ranking. Aqui você junta as três grafias numa só identidade e o h-index dela passa a somar os documentos das três."
 
 admin.authors.search:
@@ -60,7 +60,7 @@ admin.authors.merge_selected:
   title: "Mesclar autores selecionados"
   what: "Abre a tela de comparação para unir de 2 a 5 autores duplicados num só registro."
   how: "Marque as caixas da primeira coluna (o botão só habilita com 2 a 5 marcadas) e clique em **Mesclar**. Na tela seguinte você escolhe o registro principal e o nome final."
-  not: "Os documentos dos registros secundários passam para o Master (se o artigo tinha os dois, fica um vínculo só). Não pode ser desfeito: confira se são mesmo a mesma pessoa."
+  not: "Nada é apagado: os registros secundários continuam cadastrados e as análises passam a contá-los como o Master (um artigo com os dois autores conta uma vez). Dá para desfazer na aba Agrupamentos; confira antes se são mesmo a mesma pessoa."
   example: "Ao encontrar “Fernandes, Ana Lúcia” e “Fernandes, A. L.” como duas linhas sem documentos importados ainda, marque ambas e mescle para deixar o tesauro limpo antes da próxima importação."
 
 admin.authors.col_preferred:
@@ -128,52 +128,66 @@ admin.authors.edit.variations_list:
 
 admin.authors.edit.merge:
   title: "Mesclar este autor em outro"
-  what: "Une este registro ao autor escolhido: documentos, grafias, nome preferido (como variação) e ORCID passam para o destino e este registro é excluído."
-  how: "Digite parte do nome (ou o #id) do destino, escolha-o na lista de resultados e clique em **Mesclar e Excluir**. Se os dois autores estavam no mesmo artigo, o vínculo duplicado é removido para não contar o artigo duas vezes."
-  not: "Não pode ser desfeito. A busca mostra até 30 resultados: refine o texto se o destino não aparecer."
-  example: "“Freire, P.” (12 artigos) mesclado em “Paulo Freire” (40 artigos): o destino passa a ter 52 artigos e “Freire, P.” vira uma de suas grafias."
+  what: "Agrupa este registro no autor escolhido: nas análises os documentos dele contam como o destino. O registro, as grafias e o ORCID dele **continuam cadastrados**; nada é apagado."
+  how: "Digite parte do nome (ou o #id) do destino, escolha-o na lista de resultados e clique em **Mesclar (agrupar)**. Se os dois autores estavam no mesmo artigo, o vínculo duplicado não é removido: o artigo conta uma vez só nas análises."
+  not: "Dá para desfazer na aba Agrupamentos. Um autor já agrupado em outro destino, ou que formaria um laço, é recusado com aviso. A busca mostra até 30 resultados: refine o texto se o destino não aparecer."
+  example: "“Freire, P.” (12 artigos) mesclado em “Paulo Freire” (40 artigos): o destino passa a contar 52 artigos e “Freire, P.” continua cadastrado, agrupado nele."
 
 admin.authors.merge.page:
   title: "Mesclar autores em lote"
-  what: "Compara de 2 a 5 autores lado a lado para consolidá-los num registro principal (Master)."
+  what: "Compara de 2 a 5 autores lado a lado para agrupá-los num registro principal (Master)."
   how: "1) Escolha o Master. 2) Escolha o nome preferido final. 3) Confira as grafias que serão reunidas. 4) Confirme."
-  not: "Os documentos dos registros secundários são transferidos para o Master antes da exclusão; se um artigo tinha os dois autores, fica um vínculo só. Não pode ser desfeito."
+  not: "Nada é apagado nem transferido: os secundários ficam agrupados no Master e contam como ele nas análises (um artigo com os dois autores conta uma vez). Dá para desfazer na aba Agrupamentos."
   example: "Três cadastros de “Saviani, D.” criados por importações antigas e sem documentos: mescle aqui e mantenha “Dermeval Saviani” como nome."
 
 admin.authors.merge.master:
   title: "Registro principal (Master)"
-  what: "O registro que continua existindo, com o mesmo número (#id). Os outros são excluídos."
+  what: "O registro principal, que as análises passam a mostrar. Os outros continuam cadastrados e ficam agrupados nele."
   how: "Marque o registro mais completo. Ao trocar o Master, os valores da coluna dele são pré-selecionados na tabela abaixo."
-  not: "Os documentos dos outros registros passam para ele; o nome deles vira grafia do Master."
+  not: "Os documentos dos outros registros passam a contar como ele; cada registro mantém as suas próprias grafias."
   example: "Entre #120 (com ORCID) e #985 (sem ORCID), escolha #120 como Master."
 
 admin.authors.merge.fields:
   title: "Valores a manter"
-  what: "Define, campo a campo, qual valor o Master terá depois da fusão."
-  how: "Marque em cada linha a coluna cujo valor deve ficar. O nome escolhido também gera o novo nome normalizado."
-  not: "Os valores descartados não se perdem como grafia: todos os nomes viram variações do Master."
+  what: "Define, campo a campo, qual valor o Master terá depois do agrupamento."
+  how: "Marque em cada linha a coluna cujo valor deve ficar. O nome escolhido muda só o nome exibido; o nome normalizado do Master (a chave de importação) não é reescrito."
+  not: "Os valores descartados não se perdem: cada autor mantém o seu nome e as suas grafias."
   example: "Mantenha “Dermeval Saviani” em vez de “SAVIANI D”."
 
 admin.authors.merge.orcid:
   title: "ORCID na fusão"
-  what: "Todos os ORCIDs dos registros selecionados são copiados para o Master; não há escolha de um só."
+  what: "Cada registro mantém os seus ORCIDs; nada é copiado para o Master."
   how: "Confira se os ORCIDs são da mesma pessoa. Se forem diferentes, os registros provavelmente são pessoas distintas e não devem ser mesclados."
   not: "Não valida o ORCID na internet."
   example: "Dois registros com ORCIDs diferentes indicam homônimos, como dois “Silva, A.” de universidades distintas."
 
 admin.authors.merge.variations:
   title: "Consolidação das grafias"
-  what: "Mostra todas as grafias que passarão a pertencer ao Master: nomes preferidos e variações de todos os registros, sem repetição."
+  what: "Mostra todas as grafias dos registros selecionados, sem repetição. Cada uma continua com o seu registro; as análises passam a contá-las como o Master."
   how: "Revise a lista. Grafias que não são do mesmo autor indicam que algum registro não deveria entrar na fusão: volte e desmarque-o."
   not: "Não permite remover grafias aqui; faça isso depois na edição do Master."
   example: "Ao ver “Santos, R.” na lista de uma fusão de Renato Santos, confirme antes se não há artigos de outra pessoa com essa grafia."
 
 admin.authors.merge.confirm:
   title: "Confirmar fusão"
-  what: "Executa a fusão: atualiza o Master, copia grafias e ORCIDs e exclui os demais registros."
+  what: "Executa o agrupamento: atualiza o nome do Master (se você escolheu outro) e agrupa os demais registros nele, sem apagar nenhum."
   how: "Clique e confirme na janela do navegador. Ao final, volte à listagem e confira o Master."
-  not: "Não pode ser desfeita. Os documentos dos registros secundários passam para o Master."
-  example: "Após mesclar 3 cadastros duplicados de “Saviani, D.”, a listagem passa a mostrar só “Dermeval Saviani” com 5 variações."
+  not: "Dá para desfazer na aba Agrupamentos. Um registro já agrupado em outro destino, ou que formaria um laço, é recusado e nada é gravado."
+  example: "Após mesclar 3 cadastros duplicados de “Saviani, D.”, as análises passam a mostrar só “Dermeval Saviani”, e os outros três cadastros aparecem como “agrupado em …”."
+
+admin.authors.groupings:
+  title: "Agrupamentos de autores"
+  what: "Lista as mesclagens globais de autores. Mesclar **não apaga nada**: o autor agrupado continua cadastrado, com as suas grafias e os seus vínculos, e as análises de todos os projetos passam a contá-lo como o autor de destino."
+  how: "Confira origem, destino, quem agrupou e quando, e quantos documentos o autor agrupado tem. **Desfazer** (só administradores) apaga o agrupamento e o autor volta a contar por conta própria; os números são recalculados na hora. A lista tem 100 por página."
+  not: "Não mostra os agrupamentos feitos por usuários comuns nos seus projetos (esses valem só no projeto). Se C estava agrupado em B e B foi agrupado em A, C passou a apontar para A: desfazer B→A não devolve C a B."
+  example: "“SILVA J” foi agrupado em “Silva, João” por engano: clique em Desfazer e “SILVA J” volta a aparecer separado nos rankings."
+
+admin.authors.only_main:
+  title: "Só principais"
+  what: "Esconde da lista os autores que já estão agrupados em outro (nas linhas aparece “agrupado em …”)."
+  how: "Marque a caixa e clique em **Filtrar** para ver apenas as identidades principais."
+  not: "Não altera nenhum agrupamento nem apaga autor."
+  example: "Depois de mesclar 20 duplicatas, marque Só principais para revisar a lista sem as duplicatas já tratadas."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INSTITUIÇÕES
@@ -1035,7 +1049,7 @@ admin.keywords.page:
   title: "Cadastro de palavras-chave"
   what: "Tesauro global de palavras-chave, separado por tipo (do autor, indexadas, MeSH), com as grafias e sinônimos de cada termo. É ele que junta “e-learning”, “elearning” e “electronic learning” num só termo nas nuvens, redes e mapas temáticos."
   how: "Cadastre as grafias no termo preferido e rode a **Sincronização** do projeto: cada palavra-chave dos documentos é normalizada e, se casar com uma grafia de um termo **ativo do mesmo tipo**, o documento passa a apontar para esse termo."
-  not: "Não cria palavras-chave novas nos documentos nem traduz automaticamente: sinônimos e traduções precisam ser cadastrados como variações. **Excluir** só funciona para palavra-chave sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**."
+  not: "Não cria palavras-chave novas nos documentos nem traduz automaticamente: sinônimos e traduções precisam ser cadastrados como variações. **Excluir** só funciona para palavra-chave sem nenhum documento: com documentos, o botão fica desabilitado e mostra a quantidade; para tirar um duplicado, use **Mesclar**, que agrupa sem apagar (aba **Agrupamentos**, com Desfazer)."
   example: "Numa revisão sobre ensino remoto com 2.300 artigos, cadastrar “remote teaching”, “emergency remote teaching” e “ensino remoto emergencial” como variações de um mesmo termo faz o tema aparecer com a frequência correta no mapa temático."
 
 admin.keywords.search:
@@ -1105,7 +1119,7 @@ admin.keywords.merge_selected:
   title: "Mesclar palavras-chave selecionadas"
   what: "Abre a comparação para unir de 2 a 5 termos num registro principal."
   how: "Marque as caixas e clique em Mesclar (habilita com 2 a 5 marcadas)."
-  not: "As ocorrências nos documentos dos termos excluídos passam para o Master (documento com os dois termos fica com um só), assim como os termos agrupados sob eles. Não pode ser desfeito."
+  not: "Nada é apagado: os termos secundários continuam cadastrados e as análises passam a contá-los como o Master (documento com os dois termos conta uma vez), assim como os termos agrupados sob eles. Dá para desfazer na aba Agrupamentos."
   example: "Use o lote para limpar termos duplicados criados por importação de tesauro e que ainda não têm documentos."
 
 admin.keywords.form_page:
@@ -1138,52 +1152,66 @@ admin.keywords.edit.variations_list:
 
 admin.keywords.edit.merge:
   title: "Mesclar este termo em outro"
-  what: "Transfere as ocorrências nos documentos e as variações deste termo para o destino, acrescenta este termo como variação do destino e o exclui."
-  how: "Digite parte do termo (ou o #id) do destino, escolha-o nos resultados (só termos do mesmo tipo) e confirme. Se um documento tinha os dois termos, fica um só."
-  not: "Não pode ser desfeito. A busca mostra até 30 resultados do mesmo tipo: refine o texto se o destino não aparecer."
-  example: "“elearning” (45 ocorrências) mesclado em “E-learning” (210): o destino passa a 255, menos os documentos que tinham os dois."
+  what: "Agrupa este termo no destino: nas análises as ocorrências dele contam como o destino. O termo, as variações e as ocorrências dele **continuam como estão**; nada é apagado."
+  how: "Digite parte do termo (ou o #id) do destino, escolha-o nos resultados (só termos do mesmo tipo) e confirme. Se um documento tinha os dois termos, ele conta uma vez só nas análises."
+  not: "Dá para desfazer na aba Agrupamentos. Um termo já agrupado em outro destino, ou que formaria um laço, é recusado com aviso. A busca mostra até 30 resultados do mesmo tipo: refine o texto se o destino não aparecer."
+  example: "“elearning” (45 ocorrências) mesclado em “E-learning” (210): as análises passam a contar 255 para o destino, menos os documentos que tinham os dois."
 
 admin.keywords.merge.page:
   title: "Mesclar palavras-chave em lote"
-  what: "Compara de 2 a 5 termos e consolida tudo num termo principal (Master)."
+  what: "Compara de 2 a 5 termos e agrupa todos num termo principal (Master)."
   how: "1) Escolha o Master. 2) Escolha termo original, exibição e tipo. 3) Confira as variações. 4) Confirme."
-  not: "As ocorrências nos documentos dos termos excluídos são transferidas para o Master. Não pode ser desfeito."
+  not: "Nada é apagado nem transferido: os demais ficam agrupados no Master e contam como ele nas análises. Dá para desfazer na aba Agrupamentos."
   example: "Três termos “Big data”, “Big-Data” e “BIG DATA” criados por tesauros antigos, sem documentos: mescle num só."
 
 admin.keywords.merge.master:
   title: "Termo principal (Master)"
-  what: "O termo que continua existindo; os demais são excluídos."
+  what: "O termo principal, que as análises passam a mostrar. Os demais continuam cadastrados e ficam agrupados nele."
   how: "Escolha o termo com mais ocorrências. Ao trocar o Master, a tabela pré-seleciona os valores dele."
-  not: "As ocorrências dos outros termos passam para ele."
+  not: "As ocorrências dos outros termos passam a contar como ele."
   example: "Escolha “E-learning” (#120) como Master."
 
 admin.keywords.merge.fields:
   title: "Valores a manter"
   what: "Define termo original, termo de exibição e tipo do Master."
   how: "Marque a coluna desejada em cada linha."
-  not: "Termos descartados viram variações do Master."
+  not: "Os termos não escolhidos continuam cadastrados, cada um com as suas variações."
   example: "Mantenha “Big data” como exibição e o tipo Autor."
 
 admin.keywords.merge.term:
   title: "Termo original na fusão"
   what: "Texto do termo que o Master terá depois da fusão."
   how: "Escolha a forma correta."
-  not: "A versão normalizada usada nas comparações é recalculada a partir do texto escolhido."
+  not: "Muda só o texto exibido; a forma normalizada do Master (a chave de importação) não é reescrita."
   example: "Escolha “Big data” em vez de “BIG DATA”."
 
 admin.keywords.merge.variations:
   title: "Consolidação das variações"
-  what: "Todos os termos e variações dos registros selecionados, que passarão a ser variações do Master."
+  what: "Todos os termos e variações dos registros selecionados, sem repetição. Cada um continua com o seu registro; as análises passam a contá-los como o Master."
   how: "Revise: um termo de sentido diferente indica seleção errada."
   not: "Variações não podem ser removidas aqui."
   example: "Ao ver “data mining” numa fusão de “big data”, cancele e retire esse registro."
 
 admin.keywords.merge.confirm:
   title: "Confirmar fusão de palavras-chave"
-  what: "Atualiza o Master, copia as variações e exclui os outros termos."
-  how: "Confirme e sincronize os projetos para reagrupar as palavras dos documentos."
-  not: "Não pode ser desfeita. As ocorrências dos termos excluídos passam para o Master."
-  example: "Depois da fusão, a listagem passa a mostrar só “Big data” com as demais formas como variações."
+  what: "Atualiza o Master (se você escolheu outros valores) e agrupa os demais termos nele, sem apagar nenhum."
+  how: "Confirme: os números são recalculados na hora, sem precisar sincronizar os projetos."
+  not: "Dá para desfazer na aba Agrupamentos. Um termo já agrupado em outro destino, ou que formaria um laço, é recusado e nada é gravado."
+  example: "Depois do agrupamento, as análises mostram só “Big data”, e as demais formas aparecem na lista como “agrupada em …”."
+
+admin.keywords.groupings:
+  title: "Agrupamentos de palavras-chave"
+  what: "Lista as palavras-chave agrupadas em outra (conceito agrupador) ou mapeadas no global. Mesclar **não apaga nada**: a palavra agrupada continua cadastrada, com as suas variações e os seus vínculos, e as análises de todos os projetos passam a contá-la como a palavra de destino."
+  how: "Confira origem, destino, quem agrupou e quando (quando há registro) e quantos documentos a palavra agrupada tem. **Desfazer** (só administradores) devolve a palavra a si mesma e reabre as que dependiam dela; os números são recalculados na hora. A lista tem 100 por página."
+  not: "Agrupamentos antigos, anteriores ao registro das ações, aparecem sem autor nem data. Não inclui os agrupamentos feitos por usuários comuns nos seus projetos."
+  example: "“elearning” foi agrupada em “E-learning” pelo tratamento noturno: se não for a mesma coisa no seu corpus, clique em Desfazer."
+
+admin.keywords.only_main:
+  title: "Só principais"
+  what: "Esconde da lista as palavras-chave que já estão agrupadas em outra (nas linhas aparece “agrupada em …”)."
+  how: "Marque a caixa e clique em **Filtrar** para ver apenas os termos principais."
+  not: "Não altera nenhum agrupamento nem apaga palavra-chave."
+  example: "Depois de mesclar variantes de “Big data”, marque Só principais para revisar o cadastro sem elas."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BASES DE DADOS ACADÊMICAS

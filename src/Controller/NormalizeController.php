@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BibliometricProject;
+use App\Service\Authority\AuthorityMappingException;
 use App\Service\Normalize\NormalizationService;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Reader;
@@ -31,7 +32,7 @@ class NormalizeController extends AbstractController
      */
     private function safeMessage(\Throwable $e, string $generic): string
     {
-        if ($e instanceof \InvalidArgumentException || $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException) {
+        if ($e instanceof \InvalidArgumentException || $e instanceof AuthorityMappingException || $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException) {
             return $e->getMessage() !== '' ? $e->getMessage() : $generic;
         }
         $this->logger->error($generic . ' ' . $e->getMessage(), ['exception' => $e]);
@@ -51,6 +52,7 @@ class NormalizeController extends AbstractController
 
         $suggestions  = [];
         $allKeywords  = [];
+        $groupings    = null;
 
         if ($tab === 'authors') {
             $suggestions = $this->normalizationService->findSimilarAuthors($project->getId());
@@ -62,6 +64,15 @@ class NormalizeController extends AbstractController
             }
         } elseif ($tab === 'duplicates') {
             $suggestions = $this->normalizationService->findPotentialDuplicates($project->getId());
+        } elseif ($tab === 'groupings') {
+            // Agrupamentos do projeto (com Desfazer) e, só para leitura, os globais que afetam documentos dele
+            $groupings = [];
+            foreach (['author', 'keyword'] as $entity) {
+                $groupings[$entity] = [
+                    'project' => $this->normalizationService->projectGroupings($entity, $project->getId(), max(1, $request->query->getInt($entity . 'Page', 1))),
+                    'global'  => $this->normalizationService->globalGroupingsInUse($entity, $project->getId()),
+                ];
+            }
         }
 
         return $this->render('normalize/index.html.twig', [
@@ -72,6 +83,8 @@ class NormalizeController extends AbstractController
             'search'      => $search,
             'suggestions' => $suggestions,
             'allKeywords' => $allKeywords,
+            'groupings'   => $groupings,
+            'isAdmin'     => $this->isGranted('ROLE_ADMIN'),
         ]);
     }
 
@@ -92,17 +105,25 @@ class NormalizeController extends AbstractController
             }
             $this->assertBelongsToProject((string) $type, [$keepId, $discardId], $project->getId());
 
+            // Administrador agrupa no global; usuário comum, só no projeto dele. Nada é apagado.
+            $asAdmin = $this->isGranted('ROLE_ADMIN');
+            $applied = true;
             if ($type === 'author') {
-                $this->normalizationService->mergeAuthors($keepId, $discardId);
+                $applied = $this->normalizationService->mergeAuthors($keepId, $discardId, $project->getId(), [], $asAdmin);
             } elseif ($type === 'keyword') {
-                $this->normalizationService->mergeKeywords($keepId, $discardId);
+                $applied = $this->normalizationService->mergeKeywords($keepId, $discardId, $project->getId(), [], $asAdmin);
             } elseif ($type === 'document') {
                 $this->normalizationService->mergeDocuments($keepId, $discardId);
             } else {
                 throw new \InvalidArgumentException('Tipo de mesclagem inválido.');
             }
 
-            $message = 'Mesclagem realizada com sucesso!';
+            $message = match (true) {
+                $type === 'document' => 'Mesclagem realizada com sucesso!',
+                !$applied            => 'Este par já estava agrupado.',
+                $asAdmin             => 'Agrupamento gravado para todos os projetos. Nada foi apagado; dá para desfazer na administração.',
+                default              => 'Agrupamento gravado neste projeto. Nada foi apagado; dá para desfazer em "Agrupamentos do projeto".',
+            };
 
             if ($isAjax) {
                 return $this->json(['success' => true, 'message' => $message]);
@@ -111,7 +132,9 @@ class NormalizeController extends AbstractController
             $this->addFlash('success', $message);
 
         } catch (\Throwable $e) {
-            $errMessage = 'Erro ao realizar mesclagem: ' . $this->safeMessage($e, 'não foi possível concluir. Tente de novo ou fale com o administrador.');
+            $errMessage = $e instanceof AuthorityMappingException
+                ? 'Agrupamento recusado: ' . $e->getMessage()
+                : 'Erro ao realizar mesclagem: ' . $this->safeMessage($e, 'não foi possível concluir. Tente de novo ou fale com o administrador.');
             
             if ($isAjax) {
                 return $this->json(['success' => false, 'message' => $errMessage], 400);
@@ -155,16 +178,23 @@ class NormalizeController extends AbstractController
             }
             $this->assertBelongsToProject((string) $type, $ids, $project->getId());
 
+            $asAdmin = $this->isGranted('ROLE_ADMIN');
             $merged = match ($type) {
-                'keyword' => $this->normalizationService->mergeKeywordsBatch($pairs),
-                'author'  => $this->normalizationService->mergeAuthorsBatch($pairs),
+                'keyword' => $this->normalizationService->mergeKeywordsBatch($pairs, $project->getId(), $asAdmin),
+                'author'  => $this->normalizationService->mergeAuthorsBatch($pairs, $project->getId(), $asAdmin),
                 default   => throw new \InvalidArgumentException("Tipo '{$type}' não suportado em lote."),
             };
+            $refusals = $this->normalizationService->lastRefusals();
+            $message = "{$merged} item(s) agrupados" . ($asAdmin ? ' (para todos os projetos)' : ' neste projeto') . '. Nada foi apagado.';
+            if ($refusals !== []) {
+                $message .= ' ' . count($refusals) . ' recusado(s): ' . implode(' ', array_slice($refusals, 0, 3));
+            }
 
             return $this->json([
                 'success' => true,
                 'merged'  => $merged,
-                'message' => "{$merged} item(s) mesclados com sucesso!",
+                'refused' => count($refusals),
+                'message' => $message,
             ]);
         } catch (\Throwable $e) {
             return $this->json(['success' => false, 'message' => $this->safeMessage($e, 'Erro ao mesclar em lote. Tente de novo ou fale com o administrador.')], 500);
@@ -221,9 +251,10 @@ class NormalizeController extends AbstractController
             $csv->setHeaderOffset(0);
 
             $records = iterator_to_array($csv->getRecords());
-            $applied = $this->normalizationService->importAuthorNormalization($project->getId(), $records);
+            $applied = $this->normalizationService->importAuthorNormalization($project->getId(), $records, $this->isGranted('ROLE_ADMIN'));
 
-            $this->addFlash('success', "Importação de normatização de autores concluída! Processados: {$applied} par(es).");
+            $this->addFlash('success', "Importação de normatização de autores concluída! Processados: {$applied} par(es). Nada foi apagado.");
+            $this->flashRefusals();
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro ao importar normatização de autores: ' . $this->safeMessage($e, 'o arquivo não pôde ser processado. Confira as colunas e a codificação (UTF-8).'));
         }
@@ -279,9 +310,10 @@ class NormalizeController extends AbstractController
             $csv->setHeaderOffset(0);
 
             $records = iterator_to_array($csv->getRecords());
-            $applied = $this->normalizationService->importKeywordNormalization($project->getId(), $records);
+            $applied = $this->normalizationService->importKeywordNormalization($project->getId(), $records, $this->isGranted('ROLE_ADMIN'));
 
-            $this->addFlash('success', "Importação de normatização de palavras-chave concluída! Processados: {$applied} par(es).");
+            $this->addFlash('success', "Importação de normatização de palavras-chave concluída! Processados: {$applied} par(es). Nada foi apagado.");
+            $this->flashRefusals();
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Erro ao importar normatização de palavras-chave: ' . $this->safeMessage($e, 'o arquivo não pôde ser processado. Confira as colunas e a codificação (UTF-8).'));
         }
@@ -289,10 +321,38 @@ class NormalizeController extends AbstractController
         return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'keywords']);
     }
 
+    /** Desfaz um agrupamento do PROJETO (a linha precisa ser do escopo deste projeto). */
+    #[Route('/groupings/{mappingId}/undo', name: 'app_normalize_undo_grouping', requirements: ['mappingId' => '\d+'], methods: ['POST'])]
+    public function undoGrouping(int $id, int $mappingId, Request $request): Response
+    {
+        $project = $this->getProject($id);
+
+        try {
+            if (!$this->isCsrfTokenValid('normalize_undo_' . $mappingId, $request->request->get('_token'))) {
+                throw new \InvalidArgumentException('Token CSRF inválido. Recarregue a página.');
+            }
+            $this->normalizationService->undoProjectGrouping($project->getId(), $mappingId);
+            $this->addFlash('success', 'Agrupamento desfeito: a identidade volta a contar por conta própria neste projeto.');
+        } catch (\Throwable $e) {
+            $this->addFlash('danger', 'Não foi possível desfazer: ' . $this->safeMessage($e, 'tente de novo ou fale com o administrador.'));
+        }
+
+        return $this->redirectToRoute('app_normalize_index', ['id' => $project->getId(), 'tab' => 'groupings']);
+    }
+
+    /** Mostra, como aviso, os pares que o serviço recusou na importação (laço, já agrupado, fora do projeto). */
+    private function flashRefusals(): void
+    {
+        $refusals = $this->normalizationService->lastRefusals();
+        if ($refusals !== []) {
+            $this->addFlash('warning', count($refusals) . ' par(es) não foram agrupados: ' . implode(' ', array_slice($refusals, 0, 5)));
+        }
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     /**
-     * Impede mesclar (e apagar) registros de outros projetos enviando IDs arbitrários:
+     * Impede mesclar registros de outros projetos enviando IDs arbitrários:
      * documentos precisam ser do projeto; autores e palavras-chave precisam estar
      * vinculados a algum documento do projeto.
      */
@@ -305,12 +365,13 @@ class NormalizeController extends AbstractController
 
         $sql = match ($type) {
             'document' => 'SELECT COUNT(*) FROM document WHERE project_id = ? AND id IN (?)',
-            'author'   => 'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
+            // As telas oferecem a identidade EFETIVA do vínculo (a que já considera os agrupamentos)
+            'author'   => 'SELECT COUNT(DISTINCT da.effective_author_id) FROM document_author da
                            JOIN document d ON d.id = da.document_id AND d.project_id = ?
-                           WHERE da.author_identity_id IN (?)',
-            'keyword'  => 'SELECT COUNT(DISTINCT dk.keyword_id) FROM document_keyword dk
+                           WHERE da.effective_author_id IN (?)',
+            'keyword'  => 'SELECT COUNT(DISTINCT dk.effective_keyword_id) FROM document_keyword dk
                            JOIN document d ON d.id = dk.document_id AND d.project_id = ?
-                           WHERE dk.keyword_id IN (?)',
+                           WHERE dk.effective_keyword_id IN (?)',
             default    => throw new \InvalidArgumentException('Tipo de mesclagem inválido.'),
         };
 

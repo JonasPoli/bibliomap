@@ -77,8 +77,8 @@ class DocumentClassificationRepository extends ServiceEntityRepository
         foreach ($conn->fetchAllAssociative(
             'SELECT da.document_id, ai.preferred_name
              FROM document_author da
-             JOIN author_identity ai ON ai.id = da.author_identity_id
-             WHERE da.document_id IN (?)
+             JOIN author_identity ai ON ai.id = da.effective_author_id
+             WHERE da.document_id IN (?) AND ' . \App\Service\Analytics\ReportService::firstEffectiveAuthorFilter('da') . '
              ORDER BY da.document_id, da.position ASC, da.id ASC',
             [$docIds],
             $idType

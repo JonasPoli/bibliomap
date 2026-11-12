@@ -41,6 +41,8 @@ abstract class LocalDbTestCase extends KernelTestCase
         } catch (\Throwable $e) {
             $this->markTestSkipped('Banco local indisponível ou sem a migration do diário: ' . $e->getMessage());
         }
+        // Savepoints: a falha de uma transação aninhada (os serviços abrem a sua) desfaz só a parte dela, como em produção
+        $this->conn->setNestTransactionsWithSavepoints(true);
         $this->conn->beginTransaction();
     }
 

@@ -17,6 +17,7 @@ use App\Entity\QualisJournal;
 use App\Entity\JournalVariation;
 use App\Entity\State;
 use App\Entity\StateVariation;
+use App\Service\Authority\AuthorityMappingService;
 use App\Service\Authority\AuthorityMergeLogger;
 use App\Service\Authority\AuthorityResolver;
 use App\Service\Import\StringNormalizer;
@@ -28,7 +29,25 @@ class EntityMergeService
         private readonly EntityManagerInterface $em,
         private readonly AuthorityMergeLogger $mergeLogger,
         private ?AuthorityResolver $authority = null,
+        private ?AuthorityMappingService $mapping = null,
     ) {}
+
+    /** Agrupador de autoridades (grava o agrupamento global sem apagar nada); criado sob demanda em testes e scripts. */
+    private function mapping(): AuthorityMappingService
+    {
+        return $this->mapping ??= new AuthorityMappingService($this->em, $this->authority(), $this->mergeLogger);
+    }
+
+    /** Origem do agrupamento (authority_mapping.origin) a partir da origem do diário que o chamador informou. */
+    private function mappingOrigin(?string $logOrigin): string
+    {
+        return match ($logOrigin ?? $this->mergeLogger->defaultOrigin()) {
+            'command' => 'command',
+            'treatment' => 'treatment',
+            'enrichment' => 'variation',
+            default => 'admin',
+        };
+    }
 
     /** Resolvedor do id efetivo (sem o rastreador quando o serviço é criado à mão, em testes e scripts). */
     private function authority(): AuthorityResolver
@@ -165,85 +184,38 @@ class EntityMergeService
     }
 
     /**
-     * Merge multiple AuthorIdentities into Master AuthorIdentity.
+     * Agrupa autores no autor principal SEM apagar nada (change tesauro-em-camadas, fase 2): grava um agrupamento
+     * global por origem (authority_mapping) e recalcula o efetivo dos vínculos. As identidades de origem, as variações
+     * e os identificadores delas ficam com elas; o id bruto dos vínculos não muda e o `normalized_name` do principal
+     * (chave de importação) não é reescrito. Tudo numa transação: se um par for recusado (laço, já agrupado em outro
+     * destino), nada é gravado.
      * $origin: origem no diário (nulo: screen_admin numa requisição web, command na linha de comando).
+     * $projectId: ignorado (o agrupamento administrativo é global).
+     *
+     * @throws \App\Service\Authority\AuthorityMappingException
      */
     public function mergeAuthors(int $masterId, array $sourceIds, array $selectedFields, ?string $origin = null, ?int $projectId = null): AuthorIdentity
     {
-        $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
-        $authors = $this->em->getRepository(AuthorIdentity::class)->findBy(['id' => $allIds]);
-        
-        $authorMap = [];
-        foreach ($authors as $auth) {
-            $authorMap[$auth->getId()] = $auth;
-        }
-
-        if (!isset($authorMap[$masterId])) {
+        $master = $this->em->getRepository(AuthorIdentity::class)->find($masterId);
+        if ($master === null) {
             throw new \InvalidArgumentException("Autor principal #{$masterId} não encontrado.");
         }
 
-        $master = $authorMap[$masterId];
-        $sources = array_filter($authorMap, fn($auth) => $auth->getId() !== $masterId);
-
-        $allVariationStrings = [];
-        foreach ($authorMap as $auth) {
-            if ($auth->getPreferredName()) $allVariationStrings[] = $auth->getPreferredName();
-            foreach ($auth->getVariations() as $var) {
-                if ($var->getVariationName()) $allVariationStrings[] = $var->getVariationName();
+        $conn = $this->em->getConnection();
+        $conn->transactional(function () use ($master, $masterId, $sourceIds, $selectedFields, $origin) {
+            // Só o nome de exibição pode mudar; a chave normalizada do principal fica como está
+            if (isset($selectedFields['preferredName']) && trim((string) $selectedFields['preferredName']) !== '') {
+                $master->setPreferredName($selectedFields['preferredName']);
+                $this->em->flush();
             }
-        }
-
-        if (isset($selectedFields['preferredName'])) {
-            $master->setPreferredName($selectedFields['preferredName']);
-            $master->setNormalizedName(StringNormalizer::normalizeString($selectedFields['preferredName'], true));
-        }
-
-        // Consolidate external identifiers from merged authors
-        foreach ($sources as $source) {
-            foreach ($source->getIdentifiers() as $ident) {
-                $hasIdent = false;
-                foreach ($master->getIdentifiers() as $mIdent) {
-                    if ($mIdent->getProvider() === $ident->getProvider() && $mIdent->getIdentifier() === $ident->getIdentifier()) {
-                        $hasIdent = true;
-                        break;
-                    }
+            foreach (array_values(array_unique(array_map('intval', $sourceIds))) as $sourceId) {
+                if ($sourceId === $masterId) {
+                    continue;
                 }
-                if (!$hasIdent) {
-                    $newIdent = new AuthorExternalIdentifier();
-                    $newIdent->setAuthorIdentity($master);
-                    $newIdent->setProvider($ident->getProvider());
-                    $newIdent->setIdentifier($ident->getIdentifier());
-                    $newIdent->setUrl($ident->getUrl());
-                    $master->addIdentifier($newIdent);
-                    $this->em->persist($newIdent);
-                }
+                $this->mapping()->merge(AuthorityMappingService::ENTITY_AUTHOR, $sourceId, $masterId, AuthorityMappingService::SCOPE_GLOBAL, 0, $this->mappingOrigin($origin));
             }
-        }
+        });
 
-        $existingVariations = [];
-        foreach ($master->getVariations() as $var) {
-            $existingVariations[$var->getNormalizedName()] = true;
-        }
-
-        foreach ($allVariationStrings as $rawVar) {
-            $rawVar = trim($rawVar);
-            if ($rawVar === '') continue;
-            
-            $norm = StringNormalizer::normalizeString($rawVar, true);
-            if ($norm === '' || isset($existingVariations[$norm])) continue;
-
-            $varObj = new AuthorNameVariant();
-            $varObj->setAuthorIdentity($master);
-            $varObj->setOriginalName($rawVar);
-            $varObj->setDisplayName($rawVar);
-            $varObj->setNormalizedName($norm);
-            $varObj->setSource('merge');
-
-            $this->em->persist($varObj);
-            $existingVariations[$norm] = true;
-        }
-
-        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapAuthorLinks($sourceId, $masterId, $origin, $projectId));
         return $master;
     }
 
@@ -333,71 +305,41 @@ class EntityMergeService
     }
 
     /**
-     * Merge multiple Keywords into Master Keyword.
+     * Agrupa palavras-chave na palavra principal SEM apagar nada (change tesauro-em-camadas, fase 2): grava o
+     * agrupamento global (keyword.keyword_concept_id; mapeamento quando a palavra ou o destino estão num conceito do
+     * tesauro) e recalcula o efetivo. As palavras de origem, as variações e os vínculos ficam como estão, e a chave
+     * `keyword_normalized` do principal não é reescrita. Tudo numa transação.
      * $origin: origem no diário (nulo: screen_admin numa requisição web, command na linha de comando).
+     * $projectId: ignorado (o agrupamento administrativo é global).
+     *
+     * @throws \App\Service\Authority\AuthorityMappingException
      */
     public function mergeKeywords(int $masterId, array $sourceIds, array $selectedFields, ?string $origin = null, ?int $projectId = null): Keyword
     {
-        $allIds = array_values(array_unique(array_merge([$masterId], $sourceIds)));
-        $keywords = $this->em->getRepository(Keyword::class)->findBy(['id' => $allIds]);
-        
-        $kwMap = [];
-        foreach ($keywords as $kw) {
-            $kwMap[$kw->getId()] = $kw;
-        }
-
-        if (!isset($kwMap[$masterId])) {
+        $master = $this->em->getRepository(Keyword::class)->find($masterId);
+        if ($master === null) {
             throw new \InvalidArgumentException("Palavra-chave principal #{$masterId} não encontrada.");
         }
 
-        $master = $kwMap[$masterId];
-        $sources = array_filter($kwMap, fn($kw) => $kw->getId() !== $masterId);
-
-        $allVariationStrings = [];
-        foreach ($kwMap as $kw) {
-            if ($kw->getKeywordOriginal()) $allVariationStrings[] = $kw->getKeywordOriginal();
-            if ($kw->getKeywordDisplay()) $allVariationStrings[] = $kw->getKeywordDisplay();
-            foreach ($kw->getVariations() as $var) {
-                if ($var->getVariationName()) $allVariationStrings[] = $var->getVariationName();
+        $conn = $this->em->getConnection();
+        $conn->transactional(function () use ($master, $masterId, $sourceIds, $selectedFields, $origin) {
+            if (isset($selectedFields['keywordOriginal']) && trim((string) $selectedFields['keywordOriginal']) !== '') {
+                $master->setKeywordOriginal($selectedFields['keywordOriginal']);
             }
-        }
+            if (isset($selectedFields['keywordDisplay'])) $master->setKeywordDisplay($selectedFields['keywordDisplay'] ?: null);
+            if (isset($selectedFields['keywordType'])) $master->setKeywordType($selectedFields['keywordType'] ?: Keyword::TYPE_AUTHOR);
+            $this->em->flush();
 
-        if (isset($selectedFields['keywordOriginal'])) {
-            $master->setKeywordOriginal($selectedFields['keywordOriginal']);
-            $master->setKeywordNormalized(StringNormalizer::normalizeString($selectedFields['keywordOriginal'], true));
-        }
-        if (isset($selectedFields['keywordDisplay'])) $master->setKeywordDisplay($selectedFields['keywordDisplay'] ?: null);
-        if (isset($selectedFields['keywordType'])) $master->setKeywordType($selectedFields['keywordType'] ?: Keyword::TYPE_AUTHOR);
+            foreach (array_values(array_unique(array_map('intval', $sourceIds))) as $sourceId) {
+                if ($sourceId === $masterId) {
+                    continue;
+                }
+                $this->mapping()->merge(AuthorityMappingService::ENTITY_KEYWORD, $sourceId, $masterId, AuthorityMappingService::SCOPE_GLOBAL, 0, $this->mappingOrigin($origin));
+            }
+            // A cópia em memória do principal pode estar velha (o conceito agrupador mudou por SQL)
+            $this->em->refresh($master);
+        });
 
-        $existingVariations = [];
-        foreach ($master->getVariations() as $var) {
-            $existingVariations[$var->getNormalizedName()] = true;
-        }
-
-        foreach ($allVariationStrings as $rawVar) {
-            $rawVar = trim($rawVar);
-            if ($rawVar === '') continue;
-            
-            $norm = StringNormalizer::normalizeString($rawVar, true);
-            if ($norm === '' || isset($existingVariations[$norm])) continue;
-
-            $varObj = new KeywordVariation();
-            $varObj->setKeyword($master);
-            $varObj->setVariationName($rawVar);
-            $varObj->setNormalizedName($norm);
-            $varObj->setVariationType('alternative');
-            $varObj->setStatus(true);
-
-            $this->em->persist($varObj);
-            $existingVariations[$norm] = true;
-        }
-
-        // Se o master apontava para um secundário como conceito, passa a ser o próprio conceito
-        if ($master->getKeywordConcept() !== null && isset($sources[$master->getKeywordConcept()->getId()])) {
-            $master->setKeywordConcept($master);
-        }
-
-        $this->removeSourcesAfterRemap($sources, fn(int $sourceId) => $this->remapKeywordLinks($sourceId, $masterId, $origin, $projectId));
         return $master;
     }
 
@@ -630,6 +572,10 @@ class EntityMergeService
         }
     }
 
+    /**
+     * @deprecated Repontua e apaga vínculos: não é mais usado pelas mesclagens (mergeAuthors usa o AuthorityMappingService).
+     *             Resta só no comando de uso único app:authors:renormalize.
+     */
     public function remapAuthorLinks(int $sourceId, int $masterId, ?string $origin = null, ?int $projectId = null): void
     {
         // Diário antes de apagar os repetidos e repontuar (na transação do chamador)
@@ -637,6 +583,7 @@ class EntityMergeService
         $this->remapDocumentLinks('document_author', 'author_identity_id', $sourceId, $masterId);
     }
 
+    /** @deprecated Repontua e apaga vínculos: as mesclagens agora gravam o agrupamento (AuthorityMappingService). */
     public function remapKeywordLinks(int $sourceId, int $masterId, ?string $origin = null, ?int $projectId = null): void
     {
         $this->mergeLogger->logKeywordMerge($origin ?? $this->mergeLogger->defaultOrigin(), 'merge', $sourceId, $masterId, null, $projectId);
