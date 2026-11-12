@@ -224,7 +224,8 @@ class ImportDatasetCommand extends Command
 
         try {
             $io->text("Enriquecendo projeto #{$projectId} (países, instituições, Qualis)...");
-            $this->enrichmentService->enrichProject($projectId);
+            // O relatório estatístico não é usado aqui: pula as agregações
+            $this->enrichmentService->enrichProject($projectId, false);
         } catch (\Throwable $e) {
             $io->warning('Falha no enriquecimento pós-importação: ' . $e->getMessage());
         } finally {

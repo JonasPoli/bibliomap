@@ -9,6 +9,18 @@ use Psr\Log\LoggerInterface;
 class DocumentEnrichmentService
 {
     private const BATCH_SIZE = 500;
+    /** Documentos processados por vez: o projeto nunca é carregado inteiro na memória. */
+    private const DOC_CHUNK = 2000;
+
+    /** Siglas dos estados e territórios dos EUA (USPS). Só elas valem como estado quando a sigla vem sozinha. */
+    private const US_STATE_CODES = [
+        'AL' => 1, 'AK' => 1, 'AZ' => 1, 'AR' => 1, 'CA' => 1, 'CO' => 1, 'CT' => 1, 'DE' => 1, 'FL' => 1, 'GA' => 1,
+        'HI' => 1, 'ID' => 1, 'IL' => 1, 'IN' => 1, 'IA' => 1, 'KS' => 1, 'KY' => 1, 'LA' => 1, 'ME' => 1, 'MD' => 1,
+        'MA' => 1, 'MI' => 1, 'MN' => 1, 'MS' => 1, 'MO' => 1, 'MT' => 1, 'NE' => 1, 'NV' => 1, 'NH' => 1, 'NJ' => 1,
+        'NM' => 1, 'NY' => 1, 'NC' => 1, 'ND' => 1, 'OH' => 1, 'OK' => 1, 'OR' => 1, 'PA' => 1, 'RI' => 1, 'SC' => 1,
+        'SD' => 1, 'TN' => 1, 'TX' => 1, 'UT' => 1, 'VT' => 1, 'VA' => 1, 'WA' => 1, 'WV' => 1, 'WI' => 1, 'WY' => 1,
+        'DC' => 1, 'PR' => 1, 'GU' => 1, 'VI' => 1, 'AS' => 1, 'MP' => 1,
+    ];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -18,10 +30,14 @@ class DocumentEnrichmentService
     /**
      * Recalculates and enriches all documents in a project with institutions, countries, states, and cities.
      *
-     * @param int $projectId
+     * Os vínculos são trocados em blocos de documentos, cada bloco numa transação: se o processo
+     * morrer no meio, os blocos já feitos ficam completos e os demais continuam com os vínculos antigos.
+     *
+     * @param int  $projectId
+     * @param bool $withReport false = pula as listas e contagens do relatório (a importação não as usa)
      * @return array Sync stats/report
      */
-    public function enrichProject(int $projectId): array
+    public function enrichProject(int $projectId, bool $withReport = true): array
     {
         $conn = $this->em->getConnection();
         $this->logger->info("Starting geographical and institutional enrichment for Project #{$projectId}...");
@@ -29,10 +45,7 @@ class DocumentEnrichmentService
 
         $startTime = microtime(true);
 
-        // 1. Clear existing linkages for documents in this project
-        $this->clearExistingLinks($projectId, $conn);
-
-        // 2. Load lookups into memory
+        // 1. Load lookups into memory
         $institutionsLookup = $this->loadInstitutionsLookup($conn);
         $countriesLookup = $this->loadCountriesLookup($conn);
         $statesLookup = $this->loadStatesLookup($conn);
@@ -55,13 +68,8 @@ class DocumentEnrichmentService
         $usaCountryId = $conn->fetchOne("SELECT id FROM paises WHERE iso_code = 'USA' OR sigla = 'US' LIMIT 1");
         $usaCountryId = $usaCountryId !== false ? (int)$usaCountryId : null;
 
-        // 3. Load all documents for the project
-        $docs = $conn->fetchAllAssociative(
-            'SELECT id, countries, institutions FROM document WHERE project_id = ?',
-            [$projectId]
-        );
-
-        $totalDocs = count($docs);
+        // 2. Documentos em blocos (por id), para não carregar o projeto inteiro
+        $totalDocs = 0;
         $processedDocs = 0;
         $matchedInstitutionsCount = 0;
         $matchedCountriesCount = 0;
@@ -76,210 +84,214 @@ class DocumentEnrichmentService
         $resolvedOrganizations = [];
         $resolvedUnits = [];
 
-        // Batch link buffers
-        $instLinks = [];
-        $countryLinks = [];
-        $stateLinks = [];
-        $cityLinks = [];
+        $lastDocId = 0;
+        while (true) {
+            $docs = $conn->fetchAllAssociative(
+                'SELECT id, countries, institutions FROM document WHERE project_id = ? AND id > ? ORDER BY id LIMIT ' . self::DOC_CHUNK,
+                [$projectId, $lastDocId]
+            );
+            if (!$docs) {
+                break;
+            }
+            $totalDocs += count($docs);
+            $chunkDocIds = [];
 
-        foreach ($docs as $doc) {
-            $docId = (int) $doc['id'];
-            $docInstitutions = $doc['institutions'] ? json_decode($doc['institutions'], true) : [];
-            $docCountries = $doc['countries'] ? json_decode($doc['countries'], true) : [];
+            // Vínculos do bloco
+            $instLinks = [];
+            $countryLinks = [];
+            $stateLinks = [];
+            $cityLinks = [];
 
-            $docInstitutions = is_array($docInstitutions) ? $docInstitutions : [];
-            $docCountries = is_array($docCountries) ? $docCountries : [];
+            foreach ($docs as $doc) {
+                $docId = (int) $doc['id'];
+                $chunkDocIds[] = $docId;
+                $docInstitutions = $doc['institutions'] ? json_decode($doc['institutions'], true) : [];
+                $docCountries = $doc['countries'] ? json_decode($doc['countries'], true) : [];
 
-            $boundCountryIds = [];
-            $boundStateIds = [];
-            $boundCityIds = [];
-            $boundInstIds = [];
+                $docInstitutions = is_array($docInstitutions) ? $docInstitutions : [];
+                $docCountries = is_array($docCountries) ? $docCountries : [];
 
-            // Process institutions
-            foreach ($docInstitutions as $rawInst) {
-                $rawInst = trim($rawInst);
-                if ($rawInst === '') continue;
+                $boundCountryIds = [];
+                $boundStateIds = [];
+                $boundCityIds = [];
+                $boundInstIds = [];
 
-                // Skip addresses & noises
-                if (preg_match('/^\d+\s+[A-Za-z0-9 .\-]+\s+(Rd|Road|Dr|Drive|St|Street|Ave|Avenue|Blvd|Boulevard|Ln|Lane|Way)$/i', $rawInst) ||
-                    preg_match('/^\d+\s+[A-Za-z0-9 .\-]+$/i', $rawInst) ||
-                    in_array(strtolower($rawInst), ['30 xueyuan rd', '12127 old oaks dr', '1180 ctr dr', '5510 nathan shock dr', '118 parr st', '1280 montgomery blvd'])) {
-                    continue;
-                }
+                // Process institutions
+                foreach ($docInstitutions as $rawInst) {
+                    $rawInst = trim($rawInst);
+                    if ($rawInst === '') continue;
 
-                $norm = self::normalize($rawInst);
-
-                // 1. Check main institutions
-                if (isset($institutionsLookup[$norm])) {
-                    $instData = $institutionsLookup[$norm];
-                    $instId = $instData['id'];
-
-                    if (!isset($boundInstIds[$instId])) {
-                        $boundInstIds[$instId] = true;
-                        $instLinks[] = [
-                            'document_id' => $docId,
-                            'institution_id' => $instId,
-                            'link_type' => 'author_affiliation'
-                        ];
-
-                        $resolvedInstitutions[$instId] = ($resolvedInstitutions[$instId] ?? 0) + 1;
+                    // Skip addresses & noises
+                    if (preg_match('/^\d+\s+[A-Za-z0-9 .\-]+\s+(Rd|Road|Dr|Drive|St|Street|Ave|Avenue|Blvd|Boulevard|Ln|Lane|Way)$/i', $rawInst) ||
+                        preg_match('/^\d+\s+[A-Za-z0-9 .\-]+$/i', $rawInst) ||
+                        in_array(strtolower($rawInst), ['30 xueyuan rd', '12127 old oaks dr', '1180 ctr dr', '5510 nathan shock dr', '118 parr st', '1280 montgomery blvd'])) {
+                        continue;
                     }
 
-                    if ($instData['country_id'] !== null) {
-                        $cId = (int)$instData['country_id'];
-                        $boundCountryIds[$cId] = true;
-                    }
-                    if ($instData['state_id'] !== null) {
-                        $sId = (int)$instData['state_id'];
-                        $boundStateIds[$sId] = true;
-                    }
-                    if ($instData['city_id'] !== null) {
-                        $ctId = (int)$instData['city_id'];
-                        $boundCityIds[$ctId] = true;
-                    }
+                    $norm = self::normalize($rawInst);
 
-                    $matchedInstitutionsCount++;
+                    // 1. Check main institutions
+                    if (isset($institutionsLookup[$norm])) {
+                        $instData = $institutionsLookup[$norm];
+                        $instId = $instData['id'];
 
-                // 2. Check Organizations
-                } elseif (isset($organizationsLookup[$norm])) {
-                    $orgData = $organizationsLookup[$norm];
-                    $orgId = $orgData['id'];
-                    $resolvedOrganizations[$orgId] = ($resolvedOrganizations[$orgId] ?? 0) + 1;
-                    $matchedOrganizationsCount++;
-
-                // 3. Check Institution Units
-                } elseif (isset($unitsLookup[$norm])) {
-                    $unitData = $unitsLookup[$norm];
-                    $unitId = $unitData['id'];
-                    $resolvedUnits[$unitId] = ($resolvedUnits[$unitId] ?? 0) + 1;
-                    $matchedUnitsCount++;
-
-                    // If unit has parent, link document to the parent institution!
-                    if ($unitData['parent_institution_id'] !== null) {
-                        $parentInstId = $unitData['parent_institution_id'];
-                        if (!isset($boundInstIds[$parentInstId]) && isset($institutionsLookupById[$parentInstId])) {
-                            $boundInstIds[$parentInstId] = true;
+                        if (!isset($boundInstIds[$instId])) {
+                            $boundInstIds[$instId] = true;
                             $instLinks[] = [
                                 'document_id' => $docId,
-                                'institution_id' => $parentInstId,
+                                'institution_id' => $instId,
                                 'link_type' => 'author_affiliation'
                             ];
-                            $resolvedInstitutions[$parentInstId] = ($resolvedInstitutions[$parentInstId] ?? 0) + 1;
 
-                            $parentData = $institutionsLookupById[$parentInstId];
-                            if ($parentData['country_id'] !== null) {
-                                $boundCountryIds[(int)$parentData['country_id']] = true;
-                            }
-                            if ($parentData['state_id'] !== null) {
-                                $boundStateIds[(int)$parentData['state_id']] = true;
-                            }
-                            if ($parentData['city_id'] !== null) {
-                                $boundCityIds[(int)$parentData['city_id']] = true;
+                            $resolvedInstitutions[$instId] = ($resolvedInstitutions[$instId] ?? 0) + 1;
+                        }
+
+                        if ($instData['country_id'] !== null) {
+                            $cId = (int)$instData['country_id'];
+                            $boundCountryIds[$cId] = true;
+                        }
+                        if ($instData['state_id'] !== null) {
+                            $sId = (int)$instData['state_id'];
+                            $boundStateIds[$sId] = true;
+                        }
+                        if ($instData['city_id'] !== null) {
+                            $ctId = (int)$instData['city_id'];
+                            $boundCityIds[$ctId] = true;
+                        }
+
+                        $matchedInstitutionsCount++;
+
+                    // 2. Check Organizations
+                    } elseif (isset($organizationsLookup[$norm])) {
+                        $orgData = $organizationsLookup[$norm];
+                        $orgId = $orgData['id'];
+                        $resolvedOrganizations[$orgId] = ($resolvedOrganizations[$orgId] ?? 0) + 1;
+                        $matchedOrganizationsCount++;
+
+                    // 3. Check Institution Units
+                    } elseif (isset($unitsLookup[$norm])) {
+                        $unitData = $unitsLookup[$norm];
+                        $unitId = $unitData['id'];
+                        $resolvedUnits[$unitId] = ($resolvedUnits[$unitId] ?? 0) + 1;
+                        $matchedUnitsCount++;
+
+                        // If unit has parent, link document to the parent institution!
+                        if ($unitData['parent_institution_id'] !== null) {
+                            $parentInstId = $unitData['parent_institution_id'];
+                            if (!isset($boundInstIds[$parentInstId]) && isset($institutionsLookupById[$parentInstId])) {
+                                $boundInstIds[$parentInstId] = true;
+                                $instLinks[] = [
+                                    'document_id' => $docId,
+                                    'institution_id' => $parentInstId,
+                                    'link_type' => 'author_affiliation'
+                                ];
+                                $resolvedInstitutions[$parentInstId] = ($resolvedInstitutions[$parentInstId] ?? 0) + 1;
+
+                                $parentData = $institutionsLookupById[$parentInstId];
+                                if ($parentData['country_id'] !== null) {
+                                    $boundCountryIds[(int)$parentData['country_id']] = true;
+                                }
+                                if ($parentData['state_id'] !== null) {
+                                    $boundStateIds[(int)$parentData['state_id']] = true;
+                                }
+                                if ($parentData['city_id'] !== null) {
+                                    $boundCityIds[(int)$parentData['city_id']] = true;
+                                }
                             }
                         }
+                    } elseif ($withReport) {
+                        $unresolvedInstitutions[$rawInst] = ($unresolvedInstitutions[$rawInst] ?? 0) + 1;
                     }
-                } else {
-                    $unresolvedInstitutions[$rawInst] = ($unresolvedInstitutions[$rawInst] ?? 0) + 1;
                 }
-            }
 
-            // Process countries
-            foreach ($docCountries as $rawCountry) {
-                $rawCountry = trim($rawCountry);
-                if ($rawCountry === '') continue;
+                // Process countries
+                foreach ($docCountries as $rawCountry) {
+                    $rawCountry = trim($rawCountry);
+                    if ($rawCountry === '') continue;
 
-                // Check US location pattern
-                $usLoc = $this->parseUsLocationToken($rawCountry);
-                if ($usLoc !== null) {
-                    if ($usaCountryId !== null) {
-                        $boundCountryIds[$usaCountryId] = true;
-                        $stateKey = $usaCountryId . '_' . self::normalize($usLoc['state']);
-                        if (isset($statesLookup[$stateKey])) {
-                            $boundStateIds[$statesLookup[$stateKey]['id']] = true;
-                        } else {
-                            $conn->insert('estados', [
-                                'country_id' => $usaCountryId,
-                                'official_name' => $usLoc['state'],
-                                'sigla' => $usLoc['state'],
-                                'status' => 1,
-                                'created_at' => $now,
-                                'updated_at' => $now,
-                            ]);
-                            $newStateId = (int)$conn->lastInsertId();
-                            $statesLookup[$stateKey] = ['id' => $newStateId, 'country_id' => $usaCountryId];
-                            $boundStateIds[$newStateId] = true;
+                    // Padrão de endereço dos EUA ("NY 10027 USA", "CA 95616", "TX"). A sigla sozinha só vale
+                    // quando é mesmo um estado dos EUA: "UK", "BR" etc. seguem para o cadastro de países.
+                    $usLoc = self::parseUsLocationToken($rawCountry);
+                    if ($usLoc !== null && ($usLoc['known_state'] || $usLoc['explicit_usa'])) {
+                        if ($usaCountryId !== null) {
+                            $boundCountryIds[$usaCountryId] = true;
+                            $stateKey = $usaCountryId . '_' . self::normalize($usLoc['state']);
+                            if (!$usLoc['known_state']) {
+                                // "XX 12345 USA" com sigla desconhecida: é dos EUA, mas não se cria estado
+                            } elseif (isset($statesLookup[$stateKey])) {
+                                $boundStateIds[$statesLookup[$stateKey]['id']] = true;
+                            } else {
+                                $conn->insert('estados', [
+                                    'country_id' => $usaCountryId,
+                                    'official_name' => $usLoc['state'],
+                                    'sigla' => $usLoc['state'],
+                                    'status' => 1,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ]);
+                                $newStateId = (int)$conn->lastInsertId();
+                                $statesLookup[$stateKey] = ['id' => $newStateId, 'country_id' => $usaCountryId];
+                                $boundStateIds[$newStateId] = true;
+                            }
                         }
+                        $matchedCountriesCount++;
+                        continue;
                     }
-                    $matchedCountriesCount++;
-                    continue;
-                }
 
-                $norm = self::normalize($rawCountry);
-                if (isset($countriesLookup[$norm])) {
-                    $cId = (int)$countriesLookup[$norm];
-                    $boundCountryIds[$cId] = true;
-                    $matchedCountriesCount++;
+                    $norm = self::normalize($rawCountry);
+                    if (isset($countriesLookup[$norm])) {
+                        $cId = (int)$countriesLookup[$norm];
+                        $boundCountryIds[$cId] = true;
+                        $matchedCountriesCount++;
 
-                    $resolvedCountries[$cId] = ($resolvedCountries[$cId] ?? 0) + 1;
-                } else {
-                    if (isset($statesLookup[$norm])) {
-                        $stateData = $statesLookup[$norm];
-                        $boundStateIds[$stateData['id']] = true;
-                        if ($stateData['country_id'] !== null) {
-                            $boundCountryIds[(int)$stateData['country_id']] = true;
-                        }
-                    } elseif (isset($citiesLookup[$norm])) {
-                        $cityData = $citiesLookup[$norm];
-                        $boundCityIds[$cityData['id']] = true;
-                        if ($cityData['country_id'] !== null) {
-                            $boundCountryIds[(int)$cityData['country_id']] = true;
-                        }
-                        if ($cityData['state_id'] !== null) {
-                            $boundStateIds[(int)$cityData['state_id']] = true;
-                        }
+                        $resolvedCountries[$cId] = ($resolvedCountries[$cId] ?? 0) + 1;
                     } else {
-                        $unresolvedCountries[$rawCountry] = ($unresolvedCountries[$rawCountry] ?? 0) + 1;
+                        if (isset($statesLookup[$norm]) && !$this->isBogusUsState($norm, $statesLookup[$norm], $usaCountryId)) {
+                            $stateData = $statesLookup[$norm];
+                            $boundStateIds[$stateData['id']] = true;
+                            if ($stateData['country_id'] !== null) {
+                                $boundCountryIds[(int)$stateData['country_id']] = true;
+                            }
+                        } elseif (isset($citiesLookup[$norm])) {
+                            $cityData = $citiesLookup[$norm];
+                            $boundCityIds[$cityData['id']] = true;
+                            if ($cityData['country_id'] !== null) {
+                                $boundCountryIds[(int)$cityData['country_id']] = true;
+                            }
+                            if ($cityData['state_id'] !== null) {
+                                $boundStateIds[(int)$cityData['state_id']] = true;
+                            }
+                        } elseif ($withReport) {
+                            $unresolvedCountries[$rawCountry] = ($unresolvedCountries[$rawCountry] ?? 0) + 1;
+                        }
                     }
                 }
+
+                // Flush bindings into lists
+                foreach (array_keys($boundCountryIds) as $cId) {
+                    $countryLinks[] = ['document_id' => $docId, 'country_id' => $cId];
+                }
+                foreach (array_keys($boundStateIds) as $sId) {
+                    $stateLinks[] = ['document_id' => $docId, 'state_id' => $sId];
+                }
+                foreach (array_keys($boundCityIds) as $ctId) {
+                    $cityLinks[] = ['document_id' => $docId, 'city_id' => $ctId];
+                }
+
+                $processedDocs++;
             }
 
-            // Flush bindings into lists
-            foreach (array_keys($boundCountryIds) as $cId) {
-                $countryLinks[] = ['document_id' => $docId, 'country_id' => $cId];
-            }
-            foreach (array_keys($boundStateIds) as $sId) {
-                $stateLinks[] = ['document_id' => $docId, 'state_id' => $sId];
-            }
-            foreach (array_keys($boundCityIds) as $ctId) {
-                $cityLinks[] = ['document_id' => $docId, 'city_id' => $ctId];
-            }
+            // Troca os vínculos do bloco de uma vez (apaga os antigos e grava os novos na mesma transação)
+            $this->replaceLinks($chunkDocIds, [
+                'documento_instituicoes' => $instLinks,
+                'documento_paises'       => $countryLinks,
+                'documento_estados'      => $stateLinks,
+                'documento_cidades'      => $cityLinks,
+            ], $conn);
 
-            $processedDocs++;
-
-            // Flush batches
-            if (count($instLinks) >= self::BATCH_SIZE) {
-                $this->flushLinks('documento_instituicoes', $instLinks, $conn);
-                $instLinks = [];
-            }
-            if (count($countryLinks) >= self::BATCH_SIZE) {
-                $this->flushLinks('documento_paises', $countryLinks, $conn);
-                $countryLinks = [];
-            }
-            if (count($stateLinks) >= self::BATCH_SIZE) {
-                $this->flushLinks('documento_estados', $stateLinks, $conn);
-                $stateLinks = [];
-            }
-            if (count($cityLinks) >= self::BATCH_SIZE) {
-                $this->flushLinks('documento_cidades', $cityLinks, $conn);
-                $cityLinks = [];
-            }
+            $lastDocId = end($chunkDocIds);
+            unset($docs);
         }
-
-        // Final partial flushes
-        if ($instLinks) $this->flushLinks('documento_instituicoes', $instLinks, $conn);
-        if ($countryLinks) $this->flushLinks('documento_paises', $countryLinks, $conn);
-        if ($stateLinks) $this->flushLinks('documento_estados', $stateLinks, $conn);
-        if ($cityLinks) $this->flushLinks('documento_cidades', $cityLinks, $conn);
 
         // ── 4. Re-map Authors ──────────────────────────────────────────
         $rawNames = $conn->fetchFirstColumn(
@@ -295,34 +307,41 @@ class DocumentEnrichmentService
         }
         $normalizedNames = array_unique(array_filter($normalizedNames));
 
-        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
-        $docAuthors = $conn->fetchAllAssociative(
-            'SELECT da.id, da.document_id, da.author_identity_id, da.original_name 
-             FROM document_author da
-             JOIN document d ON da.document_id = d.id
-             WHERE d.project_id = ?',
-            [$projectId]
-        );
+        unset($rawNames);
 
-        foreach ($docAuthors as $da) {
-            if (!$da['original_name']) continue;
-            $norm = self::normalize($da['original_name']);
-            if (isset($authorsLookup[$norm])) {
-                $targetAuthorId = $authorsLookup[$norm];
-                if ($targetAuthorId !== (int)$da['author_identity_id']) {
-                    // Check if duplicate exists on document
-                    $isDuplicate = $conn->fetchOne(
-                        'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
-                        [$da['document_id'], $targetAuthorId, $da['id']]
-                    );
-                    if ($isDuplicate) {
-                        $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
-                    } else {
-                        $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
+        $authorsLookup = $this->loadAuthorsLookup($conn, $normalizedNames);
+        unset($normalizedNames);
+
+        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
+            // Dentro do documento, na ordem do id: é ela que decide qual linha repetida sai
+            $docAuthors = $conn->fetchAllAssociative(
+                'SELECT da.id, da.document_id, da.author_identity_id, da.original_name
+                 FROM document_author da
+                 WHERE da.document_id IN (' . implode(',', $docIds) . ')
+                 ORDER BY da.document_id, da.id'
+            );
+
+            foreach ($docAuthors as $da) {
+                if (!$da['original_name']) continue;
+                $norm = self::normalize($da['original_name']);
+                if (isset($authorsLookup[$norm])) {
+                    $targetAuthorId = $authorsLookup[$norm];
+                    if ($targetAuthorId !== (int)$da['author_identity_id']) {
+                        // Check if duplicate exists on document
+                        $isDuplicate = $conn->fetchOne(
+                            'SELECT id FROM document_author WHERE document_id = ? AND author_identity_id = ? AND id != ?',
+                            [$da['document_id'], $targetAuthorId, $da['id']]
+                        );
+                        if ($isDuplicate) {
+                            $conn->executeStatement('DELETE FROM document_author WHERE id = ?', [$da['id']]);
+                        } else {
+                            $conn->executeStatement('UPDATE document_author SET author_identity_id = ? WHERE id = ?', [$targetAuthorId, $da['id']]);
+                        }
                     }
                 }
             }
         }
+        unset($authorsLookup, $docAuthors);
 
         // ── 5. Re-map Keywords ─────────────────────────────────────────
         $rawTerms = $conn->fetchFirstColumn(
@@ -338,42 +357,83 @@ class DocumentEnrichmentService
         }
         $normalizedTerms = array_unique(array_filter($normalizedTerms));
 
-        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
-        $docKeywords = $conn->fetchAllAssociative(
-            'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
-             FROM document_keyword dk
-             JOIN document d ON dk.document_id = d.id
-             JOIN keyword k ON dk.keyword_id = k.id
-             WHERE d.project_id = ?',
-            [$projectId]
-        );
+        unset($rawTerms);
 
-        foreach ($docKeywords as $dk) {
-            if (!$dk['original_term']) continue;
-            $norm = self::normalize($dk['original_term']);
-            $key = $norm . '|' . $dk['type'];
-            if (isset($keywordsLookup[$key])) {
-                $targetKeywordId = $keywordsLookup[$key];
-                if ($targetKeywordId !== (int)$dk['keyword_id']) {
-                    // Check duplicate
-                    $isDuplicate = $conn->fetchOne(
-                        'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
-                        [$dk['document_id'], $targetKeywordId, $dk['id']]
-                    );
-                    if ($isDuplicate) {
-                        $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
-                    } else {
-                        $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
+        $keywordsLookup = $this->loadKeywordsLookup($conn, $normalizedTerms);
+        unset($normalizedTerms);
+
+        foreach ($this->iterateDocIdChunks($projectId, $conn) as $docIds) {
+            $docKeywords = $conn->fetchAllAssociative(
+                'SELECT dk.id, dk.document_id, dk.keyword_id, dk.original_term, k.keyword_type AS type
+                 FROM document_keyword dk
+                 JOIN keyword k ON dk.keyword_id = k.id
+                 WHERE dk.document_id IN (' . implode(',', $docIds) . ')
+                 ORDER BY dk.document_id, dk.id'
+            );
+
+            foreach ($docKeywords as $dk) {
+                if (!$dk['original_term']) continue;
+                $norm = self::normalize($dk['original_term']);
+                $key = $norm . '|' . $dk['type'];
+                if (isset($keywordsLookup[$key])) {
+                    $targetKeywordId = $keywordsLookup[$key];
+                    if ($targetKeywordId !== (int)$dk['keyword_id']) {
+                        // Check duplicate
+                        $isDuplicate = $conn->fetchOne(
+                            'SELECT id FROM document_keyword WHERE document_id = ? AND keyword_id = ? AND id != ?',
+                            [$dk['document_id'], $targetKeywordId, $dk['id']]
+                        );
+                        if ($isDuplicate) {
+                            $conn->executeStatement('DELETE FROM document_keyword WHERE id = ?', [$dk['id']]);
+                        } else {
+                            $conn->executeStatement('UPDATE document_keyword SET keyword_id = ? WHERE id = ?', [$targetKeywordId, $dk['id']]);
+                        }
                     }
                 }
             }
+        }
+        unset($keywordsLookup, $docKeywords);
+
+        // Enriquecer Qualis CAPES para os documentos do projeto
+        $this->enrichQualis($projectId, $conn);
+
+        // Registrar periódicos faltantes localizando pelo ISSN no Crossref
+        $this->registerMissingJournals($projectId, $conn);
+
+        // Registrar e vincular periódicos com as bases acadêmicas
+        $this->registerAndLinkAcademicDatabases($projectId, $conn);
+
+        // ── 6. Automatically apply Thesaurus Concepts to Keywords ──
+        $conn->executeStatement("
+            UPDATE keyword k
+            JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
+            JOIN thesaurus_concept tc ON tc.id = tl.concept_id
+            -- só o esquema de palavras-chave: um conceito de lugar (ex. Brazil) não deve capturar termos
+            JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id AND ts.slug = 'keyword'
+            SET k.thesaurus_concept_id = tl.concept_id
+            WHERE k.thesaurus_concept_id IS NULL
+        ");
+
+        if (!$withReport) {
+            $executionTime = round(microtime(true) - $startTime, 2);
+            $this->logger->info("Geographical and entity enrichment completed in {$executionTime}s. Processed {$processedDocs} documents.");
+
+            return [
+                'total_docs' => $totalDocs,
+                'processed_docs' => $processedDocs,
+                'matched_institutions_count' => $matchedInstitutionsCount,
+                'matched_countries_count' => $matchedCountriesCount,
+                'matched_organizations_count' => $matchedOrganizationsCount,
+                'matched_units_count' => $matchedUnitsCount,
+                'execution_time' => $executionTime,
+            ];
         }
 
         // Sort unresolved
         arsort($unresolvedInstitutions);
         arsort($unresolvedCountries);
 
-        // ── 6. Compute unresolved and resolved stats for Authors & Keywords ──
+        // ── 7. Relatório: unresolved and resolved stats for Authors & Keywords ──
         $unresolvedAuthorsCount = (int)$conn->fetchOne('
             SELECT COUNT(DISTINCT a.preferred_name)
             FROM document_author da
@@ -476,15 +536,6 @@ class DocumentEnrichmentService
             ];
         }
 
-        // Enriquecer Qualis CAPES para os documentos do projeto
-        $this->enrichQualis($projectId, $conn);
-
-        // Registrar periódicos faltantes localizando pelo ISSN no Crossref
-        $this->registerMissingJournals($projectId, $conn);
-
-        // Registrar e vincular periódicos com as bases acadêmicas
-        $this->registerAndLinkAcademicDatabases($projectId, $conn);
-
         // Obter periódicos/revistas não resolvidos no sincronismo
         $unresolvedJournals = [];
         $rawUnresolvedJournals = $conn->fetchAllAssociative('
@@ -575,17 +626,6 @@ class DocumentEnrichmentService
             usort($matchedUnitsList, fn($a, $b) => $b['count'] <=> $a['count']);
         }
 
-        // ── 7. Automatically apply Thesaurus Concepts to Keywords ──
-        $conn->executeStatement("
-            UPDATE keyword k
-            JOIN thesaurus_label tl ON k.keyword_normalized = tl.normalized_label
-            JOIN thesaurus_concept tc ON tc.id = tl.concept_id
-            -- só o esquema de palavras-chave: um conceito de lugar (ex. Brazil) não deve capturar termos
-            JOIN thesaurus_scheme ts ON ts.id = tc.scheme_id AND ts.slug = 'keyword'
-            SET k.thesaurus_concept_id = tl.concept_id
-            WHERE k.thesaurus_concept_id IS NULL
-        ");
-
         return [
             'total_docs' => $totalDocs,
             'processed_docs' => $processedDocs,
@@ -613,46 +653,66 @@ class DocumentEnrichmentService
         ];
     }
 
-    private function clearExistingLinks(int $projectId, Connection $conn): void
+    /**
+     * Blocos de ids de documentos do projeto, em ordem crescente.
+     *
+     * @return \Generator<int, int[]>
+     */
+    private function iterateDocIdChunks(int $projectId, Connection $conn): \Generator
     {
-        $docIdsSelect = 'SELECT id FROM document WHERE project_id = ?';
-        
-        $conn->executeStatement(
-            "DELETE FROM documento_instituicoes WHERE document_id IN ($docIdsSelect)",
-            [$projectId]
-        );
-        $conn->executeStatement(
-            "DELETE FROM documento_paises WHERE document_id IN ($docIdsSelect)",
-            [$projectId]
-        );
-        $conn->executeStatement(
-            "DELETE FROM documento_estados WHERE document_id IN ($docIdsSelect)",
-            [$projectId]
-        );
-        $conn->executeStatement(
-            "DELETE FROM documento_cidades WHERE document_id IN ($docIdsSelect)",
-            [$projectId]
-        );
-
-        $conn->executeStatement(
-            "UPDATE document SET qualis_journal_id = NULL, qualis = NULL WHERE project_id = ?",
-            [$projectId]
-        );
+        $lastId = 0;
+        while (true) {
+            $ids = $conn->fetchFirstColumn(
+                'SELECT id FROM document WHERE project_id = ? AND id > ? ORDER BY id LIMIT ' . self::DOC_CHUNK,
+                [$projectId, $lastId]
+            );
+            if (!$ids) {
+                return;
+            }
+            $ids = array_map('intval', $ids);
+            $lastId = end($ids);
+            yield $ids;
+        }
     }
 
-    private function flushLinks(string $table, array $rows, Connection $conn): void
+    /**
+     * Apaga os vínculos antigos dos documentos do bloco e grava os novos, tudo numa transação.
+     *
+     * @param int[]                              $docIds
+     * @param array<string, array<int, array>>   $linksByTable  tabela => linhas
+     */
+    private function replaceLinks(array $docIds, array $linksByTable, Connection $conn): void
     {
-        if (empty($rows)) return;
-        
+        if (!$docIds) {
+            return;
+        }
+        $inList = implode(',', array_map('intval', $docIds));
+
         $conn->beginTransaction();
         try {
-            foreach ($rows as $row) {
-                $conn->insert($table, $row);
+            foreach ($linksByTable as $table => $rows) {
+                $conn->executeStatement("DELETE FROM {$table} WHERE document_id IN ({$inList})");
+
+                foreach (array_chunk($rows, self::BATCH_SIZE) as $chunk) {
+                    $columns = array_keys($chunk[0]);
+                    $placeholder = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
+                    $params = [];
+                    foreach ($chunk as $row) {
+                        foreach ($columns as $col) {
+                            $params[] = $row[$col];
+                        }
+                    }
+                    $conn->executeStatement(
+                        "INSERT INTO {$table} (" . implode(', ', $columns) . ') VALUES '
+                        . implode(', ', array_fill(0, count($chunk), $placeholder)),
+                        $params
+                    );
+                }
             }
             $conn->commit();
         } catch (\Throwable $e) {
             $conn->rollBack();
-            $this->logger->error("Failed to insert links batch into {$table}: " . $e->getMessage());
+            $this->logger->error('Failed to replace document links: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -844,17 +904,39 @@ class DocumentEnrichmentService
         return $lookup;
     }
 
-    private function parseUsLocationToken(string $raw): ?array
+    /**
+     * Reconhece o último trecho de um endereço dos EUA: "NY 10027 USA", "CA 95616", "TX USA", "MA".
+     * known_state diz se a sigla é de um estado/território dos EUA; explicit_usa, se "USA" veio escrito.
+     * Uma sigla de duas letras fora da lista e sem "USA" (ex.: "UK", "BR") não é endereço dos EUA.
+     *
+     * @return array{country: string, state: string, postal_code: ?string, known_state: bool, explicit_usa: bool}|null
+     */
+    public static function parseUsLocationToken(string $raw): ?array
     {
         $raw = trim($raw);
-        if (!preg_match('/^(?<state>[A-Z]{2})(?:\s+(?<zip>\d{5}(?:-\d{4})?))?\s*(?:USA)?$/i', $raw, $m)) {
+        if (!preg_match('/^(?<state>[A-Z]{2})(?:\s+(?<zip>\d{5}(?:-\d{4})?))?\s*(?<usa>USA)?$/i', $raw, $m)) {
             return null;
         }
+        $state = strtoupper($m['state']);
         return [
             'country' => 'USA',
-            'state' => strtoupper($m['state']),
-            'postal_code' => $m['zip'] ?? null,
+            'state' => $state,
+            'postal_code' => ($m['zip'] ?? '') !== '' ? $m['zip'] : null,
+            'known_state' => isset(self::US_STATE_CODES[$state]),
+            'explicit_usa' => ($m['usa'] ?? '') !== '',
         ];
+    }
+
+    /**
+     * Estado dos EUA com sigla de duas letras que não existe (criado no passado a partir de "UK", "BR"...):
+     * não é usado para vincular documentos.
+     */
+    private function isBogusUsState(string $normalizedToken, array $stateData, ?int $usaCountryId): bool
+    {
+        return $usaCountryId !== null
+            && (int) $stateData['country_id'] === $usaCountryId
+            && preg_match('/^[a-z]{2}$/', $normalizedToken) === 1
+            && !isset(self::US_STATE_CODES[strtoupper($normalizedToken)]);
     }
 
     private function loadAuthorsLookup(Connection $conn, array $normalizedNames): array
@@ -927,6 +1009,12 @@ class DocumentEnrichmentService
         return $lookup;
     }
 
+    /** Chave de comparação de ISSN como o MySQL compara a coluna: sem diferenciar maiúsculas nem espaço no fim. */
+    private static function issnKey(string $normalizedIssn): string
+    {
+        return rtrim(mb_strtolower($normalizedIssn, 'UTF-8'));
+    }
+
     /**
      * Enriches project documents with CAPES Qualis classification based on journal ISSN.
      */
@@ -934,13 +1022,16 @@ class DocumentEnrichmentService
     {
         $this->logger->info("Enriching Project #{$projectId} documents with CAPES Qualis classifications...");
 
-        // Bulk UPDATE to set the qualis field on documents based on their normalized ISSN matching qualis_journal
+        // Um UPDATE só deixa cada documento com a revista do seu ISSN (ou sem revista, se não houver),
+        // e só toca nas linhas que mudam: não é preciso zerar o Qualis do projeto antes.
         $sql = '
             UPDATE document d
-            INNER JOIN qualis_journal q 
-                ON LOWER(REPLACE(REPLACE(d.issn, "-", ""), " ", "")) = q.normalized_issn
+            LEFT JOIN qualis_journal q
+                ON d.issn IS NOT NULL AND d.issn != ""
+               AND LOWER(REPLACE(REPLACE(d.issn, "-", ""), " ", "")) = q.normalized_issn
             SET d.qualis = q.qualis, d.qualis_journal_id = q.id
-            WHERE d.project_id = ? AND d.issn IS NOT NULL AND d.issn != ""
+            WHERE d.project_id = ?
+              AND (NOT (CAST(d.qualis AS BINARY) <=> CAST(q.qualis AS BINARY)) OR NOT (d.qualis_journal_id <=> q.id))
         ';
 
         $affected = $conn->executeStatement($sql, [$projectId]);
@@ -1027,6 +1118,16 @@ class DocumentEnrichmentService
             $dbCache[strtolower($db['acronym'])] = (int)$db['id'];
         }
 
+        // Revistas e vínculos já existentes, lidos uma vez (antes: 2 a 4 consultas por ISSN do projeto)
+        $journalIds = [];
+        foreach ($conn->iterateNumeric('SELECT normalized_issn, id FROM qualis_journal') as [$issnKey, $jid]) {
+            $journalIds[self::issnKey((string) $issnKey)] = (int) $jid;
+        }
+        $linked = [];
+        foreach ($conn->iterateNumeric('SELECT qualis_journal_id, academic_database_id FROM qualis_journal_academic_database') as [$jid, $dbId]) {
+            $linked[$jid . ':' . $dbId] = true;
+        }
+
         foreach ($rows as $row) {
             $rawIssn = trim($row['issn']);
             $source = strtolower(trim($row['source']));
@@ -1041,10 +1142,7 @@ class DocumentEnrichmentService
                 continue;
             }
 
-            $journalId = $conn->fetchOne(
-                'SELECT id FROM qualis_journal WHERE normalized_issn = ?',
-                [$normalizedIssn]
-            );
+            $journalId = $journalIds[self::issnKey($normalizedIssn)] ?? null;
 
             if (!$journalId) {
                 try {
@@ -1054,24 +1152,21 @@ class DocumentEnrichmentService
                         'normalized_issn' => $normalizedIssn,
                         'qualis' => null,
                     ]);
-                    $journalId = $conn->lastInsertId();
+                    $journalId = (int) $conn->lastInsertId();
                 } catch (\Throwable) {
                     $journalId = $conn->fetchOne(
                         'SELECT id FROM qualis_journal WHERE normalized_issn = ?',
                         [$normalizedIssn]
                     );
                 }
+                if ($journalId) {
+                    $journalIds[self::issnKey($normalizedIssn)] = (int) $journalId;
+                }
             }
 
             if ($journalId && isset($dbCache[$source])) {
                 $dbId = $dbCache[$source];
-                // Check if already linked
-                $exists = $conn->fetchOne('
-                    SELECT 1 FROM qualis_journal_academic_database 
-                    WHERE qualis_journal_id = ? AND academic_database_id = ?
-                ', [$journalId, $dbId]);
-
-                if (!$exists) {
+                if (!isset($linked[$journalId . ':' . $dbId])) {
                     try {
                         $conn->insert('qualis_journal_academic_database', [
                             'qualis_journal_id' => $journalId,
@@ -1080,6 +1175,7 @@ class DocumentEnrichmentService
                     } catch (\Throwable) {
                         // ignore duplicate key exceptions
                     }
+                    $linked[$journalId . ':' . $dbId] = true;
                 }
             }
         }
