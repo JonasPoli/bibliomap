@@ -52,26 +52,26 @@ class IndicatorService
     {
         // Último critério (id do autor): o corte do top N não depende do plano de execução
         $order = $sort === 'citations' ? 'total_citations DESC, doc_count DESC' : 'doc_count DESC, total_citations DESC';
-        $innerOrder = $order . ', da.author_identity_id ASC';
-        $outerOrder = $order . ', t.author_identity_id ASC';
+        $innerOrder = $order . ', da.effective_author_id ASC';
+        $outerOrder = $order . ', t.effective_author_id ASC';
         $pid = (int) $projectId;
 
         return $this->conn->fetchAllAssociative(
             'SELECT a.preferred_name AS name, a.normalized_name, t.doc_count, t.total_citations
              FROM (
-                 SELECT da.author_identity_id,
+                 SELECT da.effective_author_id,
                         COUNT(DISTINCT da.document_id) AS doc_count,
                         SUM(d.cited_by)                AS total_citations
-                 FROM (SELECT DISTINCT dax.author_identity_id, dax.document_id
+                 FROM (SELECT DISTINCT dax.effective_author_id, dax.document_id
                        FROM document_author dax
                        JOIN document dd ON dd.id = dax.document_id
                        WHERE dd.project_id = ' . $pid . ') da
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
-                 GROUP BY da.author_identity_id
+                 GROUP BY da.effective_author_id
                  ORDER BY ' . $innerOrder . '
                  LIMIT ' . (int)$limit . '
              ) t
-             JOIN author_identity a ON a.id = t.author_identity_id
+             JOIN author_identity a ON a.id = t.effective_author_id
              ORDER BY ' . $outerOrder,
             [$projectId]
         );
@@ -113,7 +113,7 @@ class IndicatorService
              JOIN keyword k ON k.id = dk.keyword_id AND k.keyword_type = ?
              LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
              LEFT JOIN keyword kc ON kc.id = k.keyword_concept_id
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)
+             GROUP BY dk.effective_keyword_id
              ORDER BY doc_count DESC, term ASC
              LIMIT ' . (int)$limit,
             [$projectId, $mappedType]
@@ -223,14 +223,13 @@ class IndicatorService
         );
 
         $authorsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
+            'SELECT COUNT(DISTINCT da.effective_author_id) FROM document_author da
              JOIN document d ON d.id = da.document_id AND d.project_id = ?',
             [$projectId]
         );
 
         $keywordsCount = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) FROM document_keyword dk
-             JOIN keyword k ON k.id = dk.keyword_id
+            'SELECT COUNT(DISTINCT dk.effective_keyword_id) FROM document_keyword dk
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?',
             [$projectId]
         );
@@ -273,7 +272,7 @@ class IndicatorService
         return $this->conn->fetchAllAssociative(
             'SELECT year, AVG(author_count) AS avg_authors_per_doc
              FROM (
-               SELECT d.year, COUNT(DISTINCT da.author_identity_id) AS author_count
+               SELECT d.year, COUNT(DISTINCT da.effective_author_id) AS author_count
                FROM document d
                JOIN document_author da ON da.document_id = d.id
                WHERE d.project_id = ? AND d.year IS NOT NULL

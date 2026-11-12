@@ -42,7 +42,7 @@ class ReportController extends AbstractController
         // Top keywords by occurrence (author + indexed, sorted by count DESC)
         // Limit to 300 to keep the page manageable; user can filter via search
         $keywords = $this->conn->fetchAllAssociative(
-            'SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
+            'SELECT dk.effective_keyword_id AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN \'both\'
                          WHEN MAX(k.keyword_type) = \'author_keyword\' THEN \'author\'
@@ -50,13 +50,13 @@ class ReportController extends AbstractController
                          ELSE MAX(k.keyword_type)
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS doc_count
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             JOIN document_keyword dk ON dk.keyword_id = k.id
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+             LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
              -- Um item por conceito (o gráfico soma as duas origens pelo mesmo id)
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
+             GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
              ORDER BY doc_count DESC
              LIMIT 300',
             [$id]
@@ -154,18 +154,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
+            "SELECT dk.effective_keyword_id AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             JOIN document_keyword dk ON dk.keyword_id = k.id
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+             LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) IN ($placeholders)
+             WHERE dk.effective_keyword_id IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
+             GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );
@@ -212,18 +212,18 @@ class ReportController extends AbstractController
         $params = array_merge([$id], $selectedIds, [$yearFrom, $yearTo]);
 
         $rows = $this->conn->fetchAllAssociative(
-            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
+            "SELECT dk.effective_keyword_id AS id,
                     COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
                     d.year,
                     COUNT(DISTINCT dk.document_id) AS count
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             JOIN document_keyword dk ON dk.keyword_id = k.id
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+             LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
              JOIN document d          ON d.id = dk.document_id AND d.project_id = ?
-             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) IN ($placeholders)
+             WHERE dk.effective_keyword_id IN ($placeholders)
                AND d.year BETWEEN ? AND ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
+             GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display), d.year
              ORDER BY term, d.year",
             $params
         );
@@ -302,7 +302,7 @@ class ReportController extends AbstractController
         // EXISTS em vez de JOIN: um autor repetido no mesmo documento não duplica a linha
         $documents = $this->fetchWorkList(
             $project->getId(),
-            'EXISTS (SELECT 1 FROM document_author da WHERE da.document_id = d.id AND da.author_identity_id = ?)',
+            'EXISTS (SELECT 1 FROM document_author da WHERE da.document_id = d.id AND da.effective_author_id = ?)',
             [$authorId],
             $request
         );
@@ -412,35 +412,19 @@ class ReportController extends AbstractController
     {
         $project = $this->getProject($id);
 
-        // O id efetivo identifica um conceito (negativo = conceito do tesauro). Primeiro os ids das
-        // palavras-chave do conceito; depois EXISTS no índice de document_keyword, sem duplicar o
-        // documento que tem duas variantes do mesmo conceito.
-        $keywordIds = $this->conn->fetchFirstColumn(
-            $keywordId < 0
-                ? 'SELECT k.id FROM keyword k WHERE k.thesaurus_concept_id = ?'
-                : 'SELECT k.id FROM keyword k WHERE k.thesaurus_concept_id IS NULL AND COALESCE(k.keyword_concept_id, k.id) = ?',
-            [abs($keywordId)]
+        // O id efetivo identifica um conceito (negativo = conceito do tesauro). EXISTS no índice
+        // (document_id, effective_keyword_id): o documento com duas variantes do mesmo conceito conta uma vez.
+        $documents = $this->fetchWorkList(
+            $project->getId(),
+            'EXISTS (SELECT 1 FROM document_keyword dk WHERE dk.document_id = d.id AND dk.effective_keyword_id = ?)',
+            [$keywordId],
+            $request
         );
-
-        $documents = $keywordIds
-            ? $this->fetchWorkList(
-                $project->getId(),
-                'EXISTS (SELECT 1 FROM document_keyword dk WHERE dk.document_id = d.id AND dk.keyword_id IN (' . implode(',', array_map('intval', $keywordIds)) . '))',
-                [],
-                $request
-            )
-            : ['documents' => []];
 
         // Fetch keyword term (coalesced concept display label)
-        $keywordTerm = $this->conn->fetchOne(
-            'SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original) AS term
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-             LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-             WHERE IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) = ?
-             LIMIT 1',
-            [$keywordId]
-        );
+        $keywordTerm = $keywordId < 0
+            ? $this->conn->fetchOne('SELECT preferred_label FROM thesaurus_concept WHERE id = ?', [-$keywordId])
+            : $this->conn->fetchOne('SELECT COALESCE(keyword_display, keyword_original) FROM keyword WHERE id = ?', [$keywordId]);
 
         return $this->json([
             'keyword' => $keywordTerm ?: 'Palavra-chave desconhecida',
@@ -1126,8 +1110,7 @@ class ReportController extends AbstractController
         $letters = $this->conn->fetchFirstColumn(
             "SELECT DISTINCT UPPER(LEFT(tc.preferred_label, 1)) AS letter
              FROM thesaurus_concept tc
-             JOIN keyword k ON k.thesaurus_concept_id = tc.id
-             JOIN document_keyword dk ON dk.keyword_id = k.id
+             JOIN document_keyword dk ON dk.effective_keyword_id = -tc.id
              JOIN document d ON d.id = dk.document_id AND d.project_id = ?
              WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
              ORDER BY letter",
@@ -1142,10 +1125,9 @@ class ReportController extends AbstractController
 
         // 1. Só os ids dos conceitos que atendem ao filtro (com o nº de variações, para os totais)
         $sql = "
-            SELECT tc.id, COUNT(DISTINCT k.id) AS variant_count
+            SELECT tc.id, COUNT(DISTINCT dk.keyword_id) AS variant_count
             FROM thesaurus_concept tc
-            JOIN keyword k ON k.thesaurus_concept_id = tc.id
-            JOIN document_keyword dk ON dk.keyword_id = k.id
+            JOIN document_keyword dk ON dk.effective_keyword_id = -tc.id
             JOIN document d ON d.id = dk.document_id AND d.project_id = ?
             WHERE tc.scheme_id = (SELECT id FROM thesaurus_scheme WHERE slug = 'keyword' LIMIT 1)
         ";
@@ -1179,6 +1161,7 @@ class ReportController extends AbstractController
         $labelsByConceptId = [];
         if ($pageIds) {
             $idList = implode(',', $pageIds);
+            $negIdList = implode(',', array_map(fn($i) => -$i, $pageIds));
             // Citações: soma uma vez por (conceito, documento); somar sobre as linhas
             // variante × documento contaria em dobro o documento com duas variantes.
             $concepts = $this->conn->fetchAllAssociative(
@@ -1187,22 +1170,20 @@ class ReportController extends AbstractController
                     tc.preferred_label,
                     tc.normalized_label,
                     COUNT(DISTINCT dk.document_id) AS doc_count,
-                    COUNT(DISTINCT k.id) AS variant_count,
+                    COUNT(DISTINCT dk.keyword_id) AS variant_count,
                     COALESCE(MAX(cc.total_citations), 0) AS total_citations
                 FROM thesaurus_concept tc
                 LEFT JOIN (
                     SELECT t.cid, SUM(t.cit) AS total_citations
                     FROM (
-                        SELECT DISTINCT k2.thesaurus_concept_id AS cid, d2.id, COALESCE(d2.cited_by, 0) AS cit
-                        FROM keyword k2
-                        JOIN document_keyword dk2 ON dk2.keyword_id = k2.id
+                        SELECT DISTINCT -dk2.effective_keyword_id AS cid, d2.id, COALESCE(d2.cited_by, 0) AS cit
+                        FROM document_keyword dk2
                         JOIN document d2 ON d2.id = dk2.document_id AND d2.project_id = ?
-                        WHERE k2.thesaurus_concept_id IN ($idList)
+                        WHERE dk2.effective_keyword_id IN ($negIdList)
                     ) t
                     GROUP BY t.cid
                 ) cc ON cc.cid = tc.id
-                JOIN keyword k ON k.thesaurus_concept_id = tc.id
-                JOIN document_keyword dk ON dk.keyword_id = k.id
+                JOIN document_keyword dk ON dk.effective_keyword_id = -tc.id
                 JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                 WHERE tc.id IN ($idList)
                 GROUP BY tc.id, tc.preferred_label, tc.normalized_label

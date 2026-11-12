@@ -327,7 +327,7 @@ class MatrixEngineService
         $sql = 'SELECT da.document_id, da.original_name AS author_name_raw, ai.preferred_name AS canonical_name
                 FROM document_author da
                 JOIN document d ON d.id = da.document_id
-                LEFT JOIN author_identity ai ON ai.id = da.author_identity_id
+                LEFT JOIN author_identity ai ON ai.id = da.effective_author_id
                 WHERE d.project_id = ? AND d.id BETWEEN ? AND ?';
 
         $map = [];
@@ -356,8 +356,8 @@ class MatrixEngineService
                 FROM document_keyword dk
                 JOIN document d ON d.id = dk.document_id
                 JOIN keyword k ON k.id = dk.keyword_id
-                LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-                LEFT JOIN keyword kc ON kc.id = k.keyword_concept_id
+                LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+                LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
                 WHERE d.project_id = ? AND d.id BETWEEN ? AND ? AND k.keyword_type IN (?)';
 
         $map = [];

@@ -31,11 +31,11 @@ class NetworkService
                 SUM(COALESCE(d.cited_by, 0)) AS total_citations
             FROM author_identity a
             JOIN (
-                SELECT DISTINCT dax.author_identity_id, dax.document_id
+                SELECT DISTINCT dax.effective_author_id, dax.document_id
                 FROM document_author dax
                 JOIN document dd ON dd.id = dax.document_id
                 WHERE dd.project_id = $pid
-            ) da ON a.id = da.author_identity_id
+            ) da ON a.id = da.effective_author_id
             JOIN document d ON da.document_id = d.id
             WHERE d.project_id = ?
             GROUP BY a.id, a.preferred_name
@@ -54,18 +54,18 @@ class NetworkService
         // resultado não variar entre execuções (a detecção de comunidades lê as arestas nessa ordem)
         $rawEdges = $conn->fetchAllAssociative("
             SELECT 
-                da1.author_identity_id AS source, 
-                da2.author_identity_id AS target, 
+                da1.effective_author_id AS source, 
+                da2.effective_author_id AS target, 
                 COUNT(DISTINCT da1.document_id) AS weight
             FROM document_author da1
-            JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.author_identity_id < da2.author_identity_id
+            JOIN document_author da2 ON da1.document_id = da2.document_id AND da1.effective_author_id < da2.effective_author_id
             JOIN document d ON da1.document_id = d.id
             WHERE d.project_id = ?
-              AND da1.author_identity_id IN ($inList)
-              AND da2.author_identity_id IN ($inList)
-            GROUP BY da1.author_identity_id, da2.author_identity_id
+              AND da1.effective_author_id IN ($inList)
+              AND da2.effective_author_id IN ($inList)
+            GROUP BY da1.effective_author_id, da2.effective_author_id
             HAVING weight >= ?
-            ORDER BY weight DESC, da1.author_identity_id ASC, da2.author_identity_id ASC
+            ORDER BY weight DESC, da1.effective_author_id ASC, da2.effective_author_id ASC
         ", [$projectId, $minWeight]);
 
         return $this->formatGraph($rawNodes, $rawEdges, $maxNodes);
@@ -83,17 +83,17 @@ class NetworkService
         $nodeLimit = max(0, min($maxNodes, 1000));
         $rawNodes = $conn->fetchAllAssociative('
             SELECT 
-                IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id, 
+                dk.effective_keyword_id AS id, 
                 COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS label, 
                 COUNT(DISTINCT dk.document_id) AS doc_count,
                 0 AS total_citations
-            FROM keyword k
-            LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-            JOIN document_keyword dk ON k.id = dk.keyword_id
+            FROM document_keyword dk
+            JOIN keyword k ON k.id = dk.keyword_id
+            LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+            LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ?
-            GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
+            GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
             ORDER BY doc_count DESC, id ASC
             LIMIT ' . $nodeLimit . '
         ', [$projectId, $mappedType]);
@@ -109,13 +109,13 @@ class NetworkService
         // o par de conceitos é normalizado abaixo e COUNT(DISTINCT documento) não muda
         $rawEdges = $conn->fetchAllAssociative("
             SELECT 
-                CASE WHEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
-                     THEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) 
-                     ELSE IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
+                CASE WHEN dk1.effective_keyword_id < dk2.effective_keyword_id 
+                     THEN dk1.effective_keyword_id 
+                     ELSE dk2.effective_keyword_id 
                 END AS src_kw,
-                CASE WHEN IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
-                     THEN IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) 
-                     ELSE IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) 
+                CASE WHEN dk1.effective_keyword_id < dk2.effective_keyword_id 
+                     THEN dk2.effective_keyword_id 
+                     ELSE dk1.effective_keyword_id 
                 END AS tgt_kw,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
@@ -124,9 +124,9 @@ class NetworkService
             JOIN keyword k1 ON dk1.keyword_id = k1.id
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?
-              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) IN ($inList)
-              AND IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) IN ($inList)
-              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) != IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
+              AND dk1.effective_keyword_id IN ($inList)
+              AND dk2.effective_keyword_id IN ($inList)
+              AND dk1.effective_keyword_id != dk2.effective_keyword_id
             GROUP BY src_kw, tgt_kw
             HAVING weight >= ?
             ORDER BY weight DESC, src_kw ASC, tgt_kw ASC

@@ -14,7 +14,7 @@ class ReportService
      */
     private static function authorDocPairs(int $projectId): string
     {
-        return 'SELECT DISTINCT dax.author_identity_id, dax.document_id
+        return 'SELECT DISTINCT dax.effective_author_id, dax.document_id
                 FROM document_author dax
                 JOIN document dd ON dd.id = dax.document_id
                 WHERE dd.project_id = ' . (int) $projectId;
@@ -34,9 +34,9 @@ class ReportService
         $lotkaRows = $this->conn->fetchAllAssociative(
             'SELECT t.doc_count, COUNT(*) AS authors
              FROM (
-                 SELECT da.author_identity_id, COUNT(*) AS doc_count
+                 SELECT da.effective_author_id, COUNT(*) AS doc_count
                  FROM (' . $pairs . ') da
-                 GROUP BY da.author_identity_id
+                 GROUP BY da.effective_author_id
              ) t
              GROUP BY t.doc_count
              ORDER BY t.doc_count ASC'
@@ -63,7 +63,7 @@ class ReportService
                     MIN(d.year) AS first_year,
                     MAX(d.year) AS last_year
              FROM author_identity a
-             JOIN (' . $pairs . ') da ON a.id = da.author_identity_id
+             JOIN (' . $pairs . ') da ON a.id = da.effective_author_id
              JOIN document d         ON d.id = da.document_id AND d.project_id = ?' . $searchSql . '
              GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC, citation_count DESC, a.id ASC
@@ -77,11 +77,11 @@ class ReportService
             $placeholders = implode(',', $authorIds);
             
             $citRows = $this->conn->fetchAllAssociative(
-                "SELECT da.author_identity_id AS author_id, COALESCE(d.cited_by, 0) AS cited_by
+                "SELECT da.effective_author_id AS author_id, COALESCE(d.cited_by, 0) AS cited_by
                  FROM document d
-                 JOIN (SELECT DISTINCT author_identity_id, document_id FROM document_author WHERE author_identity_id IN ($placeholders)) da ON da.document_id = d.id
+                 JOIN (SELECT DISTINCT effective_author_id, document_id FROM document_author WHERE effective_author_id IN ($placeholders)) da ON da.document_id = d.id
                  WHERE d.project_id = ?
-                 ORDER BY da.author_identity_id, d.cited_by DESC",
+                 ORDER BY da.effective_author_id, d.cited_by DESC",
                 [$projectId]
             );
 
@@ -108,7 +108,7 @@ class ReportService
                 'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
                         SUM(COALESCE(d.cited_by, 0)) AS citation_count
                  FROM author_identity a
-                 JOIN (' . $pairs . ') da ON a.id = da.author_identity_id
+                 JOIN (' . $pairs . ') da ON a.id = da.effective_author_id
                  JOIN document d ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY a.id, a.preferred_name
                  ORDER BY doc_count DESC, citation_count DESC, a.id ASC
@@ -307,8 +307,8 @@ class ReportService
         // em qualquer origem, igual à lista de "Ver trabalhos". A frequência por origem vem
         // em author_freq / indexed_freq.
         $keywords = $this->conn->fetchAllAssociative(
-            "SELECT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
-                    COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
+            "SELECT dk.effective_keyword_id AS id,
+                    COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN 'both'
                          WHEN MAX(k.keyword_type) = 'author_keyword' THEN 'author'
                          WHEN MAX(k.keyword_type) = 'indexed_keyword' THEN 'indexed'
@@ -318,12 +318,12 @@ class ReportService
                     COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN dk.document_id END) AS author_freq,
                     COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN dk.document_id END) AS indexed_freq,
                     MIN(d.year) AS first_year, MAX(d.year) AS last_year
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+             LEFT JOIN keyword ke ON ke.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display){$searchSql}
+             GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display){$searchSql}
              ORDER BY freq DESC, term ASC, id ASC
              LIMIT {$targetLimit}",
             $params
@@ -336,11 +336,11 @@ class ReportService
         unset($kw);
 
         $summary = $this->conn->fetchAssociative(
-            "SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) AS total_kw_count,
-                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS author_kw_count,
-                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) END) AS indexed_kw_count
-             FROM keyword k
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+            "SELECT COUNT(DISTINCT dk.effective_keyword_id) AS total_kw_count,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'author_keyword'  THEN dk.effective_keyword_id END) AS author_kw_count,
+                    COUNT(DISTINCT CASE WHEN k.keyword_type = 'indexed_keyword' THEN dk.effective_keyword_id END) AS indexed_kw_count
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?",
             [$projectId]
         );
@@ -471,14 +471,13 @@ class ReportService
         );
 
         $kpis['total_authors'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT da.author_identity_id) FROM document_author da
+            'SELECT COUNT(DISTINCT da.effective_author_id) FROM document_author da
              JOIN document d ON d.id = da.document_id AND d.project_id = ?',
             [$projectId]
         );
 
         $kpis['total_keywords'] = (int) $this->conn->fetchOne(
-            'SELECT COUNT(DISTINCT IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)) FROM keyword k
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+            'SELECT COUNT(DISTINCT dk.effective_keyword_id) FROM document_keyword dk
              JOIN document d ON dk.document_id = d.id AND d.project_id = ?',
             [$projectId]
         );
@@ -496,7 +495,7 @@ class ReportService
             'SELECT a.preferred_name AS name, COUNT(DISTINCT da.document_id) AS doc_count,
                     SUM(COALESCE(d.cited_by, 0)) AS citation_count
              FROM author_identity a
-             JOIN (' . self::authorDocPairs($projectId) . ') da ON a.id = da.author_identity_id
+             JOIN (' . self::authorDocPairs($projectId) . ') da ON a.id = da.effective_author_id
              JOIN document d ON d.id = da.document_id AND d.project_id = ?
              GROUP BY a.id, a.preferred_name
              ORDER BY doc_count DESC, a.id ASC LIMIT 10',
@@ -516,19 +515,19 @@ class ReportService
         // Top 5 keywords
         $topKeywords = $this->conn->fetchAllAssociative(
             // Uma linha por conceito, como no relatório de Palavras-chave (origem 'both' quando aparece nas duas)
-            "SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term,
+            "SELECT COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display) AS term,
                     CASE WHEN COUNT(DISTINCT k.keyword_type) > 1 THEN 'both'
                          WHEN MAX(k.keyword_type) = 'author_keyword' THEN 'author'
                          WHEN MAX(k.keyword_type) = 'indexed_keyword' THEN 'indexed'
                          ELSE MAX(k.keyword_type)
                     END AS type,
                     COUNT(DISTINCT dk.document_id) AS freq
-             FROM keyword k
-             LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-             LEFT JOIN keyword kc    ON k.keyword_concept_id = kc.id
-             JOIN document_keyword dk ON k.id = dk.keyword_id
+             FROM document_keyword dk
+             JOIN keyword k ON k.id = dk.keyword_id
+             LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+             LEFT JOIN keyword ke ON ke.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
              JOIN document d         ON dk.document_id = d.id AND d.project_id = ?
-             GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
+             GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display)
              ORDER BY freq DESC, term ASC LIMIT 20",
             [$projectId]
         );

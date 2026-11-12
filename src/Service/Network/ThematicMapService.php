@@ -47,16 +47,16 @@ class ThematicMapService
         // ── 1. Fetch top keywords (nodes) ────────────────────────────────────
         $rawNodes = $conn->fetchAllAssociative('
             SELECT
-                IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id) AS id,
+                dk.effective_keyword_id AS id,
                 COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original) AS label,
                 COUNT(DISTINCT dk.document_id) AS doc_count
-            FROM keyword k
-            LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-            JOIN document_keyword dk ON k.id = dk.keyword_id
+            FROM document_keyword dk
+            JOIN keyword k ON k.id = dk.keyword_id
+            LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+            LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
             JOIN document d ON dk.document_id = d.id
             WHERE d.project_id = ? AND k.keyword_type = ?' . $yearSql . '
-            GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id),
+            GROUP BY dk.effective_keyword_id,
                      COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display, k.keyword_original)
             HAVING COUNT(DISTINCT dk.document_id) >= ?
             ORDER BY doc_count DESC, id
@@ -79,32 +79,8 @@ class ThematicMapService
             ];
         }
 
-        // Resolve antes os keyword.id dos conceitos escolhidos: a consulta de arestas filtra por
-        // dk.keyword_id (índice de document_keyword) em vez de calcular o conceito de cada vínculo.
-        $positiveIds = [];
-        $thesaurusIds = [];
-        foreach (array_keys($selectedNodeIds) as $nid) {
-            if ($nid < 0) {
-                $thesaurusIds[] = -$nid;
-            } else {
-                $positiveIds[] = $nid;
-            }
-        }
-        $conceptConds = [];
-        if ($positiveIds) {
-            $conceptConds[] = '(k.thesaurus_concept_id IS NULL AND COALESCE(k.keyword_concept_id, k.id) IN (' . implode(',', $positiveIds) . '))';
-        }
-        if ($thesaurusIds) {
-            $conceptConds[] = 'k.thesaurus_concept_id IN (' . implode(',', $thesaurusIds) . ')';
-        }
-        $keywordIds = $conn->fetchFirstColumn(
-            'SELECT k.id FROM keyword k WHERE k.keyword_type = ? AND (' . implode(' OR ', $conceptConds) . ')',
-            [$mappedType]
-        );
-        if (!$keywordIds) {
-            return $empty;
-        }
-        $keywordIdList = implode(',', array_map('intval', $keywordIds));
+        // Arestas filtram direto pelo id efetivo do vínculo (coluna indexada), sem resolver keyword.id antes.
+        $conceptIdList = implode(',', array_map('intval', array_keys($selectedNodeIds)));
 
         // ── 2. Fetch co-occurrence edges between selected keywords ─────────────
         // Sem limite de peso: no Bibliometrix a frequência mínima vale só para os nós.
@@ -112,8 +88,8 @@ class ThematicMapService
         // (o periódico), não pelo alias, e embaralhava as co-ocorrências.
         $rawEdges = $conn->fetchAllAssociative("
             SELECT
-                IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) AS src_kw,
-                IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id) AS tgt_kw,
+                dk1.effective_keyword_id AS src_kw,
+                dk2.effective_keyword_id AS tgt_kw,
                 COUNT(DISTINCT dk1.document_id) AS weight
             FROM document_keyword dk1
             JOIN document_keyword dk2
@@ -122,9 +98,9 @@ class ThematicMapService
             JOIN keyword k2 ON dk2.keyword_id = k2.id
             JOIN document d ON dk1.document_id = d.id
             WHERE d.project_id = ? AND k1.keyword_type = ? AND k2.keyword_type = ?{$yearSql}
-              AND dk1.keyword_id IN ($keywordIdList)
-              AND dk2.keyword_id IN ($keywordIdList)
-              AND IF(k1.thesaurus_concept_id IS NULL, COALESCE(k1.keyword_concept_id, k1.id), -k1.thesaurus_concept_id) < IF(k2.thesaurus_concept_id IS NULL, COALESCE(k2.keyword_concept_id, k2.id), -k2.thesaurus_concept_id)
+              AND dk1.effective_keyword_id IN ($conceptIdList)
+              AND dk2.effective_keyword_id IN ($conceptIdList)
+              AND dk1.effective_keyword_id < dk2.effective_keyword_id
             GROUP BY src_kw, tgt_kw
             ORDER BY weight DESC, src_kw ASC, tgt_kw ASC
         ", [$projectId, $mappedType, $mappedType, ...$yearParams]);

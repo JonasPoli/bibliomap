@@ -73,7 +73,7 @@ class ThreeFieldsService
             $authorRows = $this->conn->fetchAllAssociative(
                 'SELECT da.document_id, a.preferred_name AS name
                  FROM document_author da
-                 JOIN author_identity a ON a.id = da.author_identity_id
+                 JOIN author_identity a ON a.id = da.effective_author_id
                  JOIN document d ON d.id = da.document_id
                  WHERE d.project_id = ? AND a.preferred_name IN (?)
                  ORDER BY da.document_id, da.id',
@@ -99,8 +99,8 @@ class ThreeFieldsService
                 'SELECT dk.document_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term, k.keyword_type AS type
                  FROM document_keyword dk
                  JOIN keyword k ON k.id = dk.keyword_id
-                 LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-                 LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
+                 LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+                 LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
                  JOIN document d ON d.id = dk.document_id
                  WHERE d.project_id = ? AND k.keyword_type IN (?)
                    AND COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) IN (?)
@@ -209,7 +209,7 @@ class ThreeFieldsService
             return $this->conn->fetchFirstColumn(
                 'SELECT a.preferred_name AS name
                  FROM author_identity a
-                 JOIN document_author da ON a.id = da.author_identity_id
+                 JOIN document_author da ON a.id = da.effective_author_id
                  JOIN document d         ON d.id = da.document_id AND d.project_id = ?
                  GROUP BY a.id, a.preferred_name
                  ORDER BY COUNT(DISTINCT da.document_id) DESC, a.id ASC
@@ -222,13 +222,13 @@ class ThreeFieldsService
             $type = $field === 'keyword_author' ? 'author_keyword' : 'indexed_keyword';
             $rows = $this->conn->fetchAllAssociative(
                 'SELECT COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display) AS term
-                 FROM keyword k
-                 LEFT JOIN thesaurus_concept tc ON tc.id = k.thesaurus_concept_id
-            LEFT JOIN keyword kc ON k.keyword_concept_id = kc.id
-                 JOIN document_keyword dk ON k.id = dk.keyword_id
+                 FROM document_keyword dk
+                 JOIN keyword k ON k.id = dk.keyword_id
+                 LEFT JOIN thesaurus_concept tc ON tc.id = IF(dk.effective_keyword_id < 0, -dk.effective_keyword_id, NULL)
+                 LEFT JOIN keyword kc ON kc.id = IF(dk.effective_keyword_id <> dk.keyword_id, dk.effective_keyword_id, NULL)
                  JOIN document d ON d.id = dk.document_id AND d.project_id = ?
                  WHERE k.keyword_type = ?
-                 GROUP BY IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id), COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
+                 GROUP BY dk.effective_keyword_id, COALESCE(tc.preferred_label, kc.keyword_display, k.keyword_display)
                  ORDER BY COUNT(DISTINCT dk.document_id) DESC, term ASC
                  LIMIT ' . (int)$limit,
                 [$projectId, $type]

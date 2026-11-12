@@ -86,15 +86,34 @@ final class KeywordResolverService
     }
 
     /**
-     * Generates the SQL COALESCE fragment for aggregating keywords by their
-     * effective concept. Use this in raw SQL queries.
+     * Fragmento SQL do id efetivo da palavra-chave, para agrupar nas análises.
      *
-     * @param string $kwAlias The SQL alias for the keyword table (e.g., 'k')
-     * @return string SQL fragment like "IF(k.thesaurus_concept_id IS NULL, COALESCE(k.keyword_concept_id, k.id), -k.thesaurus_concept_id)"
+     * Com o alias do vínculo (`document_keyword`, ex.: 'dk') devolve a coluna `effective_keyword_id`, já
+     * calculada e indexada (positivo = keyword.id do conceito; negativo = -thesaurus_concept.id), igual à
+     * expressão antiga. Sem o alias do vínculo, mantém a expressão copiada de sempre sobre `keyword`
+     * (para quem ainda não migrou).
+     *
+     * @param string      $kwAlias Alias da tabela keyword (ex.: 'k'); usado só sem $dkAlias
+     * @param string|null $dkAlias Alias de document_keyword (ex.: 'dk')
      */
-    public function buildSqlCoalesceId(string $kwAlias = 'k'): string
+    public function buildSqlCoalesceId(string $kwAlias = 'k', ?string $dkAlias = null): string
     {
+        if ($dkAlias !== null) {
+            return "{$dkAlias}.effective_keyword_id";
+        }
+
         return "IF({$kwAlias}.thesaurus_concept_id IS NULL, COALESCE({$kwAlias}.keyword_concept_id, {$kwAlias}.id), -{$kwAlias}.thesaurus_concept_id)";
+    }
+
+    /**
+     * LEFT JOINs do rótulo a partir do id efetivo do vínculo: `tc` (conceito do tesauro, só quando o id é
+     * negativo) e `ke` (palavra-chave do conceito, só quando o id difere da própria palavra do vínculo).
+     * O NULL no ON evita buscas inúteis. Rótulo: COALESCE(tc.preferred_label, ke.keyword_display, k.keyword_display).
+     */
+    public function buildSqlEffectiveJoins(string $dkAlias = 'dk', string $tcAlias = 'tc', string $keAlias = 'ke'): string
+    {
+        return "LEFT JOIN thesaurus_concept {$tcAlias} ON {$tcAlias}.id = IF({$dkAlias}.effective_keyword_id < 0, -{$dkAlias}.effective_keyword_id, NULL) "
+             . "LEFT JOIN keyword {$keAlias} ON {$keAlias}.id = IF({$dkAlias}.effective_keyword_id <> {$dkAlias}.keyword_id, {$dkAlias}.effective_keyword_id, NULL)";
     }
 
     /**
