@@ -1,0 +1,93 @@
+# Tasks
+
+Regras para quem executa: `vendor/bin/phpunit` verde antes de cada commit; commit por grupo, direto na `main`; nada de arquivo real do OpenAlex no commit: as fixtures de `tests/fixtures/import/openalex/` são escritas à mão, com works inventados. Os arquivos reais estão em `var/exemplos/pesquisa/openalex-api/` (fora do git); os testes que os usam são pulados quando a pasta não existe. Em produção, dizer se a ação é leitura ou escrita.
+
+Pré-requisito: mudança `importacao-base-novos-formatos` implementada.
+
+Os grupos 1 a 4 e o 6 (JSON, catálogo, CSV e RIS) têm arquivo real e não dependem de nada do Jonas. Só o grupo 5 (TXT no formato Web of Science) começa por uma amostra que ele precisa exportar com a conta dele no openalex.org.
+
+Números de referência dos arquivos reais (medidos em 19/11/2026):
+
+| Conjunto | Arquivos | Registros | Observações |
+|---|---|---|---|
+| JSON da API, busca `title.search:bibliometria` | `var/exemplos/pesquisa/openalex-api/openalex-api-page1.json` a `page7.json` | 700 (de `meta.count` 801) | 251 sem DOI, 2 sem autores, 2 DOIs repetidos |
+| JSON da API, revista Em Questão 2021-2024 | `…/openalex-api-emquestao-page1.json` a `page4.json` | 340 (`meta.count` 340) | 25 sem autores |
+| CSV da interface | `var/exemplos/openalex/works-2026-11-19T16-08-23.csv` | 149 | 106 colunas, 149 Work IDs, 110 com DOI, 1 sem autor |
+| RIS da interface | `var/exemplos/openalex/works-2026-04-18T01-00-07.ris` | 9.540 | 305 sem DOI, 266 linhas de continuação, 20 bytes inválidos |
+| BibTeX da interface (não é lido) | `var/exemplos/openalex/works-2026-11-19T16-08-08.bib` | 149 | os mesmos works do CSV |
+
+## 1. Mapeador do work e resumo
+
+- [ ] 1.1 Criar `tests/fixtures/import/openalex/api-pagina.json` (resposta da API com `meta.count` 12 e 6 works inventados, numa linha só, acentos como `\uXXXX`) cobrindo: work completo com dois autores de instituições e países diferentes; sem DOI; sem `primary_location.source`; sem autores; `cited_by_count` 0; `abstract_inverted_index` nulo; autor com `display_name` igual a `,`; autor com `display_name` nulo e `raw_author_name` preenchido; página ` 291` com U+00A0; `raw_affiliation_strings` com `\r\n`; dois works com o mesmo título e ano; dois works com o mesmo DOI (acrescentar um sétimo e um oitavo se preciso). Variantes: `lista.json` (só o vetor de works) e `linhas.json` (um work por linha). Verificação: `php -r 'json_decode(file_get_contents($argv[1]), flags: JSON_THROW_ON_ERROR);'` passa nos dois primeiros.
+- [ ] 1.2 Criar `src/Service/Import/OpenAlex/OpenAlexWorkMapper.php` com `fromApiWork()` (design D3) e `rebuildAbstract()` (design D4). Teste `tests/Service/Import/OpenAlex/OpenAlexWorkMapperTest.php`: um caso por linha da tabela do design D3 e por cenário dos requisitos "Campos do work", "Resumo reconstruído" e "Referências do work"; índice invertido com posição 5.000.000 não estoura a memória; `strictIdentity` verdadeiro; `externalId` `W…`. Verificação: teste passa.
+
+## 2. Leitor do JSON
+
+- [ ] 2.1 `composer require halaxa/json-machine` (conferir a licença e a versão compatível com PHP 8.2+). Verificação: `composer.json` e `composer.lock` atualizados e `vendor/bin/phpunit` verde.
+- [ ] 2.2 Criar `src/Service/Import/OpenAlex/OpenAlexJsonImporter.php`: `supports('json','openalex')`, `detect()`, `parse()`, `parseStream()`, `countRows()`, `previewNotice()` com `meta.count`, `getSourceKey() = 'openalex'`, `getSourceName() = 'OpenAlex'`; as três formas do design D2; item sem `id` ou que não é objeto vira `UnreadableRecord`. Registrar em `config/services.yaml` com a tag `app.bibliographic_importer`. Verificação: `bin/console lint:container`.
+- [ ] 2.3 Teste `tests/Service/Import/OpenAlex/OpenAlexJsonImporterTest.php`: `detect()` = 1,0 nas três fixtures e 0 para `{"records":[],"resultCount":0}` e para `{"works":[{"id":18014}]}`; mesmas contagens e mesmos DTO nas três formas; `countRows()` igual ao número entregue; `previewNotice()` com "a busca tem 12 resultados; este arquivo traz 6"; item `null` no meio do vetor vira `UnreadableRecord` com a posição certa. Verificação: teste passa.
+- [ ] 2.4 `ImportController::upload()`: usar `meta.count` para pré-preencher "Total de resultados mostrado pela base" na prévia (um arquivo) e para gravar `expected_count` no envio de vários arquivos. Verificação: prévia de `api-pagina.json` mostra 12 no campo.
+- [ ] 2.5 Teste de banco `tests/Service/Import/OpenAlex/OpenAlexImportDbTest.php` (base `LocalDbTestCase`): importar `api-pagina.json` → lidos = importados + duplicados, com os dois works de mesmo título e ano importados e o segundo work de mesmo DOI como duplicado `doi`; reimportar → todos duplicados; projeto com um documento do Scopus de mesmo título e ano → o work conta como duplicado `hash`. Verificação: teste passa.
+- [ ] 2.6 Teste de desempenho local: gerar em pasta temporária um JSON com 20.000 cópias de um work da fixture (IDs sequenciais, cerca de 100 MB) e rodar `countRows()` e `parseStream()` até o fim. Verificação: pico de memória abaixo de 64 MB e tempo anotado aqui.
+- [ ] 2.7 Teste local com os JSON reais (pulado sem a pasta): 100 works por arquivo de página cheia; 700 `externalId` distintos nas 7 páginas da busca; 340 distintos nas 4 da revista; 0 `UnreadableRecord`; 251 sem DOI na busca; nenhum autor sem letra; registrar aqui quantos works têm resumo reconstruído e conferir à mão 3 resumos contra a página do work em openalex.org (leitura). Verificação: teste passa e os 3 resumos conferem.
+- [ ] 2.8 `vendor/bin/phpunit` e commit "Importação: leitor do JSON do OpenAlex".
+
+## 3. Catálogo, guia e textos
+
+- [ ] 3.1 `src/Config/DataSources.php`: `openalex` com `formats ['json','csv','txt','ris']`, `limit` nulo, `hasReader` true e `guide`. Criar `templates/import/guides/_openalex.html.twig` com o conteúdo do design D8, no lugar do painel com "Ainda sem leitor". Verificação: aba OpenAlex sem o aviso antigo; `lint:twig`.
+- [ ] 3.2 Trocar os textos que dizem que o OpenAlex não é lido: `templates/import/index.html.twig` (linhas 540, 545 e 711 antes da refatoração da mudança de base; localizar por "Ainda sem leitor" e "OpenAlex, Crossref, RIS"), `templates/import/preview.html.twig` linha 53, `config/help/import.yaml` (linhas 16, 130-137, 218 e 284), `README.md`. Verificação: `grep -rn -i "openalex" templates config/help README.md` não traz mais frase dizendo que não há leitor; `HelpCatalogTest` passa.
+- [ ] 3.3 Migration de dados: `UPDATE` da linha `openalex` de `academic_database` (design D8); `down()` volta aos valores antigos (`["csv"]` e `[]`). Verificação: subir, descer e subir no banco local.
+- [ ] 3.4 `vendor/bin/phpunit`, `lint:twig templates`, `lint:yaml config` e commit "Importação: OpenAlex com leitor no catálogo e guia de exportação".
+
+## 4. Leitor do CSV da interface
+
+- [ ] 4.1 Criar as fixtures em `tests/fixtures/import/openalex/`, com works inventados: `interface-completo.csv` (sem BOM, `\r\n`, as 106 colunas do arquivo real na mesma ordem, 8 linhas) cobrindo: work completo; `Country` `BR||BR|BR||||BR|` e `Institution` com posição vazia; autor com vírgula sem `|`; título com vírgula e aspas duplicadas; sem DOI; sem autor; sem fonte e sem ISSN; `ISSN` com dois valores; `Open Access status` `closed` com `Open access` `NOT Open Access`; `Cites` com 3 Work IDs; `Citation count` 0; dois works com o mesmo título e ano. `interface-excel.csv` (o mesmo, com BOM e `Cites` cortada em 30.000 caracteres no meio de um identificador). `interface-padrao.csv` (só `Title, Author, Year, Citation count, Open access`). `v2.csv` e `v1.csv` (gerações antigas, cabeçalhos do design). Verificação: `head -1 interface-completo.csv` igual ao cabeçalho do arquivo real.
+- [ ] 4.2 Criar `src/Service/Import/OpenAlex/OpenAlexCsvImporter.php` (design D5): sinônimos, separador `|`, listas por autor com posições vazias, `Open Access status`, `blockingNotice()`, `strictIdentity` quando há Work ID, `position` preenchida. Registrar em `config/services.yaml`. `ImportController::upload()` e `preview.html.twig`: mostrar `blockingNotice()` e esconder o botão de confirmar; no envio de vários arquivos, ignorar o arquivo com o aviso. Verificação: `bin/console lint:container`.
+- [ ] 4.3 Teste `tests/Service/Import/OpenAlex/OpenAlexCsvImporterTest.php`: `detect()` em cada fixture e 0 nos cabeçalhos de Scopus, Lens, PubMed, BRAPCI, BDTD e EBSCO (e os leitores deles devolvem 0 para as fixtures do OpenAlex); um teste por cenário dos requisitos "CSV exportado pela interface" e "CSV sem identificador"; o identificador cortado no fim de `Cites` é descartado; acrescentar o OpenAlex ao `CsvImporterCountTest::multilineFiles()`. Verificação: teste passa.
+- [ ] 4.4 Teste local com o CSV real (pulado sem a pasta): 149 lidos, 0 `UnreadableRecord`, 149 Work IDs distintos, 110 com DOI, 1 sem autor; nenhum autor, instituição ou país vazio nas listas; países só com códigos de 2 letras; volume, número e páginas nulos em todos. Verificação: teste passa.
+- [ ] 4.5 Totais das buscas confirmados pelo Jonas em 19/11/2026: **149 works** para o CSV e o BibTeX e **9.540 works** para o RIS, iguais ao número de registros de cada arquivo. Usar esses valores no campo "Total de resultados mostrado pela base" dos testes 7.5 e 7.6. Se ele puder, pedir a variante "CSV (Excel)" da busca dos 149 e conferir BOM e corte de células. Verificação: os testes 7.5 e 7.6 fecham sem aviso de diferença para a base.
+- [ ] 4.6 `vendor/bin/phpunit` e commit "Importação: leitor do CSV do OpenAlex".
+
+## 5. TXT no formato Web of Science (depende de amostra do Jonas)
+
+- [ ] 5.1 O Jonas exporta em "Text (Web of Science plain text)" a mesma busca do CSV de 149 works para `var/exemplos/openalex/`. Registrar aqui: as duas primeiras linhas, a lista de marcações na ordem, onde vêm o Work ID e as citações, e o número de `ER`. Verificação: ficha registrada e design D6 corrigido onde a realidade diferir.
+- [ ] 5.2 `src/Service/Import/WosImporter.php`: `detect()` devolve 0 para `FN OpenAlex` e só aplica a regra de 0,6 quando não há linha `FN`; `parseRecordsFromFile()` e auxiliares passam a `protected`. Teste em `tests/Service/Import/WosDetectTest.php`: cabeçalho da Clarivate = 1,0; `FN OpenAlex` = 0; arquivo que começa em `PT J` sem `FN` = 0,6. Verificação: teste passa e a regressão da tarefa 4.7 da mudança de base (arquivo real da Web of Science) continua igual.
+- [ ] 5.3 Criar `src/Service/Import/OpenAlex/OpenAlexWosImporter.php` (design D6) e registrar em `config/services.yaml`. Fixture `tests/fixtures/import/openalex/wos.txt` com 4 registros inventados: com `UT` e `TC`; sem `UT` e com `CT`; com marcação vazia (`VL` sozinho); com `C1` de dois autores. Teste `OpenAlexWosImporterTest`: os cenários do requisito "TXT do OpenAlex no formato Web of Science". Verificação: teste passa.
+- [ ] 5.4 (leitura em produção) Contar documentos gravados como `wos` sem identificador da Web of Science: `SELECT dataset_id, COUNT(*) FROM document WHERE source = 'wos' AND (external_id IS NULL OR external_id NOT LIKE 'WOS:%') GROUP BY dataset_id`. Verificação: resultado anotado aqui e informado ao Jonas; nada é alterado.
+- [ ] 5.5 Teste local com o TXT real: 149 lidos (ou o total da busca exportada); base OpenAlex; citações preenchidas; comparar 10 works com o CSV real, campo a campo (título, ano, DOI, autores, fonte, citações). Verificação: teste passa.
+- [ ] 5.6 `vendor/bin/phpunit` e commit "Importação: TXT do OpenAlex deixa de entrar como Web of Science".
+
+## 6. RIS
+
+- [ ] 6.1 Fixture `tests/fixtures/import/openalex/openalex.ris` com 5 registros inventados na ordem real das marcações (`TY, TI, PY, PB, SN, T2, DO, UR, DA, AU, C1, LA, KW, VL, IS, SP, EP, AB, ER`), cobrindo: autor com dois `C1`; `C1` que continua em duas linhas, uma delas terminada em `\r`; registro sem `DO` e sem `UR`; `TY  - CHAP` e `TY  - THES`; `ER  -` sem espaço final; um byte UTF-8 inválido no resumo. Verificação: `grep -c '^TY  - '` dá 5.
+- [ ] 6.2 Criar `src/Service/Import/OpenAlex/OpenAlexRisImporter.php` (design D7) com `previewNotice()` e registrar. Criar `src/Service/Import/AffiliationParser.php` movendo de `ScopusCsvImporter` (linhas 215-305) `extractCountries()`, `normalizeCountryFromAffiliationLastSegment()` e `extractInstitutions()`, sem mudar o comportamento; o leitor do Scopus passa a usá-la, com teste de saída idêntica para 10 afiliações fixas e a regressão do arquivo real do Scopus. Teste `OpenAlexRisImporterTest`: `detect()` = 0,7 na fixture e 0 nos RIS de fixture da BRAPCI e da BDTD (e os leitores deles ganham nas fixtures deles); os cenários do requisito "RIS do OpenAlex"; nenhuma palavra-chave gravada. Teste de banco: work importado pelo CSV e depois o mesmo pelo RIS, com DOI → duplicado `doi`; sem DOI e mesmo título e ano → duplicado `hash`; ordem inversa (RIS primeiro, CSV depois) → o do CSV é o duplicado. Verificação: testes passam.
+- [ ] 6.3 Teste local com o RIS real (pulado sem a pasta): 9.540 lidos, 0 `UnreadableRecord`; 9.235 com DOI e 305 sem; nenhuma afiliação com `\r` ou quebra de linha; tipos convertidos (8.151 "article", 1.013 "book-chapter"); pico de memória de `parseStream()` abaixo de 64 MB. Verificação: teste passa.
+- [ ] 6.4 `vendor/bin/phpunit` e commit "Importação: leitor do RIS do OpenAlex".
+
+## 7. Teste no navegador, ambiente local
+
+Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e projetos de teste novos no banco local. O item 7.7 só depois do grupo 5.
+
+- [ ] 7.1 Em `/projects/{id}/import`, aba OpenAlex: conferir o guia. Enviar uma página real da busca (`openalex-api-page1.json`). Verificação: prévia mostra OpenAlex, confiança 100%, 100 registros, o aviso "a busca tem 801 resultados; este arquivo traz 100" e o campo de total com 801.
+- [ ] 7.2 Confirmar e acompanhar até o fim. Verificação: 100 lidos = importados + duplicados + erros, 0 erros; aviso de que a base informou 801 e o arquivo tem 100.
+- [ ] 7.3 Enviar de uma vez as outras 6 páginas da busca. Verificação: 6 datasets criados; ao final o projeto tem 700 documentos menos os duplicados por DOI (2 casos conhecidos), todos listados nos datasets; soma dos lidos = 700.
+- [ ] 7.4 Reenviar a primeira página. Verificação: 100 duplicados. Conferir na tela 5 documentos contra a página do work em openalex.org (título, autores, ano, fonte, volume, citações, resumo, países). Num segundo projeto, enviar as 4 páginas da revista. Verificação: 340 lidos e importados, 25 documentos sem autor; os 5 conferem.
+- [ ] 7.5 Num terceiro projeto, enviar o CSV real. Verificação: prévia OpenAlex com 149 registros; 149 lidos e importados; conta fechada; total informado igual ao anotado em 4.5. Enviar a fixture `interface-padrao.csv`. Verificação: prévia recusa com a mensagem e sem botão de confirmar. Reenviar o CSV real: 149 duplicados.
+- [ ] 7.6 Num quarto projeto, enviar o RIS real (21 MB), anotando a duração da importação e a do enriquecimento. Verificação: prévia OpenAlex com 9.540 e o aviso do RIS; 9.540 lidos; duplicados só por DOI ou título + ano repetidos dentro do próprio arquivo, todos listados; 0 erros; documentos com instituições e países extraídos de `C1` e sem palavras-chave.
+- [ ] 7.7 (depois do grupo 5) Em projeto novo, enviar o TXT real. Verificação: prévia indica OpenAlex (não Web of Science); lidos = total da busca.
+- [ ] 7.8 Abrir no projeto do 7.3 os relatórios de produção, autores, países, instituições, palavras-chave e fontes. Verificação: todos abrem sem erro, com países e instituições preenchidos.
+- [ ] 7.9 Registrar o resultado (números e capturas de tela) em `var/exemplos/testes/openalex-local.md`. Verificação: arquivo existe.
+
+## 8. Produção e teste no navegador em produção
+
+- [ ] 8.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente.
+- [ ] 8.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod` (instala `halaxa/json-machine`); `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente; `composer show halaxa/json-machine` no servidor.
+- [ ] 8.3 (leitura) Anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
+- [ ] 8.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22 e autores e palavras-chave nas tabelas globais) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar as 4 páginas JSON da revista Em Questão (340 works), acompanhar até o fim. Verificação: 340 lidos; conta fechada; 5 documentos conferidos contra openalex.org.
+- [ ] 8.5 (escrita) Reenviar uma das páginas. Verificação: 100 duplicados. Enviar também o CSV real de 149 works (`works-2026-11-19T16-08-23.csv`) e conferir o total contra o "N works" anotado em 4.5; o RIS de 9.540 só com a concordância do Jonas e fora do horário de uso, por causa da CPU compartilhada.
+- [ ] 8.6 (leitura) Conferência depois: log da importação sem erro; projeto 22 com o número de 8.3 mais os importados; outro projeto com o mesmo número de documentos de antes. Verificação: os três pontos anotados aqui.
+- [ ] 8.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos. Verificação: decisão anotada aqui e cumprida.
+
+## Workflow follow-up
+
+- Arquivar a mudança (com sincronização das specs `importacao-openalex` e `importacao-de-datasets`) depois da tarefa 8.7. Se o grupo 5 (TXT) ficar esperando amostra, decidir com o Jonas entre arquivar com ele pendente ou manter a mudança aberta.
