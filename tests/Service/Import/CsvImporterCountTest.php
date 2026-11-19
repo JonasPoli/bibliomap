@@ -88,4 +88,19 @@ class CsvImporterCountTest extends TestCase
         $this->assertInstanceOf(BibliographicRecordDTO::class, $dto);
         $this->assertSame([], $dto->countries);
     }
+
+    /** Texto com barra invertida antes da aspa, como no Scopus real (\"LocoBoar\"): não desloca as colunas seguintes. */
+    public function testBarraInvertidaAntesDaAspaNaoDeslocaColunas(): void
+    {
+        $path = $this->csv(
+            'Authors,Title,Year,Funding Texts,EID,Cited by,Author Keywords,Language of Original Document' . "\n"
+            . '"Silva J.","T1",2020,"iniciativas como \""LocoBoar\"" (financiado, código 16KN)",2-s2.0-1,3,a,English' . "\n"
+            . '"Souza M.","T2",2021,"termina em barra \\",2-s2.0-2,0,c,Portuguese' . "\n"
+            . '"Lima A.","T3",2022,"x",2-s2.0-3,0,d,Spanish' . "\n"
+        );
+        $rows = iterator_to_array((new ScopusCsvImporter())->parseStream($path), false);
+        $this->assertCount(3, $rows, 'célula terminada em barra invertida juntava dois registros');
+        $this->assertSame(['2-s2.0-1', '2-s2.0-2', '2-s2.0-3'], array_map(fn ($r) => $r->externalId, $rows));
+        $this->assertSame(['English', 'Portuguese', 'Spanish'], array_map(fn ($r) => $r->language, $rows));
+    }
 }

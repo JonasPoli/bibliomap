@@ -19,6 +19,7 @@ class LensCsvImporter implements BibliographicImporterInterface
     {
         try {
             $reader = Reader::from($filePath);
+            $reader->setEscape(''); // CSV padrão: sem escape por barra invertida (célula terminada em \\" engolia as colunas seguintes)
             $reader->setHeaderOffset(0);
             $headers = $reader->getHeader();
 
@@ -45,6 +46,7 @@ class LensCsvImporter implements BibliographicImporterInterface
         $result->detectedFormat = 'csv';
 
         $reader = Reader::from($filePath);
+        $reader->setEscape(''); // CSV padrão: sem escape por barra invertida (célula terminada em \\" engolia as colunas seguintes)
         $reader->setHeaderOffset(0);
         $result->headers = $reader->getHeader();
 
@@ -74,6 +76,7 @@ class LensCsvImporter implements BibliographicImporterInterface
     public function parseStream(string $filePath): \Generator
     {
         $reader = Reader::from($filePath);
+        $reader->setEscape(''); // CSV padrão: sem escape por barra invertida (célula terminada em \\" engolia as colunas seguintes)
         $reader->setHeaderOffset(0);
 
         foreach ($reader->getRecords() as $record) {
@@ -92,6 +95,7 @@ class LensCsvImporter implements BibliographicImporterInterface
         // podem conter quebras de linha. Mesma leitura usada por parseStream().
         try {
             $reader = Reader::from($filePath);
+            $reader->setEscape(''); // CSV padrão: sem escape por barra invertida (célula terminada em \\" engolia as colunas seguintes)
             $reader->setHeaderOffset(0);
             return count($reader);
         } catch (\Throwable) {
