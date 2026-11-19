@@ -55,6 +55,7 @@ final class DataVersionTracker
     private bool $shutdownRegistered = false;
     private bool $authorityDirty = false;
     private int $suspended = 0;
+    private int|string|null $preservedLastInsertId = null;
 
     /**
      * Diz se o comando grava dados e em qual tabela.
@@ -167,6 +168,17 @@ final class DataVersionTracker
     public function setConnection(DriverConnection $connection): void
     {
         $this->connection = $connection;
+        $this->preservedLastInsertId = null;
+    }
+
+    public function getPreservedLastInsertId(): int|string|null
+    {
+        return $this->preservedLastInsertId;
+    }
+
+    public function clearPreservedLastInsertId(): void
+    {
+        $this->preservedLastInsertId = null;
     }
 
     public function transactionStarted(): void
@@ -261,10 +273,24 @@ final class DataVersionTracker
         if (!$this->dirty || $this->connection === null) {
             return;
         }
+        // O BUMP_SQL roda na mesma conexão interna e zera PDO::lastInsertId() no MySQL.
+        // Preservamos o ID gerado pela instrução anterior para que o chamador ainda o leia.
+        $savedId = $this->preservedLastInsertId;
+        if ($savedId === null) {
+            try {
+                $candidate = $this->connection->lastInsertId();
+                if ($candidate !== '' && $candidate !== '0' && $candidate !== 0) {
+                    $savedId = $candidate;
+                }
+            } catch (\Throwable) {
+                $savedId = null;
+            }
+        }
         try {
             $this->connection->exec(self::BUMP_SQL);
             $this->dirty = false;
             $this->lastBump = microtime(true);
+            $this->preservedLastInsertId = $savedId;
         } catch (\Throwable) {
             // Tabela ainda não criada (deploy antes da migration) ou conexão perdida: o cache
             // tem validade curta e o AnalyticsCache não grava quando não consegue ler a versão.

@@ -62,6 +62,7 @@ final class DataVersionMiddleware implements Middleware
 
                             public function execute(): Result
                             {
+                                $this->tracker->clearPreservedLastInsertId();
                                 $result = parent::execute();
                                 $this->tracker->statementExecuted($this->sql);
 
@@ -72,6 +73,7 @@ final class DataVersionMiddleware implements Middleware
 
                     public function query(string $sql): Result
                     {
+                        $this->tracker->clearPreservedLastInsertId();
                         $result = parent::query($sql);
                         $this->tracker->statementExecuted($sql);
 
@@ -80,10 +82,21 @@ final class DataVersionMiddleware implements Middleware
 
                     public function exec(string $sql): int|string
                     {
+                        $this->tracker->clearPreservedLastInsertId();
                         $result = parent::exec($sql);
                         $this->tracker->statementExecuted($sql);
 
                         return $result;
+                    }
+
+                    public function lastInsertId(): int|string
+                    {
+                        $preserved = $this->tracker->getPreservedLastInsertId();
+                        if ($preserved !== null) {
+                            return $preserved;
+                        }
+
+                        return parent::lastInsertId();
                     }
 
                     public function beginTransaction(): void
