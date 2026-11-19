@@ -39,6 +39,13 @@ class OpenAlexWosImporter extends WosImporter
             $ct = $this->field($raw, 'CT');
             $dto->citedBy = $ct !== null && ctype_digit($ct) ? (int) $ct : null;
         }
+        // Mesma grafia do JSON e do CSV do OpenAlex: tipo em minúsculas ("book-chapter"), acesso aberto "Green"
+        if ($dto->documentType !== null) {
+            $dto->documentType = strtolower($dto->documentType);
+        }
+        if ($dto->openAccessStatus !== null && $dto->openAccessStatus !== '') {
+            $dto->openAccessStatus = strtolower($dto->openAccessStatus) === 'closed' ? 'Closed' : ucfirst(strtolower($dto->openAccessStatus));
+        }
         foreach (['volume', 'issue', 'pageStart', 'pageEnd', 'issn', 'language', 'publisher', 'sourceTitle'] as $f) {
             if ($dto->$f !== null && trim($dto->$f) === '') {
                 $dto->$f = null;

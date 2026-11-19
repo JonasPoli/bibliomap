@@ -18,9 +18,10 @@ As mudanças `importacao-base-novos-formatos`, `importacao-brapci`, `importacao-
 <!-- Nenhuma. -->
 
 ### Modified Capabilities
-<!-- Nenhuma: são tarefas de conferência e decisão. Se a correção do escape nos leitores antigos for aprovada, ela vira uma mudança própria com delta da spec importacao-de-datasets. -->
+- `importacao-de-datasets`: novo requisito "CSV lido sem caractere de escape" (correção aprovada pelo Jonas em 19/11/2026).
 
 ## Impact
 
 - Produção: só escrita com aprovação do Jonas em cada tarefa (importações no projeto 22, exclusão de datasets).
-- Código: nenhum, exceto se o leitor do TXT do OpenAlex precisar de ajuste à amostra real (tarefa 3.2).
+- Código: leitores de CSV do Scopus, do Lens e do PubMed sem caractere de escape; leitor do TXT do OpenAlex ajustado à amostra real (tipo em minúsculas e acesso aberto com inicial maiúscula, como no JSON e no CSV); guia, ajuda e limite da LISTA.
+- Dados já gravados: em produção, 124 registros do CSV do Scopus de 20.000 e 3 do CSV do Lens de 50.000 foram lidos com colunas deslocadas antes da correção. A correção vale para importações novas; corrigir os documentos já gravados é decisão do Jonas (tarefa 5.2).

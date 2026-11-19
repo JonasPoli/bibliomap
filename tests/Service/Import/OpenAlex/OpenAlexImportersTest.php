@@ -303,5 +303,25 @@ class OpenAlexImportersTest extends TestCase
         $this->assertSame(9540, $n);
         $this->assertSame(9235, $withDoi);
         $this->assertSame(0.7, $ris->detect($ui . 'works-2026-04-18T01-00-07.ris'));
+
+        // TXT "Web of Science plain text" real (716 works)
+        $txt = $ui . 'works-2026-11-19T17-42-37.txt';
+        if (is_file($txt)) {
+            $this->assertSame(0.0, (new WosImporter())->detect($txt));
+            $this->assertSame(1.0, (new OpenAlexWosImporter())->detect($txt));
+            $r = $this->items(new OpenAlexWosImporter(), $txt);
+            $this->assertCount(716, $r);
+            $this->assertCount(716, array_unique(array_map(fn ($d) => $d->externalId, $r)));
+            $this->assertCount(716, array_filter($r, fn ($d) => $d->citedBy !== null));
+            $this->assertCount(528, array_filter($r, fn ($d) => $d->doi !== null));
+            $this->assertSame('W7163887819', $r[0]->externalId);
+            $this->assertSame('other', $r[0]->documentType);
+            $this->assertSame('Green', $r[0]->openAccessStatus);
+            $this->assertSame(['BR'], $r[0]->countries);
+            // Os works do TXT que também estão no CSV têm o mesmo Work ID
+            $csvIds = array_map(fn ($d) => $d->externalId, $csv);
+            $this->assertContains('W4415175999', $csvIds);
+            $this->assertSame('W4415175999', $r[1]->externalId);
+        }
     }
 }

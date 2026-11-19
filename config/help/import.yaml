@@ -153,7 +153,7 @@ import.source.lista:
   what: |-
     Lê o CSV exportado da EBSCO para a LISTA (Library, Information Science & Technology Abstracts): título, autores, data, periódico, editora, volume, número, páginas, ISSN, DOI, idioma, resumo, tipo, assuntos da EBSCO e o endereço permanente. Cada registro é identificado pela base da EBSCO e pelo número de acesso.
   how: |-
-    Limite a busca à LISTA, exporte em CSV e envie o arquivo como veio. Se exportar em partes, envie todas de uma vez: as repetições entre partes contam como duplicados.
+    Entre pelo Portal de Periódicos da CAPES (CAFe), limite a busca à LISTA, exporte em CSV e envie o arquivo como veio. A EBSCO exporta até 50 registros por vez: exporte em partes de 50 e envie todas de uma vez; as repetições entre partes contam como duplicados.
   not: |-
     Não traz afiliação, país, citações nem referências. Registros de outras bases da EBSCO no mesmo arquivo também entram (a prévia avisa quantos). O título é gravado sem o ponto final que a EBSCO acrescenta, para reconhecer o mesmo artigo vindo de outra base. BibTeX e XML da EBSCO são recusados.
   example: |-

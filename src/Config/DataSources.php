@@ -169,7 +169,7 @@ final class DataSources
             'logoBg'      => null,
             'formats'     => ['csv'],
             'emoji'       => '🏛️',
-            'limit'       => null,
+            'limit'       => 50,
             'bgColor'     => '#0d1520',
             'accentColor' => '#2f81f7',
         ],
