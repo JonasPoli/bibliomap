@@ -159,9 +159,9 @@
 {% if possibleRepeats %}
 <div class="bm-card mb-4">
     <h3 style="font-size:12px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 6px">
-        <i class="bi bi-intersect me-1"></i>Possíveis repetições ({{ possibleRepeats|length }} grupo{{ possibleRepeats|length > 1 ? 's' : '' }}, {{ possibleRepeatsDocs|number_format }} documentos) {{ help('dataset.show.possible_repeats') }}
+        <i class="bi bi-intersect me-1"></i>Possíveis repetições ({{ possibleRepeatsGroups|number_format }} grupo{{ possibleRepeatsGroups > 1 ? 's' : '' }}, {{ possibleRepeatsDocs|number_format }} documentos) {{ help('dataset.show.possible_repeats') }}
     </h3>
-    <p style="font-size:12px;color:var(--bm-text-muted);margin:0 0 10px">Documentos deste dataset com o mesmo título e o mesmo ano. Foram importados todos, porque a base os identifica como registros diferentes.</p>
+    <p style="font-size:12px;color:var(--bm-text-muted);margin:0 0 10px">Documentos deste dataset com o mesmo título e o mesmo ano. Foram importados todos, porque a base os identifica como registros diferentes.{% if possibleRepeatsGroups > possibleRepeats|length %} A lista mostra os {{ possibleRepeats|length }} primeiros grupos.{% endif %}</p>
     <div style="max-height:320px;overflow:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
             {% for g in possibleRepeats %}

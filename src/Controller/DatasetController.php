@@ -88,7 +88,14 @@ class DatasetController extends AbstractController
             } catch (\Throwable) {}
         }
 
-        // Possíveis repetições: mesmo título e ano dentro do dataset (importadas todas)
+        // Possíveis repetições: mesmo título e ano dentro do dataset (importadas todas). A lista mostra até 200 grupos;
+        // o total vem de uma contagem à parte.
+        $repeatTotals = $this->em->getConnection()->fetchAssociative(
+            'SELECT COUNT(*) AS groups_count, COALESCE(SUM(c), 0) AS docs FROM (
+                SELECT COUNT(*) AS c FROM document WHERE dataset_id = ? AND normalized_title IS NOT NULL AND year IS NOT NULL
+                 GROUP BY MD5(normalized_title), year HAVING COUNT(*) > 1) g',
+            [$dataset->getId()]
+        ) ?: ['groups_count' => 0, 'docs' => 0];
         $possibleRepeats = $this->em->getConnection()->fetchAllAssociative(
             'SELECT MIN(title) AS title, year, COUNT(*) AS c, GROUP_CONCAT(id ORDER BY id) AS ids
                FROM document WHERE dataset_id = ? AND normalized_title IS NOT NULL AND year IS NOT NULL
@@ -113,7 +120,8 @@ class DatasetController extends AbstractController
             'activeTab' => $activeTab,
             'typeCounts' => $typeCounts,
             'possibleRepeats' => $possibleRepeats,
-            'possibleRepeatsDocs' => array_sum(array_map(fn ($g) => (int) $g['c'], $possibleRepeats)),
+            'possibleRepeatsGroups' => (int) $repeatTotals['groups_count'],
+            'possibleRepeatsDocs' => (int) $repeatTotals['docs'],
         ]);
     }
 
