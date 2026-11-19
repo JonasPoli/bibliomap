@@ -16,7 +16,7 @@ Os 10 do primeiro estão nos 50 do segundo; o segundo e o terceiro têm 6 em com
 
 ## 1. Perguntas ao Jonas
 
-- [ ] 1.1 Perguntar ao Jonas e anotar aqui: por onde ele chega à base (Portal CAPES, biblioteca da UFSCar, outro) e com que nome ela aparece; se a busca dos arquivos de exemplo estava limitada à LISTA; quantos registros a tela deixa exportar por vez e como ele gerou o arquivo de 10 e os de 50; se a tela de exportação oferece RIS além de CSV, BibTeX e XML; onde aparece o total de resultados da busca. Verificação: as cinco respostas estão nesta tarefa e o guia (4.1) e o campo `limit` do catálogo as usam.
+- [ ] 1.1 Perguntar ao Jonas e anotar aqui: por onde ele chega à base (Portal CAPES, biblioteca da UFSCar, outro) e com que nome ela aparece; se a busca dos arquivos de exemplo estava limitada à LISTA; quantos registros a tela deixa exportar por vez e como ele gerou o arquivo de 10 e os de 50; se a tela de exportação oferece RIS além de CSV, BibTeX e XML; onde aparece o total de resultados da busca. Verificação: as cinco respostas estão nesta tarefa e o guia (4.1) e o campo `limit` do catálogo as usam. (19/11/2026: movida para a mudança `importacao-pendencias`, tarefa 4.1, ao arquivar.)
 
 ## 2. Leitor do CSV
 
@@ -56,9 +56,9 @@ Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e pro
 - [x] 6.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente e uma linha `lista` em `academic_database`.
 - [x] 6.3 (leitura) Anotar o número de documentos e de datasets do projeto 22, o número de linhas de `qualis_journal` e conferir que não há importação rodando. Verificação: números anotados aqui.
 - [x] 6.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22, autores e palavras-chave nas tabelas globais e periódicos novos em `qualis_journal`) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar `EBSCO-Metadata-11_19_2026 (1).csv`, informar o total da busca se o Jonas o tiver, confirmar e acompanhar até o fim. Verificação: 50 lidos e importados; conta fechada; 5 documentos conferidos. (19/11/2026: dataset 59: 50 lidos = 24 importados + 26 duplicados, por DOI e por título e ano de artigos que entraram pela BRAPCI; o arquivo de várias bases só na prévia, com o aviso "44 dos 50 registros não são da LISTA", sem confirmar.)
-- [ ] 6.5 (escrita) Reenviar o mesmo arquivo. Verificação: 50 duplicados.
+- [ ] 6.5 (escrita) Reenviar o mesmo arquivo. Verificação: 50 duplicados. (19/11/2026: movida para a mudança `importacao-pendencias`, tarefa 1.4, ao arquivar.)
 - [x] 6.6 (leitura) Conferência depois: log sem erro; projeto 22 com o número de 6.3 mais os importados; outro projeto com o mesmo número de documentos e o mesmo Qualis de antes; quantos periódicos novos entraram em `qualis_journal`. Verificação: os pontos anotados aqui. (19/11/2026: 9 periódicos vinculados à LISTA; `qualis_journal` sem linha nova.)
-- [ ] 6.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos. Verificação: decisão anotada aqui e cumprida.
+- [ ] 6.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos. Verificação: decisão anotada aqui e cumprida. (19/11/2026: movida para a mudança `importacao-pendencias`, tarefa 2.1, ao arquivar.)
 
 ## Workflow follow-up
 

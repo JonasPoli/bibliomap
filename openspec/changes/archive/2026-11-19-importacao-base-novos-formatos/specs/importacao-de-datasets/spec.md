@@ -26,7 +26,7 @@ O sistema SHALL recusar, no envio e no comando, um arquivo de texto cujo início
 - **THEN** o arquivo não é recusado pelo teste de UTF-8
 
 ### Requirement: Escolha do leitor
-O comando SHALL escolher o leitor primeiro pela base e pelo formato declarados no dataset e, se não houver, pela detecção automática com pontuação acima de 0,5. Quando o leitor da base declarada reconhece o arquivo com pontuação abaixo de 0,3 e outro leitor o reconhece com 0,8 ou mais, o comando SHALL usar o leitor detectado, gravar no dataset a base detectada e registrar o aviso da troca. Sem leitor, o dataset SHALL ir para `error` com a mensagem "Formato não reconhecido", que lista os formatos lidos.
+O comando SHALL escolher o leitor primeiro pela base e pelo formato declarados no dataset e, se não houver, pela detecção automática com pontuação acima de 0,5. Quando o leitor da base declarada reconhece o arquivo com pontuação abaixo de 0,3 e outro leitor o reconhece com 0,8 ou mais, o comando SHALL usar o leitor detectado, gravar a base detectada e avisar a troca. Sem leitor, o dataset SHALL ir para `error` com a mensagem "Formato não reconhecido", que lista os formatos lidos.
 
 #### Scenario: CSV de base desconhecida
 - **WHEN** nenhum leitor reconhece o arquivo
