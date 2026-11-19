@@ -153,7 +153,7 @@ class OpenAlexImportersTest extends TestCase
         $this->assertSame('Diamond', $a->openAccessStatus);
         $this->assertSame(['bibliometria', 'redes'], $a->indexedKeywords);
         $this->assertNull($a->volume);
-        $this->assertSame(['Universidad Complutense de Madrid, España', 'Jacinto Gómez López'], $r[1]->authorNames);
+        $this->assertSame(['Universidad Complutense de Madrid, España', 'Jacinto Gómez Teste'], $r[1]->authorNames);
         $this->assertSame('Closed', $r[1]->openAccessStatus);
         $this->assertSame('Sem DOI, com vírgula, e "aspas"', $r[1]->title);
         $this->assertSame([], $r[2]->authorNames);
@@ -239,7 +239,7 @@ class OpenAlexImportersTest extends TestCase
         $this->assertNull($a->externalId);
         $this->assertFalse($a->strictIdentity);
         $this->assertSame('10.1016/j.compag.2018.08.001', $a->doi);
-        $this->assertSame(['Patrício, Diego', 'Rieder, Rafael'], $a->authorNames);
+        $this->assertSame(['Paiva, Diego', 'Rocha, Rafael'], $a->authorNames);
         $this->assertSame([], $a->authorKeywords);
         $this->assertSame([], $a->indexedKeywords, 'KW traz conceitos: não são importados');
         $this->assertContains('University of Passo Fundo, Passo Fundo, Rio Grande do Sul, Brazil', $a->affiliations);

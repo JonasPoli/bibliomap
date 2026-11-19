@@ -35,11 +35,11 @@ class BdtdImportersTest extends TestCase
         $this->assertNull(BdtdFieldCleaner::value('NÃO INFORMADO PELA INSTITUIÇÃO'));
         $this->assertSame(['a', 'b'], BdtdFieldCleaner::list('a||Não informado pela instituição||b||a'));
         $this->assertSame('A RESPONSABILIDADE', BdtdFieldCleaner::stripLangTag('[pt] A RESPONSABILIDADE'));
-        $this->assertSame('Barbosa, Eduardo', BdtdFieldCleaner::author(['Barbosa, Eduardo', 'Pimenta, E., 1973-', '2024-10-10']));
-        $this->assertSame('Maia, Juliane', BdtdFieldCleaner::author(['Maia, Juliane', 'https://orcid.org/0000-0002-4778-1807']));
-        $this->assertSame('Amaral, Nice', BdtdFieldCleaner::author(['Amaral, Nice', 'nice@x.com']));
-        $this->assertSame('Gabardo, Emerson', BdtdFieldCleaner::author(['Gabardo, Emerson, 1975-']));
-        $this->assertSame('Martins, Michel', BdtdFieldCleaner::author(['Martins, Michel [UNESP]']));
+        $this->assertSame('Barros, Eduardo', BdtdFieldCleaner::author(['Barros, Eduardo', 'Pires, E., 1973-', '2024-10-10']));
+        $this->assertSame('Moura, Juliana', BdtdFieldCleaner::author(['Moura, Juliana', 'https://orcid.org/0000-0000-0000-0000']));
+        $this->assertSame('Amado, Nina', BdtdFieldCleaner::author(['Amado, Nina', 'nice@x.com']));
+        $this->assertSame('Gaspar, Emerson', BdtdFieldCleaner::author(['Gaspar, Emerson, 1975-']));
+        $this->assertSame('Matos, Michel', BdtdFieldCleaner::author(['Matos, Michel [UNESP]']));
         $this->assertNull(BdtdFieldCleaner::author(['Não informado pela instituição']));
         $this->assertSame('por', BdtdFieldCleaner::language(['pt_BR']));
         $this->assertSame('eng', BdtdFieldCleaner::language(['en_US', 'por']));
@@ -66,7 +66,7 @@ class BdtdImportersTest extends TestCase
         $this->assertCount(12, $r);
 
         $a = $r[0];
-        $this->assertSame(['Ortiz, Mariana Souza'], $a->authorNames);
+        $this->assertSame(['Ortega, Mariana Teste'], $a->authorNames);
         $this->assertSame(2023, $a->year);
         $this->assertSame('Dissertação (mestrado)', $a->documentType);
         $this->assertSame(['Universidade Nove de Julho'], $a->institutions);
@@ -85,7 +85,7 @@ class BdtdImportersTest extends TestCase
         $this->assertSame('Tese (doutorado)', $b->documentType);
 
         $c = $r[2];
-        $this->assertSame(['Barbosa, Eduardo Henrique'], $c->authorNames);
+        $this->assertSame(['Barros, Eduardo Teste'], $c->authorNames);
         $this->assertSame('A RESPONSABILIDADE CIVIL', $c->title);
         $this->assertSame(['TECNOLOGIA', 'TECHNOLOGY'], $c->authorKeywords);
         $this->assertSame('por', $c->language);
@@ -94,14 +94,14 @@ class BdtdImportersTest extends TestCase
         $this->assertStringContainsString('idi=1', $c->url);
         $this->assertSame('Embargoed', $c->openAccessStatus);
 
-        $this->assertSame(['Maia, Juliane'], $r[3]->authorNames);
+        $this->assertSame(['Moura, Juliana'], $r[3]->authorNames);
         $this->assertSame('eng', $r[3]->language);
         $this->assertNull($r[3]->url, '(Broch.) não é endereço');
-        $this->assertSame(['Amaral, Nice'], $r[4]->authorNames);
+        $this->assertSame(['Amado, Nina'], $r[4]->authorNames);
         $this->assertSame(['Estados Unidos'], $r[4]->countries);
         $this->assertSame('Só o resumo em português', $r[4]->abstractText);
-        $this->assertSame(['Gabardo, Emerson'], $r[5]->authorNames);
-        $this->assertSame(['Martins, Michel'], $r[6]->authorNames);
+        $this->assertSame(['Gaspar, Emerson'], $r[5]->authorNames);
+        $this->assertSame(['Matos, Michel'], $r[6]->authorNames);
         $this->assertNull($r[7]->title);
         $this->assertSame([], $r[7]->authorNames);
         $this->assertNotNull($r[7]->externalId);
@@ -129,7 +129,7 @@ class BdtdImportersTest extends TestCase
         $r = $this->read($ris, $f);
         $c = $this->read(new BdtdCsvImporter(), self::DIR . 'busca.csv');
         $this->assertSame(array_map(fn ($d) => $d->externalId, $c), array_map(fn ($d) => $d->externalId, $r));
-        $this->assertSame(['Barbosa, Eduardo Henrique'], $r[2]->authorNames);
+        $this->assertSame(['Barros, Eduardo Teste'], $r[2]->authorNames);
         $this->assertSame([], $r[0]->institutions);
         $this->assertSame('O RIS da BDTD não traz instituição nem assuntos. Prefira o CSV.', $ris->previewNotice($f));
     }
