@@ -27,10 +27,13 @@
 
 ## 4. Publicação em produção
 
-- [ ] 4.1 Rodar `vendor/bin/phpunit` (tudo verde), fazer commits por tema na `main` (mapas, catálogo e prints, home) e o `git push origin main`. Verificar com `git log origin/main` que os commits estão no remoto.
-- [ ] 4.2 Backup antes do deploy (leitura): anotar o commit em produção (`git rev-parse HEAD` na raiz do webapp, como o usuário dono) para a volta atrás. Não há migration nem mudança de banco, por isso não é preciso dump. Verificar que o hash ficou registrado no relatório da tarefa.
-- [ ] 4.3 Deploy (escrita): `git pull --ff-only origin main` e `./build.sh --prod`, como o usuário dono do webapp. Verificar que o build termina sem erro e que o commit em produção é o mesmo do `origin/main`.
-- [ ] 4.4 Conferência depois do deploy (leitura): home deslogada em 1440 px e 360 px, as 46 imagens respondendo 200, o filtro, a âncora e a ampliação funcionando, e os relatórios de Países e Geográfico do projeto 22 sem "API KEY REQUIRED" nos dois temas e sem requisição ao `cartocdn`. Verificar com prints marcados anexados ao relatório.
+- [x] 4.1 Rodar `vendor/bin/phpunit` (tudo verde), fazer commits por tema na `main` (mapas, catálogo e prints, home) e o `git push origin main`. Verificar com `git log origin/main` que os commits estão no remoto.
+- [x] 4.2 Backup antes do deploy (leitura): anotar o commit em produção (`git rev-parse HEAD` na raiz do webapp, como o usuário dono) para a volta atrás. Não há migration nem mudança de banco, por isso não é preciso dump. Verificar que o hash ficou registrado no relatório da tarefa.
+  - Commit em produção antes do deploy (19/11/2026): `284bb0d` (volta atrás: `git checkout 284bb0d` mais `./build.sh --prod`, ou `git revert` dos commits da vitrine).
+- [x] 4.3 Deploy (escrita): `git pull --ff-only origin main` e `./build.sh --prod`, como o usuário dono do webapp. Verificar que o build termina sem erro e que o commit em produção é o mesmo do `origin/main`.
+  - Deploy em 19/11/2026: `ead1359` e, com a correção das colunas no celular, `d8cd367`. Build sem erro, nenhuma migration pendente, produção igual ao `origin/main`.
+- [x] 4.4 Conferência depois do deploy (leitura): home deslogada em 1440 px e 360 px, as 46 imagens respondendo 200, o filtro, a âncora e a ampliação funcionando, e os relatórios de Países e Geográfico do projeto 22 sem "API KEY REQUIRED" nos dois temas e sem requisição ao `cartocdn`. Verificar com prints marcados anexados ao relatório.
+  - Conferido em 19/11/2026 (Chrome sem perfil, como visitante): 32 recursos, 46 imagens com resposta 200 e nenhuma quebrada, nenhum print baixado na primeira tela do desktop, filtro "Redes e temas", âncora `#recurso-lei-de-bradford` voltando para "Todos", Enter e Esc na ampliação com o foco devolvido, todos os recursos em 2 colunas no desktop e em 1 coluna a 360 px, sem rolagem lateral. Países e Relatório Geográfico do projeto 22, nos temas claro e escuro: 0 requisições ao `cartocdn`, 0 azulejos, 258 países e 27 estados desenhados.
 
 ## Workflow follow-up
 
