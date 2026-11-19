@@ -18,15 +18,8 @@
 
 {# Base pré-selecionada: a detectada; se nada for reconhecido, "Outra" (o sistema tenta detectar sozinho ao importar) #}
 {% set active_src = 'generic' %}
-{% if detected %}
-    {% set det = detected.source|lower %}
-    {% if det == 'scopus' %}{% set active_src = 'scopus' %}
-    {% elseif det == 'web of science' or det == 'wos' %}{% set active_src = 'wos' %}
-    {% elseif det == 'lens.org' or det == 'lens' %}{% set active_src = 'lens' %}
-    {% elseif det == 'pubmed' %}{% set active_src = 'pubmed' %}
-    {% elseif det == 'openalex' %}{% set active_src = 'openalex' %}
-    {% elseif det == 'crossref' %}{% set active_src = 'crossref' %}
-    {% endif %}
+{% if detected and detected.sourceKey|default(null) and data_sources[detected.sourceKey] is defined %}
+    {% set active_src = detected.sourceKey %}
 {% endif %}
 
 {# Detecção #}
@@ -50,7 +43,7 @@
                 </div>
             {% else %}
                 <div style="font-size:14px;font-weight:500;color:var(--bm-warning)">Formato não reconhecido</div>
-                <div style="font-size:11px;color:var(--bm-text-muted)">O arquivo não parece ser Scopus, Web of Science, Lens.org nem PubMed (RIS, BibTeX, XLSX, OpenAlex...). Não há prévia; reexporte num formato lido ou escolha a base abaixo se tiver certeza.</div>
+                <div style="font-size:11px;color:var(--bm-text-muted)">O arquivo não corresponde a nenhum formato lido ({{ readable_formats() }}). Não há prévia; reexporte num formato lido ou escolha a base abaixo se tiver certeza.</div>
             {% endif %}
         </div>
     </div>
@@ -62,6 +55,16 @@
         </div>
     </div>
 </div>
+
+{% if blockingNotice %}
+<div class="bm-card mb-4" style="border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.06)">
+    <div style="font-size:14px;color:var(--bm-danger);font-weight:600"><i class="bi bi-x-octagon me-2"></i>{{ blockingNotice }}</div>
+</div>
+{% elseif previewNotice %}
+<div class="bm-card mb-4" style="border-color:rgba(210,153,34,.4);background:rgba(210,153,34,.06)">
+    <div style="font-size:13px;color:var(--bm-warning)"><i class="bi bi-info-circle me-2"></i>{{ previewNotice }}</div>
+</div>
+{% endif %}
 
 {# Preview table #}
 <div class="bm-card mb-4">
@@ -133,7 +136,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--bm-text-muted)">{% if unrecognized|default(false) %}Formato não reconhecido: não há prévia dos registros. {% endif %}Nenhum registro reconhecido na prévia. Se você confirmar, provavelmente nenhum documento será importado — verifique se o arquivo é Scopus CSV, WoS TXT, Lens CSV ou PubMed NBIB/CSV.</td></tr>
+                    <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--bm-text-muted)">{% if unrecognized|default(false) %}Formato não reconhecido: não há prévia dos registros. {% endif %}Nenhum registro reconhecido na prévia. Se você confirmar, provavelmente nenhum documento será importado: confira se o arquivo está num destes formatos: {{ readable_formats() }}.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -208,11 +211,11 @@
                         </label>
                         {% endif %}
                     {% endfor %}
-                    <label class="src-pick-card {{ active_src not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'active' : '' }}"
+                    <label class="src-pick-card {{ active_src == 'generic' ? 'active' : '' }}"
                            for="src_generic" title="Outra base" style="cursor:pointer">
                         <input type="radio" id="src_generic" name="source"
                                value="generic" style="display:none"
-                               {{ active_src not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'checked' : '' }}>
+                               {{ active_src == 'generic' ? 'checked' : '' }}>
                         <span class="src-pick-logo" style="font-size:20px">📄</span>
                         <span class="src-pick-name">Outra</span>
                     </label>
@@ -231,10 +234,17 @@
                 <label class="form-label" for="period-end">Período de busca — fim</label>
                 <input type="date" id="period-end" name="search_period_end" class="form-control">
             </div>
+            <div class="col-md-6">
+                <label class="form-label" for="expected-count">Total de resultados mostrado pela base (opcional)</label> {{ help('import.preview.expected_count') }}
+                <input type="text" inputmode="numeric" id="expected-count" name="expected_count" class="form-control"
+                       value="{{ expectedHint is not null ? expectedHint : '' }}" placeholder="Ex.: 1482">
+                <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">Copie o total que a base mostrou na busca: a tela do dataset mostra se o arquivo trouxe todos.</div>
+            </div>
             <div class="col-12">
                 <div class="form-label">O que acontece ao confirmar {{ help('import.preview.processing_rules') }}</div>
                 <ul style="font-size:13px;color:var(--bm-text-muted);margin:0;padding-left:18px;line-height:1.7">
-                    <li>Registros que já existem no projeto (mesmo DOI ou mesmo título + ano) são ignorados e listados na aba "Duplicados ignorados". {{ help('import.dedup') }}</li>
+                    <li>Registros que já existem no projeto (mesmo DOI, mesmo identificador da base ou mesmo título + ano vindo de outra base) são ignorados e listados na aba "Duplicados e erros". {{ help('import.dedup') }}</li>
+                    <li>Todo registro lido termina importado, duplicado ou com erro; a tela do dataset mostra a conta.</li>
                     <li>Palavras-chave do autor e indexadas são sempre importadas.</li>
                     <li>O processamento roda em segundo plano; você pode fechar a página.</li>
                 </ul>
@@ -242,10 +252,12 @@
         </div>
 
         <div class="d-flex gap-3 align-items-center">
+            {% if not blockingNotice %}
             <button type="submit" id="confirm-btn" class="btn-bm-primary" style="font-size:15px;padding:10px 28px">
                 <i class="bi bi-check2-circle me-2"></i>Confirmar e importar
             </button>
             {{ help('import.preview.confirm') }}
+            {% endif %}
             <a href="{{ path('app_import_index', {projectId: project.id}) }}" class="btn-bm-secondary">
                 Voltar
             </a>
@@ -280,7 +292,7 @@ document.querySelectorAll('.src-pick-card').forEach(card => {
     });
 });
 
-document.getElementById('confirm-form').addEventListener('submit', function() {
+document.getElementById('confirm-btn') && document.getElementById('confirm-form').addEventListener('submit', function() {
     document.getElementById('confirm-btn').disabled = true;
     document.getElementById('confirm-btn').innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Importando...';
     const overlay = document.getElementById('import-overlay');

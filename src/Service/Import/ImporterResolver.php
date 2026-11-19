@@ -33,31 +33,34 @@ class ImporterResolver
         return array_values(array_unique(array_filter($allowed)));
     }
 
+    /**
+     * Leitor do arquivo: primeiro o da base declarada no dataset; se ele mal reconhece o arquivo (pontuação abaixo
+     * de 0,3) e outro leitor o reconhece com 0,8 ou mais, vale o detectado (a base escolhida à mão estava errada).
+     * Sem base declarada, a maior pontuação acima de 0,5.
+     */
     public function resolve(string $filePath, string $format, ?string $source = null): ?BibliographicImporterInterface
     {
         $src = strtolower(trim($source ?? ''));
 
-        // 1. Try by explicit source/format (only if source is set and specific)
+        // 1. Base declarada (só se for uma base específica)
         if ($src !== '' && $src !== 'generic' && $src !== 'unknown') {
             foreach ($this->importers as $importer) {
                 if ($importer->supports($format, $source)) {
+                    if ($importer->detect($filePath) < 0.3) {
+                        [$best, $bestScore] = $this->bestDetection($filePath);
+                        if ($best !== null && $best !== $importer && $bestScore >= 0.8) {
+                            return $best;
+                        }
+                    }
                     return $importer;
                 }
             }
         }
 
-        // 2. Try auto-detect using hardcoded importer detection
-        $best = null;
-        $bestScore = 0.0;
-        foreach ($this->importers as $importer) {
-            $score = $importer->detect($filePath);
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $best = $importer;
-            }
-        }
+        // 2. Detecção pelos leitores
+        [$best, $bestScore] = $this->bestDetection($filePath);
 
-        // 3. Try database-based signature columns detection
+        // 3. Colunas-assinatura das bases cadastradas (CSV)
         if ($bestScore <= 0.5) {
             $dbBest = $this->detectFromDatabase($filePath);
             if ($dbBest !== null && $dbBest['score'] > $bestScore) {
@@ -74,6 +77,46 @@ class ImporterResolver
         return $bestScore > 0.5 ? $best : null;
     }
 
+    /** @return array{0: ?BibliographicImporterInterface, 1: float} */
+    private function bestDetection(string $filePath): array
+    {
+        $best = null;
+        $bestScore = 0.0;
+        foreach ($this->importers as $importer) {
+            $score = $importer->detect($filePath);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $importer;
+            }
+        }
+
+        return [$best, $bestScore];
+    }
+
+    /**
+     * Codificação declarada por um leitor que reconhece o arquivo (pontuação acima de 0,5), ou null.
+     * Arquivo assim não é recusado pelo teste de UTF-8: o leitor converte ao ler.
+     */
+    public function declaredEncoding(string $filePath): ?string
+    {
+        foreach ($this->importers as $importer) {
+            if ($importer instanceof DeclaresEncodingInterface && $importer->detect($filePath) > 0.5) {
+                $enc = $importer->sourceEncoding($filePath);
+                if ($enc !== null) {
+                    return $enc;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Leitores registrados, na ordem do contêiner (para montar listas de formatos lidos). */
+    public function importers(): array
+    {
+        return $this->importers;
+    }
+
     public function detectAll(string $filePath): array
     {
         $results = [];
@@ -83,6 +126,7 @@ class ImporterResolver
                 $results[] = [
                     'importer' => $importer,
                     'source' => $importer->getSourceName(),
+                    'sourceKey' => $importer->getSourceKey(),
                     'format' => $importer->getFormatName(),
                     'score' => $score,
                 ];
@@ -139,6 +183,7 @@ class ImporterResolver
                                 $results[] = [
                                     'importer' => $matchedImporter,
                                     'source' => $db->getName(),
+                                    'sourceKey' => $db->getAcronym(),
                                     'format' => 'CSV',
                                     'score' => $score,
                                 ];

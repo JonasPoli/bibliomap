@@ -1,0 +1,29 @@
+{# Guia de exportação: crossref. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-crossref">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('crossref', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Crossref {{ help('import.source.crossref') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">crossref.org &nbsp;·&nbsp; <span style="color:var(--bm-warning);font-weight:600">Ainda sem leitor no BiblioMap</span></div>
+        </div>
+    </div>
+    <div class="step-note step-note-warn" style="margin-bottom:16px">
+        <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Importante:</strong> o BiblioMap ainda não lê arquivos do Crossref (CSV, JSON ou RIS) — eles resultam em 0 documentos. A forma prática é exportar de Scopus ou WoS, que já trazem o DOI do Crossref (opção 3). As demais opções ficam como referência.</span>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">
+            <strong>Via API REST (recomendado):</strong><br>
+            <code>https://api.crossref.org/works?query=machine+learning&amp;rows=1000&amp;format=json</code><br>
+            <span style="font-size:12px;color:var(--bm-text-muted)">Converta o JSON para CSV com uma ferramenta como Python (pandas) antes de importar.</span>
+        </div></li>
+        <li><div class="step-num">2</div><div class="step-text">
+            <strong>Via Crossref Metadata Search:</strong> acesse <a href="https://search.crossref.org" target="_blank" style="color:var(--bm-accent)">search.crossref.org</a>, busque por título/autor/DOI e exporte os resultados como RIS ou BibTeX (botão "Export").</div></li>
+        <li><div class="step-num">3</div><div class="step-text">
+            <strong>Via Scopus ou WoS:</strong> a forma mais prática é exportar de Scopus ou WoS (que incluem DOIs do Crossref) e importar normalmente — o BiblioMap vincula os registros via DOI.
+        </div></li>
+        <li><div class="step-num">4</div><div class="step-text">
+            <strong>Via DOI Batch Lookup:</strong> envie uma lista de DOIs para <a href="https://doi.crossref.org/servlet/csv" target="_blank" style="color:var(--bm-accent)">doi.crossref.org/servlet/csv</a> para obter metadados em CSV.
+        </div></li>
+    </ol>
+</div>

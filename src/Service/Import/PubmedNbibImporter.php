@@ -249,6 +249,8 @@ class PubmedNbibImporter implements BibliographicImporterInterface
     }
 
     public function getSourceName(): string { return 'pubmed'; }
+
+    public function getSourceKey(): string { return 'pubmed'; }
     public function getFormatName(): string { return 'nbib'; }
 
     /**

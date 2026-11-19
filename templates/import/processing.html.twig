@@ -181,6 +181,7 @@ async function poll() {
             const card = document.getElementById('result-card');
             card.style.display = 'block';
             document.getElementById('result-summary').textContent =
+                (d.readCount !== null && d.readCount !== undefined ? fmt(d.readCount) + ' lidos: ' : '') +
                 fmt(d.importedCount) + ' documentos importados · ' +
                 fmt(d.skippedCount) + ' duplicados ignorados · ' +
                 fmt(d.errorCount) + ' erros';

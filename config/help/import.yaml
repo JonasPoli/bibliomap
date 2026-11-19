@@ -13,7 +13,7 @@ import.index.page:
   how: |-
     1) Exporte da base no formato indicado (veja o guia abaixo). 2) Arraste o arquivo aqui. 3) Com **um** arquivo, você vê uma prévia e confirma; com **vários**, eles entram direto na fila e são processados um por vez, em segundo plano.
   not: |-
-    Não busca dados na internet nem nas bases por você. Formatos lidos hoje: **Scopus CSV**, **Web of Science TXT**, **Lens.org CSV** e **PubMed CSV/NBIB**. RIS, BibTeX, XLSX e JSON são recusados no envio; um CSV/TXT que não for reconhecido (ex.: OpenAlex, Crossref) termina com status **Erro**, sem criar documentos.
+    Não busca dados na internet nem nas bases por você. Os formatos lidos estão nas abas do guia abaixo; um arquivo de formato sem leitor é recusado no envio ou termina com status **Erro**, sem criar documentos. Também aceita um **ZIP** com um único arquivo exportado dentro.
   example: |-
     Busca no Scopus com 1.540 resultados: exporte um único CSV com todos os campos, envie aqui, confira a prévia (base detectada: Scopus) e confirme.
 
@@ -24,10 +24,9 @@ import.index.file:
   how: |-
     Arraste os arquivos para a área tracejada ou clique nela. Envie o arquivo **como veio da base**, sem abrir e salvar no Excel (isso altera colunas, separadores e acentos).
   not: |-
-    Não junte exportações de bases diferentes num único arquivo e não renomeie as colunas do CSV: a base é reconhecida pelos nomes das colunas (ex.: "EID" e "Cited by" no Scopus) ou pelo cabeçalho "FN Clarivate" no WoS.
+    Não junte exportações de bases diferentes num único arquivo e não renomeie as colunas do CSV: a base é reconhecida pelos nomes das colunas (ex.: "EID" e "Cited by" no Scopus) ou pelo cabeçalho do arquivo ("FN Clarivate" no WoS). Um ZIP deve conter **um único** arquivo exportado.
   example: |-
-    4 arquivos savedrecs.txt do WoS (lotes de 500) podem ser selecionados juntos; cada um vira uma importação separada.
-
+    4 arquivos savedrecs.txt do WoS (lotes de 500) podem ser selecionados juntos; cada um vira uma importação separada. O ZIP que a BDTD entrega pode ser enviado como veio.
 import.index.next:
   title: "Próximo passo"
   what: |-
@@ -152,14 +151,13 @@ import.source.crossref:
 import.source.other:
   title: "Outras bases e formatos"
   what: |-
-    Formatos universais (RIS, BibTeX, XLSX, XML) usados por Zotero, Mendeley, Google Scholar, IEEE, SciELO etc.
+    Arquivo **RIS** de uma base que não tem aba própria (Zotero, Mendeley, IEEE, SciELO etc.): é lido pelas marcações usuais do RIS (TI, AU, PY, JO, VL, IS, SP, EP, SN, DO, UR, AB, KW) e gravado com a base "Outra".
   how: |-
-    Se a mesma busca puder ser feita no Scopus, WoS, Lens ou PubMed, exporte de lá. Para pedir um novo leitor, fale com o administrador informando base e formato.
+    Exporte em RIS com todos os campos e envie. Se a mesma busca puder ser feita numa base com aba própria, prefira ela: o leitor dela aproveita mais campos (citações, afiliações, identificador da base).
   not: |-
-    **Ainda não há leitor para RIS, BibTeX, XLSX ou XML**: esses arquivos são recusados no envio.
+    **BibTeX, XLSX e XML ainda não têm leitor**: esses arquivos são recusados no envio. O RIS de outra base é deduplicado só por DOI e por título + ano, sem identificador da base.
   example: |-
-    Uma busca no SciELO exportada em RIS não será lida hoje; a alternativa é buscar os mesmos artigos no Scopus (que indexa grande parte do SciELO).
-
+    Uma busca no SciELO exportada em RIS é importada como "Outra", com título, autores, periódico, ano, DOI e palavras-chave.
 import.index.supported_formats:
   title: "Formatos que o BiblioMap lê"
   what: |-
@@ -167,21 +165,19 @@ import.index.supported_formats:
   how: |-
     Confira aqui antes de exportar. Se a sua base não está em "Lidos", exporte de uma base que esteja.
   not: |-
-    Outras extensões (RIS, BIB, XLSX, JSON) são recusadas no envio, com aviso. Um CSV/TXT de base sem leitor termina com status Erro.
+    Outras extensões (BibTeX, XLSX, XML) são recusadas no envio, com aviso. Um CSV/TXT de base sem leitor termina com status Erro. Um ZIP só é aceito com um único arquivo de formato lido dentro.
   example: |-
-    Tem um .ris do Mendeley? Não importe; refaça a busca no Scopus e exporte em CSV.
-
+    Tem um .ris do Mendeley? Pode enviar: entra como "Outra base". Tem um .bib? Exporte de novo em RIS.
 import.dedup:
   title: "Deduplicação automática"
   what: |-
-    Ao importar, cada registro é comparado com tudo o que já está no projeto (inclusive registros anteriores do mesmo arquivo). É ignorado se tiver o **mesmo DOI** ou, sem DOI, o **mesmo título e ano** (iguais letra por letra, sem diferenciar maiúsculas). Sem DOI e sem ano, vale o **mesmo identificador da base** (EID, PMID, Lens ID) e, por último, o **mesmo título**.
+    Ao importar, cada registro é comparado com tudo o que já está no projeto (inclusive registros anteriores do mesmo arquivo). É ignorado se tiver o **mesmo DOI**, o **mesmo identificador da base** (ID da BRAPCI, Work ID do OpenAlex, número de acesso da EBSCO...) ou, entre bases diferentes, o **mesmo título e ano** (iguais letra por letra, sem diferenciar maiúsculas). Sem DOI e sem ano, vale o identificador da base (EID, PMID, Lens ID) e, por último, o **mesmo título**.
   how: |-
     Importe todas as bases e lotes no **mesmo projeto**. A ordem importa: o registro que fica é o que entrou primeiro; importe primeiro a base com metadados mais completos.
   not: |-
-    Não mescla dados: o duplicado é descartado inteiro (citações, palavras-chave extras). Não detecta títulos com pequenas diferenças; para isso use **Normalizar e Deduplicar › Documentos duplicados**. Registros sem DOI, sem ano, sem identificador da base e sem título nunca são considerados duplicados.
+    Não mescla dados: o duplicado é descartado inteiro (citações, palavras-chave extras). Dois registros **da mesma base** com identificadores diferentes nunca viram um só por terem o mesmo título e ano: são importados os dois e listados em "Possíveis repetições" no dataset. Não detecta títulos com pequenas diferenças; para isso use **Normalizar e Deduplicar › Documentos duplicados**.
   example: |-
-    Importando Scopus (1.200) e depois WoS (900) com 640 em comum, ficam 1.460 documentos; os 640 do WoS aparecem na aba "Duplicados ignorados".
-
+    Importando Scopus (1.200) e depois WoS (900) com 640 em comum, ficam 1.460 documentos; os 640 do WoS aparecem na aba "Duplicados e erros".
 # ─────────────────────────────────────────────────────────────────────────────
 # Importar — passo 2 (prévia e confirmação)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -306,6 +302,17 @@ import.preview.search_period:
     Não filtra os registros por data.
   example: |-
     Início 01/01/2015 e fim 31/12/2024 para uma busca com filtro 2015–2024.
+
+import.preview.expected_count:
+  title: "Total de resultados mostrado pela base"
+  what: |-
+    O número de resultados que a base mostrou na sua busca (ex.: "1.482 resultados"). Fica guardado na importação para conferência.
+  how: |-
+    Copie o número da tela da base antes de exportar e cole aqui. Na tela da importação, o BiblioMap compara esse total com o número de registros do arquivo e avisa se faltou algum.
+  not: |-
+    Não é obrigatório e não muda o que é importado. Se a base corta a exportação (ex.: 1.000 ou 2.000 por arquivo), o aviso mostra quantos ficaram de fora: exporte o restante em outro arquivo.
+  example: |-
+    A BRAPCI mostrou 1.482 resultados e o arquivo veio com 1.000: a tela da importação mostra "faltam 482".
 
 import.preview.processing_rules:
   title: "O que acontece ao confirmar"

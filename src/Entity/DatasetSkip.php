@@ -28,7 +28,19 @@ class DatasetSkip
     private ?string $hash = null;
 
     #[ORM\Column(length: 50)]
-    private ?string $reason = null; // 'doi', 'hash', 'db_constraint'
+    private ?string $reason = null; // doi, hash, db_constraint, error_parse, error_invalid, error_db
+
+    /** Identificador do registro na base (para localizar no arquivo e na base). */
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $externalId = null;
+
+    /** Posição do registro no arquivo, a partir de 1. */
+    #[ORM\Column(nullable: true)]
+    private ?int $position = null;
+
+    /** Detalhe do motivo (mensagem do leitor ou do banco). */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $detail = null;
 
     #[ORM\ManyToOne(targetEntity: Document::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -111,6 +123,32 @@ class DatasetSkip
     {
         $this->matchedDocument = $doc;
         return $this;
+    }
+
+    public function getExternalId(): ?string { return $this->externalId; }
+    public function setExternalId(?string $v): static { $this->externalId = $v; return $this; }
+    public function getPosition(): ?int { return $this->position; }
+    public function setPosition(?int $v): static { $this->position = $v; return $this; }
+    public function getDetail(): ?string { return $this->detail; }
+    public function setDetail(?string $v): static { $this->detail = $v; return $this; }
+
+    public function isError(): bool
+    {
+        return str_starts_with((string) $this->reason, 'error_');
+    }
+
+    /** Motivo em português, para a tela do dataset. */
+    public function getReasonLabel(): string
+    {
+        return match ($this->reason) {
+            'doi' => 'DOI já existe no projeto',
+            'hash' => 'Mesmo documento já existe no projeto',
+            'db_constraint' => 'Recusado pelo banco como repetido',
+            'error_parse' => 'Registro ilegível',
+            'error_invalid' => 'Sem título, DOI e identificador',
+            'error_db' => 'Erro ao gravar',
+            default => (string) $this->reason,
+        };
     }
 
     public function getCreatedAt(): \DateTimeImmutable

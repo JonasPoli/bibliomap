@@ -451,7 +451,7 @@ dataset.show.errors:
   how: |-
     Se houver muitos erros, verifique se o arquivo é o formato certo e reenvie. A mensagem técnica, quando existir, aparece abaixo das contagens.
   not: |-
-    Os registros com erro não ficam listados individualmente e não são reprocessados automaticamente.
+    Os registros com erro ficam listados um a um na aba "Duplicados e erros", com a posição no arquivo, o identificador na base e o motivo. Não são reprocessados automaticamente.
   example: |-
     4 erros num arquivo de 500 do WoS: provavelmente registros incompletos; os outros 496 foram importados normalmente.
 
@@ -489,9 +489,9 @@ dataset.show.citations:
     Um artigo com 152 citações no Scopus pode ter 98 no WoS: os números refletem a cobertura de cada base.
 
 dataset.show.tab_duplicates:
-  title: "Duplicados ignorados"
+  title: "Duplicados e erros"
   what: |-
-    Lista os registros deste arquivo que não foram gravados porque já existiam no projeto, com o motivo e o documento existente.
+    Lista os registros deste arquivo que não viraram documento: os que já existiam no projeto (com o motivo e o documento existente) e os que tiveram erro (com a posição no arquivo e o motivo).
   how: |-
     Use para auditar a deduplicação e para relatar a remoção de duplicatas na metodologia (ex.: PRISMA).
   not: |-
@@ -502,9 +502,9 @@ dataset.show.tab_duplicates:
 dataset.show.skip_reason:
   title: "Motivo da duplicidade"
   what: |-
-    Por que o registro foi considerado duplicado. **DOI conflitante**: mesmo DOI de um documento existente. **Título + Ano**: mesma "impressão digital" (DOI em minúsculas ou, sem DOI, título + ano iguais). **Restrição banco**: o banco recusou por já existir.
+    Por que o registro não foi importado. **DOI conflitante**: mesmo DOI de um documento existente. **Mesmo documento**: mesmo identificador da base ou, entre bases diferentes, mesmo título e ano. **Restrição banco**: o banco recusou por já existir. **Erro**: registro ilegível, sem título, DOI e identificador, ou falha ao gravar.
   how: |-
-    Confira os casos "Título + Ano" sem DOI: são os mais sujeitos a coincidência.
+    Confira os casos "Mesmo documento" sem DOI: são os mais sujeitos a coincidência. Nos erros, a posição indica onde o registro está no arquivo.
   not: |-
     Não indica qual versão tem metadados melhores; sempre fica a que foi importada primeiro.
   example: |-
@@ -520,6 +520,39 @@ dataset.show.skip_matched:
     Se aparecer "ID de link indisponível", o documento original foi removido depois (ex.: a importação dele foi excluída).
   example: |-
     O registro do WoS "Deep learning for crop yield..." colidiu com o mesmo artigo vindo do Scopus, com o mesmo DOI.
+
+dataset.show.reconciliation:
+  title: "Conferência"
+  what: |-
+    A conta da importação: todo registro lido do arquivo terminou como importado, duplicado ou erro, e a soma tem de fechar com o total lido. Também compara com o total contado na prévia e com o total de resultados que a base mostrou, se você o informou.
+  how: |-
+    Se aparecer um aviso, confira: "faltam N" indica que a base cortou a exportação (exporte o restante em outro arquivo); "a soma não fecha" indica falha na importação (reimporte ou fale com o administrador).
+  not: |-
+    Importações feitas antes desta conferência não têm o total lido gravado: para elas a conta usa a soma dos três números.
+  example: |-
+    "884 lidos = 870 importados + 12 duplicados + 2 erros", e "A base informou 884 resultados, o mesmo número do arquivo".
+
+dataset.show.possible_repeats:
+  title: "Possíveis repetições"
+  what: |-
+    Grupos de documentos desta importação com o mesmo título e o mesmo ano. Foram importados todos porque a base os identifica como registros diferentes (ex.: a mesma tese em dois repositórios, ou um artigo e um trabalho de evento com o mesmo título).
+  how: |-
+    Confira os grupos. Se forem o mesmo trabalho, trate em **Normalizar e Deduplicar › Documentos duplicados**.
+  not: |-
+    Não remove nada sozinho: a decisão é sua. Títulos com pequenas diferenças não aparecem aqui.
+  example: |-
+    A BDTD trouxe a mesma dissertação da UnB duas vezes (repositório da UnB e da Biblioteca Central): aparece um grupo com 2 documentos.
+
+dataset.show.type_counts:
+  title: "Registros por tipo"
+  what: |-
+    Quantos registros do arquivo são de cada tipo, contados na leitura do arquivo (inclui os duplicados).
+  how: |-
+    Compare com os números que a base mostrou ao exportar (ex.: os cartões da cesta da BRAPCI).
+  not: |-
+    Aparece só para as bases cujo arquivo traz o tipo de forma confiável, e só enquanto o arquivo enviado estiver guardado no servidor.
+  example: |-
+    "Artigos 663 · Trabalhos de eventos 211 · Livros 7 · Capítulos 3", os mesmos números da cesta.
 
 dataset.show.delete:
   title: "Excluir importação"

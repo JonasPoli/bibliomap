@@ -32,6 +32,7 @@ class DataSourceExtension extends AbstractExtension implements GlobalsInterface
             new TwigFunction('source_label', [$this, 'sourceLabel']),
             new TwigFunction('source_info',  [$this, 'sourceInfo']),
             new TwigFunction('data_sources', [$this, 'dataSources']),
+            new TwigFunction('readable_formats', [DataSources::class, 'readableFormatsSentence']),
         ];
     }
 

@@ -7,9 +7,11 @@ use App\Entity\Dataset;
 use App\Repository\DocumentRepository;
 use App\Service\Import\DocumentImportService;
 use App\Service\Import\ImporterResolver;
+use App\Config\DataSources;
 use App\Service\Import\ImportQueueInspector;
-use App\Service\Import\ScopusCsvImporter;
+use App\Service\Import\PreviewNoticesInterface;
 use App\Service\Import\TextNormalizer;
+use App\Service\Import\ZipUploadExtractor;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,6 +33,7 @@ class ImportController extends AbstractController
         private readonly DocumentRepository $documentRepo,
         private readonly LoggerInterface $logger,
         private readonly ImportQueueInspector $queueInspector,
+        private readonly ZipUploadExtractor $zipExtractor,
         private readonly ?Profiler $profiler = null,
     ) {}
 
@@ -48,6 +51,9 @@ class ImportController extends AbstractController
     }
 
     // ── Step 2: Receive file, detect format, show preview ────────────────────
+
+    /** Extensões aceitas no envio: as que algum leitor lê, e o ZIP com um desses arquivos dentro. */
+    public const ALLOWED_EXTENSIONS = ['csv', 'txt', 'nbib', 'ris', 'xls', 'json', 'zip'];
 
     #[Route('/upload', name: 'app_import_upload', methods: ['POST'])]
     public function upload(Request $request, int $projectId): Response
@@ -75,45 +81,17 @@ class ImportController extends AbstractController
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
         }
 
-        // Só extensões com leitor (ImporterResolver); RIS, BibTeX, XLSX e JSON ainda não têm
-        $allowedExts = ['csv', 'txt', 'nbib'];
-        $unsupportedMsg = 'Formato não suportado: .%s. O BiblioMap lê Scopus/Lens.org/PubMed (CSV), Web of Science/PubMed (TXT) e PubMed (NBIB). RIS, BibTeX, XLSX e JSON ainda não têm leitor.';
-
         // If exactly one file, preserve the single file preview & confirm step
         if (count($uploadedFiles) === 1) {
             $file = reset($uploadedFiles);
-            $ext = strtolower($file->getClientOriginalExtension());
-
-            if (!in_array($ext, $allowedExts)) {
-                $this->addFlash('danger', sprintf($unsupportedMsg, $ext));
-                return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
-            }
-
-            if ($file->getSize() > 600 * 1024 * 1024) {
-                $this->addFlash('danger', 'Arquivo muito grande. Máximo: 600MB.');
-                return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
-            }
-
             $originalFilename = $file->getClientOriginalName();
-            $fileSizeBytes    = $file->getSize();
-
-            $uploadDir = $this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId();
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            $safeFilename = uniqid('import_') . '.' . $ext;
-            $file->move($uploadDir, $safeFilename);
-            $fullPath = $uploadDir . '/' . $safeFilename;
-
-            if ($fileSizeBytes === false || $fileSizeBytes === 0) {
-                $fileSizeBytes = filesize($fullPath) ?: 0;
-            }
-
-            if (!TextNormalizer::isUtf8File($fullPath)) {
-                @unlink($fullPath);
-                $this->addFlash('danger', 'O arquivo não está em UTF-8 (parece Windows-1252, Latin-1 ou UTF-16): os acentos seriam gravados errados. Reexporte em UTF-8 e envie de novo.');
+            $received = $this->receiveFile($file, $project);
+            if (is_string($received)) {
+                $this->addFlash('danger', $received);
                 return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
             }
+            [$fullPath, $ext] = $received;
+            $fileSizeBytes = filesize($fullPath) ?: 0;
 
             $detections = $this->resolver->detectAll($fullPath);
             $detected   = $detections[0] ?? null;
@@ -121,6 +99,9 @@ class ImportController extends AbstractController
             $previewRecords = [];
             $headers        = [];
             $totalRows      = null;
+            $previewNotice  = null;
+            $blockingNotice = null;
+            $expectedHint   = null;
 
             // Sem leitor detectado não há prévia: mostrar o arquivo lido pelo leitor do Scopus
             // só exibiria registros errados. O usuário ainda pode escolher a base à mão.
@@ -133,6 +114,13 @@ class ImportController extends AbstractController
                 $totalRows       = method_exists($previewImporter, 'countRows')
                     ? $previewImporter->countRows($fullPath)
                     : null;
+                if ($previewImporter instanceof PreviewNoticesInterface) {
+                    $previewNotice  = $previewImporter->previewNotice($fullPath);
+                    $blockingNotice = $previewImporter->blockingNotice($fullPath);
+                }
+                if (method_exists($previewImporter, 'expectedTotal')) {
+                    $expectedHint = $previewImporter->expectedTotal($fullPath);
+                }
             }
 
             $session = $request->getSession();
@@ -145,7 +133,7 @@ class ImportController extends AbstractController
 
             $session->set('import_file', $fullPath);
             $session->set('import_original_name', $originalFilename);
-            $session->set('import_source', $detected['source'] ?? 'unknown');
+            $session->set('import_source', $detected['sourceKey'] ?? 'unknown');
             $session->set('import_format', $ext);
             $session->set('import_project', $projectId);
             $session->set('import_total_rows', $totalRows);
@@ -160,42 +148,33 @@ class ImportController extends AbstractController
                 'originalFilename' => $originalFilename,
                 'fileSize'         => $fileSizeBytes,
                 'unrecognized'     => $detected === null,
+                'previewNotice'    => $previewNotice,
+                'blockingNotice'   => $blockingNotice,
+                'expectedHint'     => $expectedHint,
             ]);
         }
 
         // Multiple files enqueued directly
         $createdDatasets = [];
         foreach ($uploadedFiles as $file) {
-            $ext = strtolower($file->getClientOriginalExtension());
-            if (!in_array($ext, $allowedExts)) {
-                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado. ' . $unsupportedMsg, $file->getClientOriginalName(), $ext));
-                continue;
-            }
-
-            if ($file->getSize() > 600 * 1024 * 1024) {
-                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado: tamanho excede o limite de 600MB.', $file->getClientOriginalName()));
-                continue;
-            }
-
             $originalFilename = $file->getClientOriginalName();
-            
-            $uploadDir = $this->getParameter('kernel.project_dir') . '/var/uploads/' . $project->getId();
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            $safeFilename = uniqid('import_') . '.' . $ext;
-            $file->move($uploadDir, $safeFilename);
-            $fullPath = $uploadDir . '/' . $safeFilename;
-
-            if (!TextNormalizer::isUtf8File($fullPath)) {
-                @unlink($fullPath);
-                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado: não está em UTF-8 (reexporte em UTF-8).', $originalFilename));
+            $received = $this->receiveFile($file, $project);
+            if (is_string($received)) {
+                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado. %s', $originalFilename, $received));
                 continue;
             }
+            [$fullPath, $ext] = $received;
 
             $detections = $this->resolver->detectAll($fullPath);
             $detected   = $detections[0] ?? null;
-            $source     = $detected['source'] ?? 'unknown';
+            $source     = $detected['sourceKey'] ?? 'unknown';
+
+            $importer = $detected['importer'] ?? null;
+            if ($importer instanceof PreviewNoticesInterface && ($block = $importer->blockingNotice($fullPath)) !== null) {
+                @unlink($fullPath);
+                $this->addFlash('warning', sprintf('Arquivo "%s" ignorado. %s', $originalFilename, $block));
+                continue;
+            }
 
             $dataset = new Dataset();
             $dataset->setProject($project);
@@ -205,6 +184,9 @@ class ImportController extends AbstractController
             $dataset->setFilePath($fullPath);
             $dataset->setFileFormat($ext);
             $dataset->setStatus(Dataset::STATUS_PENDING);
+            if ($importer !== null && method_exists($importer, 'expectedTotal')) {
+                $dataset->setExpectedCount($importer->expectedTotal($fullPath));
+            }
 
             $this->em->persist($dataset);
             $createdDatasets[] = $dataset;
@@ -236,6 +218,52 @@ class ImportController extends AbstractController
         return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
     }
 
+    /**
+     * Grava um arquivo enviado em var/uploads/{projeto}, abre o ZIP e confere a codificação.
+     *
+     * @return array{0: string, 1: string}|string  [caminho, extensão] ou a mensagem de recusa
+     */
+    private function receiveFile(UploadedFile $file, BibliometricProject $project): array|string
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
+            return sprintf('Formato não suportado: .%s. O BiblioMap lê %s; aceita também um ZIP com um desses arquivos. BibTeX, XLSX e XML ainda não têm leitor.',
+                $ext, DataSources::readableFormatsSentence());
+        }
+        if ($file->getSize() > 600 * 1024 * 1024) {
+            return 'Arquivo muito grande. Máximo: 600MB.';
+        }
+
+        $uploadDir = $this->uploadDir($project);
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        $safeFilename = uniqid('import_') . '.' . $ext;
+        $file->move($uploadDir, $safeFilename);
+        $fullPath = $uploadDir . '/' . $safeFilename;
+
+        if ($ext === 'zip') {
+            try {
+                $extracted = $this->zipExtractor->extract($fullPath, $uploadDir);
+            } catch (\RuntimeException $e) {
+                return $e->getMessage();
+            } finally {
+                @unlink($fullPath);
+            }
+            $fullPath = $extracted['path'];
+            $ext = $extracted['extension'];
+        }
+
+        if (TextNormalizer::needsUtf8Check($fullPath)
+            && $this->resolver->declaredEncoding($fullPath) === null
+            && !TextNormalizer::isUtf8File($fullPath)) {
+            @unlink($fullPath);
+            return 'O arquivo não está em UTF-8 (parece Windows-1252, Latin-1 ou UTF-16): os acentos seriam gravados errados. Reexporte em UTF-8 e envie de novo.';
+        }
+
+        return [$fullPath, $ext];
+    }
+
     // ── Step 3: Create dataset + launch background import ─────────────────────
 
     #[Route('/confirm', name: 'app_import_confirm', methods: ['POST'])]
@@ -260,6 +288,7 @@ class ImportController extends AbstractController
         $description  = trim($request->request->get('description', '')) ?: null;
         $startRaw     = $request->request->get('search_period_start');
         $endRaw       = $request->request->get('search_period_end');
+        $expected     = self::parseExpectedCount($request->request->get('expected_count'));
 
         // O arquivo da sessão tem de ser o enviado para este projeto (nunca um caminho de outro lugar)
         $uploadsRoot = realpath($this->uploadDir($project));
@@ -272,6 +301,15 @@ class ImportController extends AbstractController
         if (!$filePath || !file_exists($filePath)) {
             $this->addFlash('danger', 'Sessão expirada. Faça o upload novamente.');
             return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+        }
+
+        // Arquivo que o leitor recusa (ex.: CSV do OpenAlex sem identificador) não é importado nem pela confirmação
+        foreach ($this->resolver->detectAll($filePath) as $det) {
+            if ($det['importer'] instanceof PreviewNoticesInterface && ($block = $det['importer']->blockingNotice($filePath)) !== null) {
+                $this->addFlash('danger', $block);
+                return $this->redirectToRoute('app_import_index', ['projectId' => $projectId]);
+            }
+            break;
         }
 
         // Create Dataset record (status pending — the command will set it to importing)
@@ -289,6 +327,7 @@ class ImportController extends AbstractController
         if (is_int($totalRows) && $totalRows > 0) {
             $dataset->setRecordsCount($totalRows);
         }
+        $dataset->setExpectedCount($expected);
 
         try {
             if ($startRaw) $dataset->setSearchPeriodStart(new \DateTimeImmutable($startRaw));
@@ -399,6 +438,7 @@ class ImportController extends AbstractController
             'statusLabel'   => $dataset->getStatusLabel(),
             'statusColor'   => $dataset->getStatusColor(),
             'recordsCount'  => $dataset->getRecordsCount(),
+            'readCount'     => $dataset->getReadCount(),
             'importedCount' => $dataset->getImportedCount(),
             'skippedCount'  => $dataset->getDuplicatedCount(),
             'errorCount'    => $dataset->getErrorCount(),
@@ -413,6 +453,18 @@ class ImportController extends AbstractController
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
+
+    /** "Total de resultados mostrado pela base": inteiro de 1 a 10.000.000 (aceita "1.482"); senão, nulo. */
+    public static function parseExpectedCount(mixed $raw): ?int
+    {
+        $v = str_replace(['.', ' ', "\u{00A0}"], '', trim((string) $raw));
+        if ($v === '' || !ctype_digit($v)) {
+            return null;
+        }
+        $n = (int) $v;
+
+        return $n >= 1 && $n <= 10_000_000 ? $n : null;
+    }
 
     private function uploadDir(BibliometricProject $project): string
     {

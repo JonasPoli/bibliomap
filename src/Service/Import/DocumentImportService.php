@@ -3,6 +3,7 @@
 namespace App\Service\Import;
 
 use App\DTO\BibliographicRecordDTO;
+use App\DTO\UnreadableRecord;
 use App\Entity\Dataset;
 use App\Service\Authority\AuthorityResolver;
 use App\Service\Import\StringNormalizer;
@@ -89,7 +90,7 @@ class DocumentImportService
      */
     public function importAll(iterable $records, Dataset $dataset, ?\Closure $onProgress = null, bool $skipEnrichment = false): array
     {
-        $stats      = ['imported' => 0, 'skipped' => 0, 'errors' => 0];
+        $stats      = ['read' => 0, 'imported' => 0, 'skipped' => 0, 'errors' => 0];
         $projectId  = $dataset->getProject()->getId();
         $datasetId  = $dataset->getId();
         $now        = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
@@ -107,6 +108,9 @@ class DocumentImportService
         // Documentos já gravados por uma execução anterior desta mesma importação
         // (reexecução após falha): contam como importados, não como duplicados.
         $ownDocIds = $this->loadSet('SELECT id FROM document WHERE dataset_id = ?', $datasetId);
+        // Título normalizado + ano dos documentos do projeto: une o mesmo documento vindo de bases diferentes
+        // quando um dos lados é identificado pelo identificador da base (ver titleYearDuplicate()).
+        $titleYearIndex = $this->loadTitleYearIndex($projectId);
 
         // Batch accumulators
         $docsBatch        = [];
@@ -115,15 +119,33 @@ class DocumentImportService
         $dtoBatch         = [];
         $skipsBatch       = [];
 
+        $position = 0;
         foreach ($records as $dto) {
-            // null = registro que o leitor não conseguiu interpretar
-            if (!$dto instanceof BibliographicRecordDTO || (!$dto->title && !$dto->doi && !$dto->externalId)) {
+            $position++;
+            $stats['read']++;
+
+            // null ou UnreadableRecord = registro que o leitor achou mas não conseguiu interpretar
+            if (!$dto instanceof BibliographicRecordDTO) {
                 $stats['errors']++;
+                $skipsBatch[] = $this->errorSkip($datasetId, $now, 'error_parse',
+                    $dto instanceof UnreadableRecord ? $dto->position : $position,
+                    $dto instanceof UnreadableRecord ? $dto->message : 'O leitor não conseguiu interpretar o registro.',
+                    $dto instanceof UnreadableRecord ? $dto->externalId : null,
+                    $dto instanceof UnreadableRecord ? $dto->title : null);
+                $this->flushSkipsIfFull($skipsBatch);
+                continue;
+            }
+            $dto->position ??= $position;
+            if (!$dto->title && !$dto->doi && !$dto->externalId) {
+                $stats['errors']++;
+                $skipsBatch[] = $this->errorSkip($datasetId, $now, 'error_invalid', $dto->position, 'sem título, DOI e identificador', null, null);
+                $this->flushSkipsIfFull($skipsBatch);
                 continue;
             }
 
             try {
                 $hash = self::computeHash($dto);
+                $tyKey = self::titleYearKey($dto->title, $dto->year);
 
                 $matchedId = null;
                 if ($dto->doi && isset($existingDois[$dto->doi])) {
@@ -143,43 +165,35 @@ class DocumentImportService
                 if ($dto->doi && isset($existingDois[$dto->doi])) {
                     $stats['skipped']++;
                     $matchedId = is_int($existingDois[$dto->doi]) ? $existingDois[$dto->doi] : null;
-                    $skipsBatch[] = [
-                        'dataset_id'          => $datasetId,
-                        'title'               => $dto->title ?? 'Sem título',
-                        'doi'                 => $dto->doi,
-                        'hash'               => $hash,
-                        'reason'              => 'doi',
-                        'matched_document_id' => $matchedId,
-                        'created_at'          => $now,
-                    ];
-                    if (count($skipsBatch) >= self::BATCH_SIZE) {
-                        $this->flushSkipsBatch($skipsBatch);
-                        $skipsBatch = [];
-                    }
+                    $skipsBatch[] = $this->duplicateSkip($datasetId, $dto, $hash, 'doi', $matchedId, $now);
+                    $this->flushSkipsIfFull($skipsBatch);
                     continue;
                 }
 
                 if ($hash && isset($existingHashes[$hash])) {
                     $stats['skipped']++;
                     $matchedId = is_int($existingHashes[$hash]) ? $existingHashes[$hash] : null;
-                    $skipsBatch[] = [
-                        'dataset_id'          => $datasetId,
-                        'title'               => $dto->title ?? 'Sem título',
-                        'doi'                 => $dto->doi,
-                        'hash'               => $hash,
-                        'reason'              => 'hash',
-                        'matched_document_id' => $matchedId,
-                        'created_at'          => $now,
-                    ];
-                    if (count($skipsBatch) >= self::BATCH_SIZE) {
-                        $this->flushSkipsBatch($skipsBatch);
-                        $skipsBatch = [];
-                    }
+                    $skipsBatch[] = $this->duplicateSkip($datasetId, $dto, $hash, 'hash', $matchedId, $now);
+                    $this->flushSkipsIfFull($skipsBatch);
+                    continue;
+                }
+
+                // Mesmo título e ano de um documento de outra base (ou identificado só pelo título)
+                $tyMatch = $tyKey !== null && isset($titleYearIndex[$tyKey])
+                    ? self::titleYearDuplicate($dto, $titleYearIndex[$tyKey])
+                    : false;
+                if ($tyMatch !== false) {
+                    $stats['skipped']++;
+                    $skipsBatch[] = $this->duplicateSkip($datasetId, $dto, $hash, 'hash', $tyMatch, $now);
+                    $this->flushSkipsIfFull($skipsBatch);
                     continue;
                 }
 
                 if ($dto->doi)  $existingDois[$dto->doi]   = true;
                 if ($hash)      $existingHashes[$hash]      = true;
+                if ($tyKey !== null && !isset($titleYearIndex[$tyKey])) {
+                    $titleYearIndex[$tyKey] = [null, strtolower($dto->source), self::identityKind($dto, $hash, $tyKey), (bool) $dto->doi];
+                }
 
                 [$authorLinks, $kwLinks] = $this->resolveLinks($dto, $now, $projectId);
 
@@ -215,6 +229,8 @@ class DocumentImportService
                     'eid'   => $dto->externalId ?? '?',
                     'title' => self::cut($dto->title ?? '', 60),
                 ]);
+                $skipsBatch[] = $this->errorSkip($datasetId, $now, 'error_db', $dto->position, $e->getMessage(), $dto->externalId, $dto->title);
+                $this->flushSkipsIfFull($skipsBatch);
             }
         }
 
@@ -569,11 +585,12 @@ class DocumentImportService
                     }
                     $this->logger->warning('Batch insert failed: ' . $e->getMessage(), ['hash' => $docRow['hash'] ?? '?']);
                     $errors++;
+                    $this->recordErrorSkip($docRow, $dtos[$i], $e->getMessage(), $now);
                 } catch (UniqueConstraintViolationException) {
                     // Record already exists in this project (db-level safety net)
                     $conn->rollBack();
                     $skipped++;
-                    $this->recordDbConstraintSkip($docRow, $now);
+                    $this->recordDbConstraintSkip($docRow, $now, $dtos[$i]);
                 } catch (\Throwable $e) {
                     try {
                         $conn->rollBack();
@@ -584,6 +601,7 @@ class DocumentImportService
                     $this->logger->warning('Batch insert failed: ' . $e->getMessage(), ['hash' => $docRow['hash'] ?? '?']);
                     // Falha de gravação é erro, não duplicado
                     $errors++;
+                    $this->recordErrorSkip($docRow, $dtos[$i], $e->getMessage(), $now);
                 }
                 break;
             }
@@ -634,7 +652,7 @@ class DocumentImportService
         }
     }
 
-    private function recordDbConstraintSkip(array $docRow, string $now): void
+    private function recordDbConstraintSkip(array $docRow, string $now, ?BibliographicRecordDTO $dto = null): void
     {
         $conn = $this->conn();
         $matchedDocId = null;
@@ -659,9 +677,134 @@ class DocumentImportService
                 'hash'               => $docRow['hash'] ?? null,
                 'reason'              => 'db_constraint',
                 'matched_document_id' => $matchedDocId ? (int) $matchedDocId : null,
+                'external_id'         => $docRow['external_id'] ?? null,
+                'position'            => $dto?->position,
                 'created_at'          => $now,
             ]);
         } catch (\Throwable) {}
+    }
+
+    /** Registro que não pôde ser gravado: fica listado no dataset como erro, com o motivo. */
+    private function recordErrorSkip(array $docRow, ?BibliographicRecordDTO $dto, string $message, string $now): void
+    {
+        try {
+            $this->conn()->insert('dataset_skip', $this->errorSkip(
+                (int) $docRow['dataset_id'], $now, 'error_db', $dto?->position, $message,
+                $docRow['external_id'] ?? null, $docRow['title'] ?? null
+            ));
+        } catch (\Throwable) {}
+    }
+
+    /** Linha de dataset_skip para um duplicado. */
+    private function duplicateSkip(int $datasetId, BibliographicRecordDTO $dto, ?string $hash, string $reason, ?int $matchedId, string $now): array
+    {
+        return [
+            'dataset_id'          => $datasetId,
+            'title'               => $dto->title ?? 'Sem título',
+            'doi'                 => $dto->doi,
+            'hash'                => $hash,
+            'reason'              => $reason,
+            'matched_document_id' => $matchedId,
+            'external_id'         => $dto->externalId !== null ? self::cut($dto->externalId, 100) : null,
+            'position'            => $dto->position,
+            'detail'              => null,
+            'created_at'          => $now,
+        ];
+    }
+
+    /** Linha de dataset_skip para um registro com erro. */
+    private function errorSkip(int $datasetId, string $now, string $reason, ?int $position, ?string $message, ?string $externalId, ?string $title): array
+    {
+        return [
+            'dataset_id'          => $datasetId,
+            'title'               => ($title !== null && trim($title) !== '') ? $title : 'Sem título',
+            'doi'                 => null,
+            'hash'                => null,
+            'reason'              => $reason,
+            'matched_document_id' => null,
+            'external_id'         => $externalId !== null ? self::cut($externalId, 100) : null,
+            'position'            => $position,
+            'detail'              => $message !== null ? self::cut($message, 500) : null,
+            'created_at'          => $now,
+        ];
+    }
+
+    private function flushSkipsIfFull(array &$skipsBatch): void
+    {
+        if (count($skipsBatch) >= self::BATCH_SIZE) {
+            $this->flushSkipsBatch($skipsBatch);
+            $skipsBatch = [];
+        }
+    }
+
+    /**
+     * Índice título normalizado + ano → [id, base, tipo de identidade, tem DOI] dos documentos do projeto.
+     * Tipo: "title" (o hash gravado é o próprio título + ano), "doi" ou "ext" (identificador da base).
+     *
+     * @return array<string, array{0: ?int, 1: string, 2: string, 3: bool}>
+     */
+    private function loadTitleYearIndex(int $projectId): array
+    {
+        $index = [];
+        foreach ($this->conn()->iterateNumeric(
+            'SELECT id, source, title, year, hash, doi FROM document WHERE project_id = ? AND title IS NOT NULL AND year IS NOT NULL',
+            [$projectId]
+        ) as [$id, $source, $title, $year, $hash, $doi]) {
+            $key = self::titleYearKey((string) $title, (int) $year);
+            if ($key === null || isset($index[$key])) {
+                continue;
+            }
+            $kind = $doi !== null && $doi !== '' ? 'doi' : ($hash === $key ? 'title' : 'ext');
+            $index[$key] = [(int) $id, strtolower((string) $source), $kind, $doi !== null && $doi !== ''];
+        }
+
+        return $index;
+    }
+
+    /** Tipo de identidade de um registro aceito (para o índice de título + ano). */
+    private static function identityKind(BibliographicRecordDTO $dto, ?string $hash, string $tyKey): string
+    {
+        if ($dto->doi) {
+            return 'doi';
+        }
+        return $hash === $tyKey ? 'title' : 'ext';
+    }
+
+    /**
+     * O registro é o mesmo documento que o do índice (mesmo título normalizado e ano)?
+     * - Os dois com DOI (diferentes, senão o DOI já teria unido): não.
+     * - Registro identificado pelo identificador da base: sim, se o documento é de outra base ou foi identificado
+     *   só pelo título; não, se é da mesma base com outro identificador (ex.: a mesma tese em dois repositórios).
+     * - Demais registros (Scopus, WoS, Lens, PubMed, RIS genérico): sim só se o documento foi identificado pelo
+     *   identificador de uma base; entre eles vale o hash de sempre, que já é o título + ano.
+     *
+     * @param array{0: ?int, 1: string, 2: string, 3: bool} $entry
+     * @return int|null|false  id do documento encontrado (null se ainda não gravado), ou false se não é o mesmo
+     */
+    public static function titleYearDuplicate(BibliographicRecordDTO $dto, array $entry): int|null|false
+    {
+        [$docId, $source, $kind, $hasDoi] = $entry;
+        if ($dto->doi && $hasDoi) {
+            return false;
+        }
+        if ($dto->strictIdentity && $dto->externalId) {
+            $same = $source !== strtolower($dto->source) || $kind === 'title';
+        } else {
+            $same = $kind === 'ext';
+        }
+
+        return $same ? $docId : false;
+    }
+
+    /** md5 do título normalizado com o ano: a mesma chave que computeHash() usa para registro sem DOI. */
+    public static function titleYearKey(?string $title, ?int $year): ?string
+    {
+        if (!$title || !$year) {
+            return null;
+        }
+        $normalized = preg_replace('/\s+/', ' ', strtolower(trim($title)));
+
+        return md5($normalized . ':' . $year);
     }
 
     private function loadMap(string $sql, int $projectId): array
@@ -681,15 +824,8 @@ class DocumentImportService
         $conn->beginTransaction();
         try {
             foreach ($skips as $skip) {
-                $conn->insert('dataset_skip', [
-                    'dataset_id'          => $skip['dataset_id'],
-                    'title'               => self::cut($skip['title'], 1000),
-                    'doi'                 => $skip['doi'],
-                    'hash'               => $skip['hash'],
-                    'reason'              => $skip['reason'],
-                    'matched_document_id' => $skip['matched_document_id'],
-                    'created_at'          => $skip['created_at'],
-                ]);
+                $skip['title'] = self::cut((string) $skip['title'], 1000);
+                $conn->insert('dataset_skip', $skip);
             }
             $conn->commit();
         } catch (\Throwable $e) {
@@ -744,9 +880,13 @@ class DocumentImportService
         if ($dto->doi) {
             return md5('doi:' . strtolower(trim($dto->doi)));
         }
+        // Base com identificador próprio (BRAPCI, BDTD, OpenAlex, EBSCO): dois registros da mesma base com
+        // identificadores diferentes nunca viram um só por terem o mesmo título e ano.
+        if ($dto->strictIdentity && $dto->externalId !== null && trim($dto->externalId) !== '') {
+            return md5('ext:' . strtolower(trim($dto->source)) . ':' . trim($dto->externalId));
+        }
         if ($dto->title && $dto->year) {
-            $normalized = preg_replace('/\s+/', ' ', strtolower(trim($dto->title)));
-            return md5($normalized . ':' . $dto->year);
+            return self::titleYearKey($dto->title, $dto->year);
         }
         if ($dto->externalId !== null && trim($dto->externalId) !== '') {
             return md5('ext:' . strtolower(trim($dto->source)) . ':' . trim($dto->externalId));

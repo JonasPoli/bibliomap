@@ -35,6 +35,9 @@ services:
     App\Service\Import\PubmedNbibImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\GenericRisImporter:
+        tags: ['app.bibliographic_importer']
+
 
 
     App\Service\Import\ImporterResolver:

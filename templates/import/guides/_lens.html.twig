@@ -1,0 +1,22 @@
+{# Guia de exportação: lens. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-lens">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('lens', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Lens.org {{ help('import.source.lens') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">lens.org/scholar &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+        </div>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.lens.org/lens/scholar/search" target="_blank" style="color:var(--bm-accent)">lens.org/lens/scholar</a> e realize sua busca.</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Após obter os resultados, clique no ícone de <strong>Export</strong> (ícone de seta para baixo, no canto superior direito da lista de resultados).</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Na janela de exportação, selecione o formato <strong>CSV</strong>.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Em <strong>Fields</strong>, mantenha <strong>"All fields"</strong> selecionado para garantir todos os metadados de abstract e afiliação.</div></li>
+        <li><div class="step-num">5</div><div class="step-text">Clique em <strong>"Export"</strong>. O Lens iniciará o processamento em segundo plano (pode levar alguns minutos para buscas grandes).</div></li>
+        <li><div class="step-num">6</div><div class="step-text">Assim que o arquivo for gerado, você receberá um aviso por e-mail. Para baixar, clique no link do e-mail ou vá na barra lateral esquerda do Lens em <strong>Notifications</strong> e clique em <strong>"Export complete"</strong> para obter o seu arquivo <code>lens-export.csv</code>.</div></li>
+    </ol>
+    <div class="step-note">
+        <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Limite:</strong> a exportação gratuita do Lens.org é limitada a ~1.000 registros. Para conjuntos maiores, utilize a <a href="https://docs.api.lens.org" target="_blank" style="color:var(--bm-accent)">API do Lens</a> (requer solicitação de token) ou divida a busca em períodos.</span>
+    </div>
+</div>

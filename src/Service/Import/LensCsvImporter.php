@@ -159,6 +159,8 @@ class LensCsvImporter implements BibliographicImporterInterface
     }
 
     public function getSourceName(): string { return 'Lens.org'; }
+
+    public function getSourceKey(): string { return 'lens'; }
     public function getFormatName(): string { return 'CSV'; }
 
     /** @param array $record registro já passado por TextNormalizer::trimKeys() */

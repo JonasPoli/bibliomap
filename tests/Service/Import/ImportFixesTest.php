@@ -51,6 +51,53 @@ class ImportFixesTest extends TestCase
         $this->assertNull(DocumentImportService::computeHash($this->dto([])));
     }
 
+    public function testHashComIdentidadeDaBase(): void
+    {
+        $a = DocumentImportService::computeHash($this->dto(['title' => 'Mesmo', 'year' => 2020, 'externalId' => '100', 'source' => 'brapci', 'strictIdentity' => true]));
+        $b = DocumentImportService::computeHash($this->dto(['title' => 'Mesmo', 'year' => 2020, 'externalId' => '200', 'source' => 'brapci', 'strictIdentity' => true]));
+        $this->assertSame(md5('ext:brapci:100'), $a);
+        $this->assertNotSame($a, $b);
+        // Com DOI continua valendo o DOI
+        $this->assertSame(md5('doi:10.1/x'), DocumentImportService::computeHash($this->dto(['doi' => '10.1/x', 'externalId' => '1', 'source' => 'brapci', 'strictIdentity' => true])));
+        // A chave de título + ano é a mesma do hash sem DOI
+        $this->assertSame(md5('my title here:2020'), DocumentImportService::titleYearKey(' My  Title Here ', 2020));
+    }
+
+    // ── importacao-base-novos-formatos: binário, bytes inválidos, entidades ──
+
+    public function testArquivoBinarioNaoPassaPeloTesteDeUtf8(): void
+    {
+        $ole = tempnam(sys_get_temp_dir(), 'bm');
+        file_put_contents($ole, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" . str_repeat("\x00\xFF", 50));
+        $zip = tempnam(sys_get_temp_dir(), 'bm');
+        file_put_contents($zip, "PK\x03\x04" . str_repeat("\xFF", 50));
+        $latin = tempnam(sys_get_temp_dir(), 'bm');
+        file_put_contents($latin, "titulo\nCi\xEAncia\n");
+        $this->assertFalse(TextNormalizer::needsUtf8Check($ole));
+        $this->assertFalse(TextNormalizer::needsUtf8Check($zip));
+        $this->assertTrue(TextNormalizer::needsUtf8Check($latin));
+        $this->assertFalse(TextNormalizer::isUtf8File($latin), 'CSV em Latin-1 continua recusado');
+        array_map('unlink', [$ole, $zip, $latin]);
+    }
+
+    public function testScrubEEntidades(): void
+    {
+        $this->assertSame("a\u{FFFD}b", TextNormalizer::scrub("a\xE7b"));
+        $this->assertSame('ação', TextNormalizer::scrub('ação'));
+        $this->assertSame('O user’s view "x" a b', TextNormalizer::decodeEntities('O user&rsquo;s view &quot;x&quot; a&nbsp;b'));
+        $this->assertNull(TextNormalizer::decodeEntities('&nbsp;'));
+    }
+
+    public function testTotalInformadoPelaBase(): void
+    {
+        $this->assertSame(1482, \App\Controller\ImportController::parseExpectedCount('1.482'));
+        $this->assertSame(884, \App\Controller\ImportController::parseExpectedCount(' 884 '));
+        $this->assertNull(\App\Controller\ImportController::parseExpectedCount('abc'));
+        $this->assertNull(\App\Controller\ImportController::parseExpectedCount(''));
+        $this->assertNull(\App\Controller\ImportController::parseExpectedCount('0'));
+        $this->assertNull(\App\Controller\ImportController::parseExpectedCount('99999999'));
+    }
+
     // ── 5.21 encoding ─────────────────────────────────────────────────────────
 
     public function testCutNaoPartePersonagemUtf8(): void

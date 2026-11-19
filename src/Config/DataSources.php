@@ -37,6 +37,9 @@ final class DataSources
         // ── Scopus (Elsevier) ─────────────────────────────────────────────────
         'scopus' => [
             'key'         => 'scopus',
+            'hasReader'   => true,
+            'readFormats' => 'CSV',
+            'guide'       => 'import/guides/_scopus.html.twig',
             'label'       => 'Scopus',
             'vendor'      => 'Elsevier',
             'url'         => 'https://www.scopus.com',
@@ -54,6 +57,9 @@ final class DataSources
         // ── Web of Science (Clarivate) ────────────────────────────────────────
         'wos' => [
             'key'         => 'wos',
+            'hasReader'   => true,
+            'readFormats' => 'TXT Plain text',
+            'guide'       => 'import/guides/_wos.html.twig',
             'label'       => 'Web of Science',
             'vendor'      => 'Clarivate',
             'url'         => 'https://www.webofscience.com',
@@ -71,6 +77,9 @@ final class DataSources
         // ── Lens.org (Cambia / IOI) ───────────────────────────────────────────
         'lens' => [
             'key'         => 'lens',
+            'hasReader'   => true,
+            'readFormats' => 'CSV',
+            'guide'       => 'import/guides/_lens.html.twig',
             'label'       => 'Lens.org',
             'vendor'      => 'Cambia / IOI',
             'url'         => 'https://www.lens.org/lens/scholar',
@@ -88,6 +97,9 @@ final class DataSources
         // ── PubMed (NCBI / NLM) ───────────────────────────────────────────────
         'pubmed' => [
             'key'         => 'pubmed',
+            'hasReader'   => true,
+            'readFormats' => 'CSV e NBIB',
+            'guide'       => 'import/guides/_pubmed.html.twig',
             'label'       => 'PubMed',
             'vendor'      => 'NCBI / NLM',
             'url'         => 'https://pubmed.ncbi.nlm.nih.gov',
@@ -105,6 +117,9 @@ final class DataSources
         // ── OpenAlex (OurResearch) ────────────────────────────────────────────
         'openalex' => [
             'key'         => 'openalex',
+            'hasReader'   => false,
+            'readFormats' => null,
+            'guide'       => 'import/guides/_openalex.html.twig',
             'label'       => 'OpenAlex',
             'vendor'      => 'OurResearch',
             'url'         => 'https://openalex.org/works',
@@ -122,6 +137,9 @@ final class DataSources
         // ── Crossref ──────────────────────────────────────────────────────────
         'crossref' => [
             'key'         => 'crossref',
+            'hasReader'   => false,
+            'readFormats' => null,
+            'guide'       => 'import/guides/_crossref.html.twig',
             'label'       => 'Crossref',
             'vendor'      => 'Crossref',
             'url'         => 'https://search.crossref.org',
@@ -139,6 +157,9 @@ final class DataSources
         // ── Generic / Other ───────────────────────────────────────────────────
         'generic' => [
             'key'         => 'generic',
+            'hasReader'   => false,
+            'readFormats' => null,
+            'guide'       => null,
             'label'       => 'Genérico',
             'vendor'      => null,
             'url'         => null,
@@ -165,6 +186,24 @@ final class DataSources
     public static function get(string $key): ?array
     {
         return self::SOURCES[$key] ?? null;
+    }
+
+    /** Bases que o BiblioMap lê, na ordem do catálogo. */
+    public static function withReader(): array
+    {
+        return array_filter(self::SOURCES, fn (array $s) => !empty($s['hasReader']));
+    }
+
+    /** "Scopus (CSV), Web of Science (TXT (Plain text)), ..." para as mensagens de formato não reconhecido. */
+    public static function readableFormatsSentence(): string
+    {
+        $parts = [];
+        foreach (self::withReader() as $src) {
+            $parts[] = $src['label'] . ($src['readFormats'] ? ' (' . $src['readFormats'] . ')' : '');
+        }
+        $parts[] = 'RIS de outras bases';
+
+        return implode(', ', $parts);
     }
 
     /** Returns the label for a given key, falling back to the raw key. */

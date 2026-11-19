@@ -177,6 +177,8 @@ class ScopusCsvImporter implements BibliographicImporterInterface
     }
 
     public function getSourceName(): string { return 'Scopus'; }
+
+    public function getSourceKey(): string { return 'scopus'; }
     public function getFormatName(): string { return 'CSV'; }
 
     // ── Helpers ────────────────────────────────────────

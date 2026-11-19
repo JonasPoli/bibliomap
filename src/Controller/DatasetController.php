@@ -76,6 +76,26 @@ class DatasetController extends AbstractController
         );
         $totalSkips = $skipRepo->count(['dataset' => $dataset]);
 
+        // Conferência por tipo, quando o leitor da base sabe contar o arquivo por tipo (ex.: cesta da BRAPCI)
+        $typeCounts = [];
+        $filePath = $dataset->getFilePath();
+        if ($filePath && is_file($filePath)) {
+            try {
+                $importer = $this->resolver->resolve($filePath, strtolower((string) $dataset->getFileFormat()), $dataset->getSource());
+                if ($importer !== null && method_exists($importer, 'countByType')) {
+                    $typeCounts = $importer->countByType($filePath);
+                }
+            } catch (\Throwable) {}
+        }
+
+        // Possíveis repetições: mesmo título e ano dentro do dataset (importadas todas)
+        $possibleRepeats = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT MIN(title) AS title, year, COUNT(*) AS c, GROUP_CONCAT(id ORDER BY id) AS ids
+               FROM document WHERE dataset_id = ? AND normalized_title IS NOT NULL AND year IS NOT NULL
+              GROUP BY MD5(normalized_title), year HAVING COUNT(*) > 1 ORDER BY c DESC, year DESC LIMIT 200',
+            [$dataset->getId()]
+        );
+
         // Auto-determine active tab based on query param
         $activeTab = $request->query->has('page_skip') || $request->query->get('tab') === 'duplicates' ? 'duplicates' : 'imported';
 
@@ -91,6 +111,9 @@ class DatasetController extends AbstractController
             'currentPageSkip' => $pageSkip,
             'totalPagesSkip' => (int) ceil($totalSkips / $limitSkip),
             'activeTab' => $activeTab,
+            'typeCounts' => $typeCounts,
+            'possibleRepeats' => $possibleRepeats,
+            'possibleRepeatsDocs' => array_sum(array_map(fn ($g) => (int) $g['c'], $possibleRepeats)),
         ]);
     }
 
@@ -120,6 +143,9 @@ class DatasetController extends AbstractController
 
             $startRaw = $request->request->get('search_period_start');
             $endRaw = $request->request->get('search_period_end');
+            if ($request->request->has('expected_count')) {
+                $dataset->setExpectedCount(ImportController::parseExpectedCount($request->request->get('expected_count')));
+            }
 
             try {
                 $dataset->setSearchPeriodStart($startRaw ? new \DateTimeImmutable($startRaw) : null);

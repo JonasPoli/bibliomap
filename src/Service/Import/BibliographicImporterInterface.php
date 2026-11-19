@@ -23,6 +23,11 @@ interface BibliographicImporterInterface
 
     public function mapToInternalRecord(array $rawRecord): BibliographicRecordDTO;
 
+    /** Nome de exibição da base (ex.: "Lens.org"). */
     public function getSourceName(): string;
+
+    /** Chave da base no catálogo App\Config\DataSources (ex.: "lens"): é o que vai para Dataset::$source. */
+    public function getSourceKey(): string;
+
     public function getFormatName(): string;
 }

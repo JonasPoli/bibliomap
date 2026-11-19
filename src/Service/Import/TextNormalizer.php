@@ -102,6 +102,50 @@ final class TextNormalizer
      * gravaria texto quebrado e, depois, termos duplicados com e sem acento.
      * Um caractere cortado no fim da amostra não conta como erro.
      */
+    /**
+     * Falso para arquivo binário (planilha OLE2 do Excel, ZIP), que não passa pelo teste de UTF-8.
+     */
+    public static function needsUtf8Check(string $path): bool
+    {
+        $handle = @fopen($path, 'rb');
+        if (!$handle) {
+            return true;
+        }
+        $head = (string) fread($handle, 8);
+        fclose($handle);
+
+        return $head !== "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" && !str_starts_with($head, "PK\x03\x04");
+    }
+
+    /** Troca byte UTF-8 inválido isolado pelo caractere de substituição, sem perder o resto do texto. */
+    public static function scrub(string $value): string
+    {
+        if (mb_check_encoding($value, 'UTF-8')) {
+            return $value;
+        }
+        $previous = mb_substitute_character();
+        mb_substitute_character(0xFFFD);
+        try {
+            return mb_scrub($value, 'UTF-8');
+        } finally {
+            mb_substitute_character($previous);
+        }
+    }
+
+    /** Converte entidades HTML (&nbsp;, &quot;, &rsquo;...) e espaços especiais em texto simples. */
+    public static function decodeEntities(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $v = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $v = str_replace(["\u{00A0}", "\u{2009}", "\u{2003}", "\u{2002}", "\u{202F}"], ' ', $v);
+        $v = str_replace(["\u{200B}", "\u{FEFF}"], '', $v);
+        $v = trim($v);
+
+        return $v === '' ? null : $v;
+    }
+
     public static function isUtf8File(string $path, int $sampleBytes = 262144): bool
     {
         $handle = @fopen($path, 'rb');

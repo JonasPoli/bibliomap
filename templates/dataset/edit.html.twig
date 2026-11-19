@@ -94,11 +94,12 @@
                             </label>
                             {% endif %}
                         {% endfor %}
-                        <label class="src-pick-card {{ dataset.source not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'active' : '' }}"
+                        {% set known_src = data_sources[dataset.source] is defined and dataset.source != 'generic' %}
+                        <label class="src-pick-card {{ not known_src ? 'active' : '' }}"
                                for="src_generic" title="Outra base" style="cursor:pointer">
                             <input type="radio" id="src_generic" name="source"
                                    value="generic" style="display:none"
-                                   {{ dataset.source not in ['scopus','wos','lens','pubmed','openalex','crossref'] ? 'checked' : '' }}>
+                                   {{ not known_src ? 'checked' : '' }}>
                             <span class="src-pick-logo" style="font-size:20px">📄</span>
                             <span class="src-pick-name">Outra</span>
                         </label>
@@ -119,6 +120,17 @@
                     </div>
                     <div class="col-12 mt-1" style="font-size:11px;color:var(--bm-text-muted)">
                         Período de cobertura temporal da busca realizada na base de dados (apenas documentação; não filtra documentos).
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-6">
+                        <label class="form-label" for="expected_count">Total de resultados mostrado pela base</label> {{ help('import.preview.expected_count') }}
+                        <input type="text" inputmode="numeric" id="expected_count" name="expected_count" class="form-control"
+                               value="{{ dataset.expectedCount ?? '' }}" placeholder="Ex.: 1482">
+                    </div>
+                    <div class="col-12 mt-1" style="font-size:11px;color:var(--bm-text-muted)">
+                        Usado na conferência da importação: a tela do dataset mostra se o arquivo trouxe todos os resultados da busca.
                     </div>
                 </div>
 

@@ -28,6 +28,15 @@ class BibliographicRecordDTO
     public ?string $publicationStage = null;
     public ?string $rawData = null;
 
+    /**
+     * Verdadeiro quando o leitor garante que externalId identifica o registro na base (ID da BRAPCI, Work ID do
+     * OpenAlex...). Aí dois registros da mesma base só são o mesmo documento com o mesmo identificador ou DOI.
+     */
+    public bool $strictIdentity = false;
+
+    /** Posição do registro no arquivo, a partir de 1 (para a conferência da importação). */
+    public ?int $position = null;
+
     /** @var string[] */
     public array $authorNames = [];
 

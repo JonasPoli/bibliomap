@@ -83,10 +83,17 @@
         <div class="bm-card h-100">
             <h3 style="font-size:12px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 16px">Resultado da importação {{ help('dataset.show.result') }}</h3>
             <div style="display:flex;flex-direction:column;gap:10px">
+                {% set rec = dataset.reconciliation %}
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <span style="font-size:13px;color:var(--bm-text-muted)"><i class="bi bi-list-ul me-2"></i>Total no arquivo {{ help('dataset.show.records_total') }}</span>
                     <strong style="color:var(--bm-text)">{{ dataset.recordsCount|number_format }}</strong>
                 </div>
+                {% if dataset.readCount is not null %}
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-size:13px;color:var(--bm-text-muted)"><i class="bi bi-file-earmark-text me-2"></i>Lidos na importação</span>
+                        <strong style="color:var(--bm-text)">{{ dataset.readCount|number_format }}</strong>
+                    </div>
+                {% endif %}
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <span style="font-size:13px;color:var(--bm-text-muted)"><i class="bi bi-check-circle me-2" style="color:var(--bm-success)"></i>Importados {{ help('dataset.show.imported') }}</span>
                     <strong style="color:var(--bm-success)">{{ dataset.importedCount|number_format }}</strong>
@@ -106,6 +113,40 @@
                     <div style="font-size:12px;color:var(--bm-text-muted);text-align:right;margin-top:4px">{{ dataset.successRate }}% de aproveitamento {{ help('dataset.show.success_rate') }}</div>
                 </div>
             </div>
+            {% if dataset.status == 'imported' or dataset.status == 'error' %}
+                <div style="border-top:1px solid var(--bm-border);margin-top:12px;padding-top:10px;font-size:12px">
+                    <div style="font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;font-size:10px;margin-bottom:6px">Conferência {{ help('dataset.show.reconciliation') }}</div>
+                    <div style="color:{{ rec.closes ? 'var(--bm-text)' : 'var(--bm-danger)' }}">
+                        {{ rec.read|number_format }} lidos {{ rec.closes ? '=' : '≠' }} {{ rec.imported|number_format }} importados + {{ rec.duplicated|number_format }} duplicados + {{ rec.errors|number_format }} erros
+                    </div>
+                    {% if not rec.closes %}
+                        <div style="color:var(--bm-danger);margin-top:4px"><i class="bi bi-exclamation-triangle me-1"></i>A soma não fecha com o total lido: {{ (rec.read - rec.sum)|abs|number_format }} registro(s) sem destino. Reimporte o arquivo ou fale com o administrador.</div>
+                    {% endif %}
+                    {% if rec.previewDiff is not null and rec.previewDiff != 0 %}
+                        <div style="color:var(--bm-warning);margin-top:4px"><i class="bi bi-exclamation-triangle me-1"></i>A prévia contou {{ rec.preview|number_format }} registros e a importação leu {{ rec.read|number_format }}.</div>
+                    {% endif %}
+                    {% if rec.expected is not null %}
+                        {% if rec.expectedDiff == 0 %}
+                            <div style="color:var(--bm-success);margin-top:4px"><i class="bi bi-check-circle me-1"></i>A base informou {{ rec.expected|number_format }} resultados, o mesmo número do arquivo.</div>
+                        {% elseif rec.expectedDiff > 0 %}
+                            <div style="color:var(--bm-warning);margin-top:4px"><i class="bi bi-exclamation-triangle me-1"></i>A base informou {{ rec.expected|number_format }} resultados e o arquivo tem {{ rec.read|number_format }}: faltam {{ rec.expectedDiff|number_format }}.</div>
+                        {% else %}
+                            <div style="color:var(--bm-warning);margin-top:4px"><i class="bi bi-exclamation-triangle me-1"></i>A base informou {{ rec.expected|number_format }} resultados e o arquivo tem {{ rec.read|number_format }}: {{ (-rec.expectedDiff)|number_format }} a mais.</div>
+                        {% endif %}
+                    {% endif %}
+                    {% if typeCounts %}
+                        <div style="color:var(--bm-text-muted);margin-top:4px">
+                            {% for label, n in typeCounts %}{{ label }} {{ n|number_format }}{% if not loop.last %} · {% endif %}{% endfor %}
+                            {{ help('dataset.show.type_counts') }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% if dataset.importNotice %}
+                <div style="background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.25);border-radius:8px;padding:10px;margin-top:12px;font-size:12px;color:var(--bm-warning)">
+                    <i class="bi bi-info-circle me-1"></i>{{ dataset.importNotice }}
+                </div>
+            {% endif %}
             {% if dataset.errorMessage %}
                 <div style="background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.2);border-radius:8px;padding:10px;margin-top:12px;font-size:12px;color:var(--bm-danger)">
                     <i class="bi bi-exclamation-triangle me-1"></i>{{ dataset.errorMessage|slice(0,200) }}
@@ -114,6 +155,29 @@
         </div>
     </div>
 </div>
+
+{% if possibleRepeats %}
+<div class="bm-card mb-4">
+    <h3 style="font-size:12px;font-weight:600;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 6px">
+        <i class="bi bi-intersect me-1"></i>Possíveis repetições ({{ possibleRepeats|length }} grupo{{ possibleRepeats|length > 1 ? 's' : '' }}, {{ possibleRepeatsDocs|number_format }} documentos) {{ help('dataset.show.possible_repeats') }}
+    </h3>
+    <p style="font-size:12px;color:var(--bm-text-muted);margin:0 0 10px">Documentos deste dataset com o mesmo título e o mesmo ano. Foram importados todos, porque a base os identifica como registros diferentes.</p>
+    <div style="max-height:320px;overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+            {% for g in possibleRepeats %}
+                <tr style="border-bottom:1px solid var(--bm-border)">
+                    <td style="padding:6px 8px;color:var(--bm-text)">{{ g.title }}</td>
+                    <td style="padding:6px 8px;color:var(--bm-text-muted);white-space:nowrap">{{ g.year }}</td>
+                    <td style="padding:6px 8px;color:var(--bm-text-muted);white-space:nowrap">{{ g.c }} documentos</td>
+                    <td style="padding:6px 8px;white-space:nowrap;color:var(--bm-text-muted);font-family:monospace;font-size:11px">
+                        {% for docId in g.ids|split(',') %}#{{ docId }}{% if not loop.last %} {% endif %}{% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {# Documentos #}
 <div class="bm-card">
@@ -127,7 +191,7 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link {% if activeTab == 'duplicates' %}active{% endif %}" id="duplicates-tab" data-bs-toggle="tab" data-bs-target="#duplicates-pane" type="button" role="tab" aria-controls="duplicates-pane" aria-selected="{% if activeTab == 'duplicates' %}true{% else %}false{% endif %}">
-                    <i class="bi bi-copy me-2 text-warning"></i>Duplicados Ignorados
+                    <i class="bi bi-copy me-2 text-warning"></i>Duplicados e erros
                     <span class="badge rounded-pill bg-warning text-dark ms-2" style="font-size:10px">{{ totalSkips|number_format }}</span>
                 </button>
             </li>
@@ -265,7 +329,7 @@
         <div class="tab-pane fade {% if activeTab == 'duplicates' %}show active{% endif %}" id="duplicates-pane" role="tabpanel" aria-labelledby="duplicates-tab" tabindex="0">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <div>
-                    <p style="font-size:12px;color:var(--bm-text-muted);margin:0">{{ totalSkips|number_format }} registros identificados como duplicados e ignorados para evitar redundância. {{ help('dataset.show.tab_duplicates') }}</p>
+                    <p style="font-size:12px;color:var(--bm-text-muted);margin:0">{{ totalSkips|number_format }} registros não importados: duplicados de documentos que já estavam no projeto e registros com erro. {{ help('dataset.show.tab_duplicates') }}</p>
                 </div>
                 {% if totalPagesSkip > 1 %}
                     <div style="font-size:12px;color:var(--bm-text-muted)">Página {{ currentPageSkip }} de {{ totalPagesSkip }}</div>
@@ -275,7 +339,7 @@
             {% if skips is empty %}
                 <div style="text-align:center;padding:40px;color:var(--bm-text-muted)">
                     <i class="bi bi-copy" style="font-size:32px;display:block;margin-bottom:8px"></i>
-                    Nenhum registro considerado duplicado nesta importação.
+                    Nenhum registro duplicado ou com erro nesta importação.
                 </div>
             {% else %}
                 <div style="overflow-x:auto">
@@ -299,6 +363,11 @@
                                         <div style="font-weight:600;color:var(--bm-text);line-height:1.4;margin-bottom:4px">
                                             {{ skip.title|default('—') }}
                                         </div>
+                                        {% if skip.position or skip.externalId %}
+                                            <div style="font-size:11px;color:var(--bm-text-muted);margin-bottom:2px">
+                                                {% if skip.position %}Posição {{ skip.position|number_format }} no arquivo{% endif %}{% if skip.position and skip.externalId %} · {% endif %}{% if skip.externalId %}ID na base: <span style="font-family:monospace">{{ skip.externalId }}</span>{% endif %}
+                                            </div>
+                                        {% endif %}
                                         {% if skip.doi %}
                                             <div style="display:flex;align-items:center;gap:6px;font-size:11px">
                                                 <span style="color:var(--bm-text-muted)">DOI:</span>
@@ -321,13 +390,17 @@
                                         {% if skip.reason == 'doi' %}
                                             <span class="badge text-bg-danger" style="font-size:10px;padding:4px 8px"><i class="bi bi-fingerprint me-1"></i>DOI Conflitante</span>
                                         {% elseif skip.reason == 'hash' %}
-                                            <span class="badge text-bg-warning text-dark" style="font-size:10px;padding:4px 8px"><i class="bi bi-hash me-1"></i>Título + Ano</span>
+                                            <span class="badge text-bg-warning text-dark" style="font-size:10px;padding:4px 8px"><i class="bi bi-hash me-1"></i>Mesmo documento</span>
+                                        {% elseif skip.error %}
+                                            <span class="badge text-bg-dark" style="font-size:10px;padding:4px 8px;background:var(--bm-danger)!important"><i class="bi bi-x-octagon me-1"></i>Erro: {{ skip.reasonLabel }}</span>
                                         {% else %}
                                             <span class="badge text-bg-secondary" style="font-size:10px;padding:4px 8px"><i class="bi bi-shield-exclamation me-1"></i>Restrição Banco</span>
                                         {% endif %}
                                     </td>
                                     <td style="padding:12px 10px;vertical-align:top">
-                                        {% if skip.matchedDocument %}
+                                        {% if skip.error %}
+                                            <div style="color:var(--bm-danger);line-height:1.4">{{ skip.detail|default(skip.reasonLabel) }}</div>
+                                        {% elseif skip.matchedDocument %}
                                             <div style="font-weight:500;color:var(--bm-text-muted);line-height:1.4;margin-bottom:4px">
                                                 {{ skip.matchedDocument.title }}
                                             </div>

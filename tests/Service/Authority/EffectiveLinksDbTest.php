@@ -234,7 +234,12 @@ class EffectiveLinksDbTest extends LocalDbTestCase
 
     public function testNormalizationMergeDocumentsMovesLinksWithEffective(): void
     {
-        $pid = (int) $this->conn->fetchOne('SELECT d.project_id FROM document d JOIN document_author da ON da.document_id = d.id GROUP BY d.project_id ORDER BY COUNT(*) ASC LIMIT 1');
+        // Menor projeto com ao menos dois documentos que tenham autor e palavra-chave
+        $pid = (int) $this->conn->fetchOne(
+            'SELECT d.project_id FROM document d JOIN document_author da ON da.document_id = d.id
+              WHERE EXISTS (SELECT 1 FROM document_keyword dk WHERE dk.document_id = d.id)
+              GROUP BY d.project_id HAVING COUNT(DISTINCT d.id) >= 2 ORDER BY COUNT(*) ASC LIMIT 1'
+        );
         $ids = $this->conn->fetchFirstColumn(
             'SELECT d.id FROM document d WHERE d.project_id = ? AND EXISTS (SELECT 1 FROM document_author da WHERE da.document_id = d.id)
              AND EXISTS (SELECT 1 FROM document_keyword dk WHERE dk.document_id = d.id) ORDER BY d.id LIMIT 2',

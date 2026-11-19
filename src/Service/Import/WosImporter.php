@@ -261,6 +261,8 @@ class WosImporter implements BibliographicImporterInterface
     }
 
     public function getSourceName(): string { return 'wos'; }
+
+    public function getSourceKey(): string { return 'wos'; }
     public function getFormatName(): string { return 'txt'; }
 
     // ── Private: WoS file parser ─────────────────────────────────────────────

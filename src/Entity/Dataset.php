@@ -73,6 +73,18 @@ class Dataset
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $importedAt = null;
 
+    /** Registros lidos do arquivo pela importação (toda saída do leitor, inclusive os ilegíveis). Nulo em dataset antigo. */
+    #[ORM\Column(nullable: true)]
+    private ?int $readCount = null;
+
+    /** Total de resultados que a base mostrou na busca, informado pelo dono na prévia. */
+    #[ORM\Column(nullable: true)]
+    private ?int $expectedCount = null;
+
+    /** Aviso da importação sobre o arquivo (ex.: base ajustada pela detecção). */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $importNotice = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -129,6 +141,39 @@ class Dataset
 
     public function getImportedAt(): ?\DateTimeImmutable { return $this->importedAt; }
     public function setImportedAt(?\DateTimeImmutable $v): static { $this->importedAt = $v; return $this; }
+
+    public function getReadCount(): ?int { return $this->readCount; }
+    public function setReadCount(?int $v): static { $this->readCount = $v; return $this; }
+    public function getExpectedCount(): ?int { return $this->expectedCount; }
+    public function setExpectedCount(?int $v): static { $this->expectedCount = $v; return $this; }
+    public function getImportNotice(): ?string { return $this->importNotice; }
+    public function setImportNotice(?string $v): static { $this->importNotice = $v === null ? null : mb_substr($v, 0, 500); return $this; }
+
+    /**
+     * Conferência da importação: lidos = importados + duplicados + erros, e a comparação com o total contado na
+     * prévia e com o total que a base informou. Dataset antigo (sem readCount) usa a soma dos três como lidos.
+     *
+     * @return array{read: int, imported: int, duplicated: int, errors: int, sum: int, closes: bool, previewDiff: ?int, expectedDiff: ?int, expected: ?int, preview: ?int}
+     */
+    public function getReconciliation(): array
+    {
+        $sum = $this->importedCount + $this->duplicatedCount + $this->errorCount;
+        $read = $this->readCount ?? $sum;
+        $preview = $this->recordsCount > 0 ? $this->recordsCount : null;
+
+        return [
+            'read' => $read,
+            'imported' => $this->importedCount,
+            'duplicated' => $this->duplicatedCount,
+            'errors' => $this->errorCount,
+            'sum' => $sum,
+            'closes' => $read === $sum,
+            'preview' => $preview,
+            'previewDiff' => $preview !== null && $this->readCount !== null ? $preview - $this->readCount : null,
+            'expected' => $this->expectedCount,
+            'expectedDiff' => $this->expectedCount !== null ? $this->expectedCount - $read : null,
+        ];
+    }
 
     public function getSourceLabel(): string
     {

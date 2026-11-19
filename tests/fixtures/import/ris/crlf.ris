@@ -1,0 +1,34 @@
+TY  - JOUR
+TI  - Primeiro artigo
+AU  - Silva, Ana
+AU  - Souza, Rui
+PY  - 2019/09/30/
+JO  - Revista Teste
+VL  - 12
+IS  - 3
+SP  - 10
+EP  - 20
+SN  - 1234567X
+DO  - https://doi.org/10.1234/ABC.1
+UR  - https://exemplo.org/a
+AB  - Resumo em
+duas linhas
+KW  - bibliometria
+KW  - bibliometria
+KW  - redes
+LA  - por
+ER  - 
+
+TY  - JOUR
+T1  - Segundo artigo
+A1  - Lima, Eva
+Y1  - 2014///Mar/Apr
+JF  - Outra Revista
+UR  - javascript:alert(1)
+ER  - 
+
+TY  - BOOK
+TI  - Terceiro
+PY  - 2020
+SN  - 9788512345678
+ER  - 

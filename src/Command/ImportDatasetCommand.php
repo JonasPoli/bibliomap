@@ -204,15 +204,33 @@ class ImportDatasetCommand extends Command
         if ($importer === null) {
             $dataset->setStatus(Dataset::STATUS_ERROR);
             $dataset->setErrorMessage(
-                'Formato não reconhecido. O BiblioMap lê Scopus CSV, Web of Science TXT (Plain text), '
-                . 'Lens.org CSV e PubMed CSV/NBIB. Reexporte o arquivo num desses formatos.'
+                'Formato não reconhecido. O BiblioMap lê ' . \App\Config\DataSources::readableFormatsSentence()
+                . '. Reexporte o arquivo num desses formatos.'
             );
             $this->em->flush();
             $io->error('No importer for this file.');
             return null;
         }
 
-        if (!TextNormalizer::isUtf8File($filePath)) {
+        // Base escolhida à mão que não combina com o arquivo: vale a detectada (ImporterResolver::resolve)
+        $declared = strtolower(trim($source));
+        $dataset->setImportNotice(null);
+        if ($declared !== '' && !in_array($declared, ['generic', 'unknown'], true)
+            && $importer->getSourceKey() !== $declared
+            && !$importer->supports($format, $source)) {
+            $dataset->setSource($importer->getSourceKey());
+            // Dataset antigo gravado com o nome de exibição ("Lens.org"): só corrige a chave, sem aviso
+            if ($declared !== strtolower($importer->getSourceName())) {
+                $notice = sprintf('Base ajustada de %s para %s pela detecção do arquivo.',
+                    \App\Config\DataSources::label($declared), \App\Config\DataSources::label($importer->getSourceKey()));
+                $dataset->setImportNotice($notice);
+                $io->warning($notice);
+            }
+        }
+
+        if (TextNormalizer::needsUtf8Check($filePath)
+            && $this->resolver->declaredEncoding($filePath) === null
+            && !TextNormalizer::isUtf8File($filePath)) {
             $dataset->setStatus(Dataset::STATUS_ERROR);
             $dataset->setErrorMessage(
                 'O arquivo não está em UTF-8 (parece Windows-1252, Latin-1 ou UTF-16): os acentos seriam gravados errados. '
@@ -245,6 +263,7 @@ class ImportDatasetCommand extends Command
             // Stream import — never loads all records into memory
             $stream = $importer->parseStream($filePath);
             $stats  = $this->importService->importAll($stream, $dataset, function (array $currentStats) use ($dataset) {
+                $dataset->setReadCount($currentStats['read']);
                 $dataset->setImportedCount($currentStats['imported']);
                 $dataset->setDuplicatedCount($currentStats['skipped']);
                 $dataset->setErrorCount($currentStats['errors']);
@@ -252,12 +271,13 @@ class ImportDatasetCommand extends Command
             }, true);
 
             // Update dataset with final results
+            $dataset->setReadCount($stats['read']);
             $dataset->setImportedCount($stats['imported']);
             $dataset->setDuplicatedCount($stats['skipped']);
             $dataset->setErrorCount($stats['errors']);
             $dataset->setImportedAt(new \DateTimeImmutable());
 
-            $read = $stats['imported'] + $stats['skipped'] + $stats['errors'];
+            $read = $stats['read'];
             if ($stats['imported'] + $stats['skipped'] === 0) {
                 // Nada aproveitável: não deixa a importação parecer bem-sucedida com 0 documentos
                 $dataset->setStatus(Dataset::STATUS_ERROR);
@@ -271,7 +291,8 @@ class ImportDatasetCommand extends Command
             $this->em->flush();
 
             $io->success(sprintf(
-                'Concluído! %d importados, %d duplicados ignorados, %d erros.',
+                'Concluído! %d lidos: %d importados, %d duplicados ignorados, %d erros.',
+                $stats['read'],
                 $stats['imported'],
                 $stats['skipped'],
                 $stats['errors']

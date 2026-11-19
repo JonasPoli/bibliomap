@@ -1,0 +1,31 @@
+{# Guia de exportação: scopus. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-scopus">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('scopus', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Scopus (Elsevier) {{ help('import.source.scopus') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">scopus.com &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+        </div>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">Acesse <a href="https://www.scopus.com" target="_blank" style="color:var(--bm-accent)">scopus.com</a> e realize sua busca normalmente.</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Selecione os registros desejados. Para todos: marque o checkbox no topo e clique em <strong>"Select all"</strong> (pode selecionar até 2.000 por vez).</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Clique no botão <strong>"Export"</strong> no menu superior dos resultados.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Escolha o formato <strong>CSV (Excel)</strong>.</div></li>
+        <li><div class="step-num">5</div><div class="step-text">
+            Na tela de seleção de campos, marque ao menos:
+            <ul style="margin:6px 0 0 4px;padding-left:16px;font-size:13px;color:var(--bm-text-muted);line-height:1.7">
+                <li>Citation Information</li>
+                <li>Bibliographical Information</li>
+                <li>Abstract &amp; Keywords</li>
+                <li>Funding Details</li>
+                <li>Other Information</li>
+            </ul>
+        </div></li>
+        <li><div class="step-num">6</div><div class="step-text">Clique em <strong>"Export"</strong>. O arquivo <code>.csv</code> será baixado automaticamente.</div></li>
+    </ol>
+    <div class="step-note">
+        <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Limite:</strong> o Scopus exporta até 2.000 registros por vez. Para buscas maiores, use filtros de ano ou exporte em lotes e importe cada arquivo separadamente no mesmo projeto.</span>
+    </div>
+</div>
