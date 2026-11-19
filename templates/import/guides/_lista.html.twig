@@ -1,0 +1,24 @@
+{# Guia de exportação: lista. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-lista">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('lista', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">LISTA (EBSCO) {{ help('import.source.lista') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">Library, Information Science &amp; Technology Abstracts &nbsp;·&nbsp; Formato aceito: <span class="fmt-badge fmt-csv">CSV</span></div>
+        </div>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">Acesse a LISTA pela EBSCO (pelo Portal de Periódicos da CAPES, com o login da sua instituição) e, nas opções da busca, <strong>limite a pesquisa à LISTA</strong>: sem isso, o arquivo traz registros de outras bases da EBSCO.</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Faça a busca e anote o total de resultados.</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Selecione os resultados e use a opção de exportar em <strong>CSV</strong>. Se a busca for exportada em partes, envie <strong>todos os arquivos de uma vez</strong>: os registros que se repetem entre partes contam como duplicados.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Envie aqui o arquivo <code>EBSCO-Metadata-AAAA_MM_DD.csv</code> como veio, sem abrir no Excel.</div></li>
+    </ol>
+    <div class="step-note">
+        <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">O que entra:</strong> título (sem o ponto final que a EBSCO acrescenta), autores, ano, periódico, volume, número, páginas, ISSN, DOI, idioma, resumo e os assuntos da EBSCO. Não há afiliação, país, citações nem referências. A prévia avisa quantos registros não são da LISTA.</span>
+    </div>
+    <div class="step-note">
+        <i class="bi bi-exclamation-triangle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Outros formatos:</strong> o BibTeX da EBSCO corta o resumo em 1.000 caracteres e não traz o número de acesso; o XML repete o CSV. Os dois são recusados. A LISTA (EBSCO) não é a LISA (ProQuest), que o BiblioMap não lê.</span>
+    </div>
+</div>

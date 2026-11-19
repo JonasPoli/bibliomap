@@ -53,6 +53,9 @@ services:
     App\Service\Import\Bdtd\BdtdRisImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\Ebsco\EbscoCsvImporter:
+        tags: ['app.bibliographic_importer']
+
 
 
     App\Service\Import\ImporterResolver:

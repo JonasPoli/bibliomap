@@ -4,6 +4,7 @@ namespace App\Tests\Service\Import;
 
 use App\DTO\BibliographicRecordDTO;
 use App\Service\Import\Brapci\BrapciCsvImporter;
+use App\Service\Import\Ebsco\EbscoCsvImporter;
 use App\Service\Import\LensCsvImporter;
 use App\Service\Import\PubmedCsvImporter;
 use App\Service\Import\ScopusCsvImporter;
@@ -53,6 +54,11 @@ class CsvImporterCountTest extends TestCase
                 . "1,\"Article\",2020,\"R\",\"Ana\",\"T1\",\"k\",\"a\nb\nc\nd\",\"Artigo\",\"R, v. 1, n. 1, 2020\",\"https://hdl.handle.net/20.500.11959/brapci/1\",\n"
                 . "2,\"Article\",2021,\"R\",\"Rui\",\"T2\",\"k\",\"x\",\"Artigo\",\"R, 2021\",\"https://hdl.handle.net/20.500.11959/brapci/2\",\n"
                 . "3,\"Book\",2022,\"LIVRO\",\"Eva\",\"T3\",\"\",\"\",\"\",\"T3, 2022\",\"https://hdl.handle.net/20.500.11959/brapci/3\",\n"],
+            'ebsco' => [EbscoCsvImporter::class,
+                "\u{FEFF}title,publicationDate,authors,plink,longDbName,shortDbName,accessionNumber,source,abstract\n"
+                . "T1.,20200101,\"Silva, A\",https://x/1,LISTA,lih,1,R,\"a\nb\nc\nd\"\n"
+                . "T2.,20210101,\"Lima, B\",https://x/2,LISTA,lih,2,R,x\n"
+                . "T3.,20220101,\"Melo, C\",https://x/3,LISTA,lih,3,R,\n"],
         ];
     }
 

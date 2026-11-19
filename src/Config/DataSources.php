@@ -154,6 +154,26 @@ final class DataSources
             'accentColor' => '#2f81f7',
         ],
 
+        // ── LISTA (EBSCO) ─────────────────────────────────────────────────────
+        'lista' => [
+            'key'         => 'lista',
+            'hasReader'   => true,
+            'readFormats' => 'CSV da EBSCO',
+            'guide'       => 'import/guides/_lista.html.twig',
+            'label'       => 'LISTA (EBSCO)',
+            'vendor'      => 'EBSCO',
+            'url'         => 'https://research.ebsco.com',
+            'logo'        => null,
+            'logoDark'    => null,
+            'logoType'    => null,
+            'logoBg'      => null,
+            'formats'     => ['csv'],
+            'emoji'       => '🏛️',
+            'limit'       => null,
+            'bgColor'     => '#0d1520',
+            'accentColor' => '#2f81f7',
+        ],
+
         // ── OpenAlex (OurResearch) ────────────────────────────────────────────
         'openalex' => [
             'key'         => 'openalex',
