@@ -137,6 +137,17 @@ import.source.brapci:
   example: |-
     Busca "bibliometria" com 1.482 resultados: exporte o CSV, informe 1.482 na prévia e confira "Artigos 1.124 · Trabalhos de eventos 349 · Livros 6 · Capítulos 3".
 
+import.source.bdtd:
+  title: "BDTD (CSV ou RIS, no ZIP)"
+  what: |-
+    Lê a exportação do botão "Exportar" da Biblioteca Digital Brasileira de Teses e Dissertações: autor, título, ano de defesa, tipo (dissertação de mestrado ou tese de doutorado), instituição de defesa, país, assuntos em português e em inglês, idioma, resumo, endereço e DOI.
+  how: |-
+    Exportar › Exportar CSV, marque as duas caixas de resumo, resolva o captcha e envie o ZIP como veio. Informe na prévia o total de resultados da busca.
+  not: |-
+    Orientador, banca, programa e área CNPq ainda não são guardados. "Não informado pela instituição" nunca vira dado; o país em branco vira Brasil (a BDTD só reúne instituições brasileiras). A mesma tese vinda de dois repositórios entra duas vezes e aparece em "Possíveis repetições". Teses não têm periódico nem ISSN: ficam fora do Qualis e das análises por fonte.
+  example: |-
+    Busca "inteligência artificial" com 7.193 resultados: envie o ZIP, informe 7.193 e confira "4.986 dissertações e 2.207 teses" na lista de documentos.
+
 import.source.openalex:
   title: "OpenAlex"
   what: |-

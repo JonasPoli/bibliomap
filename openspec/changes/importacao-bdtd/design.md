@@ -108,11 +108,17 @@ O DOI da BDTD é do próprio trabalho (registrado pela instituição): nos 243 c
 
 ### D6. Chave da linha
 
-`externalId` = `'bdtd:' . substr(sha1($autorBruto . "\x1f" . $tituloBruto . "\x1f" . $ano . "\x1f" . $linkBruto), 0, 40)` (45 caracteres; a coluna tem 100). "Bruto" é o texto da célula como veio, com `trim`. Quando a mesma combinação já apareceu no arquivo, acrescenta `#2`, `#3`… (o leitor guarda um contador por chave durante a leitura; 7.193 chaves de 45 bytes são desprezíveis em memória).
+`externalId` = `'bdtd:' . substr(sha1(autor, título, ano, endereços), 0, 40)` (45 caracteres; a coluna tem 100), com os quatro valores separados por `\x1f`:
 
-No RIS, os mesmos quatro valores vêm de `AU` (as ocorrências unidas por `||`), `TI`, `PY` e `UR`, que são exatamente as colunas `Autor(a)`, `Título`, `Ano de defesa` e `Link de acesso` do CSV. Assim o CSV e o RIS da mesma busca geram as mesmas chaves (nos arquivos reais: 7.187 distintas e 6 com `#2`), e importar um depois do outro dá duplicado, que é o esperado.
+- autor e título como vieram na célula (com `trim`), e "Não informado pela instituição" contando como vazio;
+- ano como veio;
+- endereços: só os itens `http(s)` do link, unidos por `|`.
 
-A sigla da instituição ficou de fora da chave de propósito: com ela as 7.193 linhas do CSV seriam distintas sem número de ordem, mas o RIS não tem sigla e as chaves dos dois formatos deixariam de coincidir. Custo: se a ordem das linhas repetidas mudar entre duas exportações, as 6 trocam de chave entre si, o que não altera o resultado (as duas existem nos dois arquivos).
+Quando a mesma combinação já apareceu no arquivo, acrescenta `#2`, `#3`… (contador por chave durante a leitura; 7.193 chaves de 45 bytes são desprezíveis em memória).
+
+No RIS, os mesmos valores vêm de `AU` (as ocorrências unidas por `||`), `TI`, `PY` e `UR`. A normalização dos endereços e do "não informado" é necessária porque o RIS separa os itens do link com `; ` (o CSV usa `||`) e deixa vazio o que o CSV chama de "não informado". Conferido nos arquivos reais (19/11/2026): com a normalização, as 7.193 chaves do RIS e do CSV coincidem registro a registro (7.183 distintas e 10 com `#2`); sem ela, só 5.115 coincidiam.
+
+A sigla da instituição ficou de fora da chave de propósito: o RIS não tem sigla e as chaves dos dois formatos deixariam de coincidir. Custo: se a ordem das linhas repetidas mudar entre duas exportações, as que têm `#2` trocam de chave entre si, o que não altera o resultado (as duas existem nos dois arquivos).
 
 A chave depende do conteúdo: se a BDTD corrigir o título de um registro, uma exportação futura gera chave nova e o registro entra de novo. Aí vale a rede de segurança da mudança de base: como é a mesma base, título + ano não une; ficam os dois, listados em "Possíveis repetições". É o comportamento coerente com "não perder registro".
 

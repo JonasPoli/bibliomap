@@ -134,6 +134,26 @@ final class DataSources
             'accentColor' => '#2f81f7',
         ],
 
+        // ── BDTD (IBICT) ──────────────────────────────────────────────────────
+        'bdtd' => [
+            'key'         => 'bdtd',
+            'hasReader'   => true,
+            'readFormats' => 'CSV e RIS, soltos ou no ZIP',
+            'guide'       => 'import/guides/_bdtd.html.twig',
+            'label'       => 'BDTD',
+            'vendor'      => 'IBICT',
+            'url'         => 'https://bdtd.ibict.br',
+            'logo'        => null,
+            'logoDark'    => null,
+            'logoType'    => null,
+            'logoBg'      => null,
+            'formats'     => ['zip', 'csv', 'ris'],
+            'emoji'       => '🎓',
+            'limit'       => null,
+            'bgColor'     => '#0d1520',
+            'accentColor' => '#2f81f7',
+        ],
+
         // ── OpenAlex (OurResearch) ────────────────────────────────────────────
         'openalex' => [
             'key'         => 'openalex',

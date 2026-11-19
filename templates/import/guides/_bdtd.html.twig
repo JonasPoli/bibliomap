@@ -1,0 +1,24 @@
+{# Guia de exportação: bdtd. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-bdtd">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('bdtd', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">BDTD {{ help('import.source.bdtd') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">bdtd.ibict.br &nbsp;·&nbsp; Formatos aceitos: <span class="fmt-badge fmt-csv">CSV</span> (recomendado) e RIS, soltos ou no ZIP</div>
+        </div>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">Faça a busca em <a href="https://bdtd.ibict.br" target="_blank" style="color:var(--bm-accent)">bdtd.ibict.br</a> e anote o total que aparece no topo da lista ("Mostrando 1 - 20 resultados de <strong>N</strong>").</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Clique em <strong>Exportar</strong> › <strong>Exportar CSV</strong>.</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Marque <strong>"Incluir resumo em português"</strong> e <strong>"Incluir resumo em inglês"</strong>, informe o e-mail e resolva o captcha.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Baixe o arquivo <code>search_result-...-csv.zip</code> (para buscas grandes, o link chega por e-mail) e envie aqui <strong>o ZIP como veio</strong>.</div></li>
+    </ol>
+    <div class="step-note">
+        <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">O que entra:</strong> autor, título, ano de defesa, tipo (dissertação ou tese), instituição de defesa, país, assuntos em português e em inglês, idioma, resumo, endereço e DOI (quando o endereço é um DOI). Orientador, banca, programa e área CNPq ainda não são guardados. A mesma tese pode vir de dois repositórios: as duas entram e aparecem em "Possíveis repetições".</span>
+    </div>
+    <div class="step-note">
+        <i class="bi bi-exclamation-triangle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">RIS:</strong> o "Exportar RIS" não traz instituição nem assuntos; prefira o CSV.</span>
+    </div>
+</div>

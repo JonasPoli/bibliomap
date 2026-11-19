@@ -47,6 +47,12 @@ services:
     App\Service\Import\Brapci\BrapciRisImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\Bdtd\BdtdCsvImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\Bdtd\BdtdRisImporter:
+        tags: ['app.bibliographic_importer']
+
 
 
     App\Service\Import\ImporterResolver:
