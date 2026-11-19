@@ -1,0 +1,565 @@
+# Vitrine de recursos da home pública (seção "Recursos").
+#
+# Lido por App\Showcase\ShowcaseCatalog e conferido pelo ShowcaseCatalogTest.
+# - categorias: aparecem na ordem deste arquivo (só as que têm recurso).
+# - recursos: id (minúsculas e hífens), categoria, titulo, descricao, onde, mostra, como, porque,
+#   exemplo, exporta (opcional) e imagens (arquivo, legenda, alt).
+# - Os textos aceitam **negrito**. Nada de e-mail, nome de usuário ou link externo.
+# - As imagens ficam em public/images/recursos/, em WebP de até 250 KB, com o nome terminando em
+#   -claro.webp ou -escuro.webp (o tema do sistema no print). Roteiro de captura no README.
+#
+# Prints de 19/11/2026: projeto de 28.012 documentos da Web of Science sobre IA na agricultura
+# e projeto de 498 documentos da Web of Science sobre sistemas especialistas e chatbots no agro.
+
+categorias:
+  indicadores:
+    titulo: "Indicadores e produção"
+    descricao: "O retrato do corpus em números: quanto se publica, quanto se cita e como isso muda ano a ano."
+    icone: "bi-speedometer2"
+  autores-fontes:
+    titulo: "Autores, fontes e documentos"
+    descricao: "Quem produz, onde publica e quais trabalhos sustentam o campo, com as leis clássicas da bibliometria."
+    icone: "bi-people"
+  palavras-chave:
+    titulo: "Palavras-chave e vocabulário"
+    descricao: "Do que o campo fala, como os termos se agrupam e como o vocabulário muda com o tempo."
+    icone: "bi-tags"
+  redes-temas:
+    titulo: "Redes e estrutura temática"
+    descricao: "As ligações entre autores, termos e países, e o mapa estratégico dos temas de pesquisa."
+    icone: "bi-diagram-3"
+  geografia:
+    titulo: "Geografia e instituições"
+    descricao: "De onde vem a produção: continentes, países, regiões do Brasil, estados e o perfil das instituições."
+    icone: "bi-globe-americas"
+  classificacao:
+    titulo: "Classificação temática"
+    descricao: "Organize o corpus nas categorias da sua pesquisa e meça volume, impacto e crescimento de cada uma."
+    icone: "bi-bookmarks"
+  relatorios:
+    titulo: "Relatórios e busca"
+    descricao: "O panorama pronto para imprimir e a busca que encontra o trabalho certo dentro do corpus."
+    icone: "bi-file-earmark-text"
+
+recursos:
+  # ── Indicadores e produção ──────────────────────────────────────────────────
+  - id: painel-de-indicadores
+    categoria: indicadores
+    titulo: "Painel de indicadores"
+    descricao: "A primeira tela depois da importação: os números gerais do corpus e os gráficos que mostram, de relance, se a coleta saiu como o planejado."
+    onde: "Projeto atual › Dashboard"
+    mostra: "Total de documentos, autores, fontes, palavras-chave e citações, **índice h** do corpus, média de citações e período coberto. Logo abaixo, a produção por ano, as citações por ano de publicação (total e média por artigo) e os dez autores e periódicos que mais aparecem."
+    como: "Abra o Dashboard assim que a importação terminar. Os rankings de autores alternam entre número de documentos e de citações, e cada gráfico tem o seu botão de CSV."
+    porque: "É a conferência rápida da coleta: um período diferente do esperado ou um periódico estranho no topo aparece aqui antes de contaminar o resto da análise."
+    exemplo: "No corpus de 498 documentos sobre sistemas especialistas no agro, o painel mostra 1.617 autores, 338 fontes, 3.822 citações e índice h 29, com a produção saltando para mais de 60 documentos em 2025."
+    exporta: [CSV]
+    imagens:
+      - arquivo: dash-kpis-claro.webp
+        legenda: "Indicadores gerais de um corpus de 498 documentos da Web of Science"
+        alt: "Oito cartões com documentos, autores, fontes, palavras-chave, citações totais, índice h, média de citações e período"
+      - arquivo: dash-producao-citacoes-claro.webp
+        legenda: "Produção científica anual e citações por ano de publicação"
+        alt: "Gráfico de barras com documentos por ano de 1985 a 2026 ao lado de um gráfico de linhas com o total de citações e a média por artigo"
+      - arquivo: dash-top-autores-periodicos-claro.webp
+        legenda: "Os dez autores e os dez periódicos com mais documentos"
+        alt: "Duas tabelas com barras coloridas: os dez autores mais produtivos e os dez periódicos com mais documentos"
+
+  - id: perfil-do-corpus
+    categoria: indicadores
+    titulo: "Perfil do corpus"
+    descricao: "Que tipo de documento você coletou, quanto dele está em acesso aberto e como a colaboração entre autores evoluiu."
+    onde: "Projeto atual › Dashboard"
+    mostra: "A divisão por **tipo de documento** (artigo, trabalho de evento, revisão…), a via de **acesso aberto** de cada documento (Gold, Híbrido, Bronze, Verde ou sem informação) e a **média de autores por documento** em cada ano."
+    como: "Os três gráficos ficam no fim do Dashboard. Passe o mouse para ver os números e use o CSV de cada um para montar tabelas no seu texto."
+    porque: "Ajuda a descrever o corpus na seção de método e a discutir mudanças no modo de produzir ciência, como o crescimento das equipes."
+    exemplo: "No corpus de 498 documentos, a média de autores por documento sobe de cerca de 1,5 em 1985 para mais de 5 em 2025: a pesquisa na área ficou muito mais colaborativa."
+    exporta: [CSV]
+    imagens:
+      - arquivo: dash-perfil-corpus-claro.webp
+        legenda: "Tipos de documento, acesso aberto e autores por documento ao longo dos anos"
+        alt: "Gráfico de rosca com os tipos de documento, gráfico de pizza com as vias de acesso aberto e gráfico de linha com a média de autores por documento de 1985 a 2025"
+
+  - id: producao-anual
+    categoria: indicadores
+    titulo: "Produção anual e crescimento"
+    descricao: "A série histórica do campo, com taxa de crescimento composta, média móvel, produção acumulada e a tabela ano a ano."
+    onde: "Análises › Produção Anual"
+    mostra: "Documentos e citações por ano no mesmo gráfico, a curva acumulada e uma tabela com crescimento percentual, citações, média de citações, acumulado e participação de cada ano. No topo, o ano mais produtivo e a **TCAC**, a taxa composta de crescimento anual calculada como no Bibliometrix."
+    como: "Ligue a média móvel de 3 anos para suavizar oscilações e clique num ano da tabela para ver os documentos dele. O CSV traz a tabela completa."
+    porque: "É o gráfico que abre quase todo estudo bibliométrico: mostra quando o tema surgiu, quando acelerou e se ainda está em expansão."
+    exemplo: "Nos 498 documentos, publicados de 1985 a 2026, a TCAC é de 6,2% ao ano e 2025 é o ano mais produtivo. As citações dos anos recentes são menores porque esses artigos ainda não tiveram tempo de ser citados."
+    exporta: [CSV]
+    imagens:
+      - arquivo: anual-graficos-escuro.webp
+        legenda: "Publicações e citações por ano, com a produção acumulada"
+        alt: "Indicadores de cobertura e crescimento acima de um gráfico de barras e linha com publicações e citações por ano e de uma curva verde de produção acumulada"
+      - arquivo: anual-tabela-escuro.webp
+        legenda: "Tabela anual com crescimento, citações e participação de cada ano"
+        alt: "Tabela com ano, documentos, crescimento percentual em verde ou vermelho, citações, média de citações, acumulado e percentual do total"
+
+  # ── Autores, fontes e documentos ────────────────────────────────────────────
+  - id: produtividade-e-lei-de-lotka
+    categoria: autores-fontes
+    titulo: "Autores mais produtivos e Lei de Lotka"
+    descricao: "Quem mais publica sobre o tema e se a produtividade dos autores segue o padrão clássico da Lei de Lotka."
+    onde: "Análises › Autores"
+    mostra: "Os dez autores com mais documentos, com as citações de cada um, e o gráfico de Lotka: quantos autores publicaram 1, 2, 3… documentos (barras) comparados ao esperado pela lei, A₁ ÷ N² (linha)."
+    como: "Os nomes já chegam unificados pela normalização de autores. Clique num autor da tabela para ver os trabalhos dele e exportar as referências em BibTeX."
+    porque: "Mostra se o campo é concentrado em poucos pesquisadores ou disperso entre muitos ocasionais, e quem são as referências obrigatórias da revisão."
+    exemplo: "Entre os 84.952 autores de um corpus de 28 mil documentos sobre IA na agricultura, mais de 70 mil publicaram um único trabalho; o mais produtivo assina 48."
+    exporta: [CSV, BibTeX]
+    imagens:
+      - arquivo: autores-ranking-lotka-escuro.webp
+        legenda: "Ranking de autores e Lei de Lotka num corpus de 28 mil documentos"
+        alt: "Gráfico de barras com os dez autores mais produtivos ao lado do gráfico da Lei de Lotka, com barras observadas e linha laranja do valor esperado"
+
+  - id: indices-h-e-g
+    categoria: autores-fontes
+    titulo: "Impacto dos autores: índices h e g"
+    descricao: "A tabela de produtividade com citações, média, índice h, índice g e período de atividade de cada autor dentro do corpus."
+    onde: "Análises › Autores"
+    mostra: "Para cada autor: documentos, citações, média de citações por documento, **índice h** (h documentos com pelo menos h citações), **índice g** (os g mais citados somam pelo menos g² citações) e os anos de atuação."
+    como: "Ordene por qualquer coluna, busque um nome e abra “Ver trabalhos” para a lista com DOI e BibTeX."
+    porque: "Separa quem publica muito de quem é muito citado. O índice g valoriza autores com poucos artigos de grande impacto, que o h esconde."
+    exemplo: "No corpus de 498 documentos, o autor mais produtivo tem 7 artigos, 51 citações, h 4 e g 7, com atuação entre 1994 e 2004."
+    exporta: [CSV, BibTeX]
+    imagens:
+      - arquivo: autores-tabela-hg-claro.webp
+        legenda: "Tabela de produtividade com índices h e g"
+        alt: "Tabela de autores com colunas de artigos, citações, média, índice h em azul, índice g em roxo, período e botão para ver os trabalhos"
+
+  - id: lei-de-bradford
+    categoria: autores-fontes
+    titulo: "Periódicos e Lei de Bradford"
+    descricao: "Os periódicos que mais publicam sobre o tema e as três zonas de Bradford, com o núcleo de revistas que concentra a produção."
+    onde: "Análises › Fontes"
+    mostra: "Os dez periódicos mais produtivos, com documentos e citações, e a divisão das fontes em três zonas com cerca de um terço dos documentos cada. A **Zona 1** é o núcleo: poucas revistas, muita produção. Abaixo, a lista completa das revistas do núcleo."
+    como: "As zonas são calculadas sozinhas. Filtre a tabela de impacto por zona para ver só o núcleo e exporte a lista em CSV."
+    porque: "Responde onde publicar e onde buscar: as revistas do núcleo são o ponto de partida da revisão e o alvo natural de submissão."
+    exemplo: "Num corpus de 28 mil documentos, 131 periódicos formam o núcleo e reúnem 6.324 documentos, quase o mesmo que as 5.238 fontes da zona 3 somadas (6.340)."
+    exporta: [CSV]
+    imagens:
+      - arquivo: fontes-ranking-bradford-escuro.webp
+        legenda: "Periódicos mais produtivos e as três zonas de Bradford"
+        alt: "Gráfico de barras com documentos e citações dos dez periódicos mais produtivos ao lado de um gráfico de rosca com as três zonas de Bradford"
+      - arquivo: fontes-zona1-escuro.webp
+        legenda: "As revistas do núcleo de Bradford, com o número de documentos de cada uma"
+        alt: "Grade de cartões verdes com os nomes das revistas da zona 1 e a quantidade de documentos de cada uma"
+
+  - id: impacto-das-fontes-e-qualis
+    categoria: autores-fontes
+    titulo: "Impacto das fontes e Qualis"
+    descricao: "A tabela de cada periódico com zona de Bradford, estrato Qualis da CAPES, artigos, citações, média e período."
+    onde: "Análises › Fontes"
+    mostra: "As cem fontes mais produtivas com a **zona de Bradford**, o **estrato Qualis** (de A1 a C, cruzado pelo ISSN com a tabela da CAPES), o total de artigos e de citações, a média de citações por artigo e os anos em que a revista aparece."
+    como: "Filtre por zona, busque uma revista pelo nome e ordene pelas citações ou pela média para achar as fontes de maior impacto."
+    porque: "Junta a visão internacional (citações) com a avaliação brasileira (Qualis), o que ajuda a justificar a escolha das revistas na qualificação."
+    exemplo: "No corpus sobre IA na agricultura, Computers and Electronics in Agriculture está no núcleo, é Qualis A1 e soma 8.739 citações em 280 artigos, média de 31,2."
+    exporta: [CSV]
+    imagens:
+      - arquivo: fontes-tabela-qualis-escuro.webp
+        legenda: "Tabela de impacto das fontes com zona de Bradford e Qualis"
+        alt: "Tabela de periódicos com selos de zona Z1, estratos Qualis A1, A2 e C, artigos, citações, média de citações e período"
+
+  - id: documentos-mais-citados
+    categoria: autores-fontes
+    titulo: "Documentos mais citados"
+    descricao: "Os trabalhos de maior impacto do corpus, com autores, ano, Qualis, país e fonte, prontos para virar a base do referencial."
+    onde: "Análises › Documentos"
+    mostra: "Os dez documentos mais citados em gráfico e a lista dos cem mais citados, com título, autores, bandeira do país, citações, Qualis, ano e fonte."
+    como: "Filtre a lista por título ou autor, abra o DOI e copie a referência. A “Busca completa” leva para a busca de trabalhos com o filtro já preenchido."
+    porque: "Os mais citados costumam ser as revisões e os artigos fundadores do tema: são a leitura obrigatória antes de escrever."
+    exemplo: "Nos 498 documentos, uma revisão de 2019 sobre aplicações de IA na agricultura lidera com 188 citações, quase o dobro do segundo colocado."
+    exporta: [CSV]
+    imagens:
+      - arquivo: documentos-mais-citados-claro.webp
+        legenda: "Os dez documentos mais citados e a lista dos cem mais citados"
+        alt: "Indicadores de documentos e citações acima de um gráfico de barras laranja com os dez mais citados e de uma tabela com título, citações, Qualis, ano e fonte"
+
+  # ── Palavras-chave e vocabulário ────────────────────────────────────────────
+  - id: palavras-chave-em-barras
+    categoria: palavras-chave
+    titulo: "Palavras-chave mais frequentes"
+    descricao: "Os termos que mais aparecem, separados entre os escolhidos pelos autores e os atribuídos pela base, e somados numa visão consolidada."
+    onde: "Análises › Palavras-chave"
+    mostra: "Os 15 termos mais frequentes **por origem** (azul para palavras dos autores, roxo para as indexadas pela base, como o Keywords Plus da Web of Science) e os 15 **consolidados**, que contam os documentos com o termo em qualquer origem."
+    como: "Troque a visualização entre barras, nuvem de palavras e mapa de árvore no topo da tela. A tabela de termos abaixo permite buscar, filtrar por origem e abrir os documentos de cada termo."
+    porque: "Mostra do que o campo fala e se a linguagem dos autores bate com a do indexador, o que orienta a escolha dos descritores da sua própria busca."
+    exemplo: "Num corpus de 28 mil documentos, “Artificial Intelligence” aparece em 7.610 deles, seguido de “Machine Learning” (1.787) e “Deep Learning” (1.256)."
+    exporta: [CSV, BibTeX]
+    imagens:
+      - arquivo: palavras-barras-claro.webp
+        legenda: "Os 15 termos mais frequentes, por origem e consolidados"
+        alt: "Dois gráficos de barras verticais: à esquerda os termos por origem em azul e roxo, à direita os termos consolidados em verde"
+
+  - id: nuvem-de-palavras
+    categoria: palavras-chave
+    titulo: "Nuvem de palavras"
+    descricao: "Os 80 termos mais frequentes desenhados com tamanho proporcional à frequência, por origem ou consolidados."
+    onde: "Análises › Palavras-chave › Nuvem de Palavras"
+    mostra: "Uma nuvem por origem (azul para autores, roxo para indexadas) e uma consolidada. Quanto maior a palavra, em mais documentos ela aparece."
+    como: "Escolha “Nuvem de Palavras” na barra de visualização. A nuvem respeita os agrupamentos feitos na normalização, então sinônimos já aparecem juntos."
+    porque: "É a imagem que resume o corpus num slide: ótima para a abertura de uma defesa ou de um artigo de divulgação."
+    exemplo: "No corpus de IA na agricultura, a nuvem consolidada deixa claro o peso de “Artificial Intelligence”, “Machine Learning”, “Deep Learning” e “Internet of Things”."
+    imagens:
+      - arquivo: palavras-nuvem-escuro.webp
+        legenda: "Nuvens de palavras por origem e consolidada"
+        alt: "Duas nuvens de palavras em fundo escuro, uma em azul e roxo e outra em verde, com Artificial Intelligence e Machine Learning em destaque"
+
+  - id: mapa-de-arvore
+    categoria: palavras-chave
+    titulo: "Mapa de árvore (treemap)"
+    descricao: "Os 40 termos mais frequentes como retângulos com área proporcional ao número de documentos."
+    onde: "Análises › Palavras-chave › Mapa de Árvore"
+    mostra: "Um treemap por origem e outro consolidado. A área de cada caixa é proporcional à frequência, o que permite comparar o peso relativo dos termos melhor do que na nuvem."
+    como: "Escolha “Mapa de Árvore (Treemap)” na barra de visualização e passe o mouse sobre uma caixa para ver o termo e o número de documentos."
+    porque: "Mostra o quanto o termo de busca domina o corpus e quanto espaço sobra para os temas que interessam à pesquisa."
+    exemplo: "No corpus de 28 mil documentos, “Artificial Intelligence” (7.610 documentos) ocupa a maior caixa do treemap, várias vezes maior que a de “Machine Learning” (1.787)."
+    imagens:
+      - arquivo: palavras-treemap-claro.webp
+        legenda: "Mapa de árvore dos termos por origem e consolidado"
+        alt: "Dois treemaps com retângulos azuis, roxos e verdes, o maior deles com Artificial Intelligence e 7.610 documentos"
+
+  - id: evolucao-de-palavras-chave
+    categoria: palavras-chave
+    titulo: "Evolução de palavras-chave"
+    descricao: "Escolha os termos e o período e veja, ano a ano, quais crescem, quais estabilizam e quais perdem espaço."
+    onde: "Relatórios › Evolução de Palavras-Chave"
+    mostra: "O número de documentos por ano de cada termo escolhido, em três modos: **agrupado** (barras lado a lado), **empilhado** (soma por ano) e **linhas** (uma curva por termo)."
+    como: "Na primeira tela, marque os termos (dá para filtrar por origem e buscar) e o intervalo de anos. No gráfico, troque o modo nos botões do topo e exporte a série em CSV."
+    porque: "Identifica temas emergentes e em declínio com evidência anual, o que sustenta afirmações como “o tema ganhou força depois de 2019”."
+    exemplo: "De 2010 a 2025, “Machine Learning” passa de quase zero para 445 documentos por ano, “Deep Learning” chega a 375 e “Precision Agriculture” acelera depois de 2023."
+    exporta: [CSV]
+    imagens:
+      - arquivo: evolucao-agrupado-claro.webp
+        legenda: "Modo agrupado: sete termos comparados ano a ano, de 2010 a 2025"
+        alt: "Gráfico de barras agrupadas por ano com sete palavras-chave, crescendo fortemente a partir de 2019"
+      - arquivo: evolucao-empilhado-claro.webp
+        legenda: "Modo empilhado: a soma dos termos e a participação de cada um"
+        alt: "Gráfico de barras empilhadas por ano chegando a cerca de 1.570 ocorrências em 2025"
+      - arquivo: evolucao-linhas-escuro.webp
+        legenda: "Modo linhas: a trajetória de cada termo"
+        alt: "Gráfico de linhas em fundo escuro com sete curvas, Machine Learning e Deep Learning no topo em 2025"
+
+  - id: glossario-de-termos
+    categoria: palavras-chave
+    titulo: "Glossário de termos"
+    descricao: "O vocabulário controlado do projeto: cada conceito com as variações de grafia, sinônimos e traduções que ele reúne."
+    onde: "Análises › Glossário de Termos"
+    mostra: "Os conceitos do tesauro usados no projeto, com o número de variações, de documentos e de citações de cada um, navegáveis por letra ou por busca."
+    como: "Use a barra de letras ou a busca para achar um conceito. As variações vêm do tesauro global e das unificações feitas na normalização."
+    porque: "Documenta como os sinônimos foram tratados, um ponto que as bancas costumam perguntar na seção de método."
+    exemplo: "Nos 498 documentos, o glossário reúne 84 conceitos e 93 variações; “Adoption”, por exemplo, junta duas grafias e soma 51 citações."
+    imagens:
+      - arquivo: glossario-escuro.webp
+        legenda: "Glossário com conceitos, variações e citações"
+        alt: "Indicadores do glossário acima de uma barra de letras e de uma grade de cartões de conceitos com o número de variantes e de citações"
+
+  - id: lentes-teoricas
+    categoria: palavras-chave
+    titulo: "Lentes teóricas"
+    descricao: "Quais referenciais teóricos aparecem no corpus, procurados no título, no resumo e na lista de referências de cada documento."
+    onde: "Relatórios › Lentes Teóricas (CTS)"
+    mostra: "O ranking de relevância de cada lente cadastrada (autores e conceitos dos estudos de Ciência, Tecnologia e Sociedade), com os documentos de citação direta e os que citam o teórico nas referências."
+    como: "Na primeira abertura o sistema percorre todos os documentos e mostra o progresso. Depois, filtre por área e abra cada lente para ver os trabalhos encontrados."
+    porque: "Ajuda a posicionar a pesquisa no debate teórico e a encontrar quem já aplicou o mesmo referencial ao seu objeto."
+    exemplo: "Nos 498 documentos, a lente de John Ziman sobre o conhecimento público aparece em 210 documentos por citação direta, 42,2% do corpus."
+    imagens:
+      - arquivo: lentes-teoricas-claro.webp
+        legenda: "Ranking de lentes teóricas e documentos encontrados"
+        alt: "Cartões com as lentes teóricas mais relevantes e o percentual do corpus, acima do detalhe de uma lente com a lista de documentos de citação direta"
+
+  # ── Redes e estrutura temática ──────────────────────────────────────────────
+  - id: rede-de-coautoria
+    categoria: redes-temas
+    titulo: "Rede de coautoria"
+    descricao: "Quem publica com quem: os grupos de pesquisa do campo desenhados como uma rede interativa."
+    onde: "Redes e Mapas › Redes › Coautoria"
+    mostra: "Cada nó é um autor (já unificado pela normalização) e cada linha indica artigos em comum. O tamanho do nó acompanha o número de coautores e as cores marcam as **comunidades**, grupos de autores mais ligados entre si do que com o resto (algoritmo Label Propagation)."
+    como: "Ajuste a força mínima de ligação e o limite de nós, arraste a rede, dê zoom e clique num autor para destacar só os parceiros dele. Exporte para Gephi ou VOSviewer, ou salve o PNG."
+    porque: "Revela comunidades que não conversam entre si, autores que fazem ponte entre grupos e possíveis parceiros de pesquisa."
+    exemplo: "Nos 498 documentos, a rede de 100 autores forma grupos pequenos e bem separados, sinal de um campo fragmentado em equipes que pouco colaboram entre si."
+    exporta: [PNG, Gephi, VOSviewer]
+    imagens:
+      - arquivo: rede-coautoria-claro.webp
+        legenda: "Rede de coautoria com 100 autores e as comunidades em cores"
+        alt: "Painel de filtros ao lado de uma rede de autores com nós coloridos por comunidade e a legenda das comunidades"
+
+  - id: rede-de-palavras-chave
+    categoria: redes-temas
+    titulo: "Rede de coocorrência de palavras-chave"
+    descricao: "Os termos que aparecem juntos nos mesmos documentos, formando a estrutura conceitual do campo."
+    onde: "Redes e Mapas › Redes › Palavras-chave"
+    mostra: "Cada nó é um termo e cada linha liga termos que aparecem juntos. Os agrupamentos coloridos mostram os assuntos que caminham juntos, e os nós centrais, os conceitos que conectam o campo."
+    como: "Escolha entre palavras dos autores e indexadas, suba a força mínima para tirar ligações casuais e busque um termo para ver a vizinhança dele."
+    porque: "É a base para definir eixos temáticos, escolher descritores e mostrar à banca como os conceitos da pesquisa se relacionam."
+    exemplo: "Nos 498 documentos, com força mínima 2, “expert system” e “large language models” aparecem como dois polos: a geração clássica dos sistemas especialistas e a nova geração dos modelos de linguagem."
+    exporta: [PNG, Gephi, VOSviewer]
+    imagens:
+      - arquivo: rede-palavras-claro.webp
+        legenda: "Rede de coocorrência com 50 termos e força mínima 2"
+        alt: "Rede de palavras-chave com dois nós centrais grandes, expert system e large language models, ligados a termos menores coloridos por comunidade"
+
+  - id: rede-de-paises
+    categoria: redes-temas
+    titulo: "Rede de colaboração entre países"
+    descricao: "Os países que assinam trabalhos juntos e os blocos de cooperação internacional do tema."
+    onde: "Redes e Mapas › Redes › Países"
+    mostra: "Cada nó é um país das afiliações e cada linha indica documentos em coautoria. Linhas mais grossas são parcerias mais frequentes; as cores marcam os blocos de colaboração."
+    como: "Abra a aba Países, ajuste a força mínima e clique num país para ver só os parceiros dele. As métricas da rede (nós, ligações, densidade) ficam no painel lateral."
+    porque: "Mostra com quem o Brasil, ou qualquer país, coopera, e ajuda a identificar parceiros para projetos e estágios no exterior."
+    exemplo: "Nos 498 documentos, a rede tem 59 países e 74 ligações, com China, Estados Unidos, Reino Unido e Itália como os principais articuladores."
+    exporta: [PNG, Gephi, VOSviewer]
+    imagens:
+      - arquivo: rede-paises-escuro.webp
+        legenda: "Rede de colaboração entre 59 países"
+        alt: "Rede de países em fundo escuro com China, Estados Unidos, Itália e Reino Unido como nós maiores e a legenda das comunidades"
+
+  - id: mapa-tematico
+    categoria: redes-temas
+    titulo: "Mapa temático"
+    descricao: "O diagrama estratégico de Callon: cada tema posicionado pela relevância no campo e pelo grau de desenvolvimento."
+    onde: "Redes e Mapas › Mapa temático"
+    mostra: "Cada bolha é um tema, formado por termos que aparecem juntos (força de associação e agrupamento de Louvain, como no Bibliometrix). O eixo X é a **centralidade**, o eixo Y é a **densidade** e as medianas dividem os quatro quadrantes: temas motores, de nicho, emergentes ou em declínio, e básicos."
+    como: "Escolha o tipo de palavra-chave, a ocorrência mínima, o limite de palavras e o período. Passe o mouse numa bolha para ver os termos do tema; a tabela abaixo detalha cada cluster."
+    porque: "Responde onde a pesquisa se encaixa: num tema motor já consolidado, num nicho especializado ou num tema que está surgindo."
+    exemplo: "Nos 498 documentos, “Machine Learning” é tema motor (21 termos, centralidade 2,64 e densidade 19,6), enquanto “large language models” reúne 15 termos e 141 ocorrências."
+    exporta: [CSV]
+    imagens:
+      - arquivo: mapa-tematico-claro.webp
+        legenda: "Diagrama estratégico com os quatro quadrantes"
+        alt: "Painel de parâmetros ao lado de um gráfico de bolhas dividido em quadrantes de temas motores, de nicho, emergentes e básicos"
+
+  - id: evolucao-tematica
+    categoria: redes-temas
+    titulo: "Evolução temática"
+    descricao: "Como os temas de um período se transformam nos temas do período seguinte, num diagrama de fluxo."
+    onde: "Redes e Mapas › Evolução temática"
+    mostra: "Um diagrama de Sankey com os temas do período 1 à esquerda e os do período 2 à direita. A largura de cada fluxo é o **índice de inclusão**, a proporção de termos em comum entre os dois temas."
+    como: "Escolha o ano de corte, a ocorrência mínima e o limite de palavras. A tabela abaixo lista cada transição com o índice e os termos compartilhados."
+    porque: "Conta a história do campo: quais temas se fundiram, quais se dividiram e quais desapareceram."
+    exemplo: "Nos 498 documentos, com corte em 2008, “expert system” e “decision support system” do primeiro período desembocam em “large language models” e “knowledge base” no segundo."
+    exporta: [CSV]
+    imagens:
+      - arquivo: evolucao-tematica-escuro.webp
+        legenda: "Evolução dos temas antes e depois de 2008"
+        alt: "Diagrama de Sankey em fundo escuro com temas do primeiro período em azul fluindo para temas do segundo período em roxo"
+
+  - id: grafico-de-tres-campos
+    categoria: redes-temas
+    titulo: "Gráfico de três campos"
+    descricao: "Três dimensões ligadas pelos documentos num só diagrama, como países → palavras-chave → periódicos."
+    onde: "Redes e Mapas › Gráfico de Três Campos"
+    mostra: "Um diagrama de Sankey com três colunas à sua escolha (países, autores, instituições, palavras-chave ou periódicos). A largura das faixas é o número de documentos que ligam os itens, como no Three-Fields Plot do Bibliometrix."
+    como: "Escolha as colunas de origem, mediação e destino, o limite de itens por coluna e a frequência mínima. Arraste os blocos para desembaraçar as faixas e exporte os fluxos em CSV."
+    porque: "Responde perguntas como “sobre o que cada país publica e em quais revistas?” sem montar tabelas cruzadas à mão."
+    exemplo: "No corpus de 28 mil documentos, Brasil, Índia e Estados Unidos se ligam sobretudo a “Artificial Intelligence”, que leva a revistas como Sustainability e Computers and Electronics in Agriculture."
+    exporta: [CSV]
+    imagens:
+      - arquivo: tres-campos-claro.webp
+        legenda: "Países, palavras-chave de autor e periódicos ligados pelos documentos"
+        alt: "Diagrama de Sankey com países em azul à esquerda, palavras-chave em roxo no centro e periódicos em verde à direita"
+
+  - id: matrizes-de-coocorrencia
+    categoria: redes-temas
+    titulo: "Matrizes bibliométricas"
+    descricao: "Qualquer dimensão do corpus cruzada com outra numa tabela de calor, de 15 × 15 a 2.000 × 2.000."
+    onde: "Redes e Mapas › Matrizes Bibliométricas"
+    mostra: "Uma tabela em que cada célula conta os documentos que têm ao mesmo tempo o item da linha e o da coluna (palavras-chave × países, autores × anos, grupos temáticos × anos…), com a intensidade em cor e o relatório do processamento."
+    como: "Escolha as dimensões das linhas e das colunas, a frequência mínima e o tamanho. Até 250 × 250 a matriz aparece na tela; maiores vão direto para o CSV. Salve as matrizes que quiser reabrir depois."
+    porque: "É a matéria-prima de análises estatísticas e de figuras de artigo, e mostra combinações que nenhum gráfico pronto cobre."
+    exemplo: "Palavras-chave × países em 28.012 artigos, calculada em 7 segundos: “Artificial Intelligence” aparece em 813 documentos do Brasil e 216 dos Estados Unidos."
+    exporta: [CSV]
+    imagens:
+      - arquivo: matriz-escuro.webp
+        legenda: "Matriz 15 × 15 de palavras-chave do autor por país de origem"
+        alt: "Relatório de processamento com tempo, artigos e densidade acima de uma tabela de calor azul cruzando palavras-chave e países"
+
+  # ── Geografia e instituições ────────────────────────────────────────────────
+  - id: paises-e-continentes
+    categoria: geografia
+    titulo: "Países e continentes"
+    descricao: "A produção por continente e por país, com documentos, citações e média de citações de cada um."
+    onde: "Análises › Países"
+    mostra: "A participação de cada continente em gráfico, tabela e mapa, os dez países mais produtivos com as citações e a tabela nacional completa, com bandeira, média de citações e participação no corpus."
+    como: "Os países vêm das afiliações reconhecidas no sincronismo geográfico. Busque um país na tabela e exporte tudo em CSV."
+    porque: "Mostra quem lidera o tema e quem tem mais impacto por artigo, que nem sempre são os mesmos países."
+    exemplo: "No corpus de 28 mil documentos, o Brasil tem 13.782 documentos e média de 0,5 citação, enquanto os Estados Unidos têm 2.565 documentos e média de 16,3."
+    exporta: [CSV]
+    imagens:
+      - arquivo: paises-continentes-claro.webp
+        legenda: "Produção por continente em gráfico, tabela e mapa"
+        alt: "Indicadores de países acima de um gráfico de rosca, uma tabela de continentes e um mapa-múndi colorido por continente"
+      - arquivo: paises-ranking-tabela-claro.webp
+        legenda: "Os dez países mais produtivos e a tabela de produção nacional"
+        alt: "Gráfico de barras com documentos e citações por país ao lado de uma tabela com bandeiras, documentos, citações, média e percentual"
+
+  - id: mapas-de-intensidade
+    categoria: geografia
+    titulo: "Mapas de intensidade"
+    descricao: "O mapa-múndi da produção em duas escalas: linear, para ver os líderes, e logarítmica, para ver todos os outros."
+    onde: "Análises › Países"
+    mostra: "No **mapa linear**, a cor de cada país é proporcional aos documentos em relação ao líder. No **mapa logarítmico**, uma escala de amarelo a roxo mostra a diferença entre países de produção pequena e média, que no linear ficariam iguais."
+    como: "Passe o mouse sobre um país para ver documentos, citações e média. Use o zoom para regiões com muitos países pequenos."
+    porque: "Os dois mapas juntos contam a história completa: quem domina e como a produção se espalha pelo resto do mundo."
+    exemplo: "No linear, só o Brasil aparece forte; no logarítmico, Estados Unidos, China e Índia se destacam e dezenas de países com poucos documentos ganham cor."
+    imagens:
+      - arquivo: paises-mapa-linear-claro.webp
+        legenda: "Mapa de intensidade em escala linear"
+        alt: "Mapa-múndi em tons de azul com o Brasil em destaque"
+      - arquivo: paises-mapa-log-claro.webp
+        legenda: "Mapa de calor em escala logarítmica"
+        alt: "Mapa-múndi em escala de amarelo, verde e roxo com Brasil, Estados Unidos, China e Índia em roxo"
+
+  - id: instituicoes
+    categoria: geografia
+    titulo: "Instituições"
+    descricao: "As universidades e centros de pesquisa que mais produzem sobre o tema, com citações e média de impacto."
+    onde: "Análises › Instituições"
+    mostra: "As dez instituições mais produtivas, com documentos e citações, e a tabela completa de produção institucional com média de citações."
+    como: "As instituições vêm das afiliações reconhecidas no cadastro, com siglas e variações unificadas. Busque uma instituição e exporte a tabela em CSV."
+    porque: "Identifica os centros de referência do tema, úteis para escolher coorientação, estágio ou parceria."
+    exemplo: "No corpus de IA na agricultura, a Universidade de São Paulo lidera com 1.207 documentos, seguida da Universidade de Brasília (527) e da UFRGS (506)."
+    exporta: [CSV]
+    imagens:
+      - arquivo: instituicoes-escuro.webp
+        legenda: "Instituições mais produtivas e tabela de produção institucional"
+        alt: "Indicadores de instituições acima de um gráfico de barras com documentos e citações e de uma tabela com as instituições mais produtivas"
+
+  - id: relatorio-geografico
+    categoria: geografia
+    titulo: "Relatório geográfico"
+    descricao: "A produção detalhada por continente, região do Brasil, estado e cidade, e o perfil das instituições envolvidas."
+    onde: "Análises › Relat. Geográfico"
+    mostra: "Continentes, as cinco regiões brasileiras em gráfico e mapa, os 15 estados e as 15 cidades mais produtivos e a **natureza** (pública, federal, estadual, privada, confessional) e o **tipo** das instituições."
+    como: "Filtre o relatório por país. A taxa de cobertura mostra quanto das afiliações foi reconhecido; abaixo dela, um atalho leva ao cadastro para melhorar o reconhecimento."
+    porque: "Mostra a distribuição da pesquisa dentro do Brasil e o peso das instituições públicas, argumentos frequentes em estudos de política científica."
+    exemplo: "No corpus de 28 mil documentos, o Sudeste concentra cerca de 1.800 documentos brasileiros, e São Paulo, Rio de Janeiro e Minas Gerais lideram entre os estados."
+    exporta: [CSV]
+    imagens:
+      - arquivo: geo-continente-regiao-escuro.webp
+        legenda: "Produção por continente e por região do Brasil"
+        alt: "Gráfico de rosca dos continentes ao lado de um gráfico de barras com as cinco regiões brasileiras, Sudeste muito à frente"
+      - arquivo: geo-mapa-regioes-claro.webp
+        legenda: "Mapa de produção por região do Brasil"
+        alt: "Mapa do Brasil com os estados coloridos pela região, o Sudeste em roxo forte"
+      - arquivo: geo-estados-escuro.webp
+        legenda: "Os 15 estados e províncias mais produtivos"
+        alt: "Gráfico de barras horizontais verdes com São Paulo no topo, seguido de Rio de Janeiro e Minas Gerais"
+      - arquivo: geo-natureza-tipos-escuro.webp
+        legenda: "Natureza e tipos das instituições"
+        alt: "Gráfico de pizza com a natureza das instituições e gráfico de rosca com os tipos de instituição acadêmica"
+
+  # ── Classificação temática ──────────────────────────────────────────────────
+  - id: grupos-tematicos
+    categoria: classificacao
+    titulo: "Grupos temáticos e motor de classificação"
+    descricao: "Crie as categorias da sua pesquisa com termos de busca e deixe o sistema enquadrar cada documento do corpus."
+    onde: "Classificação Temática › Gerenciar Grupos"
+    mostra: "Os grupos do projeto em três tipos: **validadores** (o documento precisa ter um dos termos para entrar), **ruído** (falsos positivos que saem da análise) e **temáticos** (as categorias). O motor aplica, nesta ordem, o ano mínimo, o ruído, os validadores e todos os temáticos, e um documento pode cair em mais de um grupo."
+    como: "Crie os grupos com os termos, os campos onde procurar (título, resumo, palavras-chave), a cor e os filtros opcionais por ano, Qualis, país ou natureza da instituição. Importe e exporte os grupos em CSV e execute a classificação."
+    porque: "Transforma o dicionário de categorias da pesquisa num procedimento reprodutível e documentado, aplicado a milhares de documentos de uma vez."
+    exemplo: "No projeto de 28 mil documentos, 47 grupos (31 temáticos, 14 de ruído e 1 validador) separam, por exemplo, 921 registros fora do recorte antes de classificar o restante."
+    exporta: [CSV, VOSviewer]
+    imagens:
+      - arquivo: classificacao-grupos-claro.webp
+        legenda: "Lista de grupos, totais por tipo e o motor de classificação"
+        alt: "Indicadores de grupos, temáticos, ruído e validadores acima da lista de grupos com termos e do painel do motor de classificação"
+
+  - id: organizacao-por-cores
+    categoria: classificacao
+    titulo: "Quadro de macrodimensões"
+    descricao: "Os grupos temáticos reunidos pela cor em grandes blocos conceituais, com a contagem de cada um, prontos para virar figura."
+    onde: "Classificação Temática › Organização por Cores"
+    mostra: "Um cartão por cor com o título da macrodimensão, as categorias e subcategorias que ela reúne e o número de documentos de cada uma."
+    como: "Dê a mesma cor aos grupos de uma mesma dimensão, edite o título de cada cartão e exporte o quadro em PNG ou SVG, com ou sem as contagens."
+    porque: "Vira a figura da estrutura analítica da dissertação, com os números reais de cada categoria."
+    exemplo: "Quatro macrodimensões organizam 31 subcategorias; a de processos produtivos soma 7.917 ocorrências, com 2.566 documentos em detecção de plantas daninhas, pragas e doenças."
+    exporta: [PNG, SVG]
+    imagens:
+      - arquivo: classificacao-cores-escuro.webp
+        legenda: "Quadro com quatro macrodimensões e suas subcategorias"
+        alt: "Quatro cartões coloridos em fundo escuro, cada um com uma macrodimensão, as categorias e o número de documentos de cada subcategoria"
+
+  - id: resultados-da-classificacao
+    categoria: classificacao
+    titulo: "Resultados da classificação"
+    descricao: "Os documentos de cada grupo, com o termo que justificou o enquadramento e a opção de corrigir à mão."
+    onde: "Classificação Temática › Ver Resultados"
+    mostra: "Uma aba por grupo com o número de documentos e, para cada documento, título, autores, ano, fonte, citações, Qualis, os outros grupos em que ele caiu e o **termo que casou**."
+    como: "Abra o grupo, leia os enquadramentos e use “Mover para” nos casos errados. Copie o título, abra o DOI ou exporte a referência em BibTeX."
+    porque: "É a etapa de validação qualitativa: você confere se os termos estão pegando o que deveriam e ajusta antes de escrever os resultados."
+    exemplo: "O grupo “Drones com IA” reúne 656 documentos; o mais citado, uma revisão sobre sensoriamento remoto na agricultura de precisão com 869 citações, entrou pelo termo “uav”."
+    exporta: [CSV, BibTeX]
+    imagens:
+      - arquivo: classificacao-resultados-claro.webp
+        legenda: "Documentos do grupo Drones com IA, com o termo que casou"
+        alt: "Cabeçalho do grupo com seus termos e a lista de documentos com citações, DOI, grupos, termo que casou e o seletor para mover o documento"
+
+  - id: relatorio-de-classificacao
+    categoria: classificacao
+    titulo: "Relatório de classificação"
+    descricao: "Volume, impacto, crescimento e concentração de cada categoria temática, prontos para a seção de resultados."
+    onde: "Classificação Temática › Rel. de Classificação"
+    mostra: "Artigos e citações por categoria, a **média de citações por artigo** (índice de impacto por unidade), a **taxa de crescimento recente** e a participação de cada grupo na soma das classificações."
+    como: "O relatório usa a última execução da classificação. Cada gráfico tem a sua ajuda, e as tabelas de periódicos e os destaques de cada grupo vêm logo abaixo."
+    porque: "Responde, com números, quais categorias concentram a produção, quais têm mais impacto e quais estão crescendo."
+    exemplo: "No projeto de 28 mil documentos, “Controle de estoque e insumos” tem a maior média de citações por artigo, cerca de 52, e “Uso eficiente de insumos” é a categoria que mais cresce entre 2023 e 2025."
+    imagens:
+      - arquivo: rel-classif-volume-citacoes-claro.webp
+        legenda: "Volume e citações por categoria"
+        alt: "Dois gráficos de barras horizontais com o total de artigos e o total de citações de cada categoria, coloridos pela macrodimensão"
+      - arquivo: rel-classif-media-citacoes-claro.webp
+        legenda: "Média de citações por artigo em cada categoria"
+        alt: "Gráfico de barras com a média de citações por artigo de cada categoria, em ordem decrescente"
+      - arquivo: rel-classif-crescimento-concentracao-escuro.webp
+        legenda: "Taxa de crescimento recente e concentração temática"
+        alt: "Gráfico de barras com o crescimento percentual de cada categoria ao lado de um gráfico de rosca com a participação de cada grupo"
+
+  - id: mapa-de-calor-e-maturidade
+    categoria: classificacao
+    titulo: "Mapa de calor e maturidade das categorias"
+    descricao: "A produção de cada categoria nos últimos 12 anos e o retrato de maturidade que cruza volume e impacto."
+    onde: "Classificação Temática › Rel. de Classificação"
+    mostra: "O **mapa de calor** com documentos por grupo e ano, em que a cor mais forte marca o pico de cada grupo, e o gráfico de **maturidade**: artigos no eixo X, média de citações no eixo Y e citações totais no tamanho da bolha."
+    como: "Leia o mapa de calor na horizontal para ver quando cada tema decolou. No gráfico de bolhas, passe o mouse para identificar cada categoria."
+    porque: "Separa temas consolidados (muito volume e impacto), nichos de alto impacto e temas ainda imaturos, uma leitura que um ranking simples não mostra."
+    exemplo: "“Assistentes virtuais agrícolas” salta de 24 documentos em 2016 para 955 em 2025, um dos maiores picos do mapa de calor."
+    imagens:
+      - arquivo: rel-classif-mapa-calor-escuro.webp
+        legenda: "Mapa de calor das publicações por categoria e ano"
+        alt: "Tabela de calor em fundo escuro com categorias nas linhas e anos de 2016 a 2027 nas colunas, cores mais fortes nos anos recentes"
+      - arquivo: rel-classif-maturidade-escuro.webp
+        legenda: "Maturidade das categorias: volume, impacto e citações"
+        alt: "Gráfico de bolhas com o número de artigos no eixo horizontal, a média de citações no eixo vertical e bolhas coloridas por macrodimensão"
+
+  # ── Relatórios e busca ──────────────────────────────────────────────────────
+  - id: relatorio-geral
+    categoria: relatorios
+    titulo: "Relatório geral"
+    descricao: "O panorama do projeto numa página pronta para imprimir ou salvar em PDF."
+    onde: "Relatórios › Relatório Geral"
+    mostra: "Título, descrição, pergunta de pesquisa e string de busca do projeto, os indicadores gerais, a produção anual, a distribuição Qualis e os rankings de autores, fontes, palavras-chave, países e documentos."
+    como: "Preencha a descrição, a pergunta e a string de busca ao criar o projeto e use o botão “Imprimir / PDF”. O layout de impressão já vem ajustado."
+    porque: "Vira anexo de relatório de qualificação, de prestação de contas ou de reunião de orientação, sem montar nada à mão."
+    exemplo: "Para os 498 documentos, o relatório traz 3.822 citações, média de 7,7, o documento mais citado com 188 citações e a cobertura de 42 anos, de 1985 a 2026."
+    exporta: [PDF]
+    imagens:
+      - arquivo: relatorio-geral-capa-escuro.webp
+        legenda: "Capa do relatório geral com pergunta, string de busca e indicadores"
+        alt: "Cabeçalho do relatório com título, descrição, pergunta de pesquisa, string de busca e cartões de indicadores gerais"
+
+  - id: busca-de-trabalhos
+    categoria: relatorios
+    titulo: "Busca de trabalhos"
+    descricao: "Encontre documentos do corpus combinando autor, palavra-chave, título, resumo e ano."
+    onde: "Análises › Busca de Trabalhos"
+    mostra: "Os documentos que atendem a todos os filtros preenchidos, com autores, ano e título, citações, tipo, veículo, Qualis, link do DOI e referência em BibTeX."
+    como: "Preencha um ou mais campos (todos precisam ser atendidos) e ordene o resultado por ano, citações ou Qualis. Os outros relatórios levam para cá com o filtro já preenchido."
+    porque: "Substitui as buscas repetidas na base original: o corpus já está limpo, unificado e enriquecido com Qualis e citações."
+    exemplo: "A palavra-chave “large language models” devolve 73 trabalhos nos 498 documentos; os primeiros da lista são de 2026 e vários estão em revistas Qualis A1."
+    exporta: [BibTeX]
+    imagens:
+      - arquivo: busca-de-trabalhos-claro.webp
+        legenda: "Busca por palavra-chave com 73 trabalhos encontrados"
+        alt: "Formulário com filtros de autor, palavra-chave, título, resumo e ano acima de uma tabela de trabalhos com citações, tipo, veículo, Qualis, DOI e BibTeX"

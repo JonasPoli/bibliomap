@@ -1,0 +1,42 @@
+# Catálogo pequeno para o teste do ShowcaseCatalog (as imagens ficam em public/images/recursos/ ao lado)
+categorias:
+  segunda:
+    titulo: "Segunda categoria"
+    descricao: "Aparece **depois** da primeira no arquivo."
+    icone: "bi-2-circle"
+  primeira:
+    titulo: "Primeira categoria"
+    descricao: "Sem recurso: não aparece."
+    icone: "bi-1-circle"
+
+recursos:
+  - id: grafico-b
+    categoria: segunda
+    titulo: "Gráfico B"
+    descricao: "Texto com <script>alert(1)</script> e **destaque**."
+    onde: "Análises › B"
+    mostra: "O que mostra."
+    como: "Como usar."
+    porque: "Por que usar."
+    exemplo: "Exemplo."
+    exporta: [CSV, PNG]
+    imagens:
+      - arquivo: grafico-claro.webp
+        legenda: "Legenda clara"
+        alt: "Texto alternativo claro"
+      - arquivo: grafico-escuro.webp
+        legenda: "Legenda escura"
+        alt: "Texto alternativo escuro"
+  - id: grafico-a
+    categoria: segunda
+    titulo: "Gráfico A"
+    descricao: "Descrição."
+    onde: "Análises › A"
+    mostra: "O que mostra."
+    como: "Como usar."
+    porque: "Por que usar."
+    exemplo: "Exemplo."
+    imagens:
+      - arquivo: grafico-escuro.webp
+        legenda: "Legenda"
+        alt: "Texto alternativo"

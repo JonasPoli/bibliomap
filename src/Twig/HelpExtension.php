@@ -2,6 +2,7 @@
 
 namespace App\Twig;
 
+use App\Text\InlineFormatter;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Extension\AbstractExtension;
@@ -37,6 +38,7 @@ class HelpExtension extends AbstractExtension
         private readonly string $helpDir,
         #[Autowire('%kernel.debug%')]
         private readonly bool $debug,
+        private readonly InlineFormatter $formatter = new InlineFormatter(),
     ) {}
 
     public function getFunctions(): array
@@ -92,14 +94,11 @@ class HelpExtension extends AbstractExtension
     /** Texto simples com **negrito** e quebras de linha. */
     private function format(string $text): string
     {
-        $html = $this->e(trim($text));
-        $html = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $html);
-
-        return nl2br($html, false);
+        return $this->formatter->format($text);
     }
 
     private function e(string $s): string
     {
-        return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return $this->formatter->escape($s);
     }
 }
