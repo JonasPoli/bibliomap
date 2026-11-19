@@ -59,9 +59,9 @@ Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e um 
 
 ## 6. Produção e teste no navegador em produção
 
-- [ ] 6.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente.
-- [ ] 6.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente e uma linha `bdtd` em `academic_database`.
-- [ ] 6.3 (leitura) Anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
+- [x] 6.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente. (19/11/2026: backup único do deploy das cinco mudanças.)
+- [x] 6.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente e uma linha `bdtd` em `academic_database`.
+- [x] 6.3 (leitura) Anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
 - [ ] 6.4 O Jonas exporta da BDTD uma busca pequena (de 200 a 800 resultados), em CSV com as duas caixas de resumo, e informa o total mostrado pela busca (o captcha e o e-mail são dele). Verificação: ZIP disponível em `var/exemplos/bdtb/` e total anotado aqui.
 - [ ] 6.5 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22 e autores, palavras-chave e instituições nas tabelas globais) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar o ZIP, informar o total, confirmar e acompanhar até o fim. Verificação: lidos = total da busca; conta fechada; 5 documentos conferidos contra a página do registro na BDTD.
 - [ ] 6.6 (escrita) Reenviar o mesmo ZIP. Verificação: todos duplicados, nenhum documento novo.

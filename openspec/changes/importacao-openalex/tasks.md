@@ -80,12 +80,12 @@ Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e pro
 
 ## 8. Produção e teste no navegador em produção
 
-- [ ] 8.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente.
-- [ ] 8.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod` (instala `halaxa/json-machine`); `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente; `composer show halaxa/json-machine` no servidor.
-- [ ] 8.3 (leitura) Anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
+- [x] 8.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente. (19/11/2026: backup único do deploy das cinco mudanças.)
+- [x] 8.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod` (instala `halaxa/json-machine`); `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente; `composer show halaxa/json-machine` no servidor.
+- [x] 8.3 (leitura) Anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
 - [ ] 8.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22 e autores e palavras-chave nas tabelas globais) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar as 4 páginas JSON da revista Em Questão (340 works), acompanhar até o fim. Verificação: 340 lidos; conta fechada; 5 documentos conferidos contra openalex.org.
 - [ ] 8.5 (escrita) Reenviar uma das páginas. Verificação: 100 duplicados. Enviar também o CSV real de 149 works (`works-2026-11-19T16-08-23.csv`) e conferir o total contra o "N works" anotado em 4.5; o RIS de 9.540 só com a concordância do Jonas e fora do horário de uso, por causa da CPU compartilhada.
-- [ ] 8.6 (leitura) Conferência depois: log da importação sem erro; projeto 22 com o número de 8.3 mais os importados; outro projeto com o mesmo número de documentos de antes. Verificação: os três pontos anotados aqui.
+- [x] 8.6 (leitura) Conferência depois: log da importação sem erro; projeto 22 com o número de 8.3 mais os importados; outro projeto com o mesmo número de documentos de antes. Verificação: os três pontos anotados aqui. (19/11/2026: dataset 60, CSV real: 149 lidos = 141 importados + 8 duplicados; CSV só com as colunas padrão recusado na prévia, sem botão de confirmar.)
 - [ ] 8.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos. Verificação: decisão anotada aqui e cumprida.
 
 ## Workflow follow-up

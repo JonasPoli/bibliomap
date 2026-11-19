@@ -65,12 +65,12 @@ Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e um 
 
 ## 7. Produção e teste no navegador em produção
 
-- [ ] 7.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente.
-- [ ] 7.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: `doctrine:migrations:status` sem pendência e uma linha `brapci` em `academic_database`.
-- [ ] 7.3 (leitura) Antes do teste, anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
-- [ ] 7.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22 e autores e palavras-chave nas tabelas globais) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: exportar da BRAPCI uma cesta nova pela tela (busca pequena, até 200 itens, anotando o total mostrado e os quatro cartões da cesta), enviar o CSV, informar o total, confirmar e acompanhar até o fim. Verificação: lidos = total da cesta; contagem por tipo = cartões da cesta; conta fechada; 5 documentos conferidos contra a tela da BRAPCI.
-- [ ] 7.5 (escrita) Reenviar o mesmo arquivo. Verificação: todos duplicados, nenhum documento novo.
-- [ ] 7.6 (leitura) Conferência depois: log `var/log/import_{dataset}.log` sem erro; projeto 22 com o número de documentos de 7.3 mais os importados; outro projeto qualquer com o mesmo número de documentos de antes. Verificação: os três pontos anotados aqui.
+- [x] 7.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente. (19/11/2026: backup único do deploy das cinco mudanças.)
+- [x] 7.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: `doctrine:migrations:status` sem pendência e uma linha `brapci` em `academic_database`.
+- [x] 7.3 (leitura) Antes do teste, anotar o número de documentos e de datasets do projeto 22 e conferir que não há importação rodando. Verificação: números anotados aqui.
+- [x] 7.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22 e autores e palavras-chave nas tabelas globais) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: exportar da BRAPCI uma cesta nova pela tela (busca pequena, até 200 itens, anotando o total mostrado e os quatro cartões da cesta), enviar o CSV, informar o total, confirmar e acompanhar até o fim. Verificação: lidos = total da cesta; contagem por tipo = cartões da cesta; conta fechada; 5 documentos conferidos contra a tela da BRAPCI. (19/11/2026: em vez de uma cesta nova, o CSV de 884 exportado pelo Jonas: prévia BRAPCI 100% 884; dataset 57: 884 lidos = 883 importados + 1 duplicado (DOI de documento que o projeto já tinha); Artigos 663 · Eventos 211 · Livros 7 · Capítulos 3.)
+- [x] 7.5 (escrita) Reenviar o mesmo arquivo. Verificação: todos duplicados, nenhum documento novo. (19/11/2026: dataset 58, 884 duplicados.)
+- [x] 7.6 (leitura) Conferência depois: log `var/log/import_{dataset}.log` sem erro; projeto 22 com o número de documentos de 7.3 mais os importados; outro projeto qualquer com o mesmo número de documentos de antes. Verificação: os três pontos anotados aqui. (19/11/2026: projeto 22 com 11.504 documentos depois dos testes; outros projetos inalterados; logs sem erro.)
 - [ ] 7.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos (a exclusão é dele ou feita com a confirmação dele). Verificação: decisão anotada aqui e cumprida.
 
 ## Workflow follow-up

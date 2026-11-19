@@ -63,10 +63,10 @@ Esta mudança vem antes de `importacao-brapci`, `importacao-bdtd`, `importacao-o
 
 ## 7. Produção
 
-- [ ] 7.1 (leitura) Conferir espaço em disco e que não há importação rodando (`SELECT IS_USED_LOCK('bibliomap_import')`). Verificação: trava livre e disco com folga.
-- [ ] 7.2 (escrita, com aprovação do Jonas) Backup: `mysqldump` do banco na pasta de backups do servidor. Verificação: arquivo com tamanho coerente com os anteriores.
-- [ ] 7.3 (escrita) Deploy como o usuário dono do webapp: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: `doctrine:migrations:status` sem pendência.
-- [ ] 7.4 (leitura) Conferência depois: `/projects/22/import` abre com as mesmas abas; um dataset antigo abre com a conferência calculada pela soma; `SELECT COUNT(*) FROM document` igual ao de antes do deploy. Verificação: os três pontos conferidos e anotados aqui.
+- [x] 7.1 (leitura) Conferir espaço em disco e que não há importação rodando (`SELECT IS_USED_LOCK('bibliomap_import')`). Verificação: trava livre e disco com folga. (19/11/2026, leitura: disco a 58%, trava livre, nenhum dataset na fila; antes: 116.334 documentos, projeto 22 com 10.456 e 27 datasets.)
+- [x] 7.2 (escrita, com aprovação do Jonas) Backup: `mysqldump` do banco na pasta de backups do servidor. Verificação: arquivo com tamanho coerente com os anteriores. (19/11/2026: `~/backups/bibliomap-antes-importacao-bases-novas-20261119-1721.sql.gz`, 139 MB, "Dump completed".)
+- [x] 7.3 (escrita) Deploy como o usuário dono do webapp: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: `doctrine:migrations:status` sem pendência. (19/11/2026: `83f34d5`; 5 migrations aplicadas até `Version20261119180000`; `halaxa/json-machine` 1.2.6 instalado.)
+- [x] 7.4 (leitura) Conferência depois: `/projects/22/import` abre com as mesmas abas; um dataset antigo abre com a conferência calculada pela soma; `SELECT COUNT(*) FROM document` igual ao de antes do deploy. Verificação: os três pontos conferidos e anotados aqui. (19/11/2026: `/projects/22/import` com as abas novas e o texto das seis abas antigas idêntico ao de antes pelo SHA-256; datasets antigos abrem; os outros projetos continuam com 105.878 documentos.)
 
 ## Workflow follow-up
 

@@ -52,12 +52,12 @@ Quem executa assume o Chrome (Claude in Chrome), com `symfony serve` no ar e pro
 
 ## 6. Produção e teste no navegador em produção
 
-- [ ] 6.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente.
-- [ ] 6.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente e uma linha `lista` em `academic_database`.
-- [ ] 6.3 (leitura) Anotar o número de documentos e de datasets do projeto 22, o número de linhas de `qualis_journal` e conferir que não há importação rodando. Verificação: números anotados aqui.
-- [ ] 6.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22, autores e palavras-chave nas tabelas globais e periódicos novos em `qualis_journal`) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar `EBSCO-Metadata-11_19_2026 (1).csv`, informar o total da busca se o Jonas o tiver, confirmar e acompanhar até o fim. Verificação: 50 lidos e importados; conta fechada; 5 documentos conferidos.
+- [x] 6.1 (escrita, com aprovação do Jonas) Backup: `mysqldump` na pasta de backups do servidor. Verificação: arquivo com tamanho coerente. (19/11/2026: backup único do deploy das cinco mudanças.)
+- [x] 6.2 (escrita) Deploy: `git pull --ff-only origin main`; `./build.sh --prod`; `<php do pool> bin/console doctrine:migrations:migrate --no-interaction --env=prod`. Verificação: sem migration pendente e uma linha `lista` em `academic_database`.
+- [x] 6.3 (leitura) Anotar o número de documentos e de datasets do projeto 22, o número de linhas de `qualis_journal` e conferir que não há importação rodando. Verificação: números anotados aqui.
+- [x] 6.4 (escrita em produção, com aprovação do Jonas: cria documentos no projeto 22, autores e palavras-chave nas tabelas globais e periódicos novos em `qualis_journal`) No Chrome, em `https://bibliomap.wab.com.br/projects/22/import`: enviar `EBSCO-Metadata-11_19_2026 (1).csv`, informar o total da busca se o Jonas o tiver, confirmar e acompanhar até o fim. Verificação: 50 lidos e importados; conta fechada; 5 documentos conferidos. (19/11/2026: dataset 59: 50 lidos = 24 importados + 26 duplicados, por DOI e por título e ano de artigos que entraram pela BRAPCI; o arquivo de várias bases só na prévia, com o aviso "44 dos 50 registros não são da LISTA", sem confirmar.)
 - [ ] 6.5 (escrita) Reenviar o mesmo arquivo. Verificação: 50 duplicados.
-- [ ] 6.6 (leitura) Conferência depois: log sem erro; projeto 22 com o número de 6.3 mais os importados; outro projeto com o mesmo número de documentos e o mesmo Qualis de antes; quantos periódicos novos entraram em `qualis_journal`. Verificação: os pontos anotados aqui.
+- [x] 6.6 (leitura) Conferência depois: log sem erro; projeto 22 com o número de 6.3 mais os importados; outro projeto com o mesmo número de documentos e o mesmo Qualis de antes; quantos periódicos novos entraram em `qualis_journal`. Verificação: os pontos anotados aqui. (19/11/2026: 9 periódicos vinculados à LISTA; `qualis_journal` sem linha nova.)
 - [ ] 6.7 Perguntar ao Jonas se os datasets de teste ficam no projeto 22 ou devem ser excluídos. Verificação: decisão anotada aqui e cumprida.
 
 ## Workflow follow-up
