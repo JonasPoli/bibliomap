@@ -212,8 +212,8 @@
 
 {% block stylesheets %}
 <style>
-/* Leaflet map style */
-#world-map .leaflet-tile { filter: none; }
+/* Mapas sem azulejos: o fundo é o do cartão, no tema atual */
+#world-map, #world-map-classified, #continents-map { background: var(--bm-card-bg); }
 [data-bs-theme="dark"] #world-map { filter: brightness(0.85) saturate(1.2); }
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
@@ -337,6 +337,8 @@ function getColors() {
 }
 
 // ── Leaflet choropleth ────────────────────────────────────────────────────────
+// Mundo inteiro sem a Antártida, que ocuparia metade do mapa sem dado nenhum
+const WORLD_BOUNDS = [[-58, -170], [78, 190]];
 let leafletMap    = null;
 let geoLayer      = null;
 let classifiedMap = null;
@@ -399,28 +401,23 @@ function buildMap() {
         classifiedMap = null;
     }
 
+    // Sem camada de azulejos: os países são desenhados direto sobre o fundo do cartão
+    // (o CARTO passou a exigir chave e mostrava "API KEY REQUIRED" em todo o mapa)
     leafletMap = L.map('world-map', {
-        center: [20, 0],
-        zoom: 2,
-        zoomSnap: 0.5,
+        zoomSnap: 0.25,
+        maxZoom: 6,
         zoomControl: true,
         attributionControl: false,
     });
+    leafletMap.fitBounds(WORLD_BOUNDS);
 
     classifiedMap = L.map('world-map-classified', {
-        center: [20, 0],
-        zoom: 2,
-        zoomSnap: 0.5,
+        zoomSnap: 0.25,
+        maxZoom: 6,
         zoomControl: true,
         attributionControl: false,
     });
-
-    const tileUrl = isThemeLight()
-        ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
-
-    L.tileLayer(tileUrl, { maxZoom: 6 }).addTo(leafletMap);
-    L.tileLayer(tileUrl, { maxZoom: 6 }).addTo(classifiedMap);
+    classifiedMap.fitBounds(WORLD_BOUNDS);
 
     const tooltip = document.getElementById('map-tooltip');
 
@@ -598,20 +595,14 @@ function buildContinentsMap() {
     if (!container) return;
 
     continentsMap = L.map('continents-map', {
-        center: [15, 0],
-        zoom: 1,
-        minZoom: 1,
+        zoomSnap: 0.25,
         maxZoom: 6,
         zoomControl: false,
         attributionControl: false
     });
+    continentsMap.fitBounds(WORLD_BOUNDS);
 
     const isLight = isThemeLight();
-    const tileUrl = isLight 
-        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-
-    L.tileLayer(tileUrl, { maxZoom: 18 }).addTo(continentsMap);
 
     const continentDocs = {};
     continentsList.forEach(c => {

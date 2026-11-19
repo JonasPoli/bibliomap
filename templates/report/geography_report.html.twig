@@ -13,8 +13,8 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
 <style>
-    #regions-map, #cities-map { background: transparent; }
-    #regions-map .leaflet-tile, #cities-map .leaflet-tile { filter: none; }
+    /* Mapas sem azulejos: o fundo é o do cartão, no tema atual */
+    #regions-map, #cities-map { background: var(--bm-card-bg); }
     [data-bs-theme="dark"] #regions-map, [data-bs-theme="dark"] #cities-map { filter: brightness(0.85) saturate(1.2); }
 </style>
 {% endblock %}
@@ -304,6 +304,8 @@ function getColors() {
 }
 
 let charts = {};
+// Brasil inteiro, do Oiapoque ao Chuí (enquadramento inicial dos mapas)
+const BRAZIL_BOUNDS = [[-34, -74], [5.5, -34]];
 let regionsMap = null;
 let citiesMap = null;
 let geoLayerRegions = null;
@@ -585,20 +587,17 @@ function buildMaps() {
     if (document.getElementById('regions-map')) {
         if (regionsMap) regionsMap.remove();
         
+        // Sem camada de azulejos (o CARTO passou a exigir chave): os estados são desenhados
+        // direto sobre o fundo do cartão e o mapa enquadra o Brasil inteiro
         regionsMap = L.map('regions-map', {
-            center: [-14.235, -51.9253],
-            zoom: 4,
-            zoomSnap: 0.5,
+            maxZoom: 10,
+            zoomSnap: 0.25,
             zoomControl: true,
             attributionControl: false
         });
+        regionsMap.fitBounds(BRAZIL_BOUNDS);
 
         const isLight = isThemeLight();
-        const tileUrl = isLight 
-            ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
-
-        L.tileLayer(tileUrl, { maxZoom: 10 }).addTo(regionsMap);
 
         const regionDocs = {};
         regionsData.forEach(r => {
@@ -644,6 +643,7 @@ function buildMaps() {
                         layer.on('mouseout', () => { tooltip.style.display = 'none'; });
                     }
                 }).addTo(regionsMap);
+                regionsMap.fitBounds(geoLayerRegions.getBounds(), { padding: [12, 12] });
             });
     }
 
@@ -651,20 +651,32 @@ function buildMaps() {
         if (citiesMap) citiesMap.remove();
 
         citiesMap = L.map('cities-map', {
-            center: [-14.235, -51.9253],
-            zoom: 4,
-            zoomSnap: 0.5,
+            maxZoom: 12,
+            zoomSnap: 0.25,
             zoomControl: true,
             attributionControl: false
         });
+        citiesMap.fitBounds(BRAZIL_BOUNDS);
 
         const isLight = isThemeLight();
-        const tileUrl = isLight 
-            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
-        L.tileLayer(tileUrl, { maxZoom: 12 }).addTo(citiesMap);
+        // Contorno dos países como referência, por baixo dos marcadores (no lugar dos azulejos)
+        fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+            .then(res => res.json())
+            .then(geo => {
+                L.geoJSON(geo, {
+                    interactive: false,
+                    style: {
+                        fillColor: isLight ? '#e8ecf0' : '#21262d',
+                        fillOpacity: 1,
+                        weight: 0.6,
+                        color: isLight ? '#c8d1db' : '#30363d',
+                    },
+                }).addTo(citiesMap).bringToBack();
+            })
+            .catch(() => {});
 
+        const cityMarkers = [];
         const maxCityDocs = citiesData.reduce((max, c) => Math.max(max, c.doc_count), 1);
         const tooltip = document.getElementById('map-tooltip') || createTooltip();
 
@@ -680,6 +692,7 @@ function buildMaps() {
                     weight: 1.5,
                     fillOpacity: 0.75
                 }).addTo(citiesMap);
+                cityMarkers.push(coords);
 
                 marker.on('mousemove', e => {
                     tooltip.style.display = 'block';
@@ -692,6 +705,13 @@ function buildMaps() {
                 marker.on('mouseout', () => { tooltip.style.display = 'none'; });
             }
         });
+
+        // Enquadra as cidades com dados; sem cidade, fica no Brasil
+        if (cityMarkers.length > 1) {
+            citiesMap.fitBounds(L.latLngBounds(cityMarkers), { padding: [30, 30], maxZoom: 7 });
+        } else if (cityMarkers.length === 1) {
+            citiesMap.setView(cityMarkers[0], 7);
+        }
     }
 }
 

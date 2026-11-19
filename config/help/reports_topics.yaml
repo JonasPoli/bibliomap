@@ -527,7 +527,7 @@ report.geography.cities_map:
   title: "Mapa de cidades"
   what: "Marca as cidades do Top 15 com círculos proporcionais ao número de documentos."
   how: "Passe o mouse sobre o círculo para ver documentos e citações."
-  not: "Só desenha cidades com coordenadas conhecidas (principalmente capitais e polos universitários brasileiros); as demais não aparecem no mapa, mas estão no gráfico e na tabela."
+  not: "Só desenha cidades com coordenadas conhecidas (principalmente capitais e polos universitários brasileiros); as demais não aparecem no mapa, mas estão no gráfico e na tabela. O fundo mostra só o contorno dos países, sem ruas nem nomes de lugares."
   example: "Círculos maiores em São Paulo, Campinas e Viçosa."
 
 report.geography.nature:

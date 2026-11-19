@@ -2,10 +2,10 @@
 
 ## 1. Mapas sem a camada de azulejos (mapas-dos-relatorios)
 
-- [ ] 1.1 Em `templates/report/countries.html.twig`, remover o `tileUrl` do CARTO e os três `L.tileLayer`, pintar o fundo do contêiner com a cor do cartão no tema atual e enquadrar os mapas de países com os limites `[[-58,-170],[78,190]]`. Verificar no navegador local, nos dois temas, que os três mapas aparecem inteiros e que a aba Rede não tem nenhuma requisição a `basemaps.cartocdn.com`.
-- [ ] 1.2 Em `templates/report/geography_report.html.twig`, remover a camada dos mapas de regiões e de cidades, enquadrar o de regiões pelos limites da camada de estados, desenhar o contorno dos países sob os marcadores de cidades e redesenhar os dois mapas no evento `bm-theme-changed`. Verificar no navegador local que o Brasil aparece inteiro e que a troca de tema muda as cores do mapa.
-- [ ] 1.3 Revisar em `config/help/reports_topics.yaml` as entradas `report.countries.continents`, `map_linear`, `map_log`, `report.geography.regions_map` e `cities_map` e atualizar as que citam o fundo do mapa. Verificar com `vendor/bin/phpunit tests/Twig/HelpCatalogTest.php`.
-- [ ] 1.4 Criar um teste que lê os templates de `templates/report/` e falha se `cartocdn` ou `L.tileLayer(` voltarem. Verificar que ele passa agora e falha ao recolocar uma linha com `L.tileLayer(`.
+- [x] 1.1 Em `templates/report/countries.html.twig`, remover o `tileUrl` do CARTO e os três `L.tileLayer`, pintar o fundo do contêiner com a cor do cartão no tema atual e enquadrar os mapas de países com os limites `[[-58,-170],[78,190]]`. Verificar no navegador local, nos dois temas, que os três mapas aparecem inteiros e que a aba Rede não tem nenhuma requisição a `basemaps.cartocdn.com`.
+- [x] 1.2 Em `templates/report/geography_report.html.twig`, remover a camada dos mapas de regiões e de cidades, enquadrar o de regiões pelos limites da camada de estados, desenhar o contorno dos países sob os marcadores de cidades e redesenhar os dois mapas no evento `bm-theme-changed`. Verificar no navegador local que o Brasil aparece inteiro e que a troca de tema muda as cores do mapa.
+- [x] 1.3 Revisar em `config/help/reports_topics.yaml` as entradas `report.countries.continents`, `map_linear`, `map_log`, `report.geography.regions_map` e `cities_map` e atualizar as que citam o fundo do mapa. Verificar com `vendor/bin/phpunit tests/Twig/HelpCatalogTest.php`.
+- [x] 1.4 Criar um teste que lê os templates de `templates/report/` e falha se `cartocdn` ou `L.tileLayer(` voltarem. Verificar que ele passa agora e falha ao recolocar uma linha com `L.tileLayer(`.
 
 ## 2. Catálogo da vitrine
 
