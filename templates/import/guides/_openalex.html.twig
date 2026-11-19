@@ -4,28 +4,21 @@
         <div class="src-logo-box">{{ source_logo('openalex', 36) }}</div>
         <div>
             <div style="font-size:15px;font-weight:700;color:var(--bm-text)">OpenAlex {{ help('import.source.openalex') }}</div>
-            <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; <span style="color:var(--bm-warning);font-weight:600">Ainda sem leitor no BiblioMap</span></div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">openalex.org &nbsp;·&nbsp; Formatos aceitos: <span class="fmt-badge fmt-csv">CSV</span> (recomendado), JSON da API, TXT (Web of Science) e RIS</div>
         </div>
     </div>
-    <div class="step-note step-note-warn" style="margin-bottom:16px">
-        <i class="bi bi-exclamation-triangle" style="color:#f87171;flex-shrink:0;margin-top:2px"></i>
-        <span><strong style="color:#94a3b8">Atenção:</strong> o BiblioMap ainda não lê o CSV do OpenAlex — o arquivo é aceito no envio, mas a importação termina com 0 documentos. Por enquanto, exporte os mesmos registros do <strong>Scopus</strong>, <strong>Web of Science</strong>, <strong>Lens.org</strong> (gratuito) ou <strong>PubMed</strong>. Os passos abaixo ficam como referência.</span>
-    </div>
     <ol class="step-list">
-        <li><div class="step-num">1</div><div class="step-text"><strong>Pela interface web:</strong> acesse <a href="https://openalex.org/works" target="_blank" style="color:var(--bm-accent)">openalex.org/works</a> e faça sua busca.</div></li>
-        <li><div class="step-num">2</div><div class="step-text">Clique em <strong>"Export"</strong> (ícone de download no topo direito dos resultados) e selecione <strong>CSV</strong>.</div></li>
-        <li><div class="step-num">3</div><div class="step-text">O arquivo <code>.csv</code> será gerado e baixado automaticamente (limite: ~10.000 registros pela interface).</div></li>
-    </ol>
-    <div style="margin:16px 0 4px;font-size:12.5px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px">Via API (para conjuntos maiores)</div>
-    <ol class="step-list" style="margin-top:4px" start="4">
-        <li><div class="step-num">4</div><div class="step-text">
-            Use a API pública do OpenAlex com saída CSV:
-            <br><code>https://api.openalex.org/works?filter=title.search:machine+learning&amp;select=id,title,doi,publication_year,authorships,primary_location&amp;format=csv</code>
-        </div></li>
-        <li><div class="step-num">5</div><div class="step-text">Para paginar, adicione o parâmetro <code>&amp;cursor=*</code> (cursor-based pagination) e itere até obter todos os resultados.</div></li>
+        <li><div class="step-num">1</div><div class="step-text">Entre na sua conta em <a href="https://openalex.org/works" target="_blank" style="color:var(--bm-accent)">openalex.org</a> (a exportação exige conta gratuita) e faça a busca. Anote o total que aparece acima da lista ("<strong>N works</strong>").</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Clique em <strong>Export results</strong> e escolha <strong>CSV</strong>.</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Acrescente ao menos as colunas <strong>Work ID</strong> e <strong>DOI</strong> (recomendado também: Source, ISSN, Type, Language, Institution, Country, Keyword, Cites) e marque <strong>"Include abstracts"</strong>.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Quando a exportação terminar, baixe o arquivo <code>works-AAAA-MM-DD….csv</code> em <strong>Settings › Exports</strong> e envie aqui como veio.</div></li>
     </ol>
     <div class="step-note">
+        <i class="bi bi-exclamation-triangle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Sem Work ID nem DOI o CSV é recusado:</strong> as cinco colunas padrão da exportação (Title, Author, Year, Citation count, Open access) não identificam o registro. O CSV não traz volume, número nem páginas.</span>
+    </div>
+    <div class="step-note">
         <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
-        <span><strong style="color:#94a3b8">Open Access:</strong> o OpenAlex é gratuito e sem autenticação para a API pública. Para conjuntos muito grandes (&gt;1M), use o <a href="https://docs.openalex.org/download-all-data/openalex-snapshot" target="_blank" style="color:var(--bm-accent)">OpenAlex Snapshot</a> (download completo via AWS S3).</span>
+        <span><strong style="color:#94a3b8">Outros formatos:</strong> o JSON da API é o mais completo (volume, páginas, países, instituições, referências). Salve cada página de <code>https://api.openalex.org/works?filter=…&amp;per-page=100&amp;page=1</code> como um arquivo .json e envie todas de uma vez; sem chave de API, a paginação vai até 10.000 resultados. O "Text (Web of Science plain text)" é lido como OpenAlex. O RIS não traz citações, referências, palavras-chave nem Work ID. BibTeX não é lido.</span>
     </div>
 </div>

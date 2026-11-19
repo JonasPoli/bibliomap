@@ -6,6 +6,7 @@ use App\DTO\BibliographicRecordDTO;
 use App\Service\Import\Brapci\BrapciCsvImporter;
 use App\Service\Import\Ebsco\EbscoCsvImporter;
 use App\Service\Import\LensCsvImporter;
+use App\Service\Import\OpenAlex\OpenAlexCsvImporter;
 use App\Service\Import\PubmedCsvImporter;
 use App\Service\Import\ScopusCsvImporter;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -59,6 +60,11 @@ class CsvImporterCountTest extends TestCase
                 . "T1.,20200101,\"Silva, A\",https://x/1,LISTA,lih,1,R,\"a\nb\nc\nd\"\n"
                 . "T2.,20210101,\"Lima, B\",https://x/2,LISTA,lih,2,R,x\n"
                 . "T3.,20220101,\"Melo, C\",https://x/3,LISTA,lih,3,R,\n"],
+            'openalex' => [OpenAlexCsvImporter::class,
+                "Title,Author,Year,Citation count,Open access,Work ID,DOI\r\n"
+                . "\"T1\",\"Ana Lima\",2020,1,Open Access,W1,\"https://doi.org/10.1/a\nb\nc\nd\"\r\n"
+                . "T2,Rui Melo,2021,0,Open Access,W2,\r\n"
+                . "T3,Eva Paz,2022,0,Open Access,W3,\r\n"],
         ];
     }
 

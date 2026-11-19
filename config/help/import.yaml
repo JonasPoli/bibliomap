@@ -160,15 +160,15 @@ import.source.lista:
     Arquivo de 50 registros em que 44 vieram da Academic Search Premier e de outras bases: a prévia mostra "44 dos 50 registros não são da LISTA"; refaça a busca limitada à LISTA.
 
 import.source.openalex:
-  title: "OpenAlex"
+  title: "OpenAlex (CSV, JSON, TXT ou RIS)"
   what: |-
-    Guia de exportação do OpenAlex.
+    Lê os arquivos do OpenAlex: o CSV exportado pela interface (pelo nome das colunas), o JSON da API (lido em fluxo, de qualquer tamanho), o TXT no formato Web of Science e o RIS. Cada work é identificado pelo Work ID (W…).
   how: |-
-    Enquanto não houver leitor, use o OpenAlex para conferir dados e importe os registros pelo Scopus, WoS, Lens ou PubMed.
+    Entre na conta, "Export results" › CSV, acrescente as colunas **Work ID** e **DOI** e marque "Include abstracts"; baixe em Settings › Exports. Para ter volume, páginas, países e referências, use o JSON da API (uma página de até 100 works por arquivo).
   not: |-
-    **O BiblioMap ainda não lê o CSV do OpenAlex**: o arquivo não é reconhecido e a importação termina com status Erro, sem documentos.
+    O CSV só com as colunas padrão (sem Work ID nem DOI) é recusado na prévia. O CSV não traz volume, número nem páginas. O RIS não traz Work ID, citações, referências nem palavras-chave (as marcações KW são os conceitos do OpenAlex e não são importadas). Tópicos e conceitos não viram palavras-chave. Importações antigas de um TXT do OpenAlex ficaram como "Web of Science": para corrigir, reimporte.
   example: |-
-    Precisa de cobertura aberta? Use o Lens.org (CSV), que é gratuito e já é lido pelo BiblioMap.
+    Busca com 801 works: exporte o CSV com Work ID e DOI e informe 801 na prévia. Pela API, a página 1 mostra "A busca tem 801 resultados; este arquivo traz 100": envie as 9 páginas de uma vez.
 
 import.source.crossref:
   title: "Crossref"
@@ -244,7 +244,7 @@ import.preview.detected_source:
   how: |-
     Scopus, Lens e PubMed CSV são reconhecidos pelos nomes das colunas; WoS pelo cabeçalho "FN Clarivate"; PubMed NBIB pelas linhas "PMID-". Confiança de 100% indica que todas as marcas foram encontradas.
   not: |-
-    "Não detectada" quase sempre significa formato sem leitor (ex.: CSV do OpenAlex): nesse caso a importação termina com status Erro, sem documentos.
+    "Não detectada" quase sempre significa formato sem leitor (ex.: CSV do Crossref): nesse caso a importação termina com status Erro, sem documentos.
   example: |-
     Um CSV do Scopus com as colunas EID, Authors, Cited by e Author Keywords → "Scopus · Confiança 100%".
 
@@ -310,7 +310,7 @@ import.preview.source:
   how: |-
     Só troque se a detecção errou. Para CSV, escolher a base errada faz o arquivo ser lido com as colunas erradas (títulos e autores vazios).
   not: |-
-    Escolher OpenAlex, Crossref ou Outra não cria um leitor para esses formatos: o sistema tenta reconhecer o arquivo sozinho e, se não conseguir, a importação termina com status Erro.
+    Escolher Crossref ou Outra não cria um leitor para esses formatos: o sistema tenta reconhecer o arquivo sozinho e, se não conseguir, a importação termina com status Erro.
   example: |-
     A prévia detectou Lens.org num CSV do Lens: mantenha. Se você marcar Scopus, os documentos ficarão sem título.
 

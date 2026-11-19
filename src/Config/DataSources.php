@@ -177,8 +177,8 @@ final class DataSources
         // ── OpenAlex (OurResearch) ────────────────────────────────────────────
         'openalex' => [
             'key'         => 'openalex',
-            'hasReader'   => false,
-            'readFormats' => null,
+            'hasReader'   => true,
+            'readFormats' => 'CSV, JSON, TXT e RIS',
             'guide'       => 'import/guides/_openalex.html.twig',
             'label'       => 'OpenAlex',
             'vendor'      => 'OurResearch',
@@ -187,9 +187,9 @@ final class DataSources
             'logoDark'    => '/img/OpenAlex_logo_2021.svg',
             'logoType'    => 'svg',
             'logoBg'      => null,   // assume colorful logo on transparent
-            'formats'     => ['csv'],
+            'formats'     => ['csv', 'json', 'txt', 'ris'],
             'emoji'       => '🔓',
-            'limit'       => 10000,
+            'limit'       => null,
             'bgColor'     => '#0a0812',
             'accentColor' => '#a78bfa',
         ],

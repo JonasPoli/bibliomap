@@ -90,7 +90,8 @@ class EffectiveLinksDbTest extends LocalDbTestCase
     private function wosFile(): string
     {
         $dir = dirname(__DIR__, 3) . '/var/uploads';
-        $files = glob($dir . '/*/*.txt') ?: [];
+        // Só exportações da Web of Science (var/uploads também guarda TXT de outras bases, como o do OpenAlex)
+        $files = array_values(array_filter(glob($dir . '/*/*.txt') ?: [], fn ($f) => (new WosImporter())->detect($f) >= 0.9));
         if (!$files) {
             $this->markTestSkipped('Sem arquivo WoS em var/uploads para a importação.');
         }

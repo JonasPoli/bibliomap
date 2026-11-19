@@ -1,0 +1,2 @@
+id,title,doi,publication_year,authorships.author.display_name,cited_by_count,biblio.volume,primary_location.source.display_name
+https://openalex.org/W200,Geração 2,https://doi.org/10.1234/g2,2021,Ana Lima|Rui Melo,5,7,Revista

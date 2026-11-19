@@ -56,6 +56,18 @@ services:
     App\Service\Import\Ebsco\EbscoCsvImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\OpenAlex\OpenAlexJsonImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\OpenAlex\OpenAlexCsvImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\OpenAlex\OpenAlexWosImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\OpenAlex\OpenAlexRisImporter:
+        tags: ['app.bibliographic_importer']
+
 
 
     App\Service\Import\ImporterResolver:

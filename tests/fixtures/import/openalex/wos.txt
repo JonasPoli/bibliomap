@@ -1,0 +1,41 @@
+FN OpenAlex
+VR 1.0
+PT J
+AU Ana Souza
+AF Ana Souza
+TI Trabalho com UT
+SO Revista X
+LA Portuguese
+DT Article
+C1 [Ana Souza] Universidade Federal de Minas Gerais, BRAZIL
+TC 7
+PY 2020
+VL 12
+DI 10.1234/txt.1
+UT W500
+ER
+
+PT J
+AU Rui Lima
+AF Rui Lima
+TI Sem UT e com CT
+SO Revista Y
+CT 15
+PY 2021
+VL
+DI 10.1234/txt.2
+ER
+
+PT J
+AU Eva Melo
+AU John Doe
+AF Eva Melo
+AF John Doe
+TI Dois autores
+C1 [Eva Melo] Universidade de Sao Paulo, BRAZIL
+C1 [John Doe] University of Toronto, CANADA
+PY 2022
+UT https://openalex.org/W502
+ER
+
+EF

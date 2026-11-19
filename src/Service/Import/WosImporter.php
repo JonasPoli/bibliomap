@@ -46,7 +46,7 @@ use App\DTO\ImportResult;
 class WosImporter implements BibliographicImporterInterface
 {
     /** Bytes of the beginning of the file to scan for detection. */
-    private const HEADER_SCAN_BYTES = 200;
+    protected const HEADER_SCAN_BYTES = 200;
 
     // ── Detection ────────────────────────────────────────────────────────────
 
@@ -71,6 +71,11 @@ class WosImporter implements BibliographicImporterInterface
 
             $header = ltrim($header, "\xEF\xBB\xBF"); // strip UTF-8 BOM if present
 
+            // Mesmo formato de marcações gerado por outra base (ex.: "FN OpenAlex"): não é Web of Science
+            if (preg_match('/^FN (?!Clarivate|Thomson)/m', $header)) {
+                return 0.0;
+            }
+
             // Strongest signal: canonical WoS header
             if (str_contains($header, 'Clarivate Analytics Web of Science')) {
                 return 1.0;
@@ -81,7 +86,7 @@ class WosImporter implements BibliographicImporterInterface
                 return 0.9;
             }
 
-            // Heuristic: file starts with "PT " (publication type) — common WoS tag
+            // Heuristic: file starts with "PT " (publication type) — common WoS tag (sem linha FN de outra base)
             if (preg_match('/^(FN |PT [A-Z])/m', $header)) {
                 return 0.6;
             }
@@ -275,7 +280,7 @@ class WosImporter implements BibliographicImporterInterface
      *
      * @return \Generator<array<string, string|string[]>>
      */
-    private function parseRecordsFromFile(string $filePath): \Generator
+    protected function parseRecordsFromFile(string $filePath): \Generator
     {
         $handle = fopen($filePath, 'rb');
         if (!$handle) {
@@ -328,8 +333,14 @@ class WosImporter implements BibliographicImporterInterface
                 continue;
             }
 
+            // Marcação vazia numa linha só (ex.: "VL" sem valor, no TXT do OpenAlex): não é continuação do campo anterior
+            if (preg_match('/^[A-Z][A-Z0-9]$/', $line)) {
+                $currentTag = $line;
+                continue;
+            }
+
             // New tag line: "XX value"
-            if (strlen($line) >= 2 && $line[2] === ' ') {
+            if (strlen($line) >= 3 && $line[2] === ' ') {
                 $tag   = substr($line, 0, 2);
                 $value = trim(substr($line, 3));
 
@@ -378,7 +389,7 @@ class WosImporter implements BibliographicImporterInterface
      * Returns the string value of a tag, or null if not present / empty.
      * For array-valued tags, joins elements with '; '.
      */
-    private function field(array $raw, string $tag): ?string
+    protected function field(array $raw, string $tag): ?string
     {
         if (!isset($raw[$tag])) return null;
         $val = $raw[$tag];
@@ -389,7 +400,7 @@ class WosImporter implements BibliographicImporterInterface
         return $val !== '' ? $val : null;
     }
 
-    private function normalizeDoi(?string $doi): ?string
+    protected function normalizeDoi(?string $doi): ?string
     {
         if (!$doi) return null;
         $doi = trim($doi);
@@ -398,7 +409,7 @@ class WosImporter implements BibliographicImporterInterface
     }
 
     /** Expand PT single-letter codes to readable document type. */
-    private function expandPt(?string $pt): ?string
+    protected function expandPt(?string $pt): ?string
     {
         return match (strtoupper(trim((string) $pt))) {
             'J'  => 'Article',
@@ -415,7 +426,7 @@ class WosImporter implements BibliographicImporterInterface
      * Extract countries from C1 (affiliation) lines.
      * C1 format: "[Author] Institution, City, Country."
      */
-    private function extractCountriesFromC1(array $c1Lines): array
+    protected function extractCountriesFromC1(array $c1Lines): array
     {
         $countries = [];
         foreach ($c1Lines as $line) {
@@ -436,7 +447,7 @@ class WosImporter implements BibliographicImporterInterface
     /**
      * Extract institution names from C1 lines.
      */
-    private function extractInstitutionsFromC1(array $c1Lines): array
+    protected function extractInstitutionsFromC1(array $c1Lines): array
     {
         $institutions = [];
         foreach ($c1Lines as $line) {

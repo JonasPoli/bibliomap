@@ -257,7 +257,7 @@
                     <div class="src-logo" style="background:#1e2d45;color:var(--bm-accent)">📄</div>
                     <div>
                         <div style="font-size:15px;font-weight:700;color:var(--bm-text)">Qualquer outra base {{ help('import.source.other') }}</div>
-                        <div style="font-size:12px;color:var(--bm-text-muted)">Formatos universais (<span class="fmt-badge fmt-ris">RIS</span> <span class="fmt-badge fmt-bib" style="margin-left:4px">BibTeX</span> <span class="fmt-badge fmt-xlsx" style="margin-left:4px">XLSX</span> <span class="fmt-badge fmt-xml" style="margin-left:4px">XML</span>) — <span style="color:var(--bm-warning);font-weight:600">ainda sem leitor no BiblioMap</span></div>
+                        <div style="font-size:12px;color:var(--bm-text-muted)"><span class="fmt-badge fmt-ris">RIS</span> lido como "Outra base" &nbsp;·&nbsp; <span class="fmt-badge fmt-bib">BibTeX</span> <span class="fmt-badge fmt-xlsx" style="margin-left:4px">XLSX</span> <span class="fmt-badge fmt-xml" style="margin-left:4px">XML</span> <span style="color:var(--bm-warning);font-weight:600">ainda sem leitor</span></div>
                     </div>
                 </div>
 
@@ -298,7 +298,7 @@
 
                 <div class="step-note step-note-tip">
                     <i class="bi bi-lightbulb" style="color:#3fb950;flex-shrink:0;margin-top:2px"></i>
-                    <span><strong style="color:#94a3b8">Não encontrou sua base?</strong> Hoje o BiblioMap lê apenas Scopus (CSV), Web of Science (TXT), Lens.org (CSV) e PubMed (NBIB/CSV). Arquivos RIS, BibTeX, XLSX ou XML são aceitos no envio, mas resultam em 0 documentos. Se possível, refaça a busca numa dessas bases; para pedir um novo leitor, fale com o administrador informando o nome da base e o formato disponível.</span>
+                    <span><strong style="color:#94a3b8">Não encontrou sua base?</strong> O BiblioMap lê {{ readable_formats() }}. Um RIS de outra base entra como "Outra", com título, autores, periódico, ano, DOI e palavras-chave. BibTeX, XLSX e XML são recusados no envio. Para pedir um novo leitor, fale com o administrador informando o nome da base e o formato disponível.</span>
                 </div>
             </div>
 
@@ -312,24 +312,25 @@
             <h3 style="font-size:13px;font-weight:700;color:var(--bm-text);margin:0 0 16px;text-transform:uppercase;letter-spacing:.5px">
                 <i class="bi bi-check2-circle text-accent me-2"></i>Formatos lidos {{ help('import.index.supported_formats') }}
             </h3>
-            {% set readable = [
-                {key: 'scopus', fmt: 'CSV'},
-                {key: 'wos', fmt: 'TXT'},
-                {key: 'lens', fmt: 'CSV'},
-                {key: 'pubmed', fmt: 'NBIB/CSV'},
-            ] %}
-            {% for item in readable %}
+            {% for key, src in data_sources %}
+                {% if src.hasReader|default(false) %}
                 <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
                     <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
-                        {{ source_logo(item.key, 16) }}
+                        {{ source_logo(key, 16) }}
                     </span>
-                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ data_sources[item.key].label|default(item.key) }}</div>
-                    <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">{{ item.fmt }}</span>
+                    <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">{{ src.label }}</div>
+                    <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">{{ src.readFormats }}</span>
                 </div>
+                {% endif %}
             {% endfor %}
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bm-border)">
+                <span style="width:38px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">📄</span>
+                <div style="flex:1;font-size:13px;font-weight:500;color:var(--bm-text)">Outra base</div>
+                <span style="font-size:10.5px;font-weight:700;color:#3fb950;background:rgba(255,255,255,.04);border:1px solid #3fb95033;padding:2px 8px;border-radius:5px">RIS</span>
+            </div>
             <div style="font-size:11px;font-weight:700;color:var(--bm-text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Ainda sem leitor</div>
             <div style="font-size:12.5px;color:var(--bm-text-muted);line-height:1.6">
-                OpenAlex, Crossref, RIS, BibTeX, XLSX, XML e JSON — o envio é aceito, mas nenhum documento é criado.
+                Crossref, BibTeX, XLSX e XML: recusados no envio, com aviso.
             </div>
         </div>
 
