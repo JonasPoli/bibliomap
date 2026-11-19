@@ -17,6 +17,7 @@ Plataforma web para análise bibliométrica de produção científica. Importa b
 6. [Rodando o servidor de desenvolvimento](#rodando-o-servidor-de-desenvolvimento)
 7. [Comandos úteis](#comandos-úteis)
 8. [Comandos Customizados do Sistema (CLI)](#comandos-customizados-do-sistema-cli)
+9. [Vitrine de recursos da home](#vitrine-de-recursos-da-home)
 
 ---
 
@@ -540,6 +541,28 @@ O BiblioMap inclui uma série de comandos customizados no namespace `app` para g
 #### `app:backfill:theoretical-lenses-citations`
 * **Descrição:** Gera os formatos de citação padrão (pelo menos 10) das lentes teóricas que ainda não têm nenhum. Lentes com formatos já cadastrados ou editados pelo administrador não são tocadas.
 * **Exemplo:** `php bin/console app:backfill:theoretical-lenses-citations`
+
+---
+
+## Vitrine de recursos da home
+
+A seção **Recursos** da home pública (`/#recursos`) mostra cada gráfico, mapa, rede e relatório do sistema com prints reais. O conteúdo não fica no template: vem do catálogo `config/showcase/recursos.yaml`, lido pelo `App\Showcase\ShowcaseCatalog`.
+
+### Acrescentar um recurso
+
+1. Tire o print (roteiro abaixo) e salve em `public/images/recursos/<assunto>-claro.webp` ou `<assunto>-escuro.webp`. O sufixo diz o tema do sistema no print, e cada arquivo tem no máximo 250 KB.
+2. Acrescente uma entrada em `recursos:` no YAML com `id` (minúsculas e hífens, vira a âncora `/#recurso-<id>`), `categoria` (uma das chaves de `categorias:`), `titulo`, `descricao`, `onde` (o caminho no menu), `mostra`, `como`, `porque`, `exemplo`, `exporta` (opcional) e `imagens` (cada uma com `arquivo`, `legenda` e `alt`). Os textos aceitam `**negrito**`.
+3. Rode `vendor/bin/phpunit tests/Showcase`. O `ShowcaseCatalogTest` falha, citando o recurso e o campo ou arquivo, se faltar campo, se o id repetir, se a imagem não existir, passar de 250 KB ou não for WebP, se uma categoria ficar só com prints de um tema ou se um texto tiver e-mail ou link proibido.
+
+Uma categoria nova entra em `categorias:` com `titulo`, `rotulo` (nome curto do filtro), `descricao` e `icone` (classe do Bootstrap Icons).
+
+### Roteiro de captura
+
+- Chrome com a janela de 1440 px de largura e o tema do sistema escolhido em `localStorage['bm-theme']` (`light` ou `dark`). Alterne claro e escuro entre os recursos.
+- Antes do recorte: remova do DOM o aviso de impersonação, tire o cursor da área, esconda os botões "Sci-Hub" das telas de resultados e role até o cartão ficar abaixo do cabeçalho fixo.
+- Recorte só o cartão do gráfico, com 10 px de folga, em PNG no tamanho real (1:1). Nenhum print pode mostrar e-mail, nome de usuário do sistema ou dado de conta; dados bibliográficos (artigos, autores de artigos, periódicos, termos, países) podem aparecer.
+- Converta com `cwebp -q 82 -m 6 print.png -o public/images/recursos/<assunto>-<tema>.webp`.
+- Não abra o Glossário, as Lentes Teóricas ou as redes de um projeto grande só para tirar print: são cálculos longos e o primeiro prende a sessão do navegador até terminar.
 
 ---
 

@@ -2,10 +2,12 @@
 categorias:
   segunda:
     titulo: "Segunda categoria"
+    rotulo: "Segunda"
     descricao: "Aparece **depois** da primeira no arquivo."
     icone: "bi-2-circle"
   primeira:
     titulo: "Primeira categoria"
+    rotulo: "Primeira"
     descricao: "Sem recurso: não aparece."
     icone: "bi-1-circle"
 

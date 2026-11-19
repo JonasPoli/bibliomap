@@ -123,6 +123,7 @@ final class ShowcaseCatalog
                 'id'             => (string) $id,
                 'ancora'         => 'categoria-' . $id,
                 'titulo'         => (string) ($category['titulo'] ?? $id),
+                'rotulo'         => (string) ($category['rotulo'] ?? $category['titulo'] ?? $id),
                 'descricao_html' => $this->formatter->format((string) ($category['descricao'] ?? '')),
                 'icone'          => (string) ($category['icone'] ?? 'bi-grid'),
                 'recursos'       => $byCategory[$id],
@@ -150,7 +151,7 @@ final class ShowcaseCatalog
             $errors[] = 'Catálogo sem categorias';
         }
         foreach ($raw['categorias'] as $id => $category) {
-            foreach (['titulo', 'descricao', 'icone'] as $field) {
+            foreach (['titulo', 'rotulo', 'descricao', 'icone'] as $field) {
                 if (trim((string) ($category[$field] ?? '')) === '') {
                     $errors[] = sprintf("Categoria '%s' sem o campo '%s'", $id, $field);
                 }

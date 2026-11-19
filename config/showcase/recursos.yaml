@@ -1,7 +1,7 @@
 # Vitrine de recursos da home pública (seção "Recursos").
 #
 # Lido por App\Showcase\ShowcaseCatalog e conferido pelo ShowcaseCatalogTest.
-# - categorias: aparecem na ordem deste arquivo (só as que têm recurso).
+# - categorias: aparecem na ordem deste arquivo (só as que têm recurso); rotulo é o nome curto do filtro.
 # - recursos: id (minúsculas e hífens), categoria, titulo, descricao, onde, mostra, como, porque,
 #   exemplo, exporta (opcional) e imagens (arquivo, legenda, alt).
 # - Os textos aceitam **negrito**. Nada de e-mail, nome de usuário ou link externo.
@@ -14,30 +14,37 @@
 categorias:
   indicadores:
     titulo: "Indicadores e produção"
+    rotulo: "Indicadores"
     descricao: "O retrato do corpus em números: quanto se publica, quanto se cita e como isso muda ano a ano."
     icone: "bi-speedometer2"
   autores-fontes:
     titulo: "Autores, fontes e documentos"
+    rotulo: "Autores e fontes"
     descricao: "Quem produz, onde publica e quais trabalhos sustentam o campo, com as leis clássicas da bibliometria."
     icone: "bi-people"
   palavras-chave:
     titulo: "Palavras-chave e vocabulário"
+    rotulo: "Palavras-chave"
     descricao: "Do que o campo fala, como os termos se agrupam e como o vocabulário muda com o tempo."
     icone: "bi-tags"
   redes-temas:
     titulo: "Redes e estrutura temática"
+    rotulo: "Redes e temas"
     descricao: "As ligações entre autores, termos e países, e o mapa estratégico dos temas de pesquisa."
     icone: "bi-diagram-3"
   geografia:
     titulo: "Geografia e instituições"
+    rotulo: "Geografia"
     descricao: "De onde vem a produção: continentes, países, regiões do Brasil, estados e o perfil das instituições."
     icone: "bi-globe-americas"
   classificacao:
     titulo: "Classificação temática"
+    rotulo: "Classificação"
     descricao: "Organize o corpus nas categorias da sua pesquisa e meça volume, impacto e crescimento de cada uma."
     icone: "bi-bookmarks"
   relatorios:
     titulo: "Relatórios e busca"
+    rotulo: "Relatórios"
     descricao: "O panorama pronto para imprimir e a busca que encontra o trabalho certo dentro do corpus."
     icone: "bi-file-earmark-text"
 
