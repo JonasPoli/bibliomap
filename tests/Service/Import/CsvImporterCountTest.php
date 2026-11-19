@@ -3,6 +3,7 @@
 namespace App\Tests\Service\Import;
 
 use App\DTO\BibliographicRecordDTO;
+use App\Service\Import\Brapci\BrapciCsvImporter;
 use App\Service\Import\LensCsvImporter;
 use App\Service\Import\PubmedCsvImporter;
 use App\Service\Import\ScopusCsvImporter;
@@ -47,6 +48,11 @@ class CsvImporterCountTest extends TestCase
                 . "1,\"T1\nparte 2\nparte 3\nparte 4\",\"Silva J\",\"c\",J,2020\n"
                 . "2,\"T2\",\"Lima A\",\"c\",J,2021\n"
                 . "3,\"T3\",\"Melo E\",\"c\",J,2022\n"],
+            'brapci' => [BrapciCsvImporter::class,
+                "ID,CLASS,YEAR,PUBLICATION,AUTHORS,TITLE,KEYWORDS,ABSTRACTS,SESSION,LEGEND,URL,\n"
+                . "1,\"Article\",2020,\"R\",\"Ana\",\"T1\",\"k\",\"a\nb\nc\nd\",\"Artigo\",\"R, v. 1, n. 1, 2020\",\"https://hdl.handle.net/20.500.11959/brapci/1\",\n"
+                . "2,\"Article\",2021,\"R\",\"Rui\",\"T2\",\"k\",\"x\",\"Artigo\",\"R, 2021\",\"https://hdl.handle.net/20.500.11959/brapci/2\",\n"
+                . "3,\"Book\",2022,\"LIVRO\",\"Eva\",\"T3\",\"\",\"\",\"\",\"T3, 2022\",\"https://hdl.handle.net/20.500.11959/brapci/3\",\n"],
         ];
     }
 

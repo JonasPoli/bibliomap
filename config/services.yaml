@@ -38,6 +38,15 @@ services:
     App\Service\Import\GenericRisImporter:
         tags: ['app.bibliographic_importer']
 
+    App\Service\Import\Brapci\BrapciCsvImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\Brapci\BrapciXlsImporter:
+        tags: ['app.bibliographic_importer']
+
+    App\Service\Import\Brapci\BrapciRisImporter:
+        tags: ['app.bibliographic_importer']
+
 
 
     App\Service\Import\ImporterResolver:

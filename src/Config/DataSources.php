@@ -114,6 +114,26 @@ final class DataSources
             'accentColor' => '#336699',
         ],
 
+        // ── BRAPCI (UFRGS) ────────────────────────────────────────────────────
+        'brapci' => [
+            'key'         => 'brapci',
+            'hasReader'   => true,
+            'readFormats' => 'CSV, XLS e RIS',
+            'guide'       => 'import/guides/_brapci.html.twig',
+            'label'       => 'BRAPCI',
+            'vendor'      => 'UFRGS',
+            'url'         => 'https://brapci.inf.br',
+            'logo'        => null,
+            'logoDark'    => null,
+            'logoType'    => null,
+            'logoBg'      => null,
+            'formats'     => ['csv', 'xls', 'ris'],
+            'emoji'       => '📚',
+            'limit'       => 2000,
+            'bgColor'     => '#0d1520',
+            'accentColor' => '#2f81f7',
+        ],
+
         // ── OpenAlex (OurResearch) ────────────────────────────────────────────
         'openalex' => [
             'key'         => 'openalex',

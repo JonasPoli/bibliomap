@@ -126,6 +126,17 @@ import.index.pubmed_formats:
   example: |-
     Arquivo "PubMed_Timeline_Results_by_Year.csv" tem só contagens por ano: não é um export de artigos.
 
+import.source.brapci:
+  title: "BRAPCI (CSV, XLS ou RIS)"
+  what: |-
+    Lê a exportação da cesta da BRAPCI, a base brasileira de Ciência da Informação: ID da BRAPCI, tipo (artigo, trabalho de evento, livro, capítulo), ano, periódico ou evento, autores, título, palavras-chave, resumo, volume e número (tirados da legenda) e o endereço permanente (handle).
+  how: |-
+    Entre na sua conta, esvazie a cesta, faça a busca, marque os itens, abra "Ver selecionados" e clique em **CSV**. Informe na prévia o total da busca; depois da importação, compare os registros por tipo com os cartões da cesta.
+  not: |-
+    Não traz afiliação, país, ISSN nem páginas. O DOI só é gravado quando é bem formado, de artigo e usado por um único registro do arquivo (a BRAPCI atribui a alguns registros o DOI de uma obra citada). O RIS vem sem acentos e sem DOI. Quando o ano falta, a BRAPCI grava 2000.
+  example: |-
+    Busca "bibliometria" com 1.482 resultados: exporte o CSV, informe 1.482 na prévia e confira "Artigos 1.124 · Trabalhos de eventos 349 · Livros 6 · Capítulos 3".
+
 import.source.openalex:
   title: "OpenAlex"
   what: |-

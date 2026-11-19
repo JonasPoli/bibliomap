@@ -1,6 +1,6 @@
 # 📚 BiblioMap — Plataforma de Análise Bibliométrica
 
-Plataforma web para análise bibliométrica de produção científica. Importa bases do Web of Science e Scopus, gera redes de coautoria, palavras-chave e países, mapas temáticos e relatórios exportáveis.
+Plataforma web para análise bibliométrica de produção científica. Importa bases do Web of Science, Scopus, Lens.org, PubMed e BRAPCI (além de RIS de outras bases), gera redes de coautoria, palavras-chave e países, mapas temáticos e relatórios exportáveis.
 
 ---
 

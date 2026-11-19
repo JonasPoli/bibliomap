@@ -1,0 +1,25 @@
+{# Guia de exportação: brapci. Incluído pela tela de importação para cada base do catálogo com "guide" (App\Config\DataSources). #}
+<div class="src-panel{{ active|default(false) ? ' active' : '' }}" id="panel-brapci">
+    <div class="src-header">
+        <div class="src-logo-box">{{ source_logo('brapci', 36) }}</div>
+        <div>
+            <div style="font-size:15px;font-weight:700;color:var(--bm-text)">BRAPCI {{ help('import.source.brapci') }}</div>
+            <div style="font-size:12px;color:var(--bm-text-muted)">brapci.inf.br &nbsp;·&nbsp; Formatos aceitos: <span class="fmt-badge fmt-csv">CSV</span> (recomendado), XLS e RIS</div>
+        </div>
+    </div>
+    <ol class="step-list">
+        <li><div class="step-num">1</div><div class="step-text">Entre na sua conta em <a href="https://brapci.inf.br" target="_blank" style="color:var(--bm-accent)">brapci.inf.br</a> (sem login a busca mostra no máximo 1.000 resultados e a exportação fica bloqueada). Antes de começar, <strong>esvazie a cesta</strong>: ela guarda itens de buscas anteriores.</div></li>
+        <li><div class="step-num">2</div><div class="step-text">Faça a busca e anote o total de resultados que aparece no topo da lista (ex.: <code>5/1482</code>).</div></li>
+        <li><div class="step-num">3</div><div class="step-text">Marque os itens pela caixa de cada cartão ou pelo botão <strong>"Selecionar os N itens"</strong>.</div></li>
+        <li><div class="step-num">4</div><div class="step-text">Clique em <strong>"Ver selecionados"</strong> (ou no ícone da cesta). Anote os quatro cartões: Artigos, Trabalhos de eventos, Livros e Capítulos.</div></li>
+        <li><div class="step-num">5</div><div class="step-text">Em <strong>"Exportar:"</strong>, clique em <strong>CSV</strong> e envie aqui o arquivo <code>brapci_AAAAMMDD-HHMMSS.csv</code> como veio, sem abrir no Excel.</div></li>
+    </ol>
+    <div class="step-note">
+        <i class="bi bi-info-circle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Conferência:</strong> informe o total da busca na prévia. Depois da importação, a tela mostra os registros por tipo para comparar com os cartões da cesta. A exportação pode ser cortada em 2.000 registros: para buscas maiores, divida por período.</span>
+    </div>
+    <div class="step-note">
+        <i class="bi bi-exclamation-triangle" style="color:#d29922;flex-shrink:0;margin-top:2px"></i>
+        <span><strong style="color:#94a3b8">Outros formatos:</strong> o XLS tem o mesmo conteúdo do CSV. O RIS vem sem acentos e sem DOI. DOC, Citações, TT, BibTeX e .NET não são listas de registros e são recusados. Quando o ano falta, a BRAPCI grava <strong>2000</strong>.</span>
+    </div>
+</div>
