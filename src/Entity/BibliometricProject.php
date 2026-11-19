@@ -71,6 +71,10 @@ class BibliometricProject
     #[ORM\Column(type: 'smallint', nullable: true)]
     private ?int $classificationExpansionVersion = null;
 
+    /** @var array<string, string>|null Mapa cor hex (minúsculas) → título do agrupamento no quadro por cores */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $classificationColorLabels = null;
+
     #[ORM\Column(length: 50, options: ['default' => 'draft'])]
     private string $status = self::STATUS_DRAFT;
 
@@ -136,6 +140,12 @@ class BibliometricProject
     public function setClassificationMinYear(?int $v): static { $this->classificationMinYear = $v; return $this; }
     public function getClassificationExpansionVersion(): ?int { return $this->classificationExpansionVersion; }
     public function setClassificationExpansionVersion(?int $v): static { $this->classificationExpansionVersion = $v; return $this; }
+
+    /** @return array<string, string> */
+    public function getClassificationColorLabels(): array { return $this->classificationColorLabels ?? []; }
+
+    /** @param array<string, string>|null $v */
+    public function setClassificationColorLabels(?array $v): static { $this->classificationColorLabels = $v ?: null; return $this; }
 
     public function getStatus(): string { return $this->status; }
     public function setStatus(string $status): static { $this->status = $status; return $this; }

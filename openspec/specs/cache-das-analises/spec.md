@@ -31,6 +31,10 @@ A versão dos dados SHALL subir sempre que o sistema gravar, por qualquer caminh
 - **WHEN** uma importação grava documentos enquanto um relatório do mesmo banco é calculado
 - **THEN** esse resultado não é guardado
 
+#### Scenario: Bump preserva o último ID inserido
+- **WHEN** um `INSERT` fora de transação dispara a subida do contador de versão na mesma conexão e o código chama `lastInsertId()` em seguida
+- **THEN** `lastInsertId()` SHALL devolver o ID gerado pelo `INSERT` anterior, e o próximo comando SQL na conexão SHALL limpar o valor preservado
+
 ### Requirement: Falha do cache não aparece para o usuário
 Quando a versão dos dados não puder ser lida ou o resultado não puder ser guardado, o sistema SHALL calcular e mostrar a análise normalmente, sem cache. Um resultado SHALL valer por no máximo 12 horas, e resultados vencidos SHALL ser apagados do disco sem ação manual.
 

@@ -125,6 +125,13 @@ classification.index.distribution:
   not: "As barras são proporcionais à soma das classificações; como um documento pode estar em vários grupos, os números somados passam do total de documentos."
   example: "Com 1.816 em “Monitoramento da lavoura”, 82 em “Aplicação localizada” e 8.584 sem classificação, fica claro que 82% do corpus ainda não tem tema."
 
+classification.index.color_board:
+  title: "Organização por Cores"
+  what: "Quadro visual que agrupa os grupos temáticos (tipo Normal) pela cor configurada, formando grandes blocos conceituais ou macrodimensões."
+  how: "Atribua a mesma cor aos grupos que pertencem ao mesmo grande bloco. Como dono do projeto, clique no lápis no cabeçalho de cada bloco para dar um título ao agrupamento e use os botões **Exportar SVG** ou **Exportar PNG** para salvar a figura."
+  not: "Grupos de Ruído, Validadores e Sem Classificação não entram neste quadro; mudar títulos de cor não altera nem reexecuta a classificação."
+  example: "Quatro macrodimensões com 4 cores distintas organizam 31 subcategorias em 4 cartões lado a lado, prontos para exportar em PNG ou SVG."
+
 # ─── Formulário de grupo ───────────────────────────────────────────────────────
 
 classification.form.page:

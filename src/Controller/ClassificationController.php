@@ -39,16 +39,136 @@ class ClassificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('view', $project);
 
-        $groups    = $this->groupRepo->findByProject($project->getId());
-        $counts    = $this->classRepo->countByGroup($project->getId());
-        $hasResult = $this->classRepo->hasResults($project->getId());
+        $groups      = $this->groupRepo->findByProject($project->getId());
+        $counts      = $this->classRepo->countByGroup($project->getId());
+        $hasResult   = $this->classRepo->hasResults($project->getId());
+        $colorGroups = self::buildColorGroups($groups, $counts, $project->getClassificationColorLabels());
 
         return $this->render('classification/index.html.twig', [
             'project'         => $project,
             'groups'          => $groups,
             'counts'          => $counts,
             'hasResult'       => $hasResult,
+            'colorGroups'     => $colorGroups,
+            'canEdit'         => $this->isGranted('edit', $project),
             'expansionNotice' => $this->expansionNotice($project, $groups, $hasResult),
+        ]);
+    }
+
+    /**
+     * Agrupa os grupos temáticos (`normal`) pela cor em minúsculas, mantendo a ordem da menor `position`.
+     *
+     * @param ClassificationGroup[]  $groups
+     * @param array<int, int>        $counts
+     * @param array<string, string>  $colorLabels
+     * @return list<array{
+     *     color: string,
+     *     label: string,
+     *     defaultLabel: string,
+     *     groupsCount: int,
+     *     docsSum: int,
+     *     sections: list<array{title: ?string, groups: list<array{id: ?int, name: string, icon: string, description: ?string, docCount: int}>}>
+     * }>
+     */
+    public static function buildColorGroups(array $groups, array $counts, array $colorLabels): array
+    {
+        $normalizedLabels = [];
+        foreach ($colorLabels as $hex => $lbl) {
+            $k = strtolower(trim((string) $hex));
+            $v = trim((string) $lbl);
+            if ($k !== '' && $v !== '') {
+                $normalizedLabels[$k] = $v;
+            }
+        }
+
+        $buckets = [];
+        foreach ($groups as $group) {
+            if ($group->getType() !== ClassificationGroup::TYPE_NORMAL) {
+                continue;
+            }
+            $color = strtolower(trim($group->getColor() ?: '#4f8ef7'));
+            if (!isset($buckets[$color])) {
+                $buckets[$color] = [
+                    'color'       => $color,
+                    'label'       => $normalizedLabels[$color] ?? '',
+                    'groupsCount' => 0,
+                    'docsSum'     => 0,
+                    'sectionsMap' => [],
+                ];
+            }
+
+            $sectionTitle = null;
+            $desc = (string) ($group->getDescription() ?? '');
+            if (preg_match('/(?:^|\|)\s*Categoria\s+(\d+\s*:\s*[^|\n]+)/iu', $desc, $m)) {
+                $sectionTitle = preg_replace('/^(\d+)\s*:\s*/', '$1. ', trim($m[1]));
+            }
+            $sectionKey = $sectionTitle ?? '__default__';
+            if (!isset($buckets[$color]['sectionsMap'][$sectionKey])) {
+                $buckets[$color]['sectionsMap'][$sectionKey] = [
+                    'title'  => $sectionTitle,
+                    'groups' => [],
+                ];
+            }
+
+            $docCount = (int) ($counts[$group->getId()] ?? 0);
+            $buckets[$color]['sectionsMap'][$sectionKey]['groups'][] = [
+                'id'          => $group->getId(),
+                'name'        => $group->getName(),
+                'icon'        => $group->getIcon() ?: 'bi-collection',
+                'description' => $group->getDescription(),
+                'docCount'    => $docCount,
+            ];
+            $buckets[$color]['groupsCount']++;
+            $buckets[$color]['docsSum'] += $docCount;
+        }
+
+        $result = [];
+        $idx = 1;
+        foreach ($buckets as $bucket) {
+            $result[] = [
+                'color'        => $bucket['color'],
+                'label'        => $bucket['label'],
+                'defaultLabel' => 'Agrupamento ' . $idx,
+                'groupsCount'  => $bucket['groupsCount'],
+                'docsSum'      => $bucket['docsSum'],
+                'sections'     => array_values($bucket['sectionsMap']),
+            ];
+            $idx++;
+        }
+
+        return $result;
+    }
+
+    #[Route('/color-labels', name: 'color_labels', methods: ['POST'])]
+    public function saveColorLabel(BibliometricProject $project, Request $request): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('edit', $project);
+
+        $token = (string) ($request->request->get('_token') ?? $request->headers->get('X-CSRF-Token', ''));
+        if (!$this->isCsrfTokenValid('clf_color_labels_' . $project->getId(), $token)) {
+            return new JsonResponse(['ok' => false, 'error' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $color = strtolower(trim((string) $request->request->get('color', '')));
+        if (!preg_match('/^#[0-9a-f]{6}$/', $color)) {
+            return new JsonResponse(['ok' => false, 'error' => 'Cor inválida.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $label = mb_substr(trim((string) $request->request->get('label', '')), 0, 255);
+        $labels = $project->getClassificationColorLabels();
+        if ($label === '') {
+            unset($labels[$color]);
+        } else {
+            $labels[$color] = $label;
+        }
+
+        $project->setClassificationColorLabels($labels);
+        $this->em->flush();
+
+        return new JsonResponse([
+            'ok'    => true,
+            'color' => $color,
+            'label' => $label,
         ]);
     }
 

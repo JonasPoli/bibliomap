@@ -82,6 +82,26 @@
 </div>
 {% endif %}
 
+{% if groups|length > 0 %}
+<ul class="nav nav-tabs mb-4" id="classificationTabs" role="tablist" style="border-bottom-color:var(--bm-border)">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-groups-btn" data-bs-toggle="tab" data-bs-target="#tab-groups" type="button" role="tab" aria-controls="tab-groups" aria-selected="true">
+            <i class="bi bi-list-ul me-1"></i> Lista de Grupos
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-colors-btn" data-bs-toggle="tab" data-bs-target="#tab-colors" type="button" role="tab" aria-controls="tab-colors" aria-selected="false">
+            <i class="bi bi-grid-1x2-fill me-1"></i> Organização por Cores
+            {% if colorGroups|length > 0 %}
+            <span class="badge text-bg-secondary ms-1" style="font-size:10px">{{ colorGroups|length }}</span>
+            {% endif %}
+        </button>
+    </li>
+</ul>
+{% endif %}
+
+<div class="tab-content" id="classificationTabsContent">
+<div class="tab-pane fade show active" id="tab-groups" role="tabpanel" aria-labelledby="tab-groups-btn">
 <div class="row g-4">
     {# ── LEFT: groups list ──────────────────────────────────────────────────── #}
     <div class="col-lg-8">
@@ -260,6 +280,114 @@
         {% endif %}
     </div>
 </div>
+</div>{# /tab-groups #}
+
+{% if groups|length > 0 %}
+<div class="tab-pane fade" id="tab-colors" role="tabpanel" aria-labelledby="tab-colors-btn">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="mb-0 fw-bold" style="color:var(--bm-text)">
+                <i class="bi bi-grid-1x2-fill text-accent me-1"></i> Organização dos Grupos por Cor
+            </h5>
+            {{ help('classification.index.color_board') }}
+        </div>
+        {% if colorGroups|length > 0 %}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {% if hasResult %}
+            <div class="form-check form-switch mb-0 me-2" style="font-size:12.5px;color:var(--bm-text-muted)">
+                <input class="form-check-input" type="checkbox" id="exportIncludeCounts" checked>
+                <label class="form-check-label" for="exportIncludeCounts">Incluir contagens</label>
+            </div>
+            {% endif %}
+            <button type="button" class="btn btn-sm btn-bm-secondary" onclick="exportColorBoardSvg()">
+                <i class="bi bi-filetype-svg me-1"></i> Exportar SVG
+            </button>
+            <button type="button" class="btn btn-sm btn-bm-primary" onclick="exportColorBoardPng()">
+                <i class="bi bi-filetype-png me-1"></i> Exportar PNG
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if colorGroups|length == 0 %}
+    <div class="bm-card text-center py-5">
+        <p class="mb-0" style="color:var(--bm-text-muted);font-size:13.5px">
+            Nenhum grupo temático (tipo <strong>Normal</strong>) cadastrado ainda. Grupos de Ruído e Validadores não entram neste quadro.
+        </p>
+    </div>
+    {% else %}
+    <div class="row row-cols-1 row-cols-md-2 g-4" id="colorBoardGrid">
+        {% for cg in colorGroups %}
+        <div class="col">
+            <div class="h-100 rounded-3 overflow-hidden" style="background:var(--bm-card-bg);border:1.5px solid {{ cg.color }}">
+                <div class="px-3 py-3 text-center position-relative" style="background:color-mix(in srgb, {{ cg.color }} 14%, transparent);border-bottom:1.5px solid {{ cg.color }}">
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                        <span class="rounded-circle flex-shrink-0" style="width:10px;height:10px;background:{{ cg.color }};display:inline-block"></span>
+                        <span class="fw-bold color-board-title" data-color="{{ cg.color }}" style="font-size:15px;color:var(--bm-text);line-height:1.3">
+                            {{ cg.label ?: cg.defaultLabel }}
+                        </span>
+                        {% if canEdit %}
+                        <button type="button" class="btn btn-sm p-0 px-1 border-0 bg-transparent color-label-edit-btn"
+                                data-color="{{ cg.color }}"
+                                data-current="{{ cg.label }}"
+                                data-default="{{ cg.defaultLabel }}"
+                                title="Editar título deste agrupamento de cor"
+                                style="color:var(--bm-text-muted)">
+                            <i class="bi bi-pencil-square" style="font-size:13px"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% if canEdit %}
+                    <div class="color-label-editor d-none mt-2" data-color="{{ cg.color }}">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control color-label-input" value="{{ cg.label }}" maxlength="255" placeholder="Ex.: 1. Inteligência aplicada aos processos produtivos">
+                            <button type="button" class="btn btn-bm-primary color-label-save-btn">Salvar</button>
+                            <button type="button" class="btn btn-bm-secondary color-label-cancel-btn">Cancelar</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div style="font-size:11px;color:var(--bm-text-muted);margin-top:4px">
+                        {{ cg.groupsCount }} {{ cg.groupsCount == 1 ? 'grupo' : 'grupos' }}
+                        {% if hasResult and cg.docsSum > 0 %} · {{ cg.docsSum|number_format(0, ',', '.') }} ocorrências{% endif %}
+                    </div>
+                </div>
+                <div class="p-3">
+                    {% for section in cg.sections %}
+                        {% if not loop.first %}
+                        <hr class="my-3" style="border-color:color-mix(in srgb, {{ cg.color }} 35%, var(--bm-border));opacity:1">
+                        {% endif %}
+                        {% if section.title %}
+                        <div class="fw-bold mb-2" style="font-size:13.5px;color:var(--bm-text)">{{ section.title }}</div>
+                        {% endif %}
+                        <ul class="list-unstyled mb-0 {{ section.title ? 'ps-3' : '' }}">
+                            {% for g in section.groups %}
+                            <li class="d-flex align-items-center justify-content-between gap-2 py-1" style="font-size:13px;color:var(--bm-text)">
+                                <span class="d-flex align-items-center gap-2">
+                                    {% if not section.title %}
+                                    <i class="bi {{ g.icon }}" style="color:{{ cg.color }};font-size:12px"></i>
+                                    {% endif %}
+                                    <span>{{ g.name }}</span>
+                                </span>
+                                {% if hasResult %}
+                                <a href="{{ path('app_classification_results', {id: project.id, group: g.id}) }}"
+                                   class="badge text-bg-secondary text-decoration-none flex-shrink-0"
+                                   style="font-size:10.5px" title="Ver documentos deste grupo">
+                                    {{ g.docCount|number_format(0, ',', '.') }}
+                                </a>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>{# /tab-colors #}
+{% endif %}
+</div>{# /tab-content #}
 
 {# Delete confirmation modal #}
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
@@ -338,5 +466,259 @@ document.getElementById('runForm')?.addEventListener('submit', function() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processando…';
 });
+
+// ── Organização por Cores: abas, edição inline de rótulos e exportação SVG/PNG ──
+const COLOR_BOARD_DATA = {{ colorGroups|json_encode|raw }};
+const COLOR_LABELS_URL = {{ path('app_classification_color_labels', {id: project.id})|json_encode|raw }};
+const COLOR_LABELS_CSRF = {{ csrf_token('clf_color_labels_' ~ project.id)|json_encode|raw }};
+const PROJECT_TITLE = {{ project.title|json_encode|raw }};
+const HAS_RESULT = {{ hasResult ? 'true' : 'false' }};
+
+if (window.location.hash === '#cores') {
+    const btn = document.getElementById('tab-colors-btn');
+    if (btn) new bootstrap.Tab(btn).show();
+}
+document.getElementById('tab-colors-btn')?.addEventListener('shown.bs.tab', () => {
+    history.replaceState(null, '', '#cores');
+});
+document.getElementById('tab-groups-btn')?.addEventListener('shown.bs.tab', () => {
+    if (window.location.hash === '#cores') history.replaceState(null, '', window.location.pathname + window.location.search);
+});
+
+document.querySelectorAll('.color-label-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const color = btn.dataset.color;
+        const editor = document.querySelector(`.color-label-editor[data-color="${color}"]`);
+        if (!editor) return;
+        editor.classList.remove('d-none');
+        const input = editor.querySelector('.color-label-input');
+        input.focus();
+        input.select();
+    });
+});
+
+document.querySelectorAll('.color-label-editor').forEach(editor => {
+    const color = editor.dataset.color;
+    const input = editor.querySelector('.color-label-input');
+    const saveBtn = editor.querySelector('.color-label-save-btn');
+    const cancelBtn = editor.querySelector('.color-label-cancel-btn');
+
+    const closeEditor = () => editor.classList.add('d-none');
+    cancelBtn.addEventListener('click', closeEditor);
+
+    const doSave = async () => {
+        const label = input.value.trim();
+        saveBtn.disabled = true;
+        try {
+            const fd = new FormData();
+            fd.append('_token', COLOR_LABELS_CSRF);
+            fd.append('color', color);
+            fd.append('label', label);
+            const res = await fetch(COLOR_LABELS_URL, { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.error || 'Erro ao salvar título.');
+                return;
+            }
+            const item = COLOR_BOARD_DATA.find(c => c.color === color);
+            if (item) item.label = data.label;
+            const titleEl = document.querySelector(`.color-board-title[data-color="${color}"]`);
+            if (titleEl && item) titleEl.textContent = item.label || item.defaultLabel;
+            const editBtn = document.querySelector(`.color-label-edit-btn[data-color="${color}"]`);
+            if (editBtn) editBtn.dataset.current = data.label;
+            closeEditor();
+        } catch (err) {
+            alert('Erro de comunicação ao salvar título.');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    };
+
+    saveBtn.addEventListener('click', doSave);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+        if (e.key === 'Escape') closeEditor();
+    });
+});
+
+function escapeXml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function wrapText(text, maxChars) {
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+        if (!cur) { cur = w; continue; }
+        if ((cur + ' ' + w).length <= maxChars) {
+            cur += ' ' + w;
+        } else {
+            lines.push(cur);
+            cur = w;
+        }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+}
+
+function hexToRgba(hex, alpha) {
+    const clean = hex.replace('#', '');
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function buildColorBoardSvg() {
+    const includeCounts = HAS_RESULT && (document.getElementById('exportIncludeCounts')?.checked ?? false);
+    const cols = COLOR_BOARD_DATA.length === 1 ? 1 : 2;
+    const cardW = 520;
+    const gap = 28;
+    const padX = 36;
+    const topTitleH = 72;
+    const totalW = padX * 2 + cols * cardW + (cols - 1) * gap;
+
+    // Pré-calcula layout de cada card
+    const cards = COLOR_BOARD_DATA.map(cg => {
+        const headerLines = wrapText(cg.label || cg.defaultLabel, 38);
+        const headerH = Math.max(58, 26 + headerLines.length * 22);
+        let bodyY = 20;
+        const bodyItems = [];
+        cg.sections.forEach((sec, sIdx) => {
+            if (sIdx > 0) {
+                bodyY += 10;
+                bodyItems.push({ kind: 'hr', y: bodyY });
+                bodyY += 18;
+            }
+            if (sec.title) {
+                const secLines = wrapText(sec.title, 46);
+                secLines.forEach(line => {
+                    bodyItems.push({ kind: 'section', y: bodyY, text: line });
+                    bodyY += 20;
+                });
+                bodyY += 4;
+            }
+            sec.groups.forEach(g => {
+                const suffix = includeCounts ? ` (${g.docCount.toLocaleString('pt-BR')})` : '';
+                const gLines = wrapText(g.name + suffix, sec.title ? 48 : 50);
+                gLines.forEach((line, lIdx) => {
+                    bodyItems.push({
+                        kind: 'group',
+                        y: bodyY,
+                        text: line,
+                        indent: sec.title ? (lIdx === 0 ? 18 : 26) : (lIdx === 0 ? 4 : 12),
+                    });
+                    bodyY += 19;
+                });
+            });
+        });
+        const bodyH = bodyY + 14;
+        return { cg, headerLines, headerH, bodyItems, totalH: headerH + bodyH };
+    });
+
+    // Agrupa em linhas de `cols` cards, igualando altura por linha
+    const rows = [];
+    for (let i = 0; i < cards.length; i += cols) {
+        const slice = cards.slice(i, i + cols);
+        const rowH = Math.max(...slice.map(c => c.totalH));
+        rows.push({ cards: slice, height: rowH });
+    }
+
+    const totalH = topTitleH + rows.reduce((acc, r) => acc + r.height + gap, 0) + 20;
+    const parts = [];
+    parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`);
+    parts.push(`<rect width="100%" height="100%" fill="#ffffff"/>`);
+    parts.push(`<style>
+        .t-main { font: 700 22px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }
+        .t-sub  { font: 400 13px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #475569; }
+        .t-hdr  { font: 700 16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }
+        .t-sec  { font: 700 13.5px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #1e293b; }
+        .t-grp  { font: 400 13px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #334155; }
+    </style>`);
+
+    const titleShort = PROJECT_TITLE.length > 88 ? PROJECT_TITLE.slice(0, 85) + '…' : PROJECT_TITLE;
+    parts.push(`<text x="${totalW / 2}" y="34" text-anchor="middle" class="t-main">Organização dos Grupos Temáticos</text>`);
+    parts.push(`<text x="${totalW / 2}" y="55" text-anchor="middle" class="t-sub">${escapeXml(titleShort)}</text>`);
+
+    let curY = topTitleH;
+    rows.forEach(row => {
+        row.cards.forEach((card, cIdx) => {
+            const x = padX + cIdx * (cardW + gap);
+            const y = curY;
+            const h = row.height;
+            const col = card.cg.color;
+            const clipId = `clip_${x}_${y}`;
+            parts.push(`<defs><clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${cardW}" height="${h}" rx="12" ry="12"/></clipPath></defs>`);
+            parts.push(`<g clip-path="url(#${clipId})">`);
+            parts.push(`<rect x="${x}" y="${y}" width="${cardW}" height="${h}" fill="#ffffff"/>`);
+            parts.push(`<rect x="${x}" y="${y}" width="${cardW}" height="${card.headerH}" fill="${hexToRgba(col, 0.12)}"/>`);
+            parts.push(`<line x1="${x}" y1="${y + card.headerH}" x2="${x + cardW}" y2="${y + card.headerH}" stroke="${col}" stroke-width="1.5"/>`);
+            const startTextY = y + (card.headerH - (card.headerLines.length - 1) * 22) / 2 + 5;
+            card.headerLines.forEach((line, lIdx) => {
+                parts.push(`<text x="${x + cardW / 2}" y="${startTextY + lIdx * 22}" text-anchor="middle" class="t-hdr">${escapeXml(line)}</text>`);
+            });
+
+            const bTop = y + card.headerH;
+            card.bodyItems.forEach(it => {
+                if (it.kind === 'hr') {
+                    parts.push(`<line x1="${x + 18}" y1="${bTop + it.y}" x2="${x + cardW - 18}" y2="${bTop + it.y}" stroke="${hexToRgba(col, 0.35)}" stroke-width="1"/>`);
+                } else if (it.kind === 'section') {
+                    parts.push(`<text x="${x + 20}" y="${bTop + it.y + 12}" class="t-sec">${escapeXml(it.text)}</text>`);
+                } else if (it.kind === 'group') {
+                    parts.push(`<text x="${x + 20 + it.indent}" y="${bTop + it.y + 12}" class="t-grp">${escapeXml(it.text)}</text>`);
+                }
+            });
+            parts.push(`</g>`);
+            parts.push(`<rect x="${x}" y="${y}" width="${cardW}" height="${h}" rx="12" ry="12" fill="none" stroke="${col}" stroke-width="1.5"/>`);
+        });
+        curY += row.height + gap;
+    });
+
+    parts.push(`</svg>`);
+    return { svg: parts.join('\n'), width: totalW, height: totalH };
+}
+
+function exportColorBoardSvg() {
+    const { svg } = buildColorBoardSvg();
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'organizacao-grupos-cores-projeto-{{ project.id }}.svg';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function exportColorBoardPng() {
+    const { svg, width, height } = buildColorBoardSvg();
+    const scale = 2;
+    const img = new Image();
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(pngBlob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(pngBlob);
+            a.download = 'organizacao-grupos-cores-projeto-{{ project.id }}.png';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }, 'image/png');
+    };
+    img.src = url;
+}
 </script>
 {% endblock %}
